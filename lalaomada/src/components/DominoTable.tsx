@@ -289,6 +289,39 @@ function SnakeBoard({
   const last = placed[placed.length - 1];
   const lastIsVertical = placed.length > MAX_HORIZONTAL;
 
+  // ── Drop-zone buttons: always stay fully reachable/tappable ────────────
+  // Their "natural" position sits just OUTSIDE the tile chain's bounding
+  // box. When the chain fills most of the board (scale ≈ 1, e.g. a long
+  // horizontal run of 9-10 tiles), that natural position can land outside
+  // the visible, clipped container — making the button unreachable on
+  // mobile. We compute the natural center point, then CLAMP it inside the
+  // rendered box (with margin for the button's own half-size) so the full
+  // 44×44 touch target is always visible and tappable, however long the
+  // chain gets.
+  const BTN = 44; // Apple/Google-recommended minimum touch target
+  const HALF = BTN / 2;
+  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), Math.max(min, max));
+
+  let leftBtn: { x: number; y: number } | null = null;
+  if (canDropLeft && first) {
+    leftBtn = {
+      x: clamp(first.x * scale - HALF - 6, HALF, renderedW - HALF),
+      y: clamp((first.y + first.h / 2) * scale, HALF, renderedH - HALF),
+    };
+  }
+
+  let rightBtn: { x: number; y: number } | null = null;
+  if (canDropRight && last) {
+    rightBtn = lastIsVertical
+      ? {
+          x: clamp((last.x + last.w / 2) * scale, HALF, renderedW - HALF),
+          y: clamp((last.y + last.h) * scale + HALF + 6, HALF, renderedH - HALF),
+        }
+      : {
+          x: clamp((last.x + last.w) * scale + HALF + 6, HALF, renderedW - HALF),
+          y: clamp((last.y + last.h / 2) * scale, HALF, renderedH - HALF),
+        };
+  }
 
   return (
     <div ref={wrapRef} className="relative w-full h-full overflow-hidden">
@@ -330,30 +363,26 @@ function SnakeBoard({
           })}
         </div>
 
-        {canDropLeft && first && (
+        {leftBtn && (
           <button
             onClick={() => onDropLeft?.()}
             onDragOver={handleDragOver}
             onDrop={() => onDropLeft?.()}
-            className="absolute z-20 w-10 h-10 -translate-x-full -translate-y-1/2 rounded-full bg-amber-500 shadow-lg flex items-center justify-center gap-0.5 animate-pulse"
-            style={{ left: first.x * scale - 6, top: (first.y + first.h / 2) * scale }}
+            className="absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500 shadow-lg flex items-center justify-center gap-0.5 animate-pulse ring-2 ring-white/80"
+            style={{ left: leftBtn.x, top: leftBtn.y, width: BTN, height: BTN }}
             title={`Placer à gauche (${leftEnd})`}
           >
             <ChevronLeft className="w-4 h-4 text-white" strokeWidth={3} />
             <span className="text-white text-xs font-black tabular-nums">{leftEnd}</span>
           </button>
         )}
-        {canDropRight && last && (
+        {rightBtn && (
           <button
             onClick={() => onDropRight?.()}
             onDragOver={handleDragOver}
             onDrop={() => onDropRight?.()}
-            className="absolute z-20 w-10 h-10 rounded-full bg-amber-500 shadow-lg flex items-center justify-center gap-0.5 animate-pulse"
-            style={
-              lastIsVertical
-                ? { left: (last.x + last.w / 2) * scale, top: (last.y + last.h) * scale + 6, transform: "translate(-50%, 0)" }
-                : { left: (last.x + last.w) * scale + 6, top: (last.y + last.h / 2) * scale, transform: "translate(0, -50%)" }
-            }
+            className="absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500 shadow-lg flex items-center justify-center gap-0.5 animate-pulse ring-2 ring-white/80"
+            style={{ left: rightBtn.x, top: rightBtn.y, width: BTN, height: BTN }}
             title={`Placer à droite (${rightEnd})`}
           >
             <span className="text-white text-xs font-black tabular-nums">{rightEnd}</span>
