@@ -179,7 +179,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { user_id, title, body, link } = await req.json();
+    const { user_id, title, body, link, notification_id } = await req.json();
     if (!user_id) {
       return new Response(JSON.stringify({ error: "user_id required" }), {
         status: 400,
@@ -220,11 +220,17 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Build the JSON payload to send
+    // Build the JSON payload to send.
+    // `tag` is UNIQUE per notification (based on notification_id) so that
+    // Android/Chrome NEVER replace a previous notification with a new one —
+    // instead, several notifications from the app stack/group together in
+    // the notification shade (title = sender, body = message), the same
+    // way native chat apps show multiple messages at once.
     const pushPayload = JSON.stringify({
       title: title || "Lalao MADA",
       body: body || "Nouvelle notification",
       url: link || "/",
+      tag: notification_id ? `notif-${notification_id}` : `notif-${Date.now()}`,
     });
 
     const vapidKey = await importVapidKey(vapidPrivateKey);
