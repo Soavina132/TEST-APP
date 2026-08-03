@@ -251,7 +251,7 @@ function Lobby() {
       let id: string | null = null;
       if (slug === "ludo") {
         const { data, error } = await supabase.rpc("create_private_game" as any, {
-          _max_players: maxP, _stake: 0, _mode: "classic",
+          _max_players: maxP, _stake: 0, _mode: "classic", _match_type: "solo",
         } as any);
         if (error) throw error;
         id = extractGameId(data);
@@ -326,7 +326,7 @@ function Lobby() {
       let id: string | null = null;
       if (slug === "ludo") {
         const fn = priv ? "create_private_game" : "find_or_create_game";
-        const args: any = priv ? { _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic" } : { _max_players: maxP, _stake: 0 };
+        const args: any = priv ? { _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe" } : { _max_players: maxP, _stake: 0 };
         const { data, error } = await supabase.rpc(fn as any, args);
         if (error) throw error; id = extractGameId(data);
         await applyLudoAutoMove(id);
@@ -364,7 +364,7 @@ function Lobby() {
     let id: string | null = null;
     if (slug === "ludo") {
       const fn = priv ? "create_private_game" : "find_or_create_game";
-      const args: any = priv ? { _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic" } : { _max_players: maxP, _stake: stake };
+      const args: any = priv ? { _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe" } : { _max_players: maxP, _stake: stake };
       const { data, error } = await supabase.rpc(fn as any, args);
       if (error) throw error; id = extractGameId(data);
       await applyLudoAutoMove(id);
@@ -507,7 +507,7 @@ function Lobby() {
         {tab === "public" && supportsPublicJoin && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Bot" : "👥 Amis"} onClick={() => setSheet("opponent")} />
+              <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -721,7 +721,7 @@ function Lobby() {
 
 
       <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Adversaire">
-        <ModeBlock options={[{ v: "bot", l: "🤖 Bot" }, { v: "friends", l: "👥 Amis" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
+        <ModeBlock options={[{ v: "bot", l: "🤖 Solo" }, { v: "friends", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "players"} onClose={closeSheet} title="Nombre de joueurs">
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${meta.maxOpts.length}, minmax(0,1fr))` }}>
