@@ -169,7 +169,7 @@ export default function Header() {
                       {[
                         { icon: LayoutGrid, label: t("my_space"), to: "/" },
                         { icon: User, label: t("my_profile"), to: "/profile" },
-                        ...(!isAdmin ? [{ icon: Gamepad2, label: t("lobby"), to: "/jeux" }] : []),
+                        { icon: Gamepad2, label: t("lobby"), to: "/jeux" },
                       ].map(item => (
                         <button
                           key={item.to}
