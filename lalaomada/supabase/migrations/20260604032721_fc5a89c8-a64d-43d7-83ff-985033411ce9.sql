@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "chat_public_read" ON storage.objects;

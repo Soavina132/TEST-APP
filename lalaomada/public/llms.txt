@@ -1,0 +1,16 @@
+# Lalao MADA
+
+> Application Ludo 100% malagasy : jouez au Ludo en ligne avec mises en Ariary, dépôts et retraits via Mobile Money (MVola, Orange Money, Airtel Money).
+
+Lalao MADA permet aux joueurs malagasy de s'affronter en parties de 2 à 4 joueurs, en public ou en privé par code de salon. Les gains sont versés en Ariary directement sur le compte du gagnant après commission.
+
+## Pages
+
+- [Accueil](/): présentation, connexion et inscription
+- [Connexion](/login): création de compte avec bonus de bienvenue
+- [Lobby](/lobby): parties publiques en cours, créer ou rejoindre une partie
+- [Tutoriels & FAQ](/tutos): règles, dépôts/retraits et astuces
+
+## Optional
+
+- [Mon profil](/profile): espace utilisateur (nécessite une connexion)

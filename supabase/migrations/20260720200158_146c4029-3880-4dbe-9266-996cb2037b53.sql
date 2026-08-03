@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_tournament_detail(uuid) TO authenticated, anon, service_role;

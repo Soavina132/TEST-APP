@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin-extra
+Disallow: /game/
+
+Sitemap: https://lalaomada.lovable.app/sitemap.xml

@@ -1,0 +1,1 @@
+UPDATE public.app_settings SET tuto_url = 'https://www.facebook.com/profile.php?id=61591747684398';

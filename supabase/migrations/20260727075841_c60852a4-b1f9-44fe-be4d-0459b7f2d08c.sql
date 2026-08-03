@@ -1,0 +1,1 @@
+ALTER VIEW public.v_finance_daily SET (security_invoker = true);

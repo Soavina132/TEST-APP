@@ -1,0 +1,3 @@
+ALTER TABLE public.app_settings
+  ADD COLUMN IF NOT EXISTS deposit_help_html text DEFAULT '<p>Pour déposer, envoyez le montant sur le numéro Mobile Money de l''admin affiché ci-dessus, puis collez la référence de la transaction.</p>',
+  ADD COLUMN IF NOT EXISTS withdrawal_help_html text DEFAULT '<p>Pour retirer, indiquez votre numéro Mobile Money. Le retrait est traité manuellement par l''admin sous 24h.</p>';

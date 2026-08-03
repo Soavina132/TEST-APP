@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "hWP3js_9iW1soDf4qAv2N"
+uri = "file://attached_assets/lobby_update_preview.png"
+type = "image"
+title = "Lalao MADA — Page Accueil mise à jour"
