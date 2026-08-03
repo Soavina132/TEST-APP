@@ -20,6 +20,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import TurnBanner from "@/components/TurnBanner";
 import { useDominoSounds } from "@/hooks/use-domino-sounds";
 import { playClack, playDraw, playPass } from "@/lib/game-sounds";
+import QuickReactions from "@/components/QuickReactions";
 
 
 export const Route = createFileRoute("/_authenticated/domino/$id")({
@@ -678,6 +679,7 @@ function DominoPage() {
         myUserId={profile?.id ?? null}
         simplePause={parts.some((p: any) => p.is_bot)}
       />
+      <QuickReactions gameId={id} gameSlug="domino" participants={parts} />
       <GameChatDrawer gameId={id} />
     </main>
   );
