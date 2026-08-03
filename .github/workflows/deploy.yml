@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -21,7 +24,4 @@ jobs:
 
       - name: Deploy to Vercel
         run: |
-          cd lalaomada
-          vercel deploy --yes --prod --token ${{ secrets.VERCEL_TOKEN }} --project test-app --cwd ..
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --yes --prod --token "${{ secrets.VERCEL_TOKEN }}" --project test-app --cwd .
