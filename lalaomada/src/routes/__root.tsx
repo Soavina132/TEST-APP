@@ -1,4 +1,5 @@
 import * as React from "react";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -80,6 +81,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "google-site-verification", content: "Snwx104x8UhEDn9RvTOKUP6Jdzn3IH8sas4UYvdSp0g" },
+      { name: "theme-color", content: "#f97316" },
       { title: "Lalao MADA — Jouez au Ludo en Ariary" },
       { name: "description", content: "Lalao MADA, application 100% malagasy : jouez au Ludo en ligne, mises en Ariary, dépôts et retraits via Mobile Money (MVola, Orange Money, Airtel Money)." },
       { name: "author", content: "Lalao MADA" },
@@ -96,6 +98,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/favicon.ico" },
     ],
     scripts: [{
       type: "application/ld+json",
@@ -140,148 +144,78 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SkelBar({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-muted ${className}`} />;
-}
-function SkelBlock({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-muted ${className}`} />;
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// Branded loading screen — animated dice + shimmer
+// ═══════════════════════════════════════════════════════════════════════════
 
-function GamesGridSkeleton() {
+function BrandedLoader() {
   return (
-    <div className="px-4 pt-4">
-      <SkelBar className="mb-4 h-6 w-40" />
-      <div className="grid grid-cols-3 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="space-y-2">
-            <div className="aspect-square animate-pulse rounded-[22%] bg-muted" />
-            <SkelBar className="mx-auto h-3 w-3/4" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ListSkeleton() {
-  return (
-    <div className="space-y-3 px-4 pt-4">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-xl border border-border/50 p-3">
-          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted" />
-          <div className="flex-1 space-y-2">
-            <SkelBar className="h-3 w-2/3" />
-            <SkelBar className="h-3 w-1/3" />
-          </div>
-          <SkelBar className="h-6 w-16" />
+    <div className="flex flex-col items-center justify-center gap-6 px-4" style={{ minHeight: "60vh" }}>
+      {/* Animated dice */}
+      <div className="relative flex items-center justify-center">
+        <div
+          className="text-5xl"
+          style={{
+            animation: "lm-bounce 1.2s ease-in-out infinite",
+          }}
+        >
+          🎲
         </div>
-      ))}
+        <div
+          className="absolute text-5xl"
+          style={{
+            animation: "lm-bounce 1.2s ease-in-out infinite 0.3s",
+            opacity: 0.4,
+          }}
+        >
+          🎲
+        </div>
+      </div>
+
+      {/* Brand name with shimmer */}
+      <div className="relative overflow-hidden">
+        <p
+          className="text-lg font-bold tracking-wide"
+          style={{
+            background: "linear-gradient(90deg, #f97316, #fb923c, #f97316)",
+            backgroundSize: "200% auto",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            animation: "lm-shimmer 1.5s linear infinite",
+          }}
+        >
+          Lalao MADA
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 w-32 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary"
+          style={{
+            animation: "lm-progress 1.2s ease-in-out infinite",
+          }}
+        />
+      </div>
+
+      {/* Inline keyframes */}
+      <style>{`
+        @keyframes lm-bounce {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-12px) rotate(180deg); }
+        }
+        @keyframes lm-shimmer {
+          0% { background-position: 200% center; }
+          100% { background-position: -200% center; }
+        }
+        @keyframes lm-progress {
+          0% { transform: translateX(-100%); width: 30%; }
+          50% { transform: translateX(100%); width: 80%; }
+          100% { transform: translateX(200%); width: 30%; }
+        }
+      `}</style>
     </div>
   );
-}
-
-function ProfileSkeleton() {
-  return (
-    <div className="space-y-4 px-4 pt-6">
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-24 w-24 animate-pulse rounded-full bg-muted" />
-        <SkelBar className="h-4 w-40" />
-        <SkelBar className="h-3 w-24" />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <SkelBlock className="h-20" />
-        <SkelBlock className="h-20" />
-        <SkelBlock className="h-20" />
-      </div>
-      <div className="space-y-2">
-        <SkelBlock className="h-14" />
-        <SkelBlock className="h-14" />
-        <SkelBlock className="h-14" />
-      </div>
-    </div>
-  );
-}
-
-function BoardSkeleton() {
-  return (
-    <div className="flex flex-col gap-3 px-4 pt-3">
-      <div className="flex items-center justify-between">
-        <SkelBar className="h-6 w-28" />
-        <SkelBar className="h-6 w-16" />
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
-        <SkelBar className="h-3 w-24" />
-      </div>
-      <div className="mx-auto aspect-square w-full max-w-md animate-pulse rounded-xl bg-muted" />
-      <div className="flex items-center gap-2">
-        <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
-        <SkelBar className="h-3 w-24" />
-      </div>
-    </div>
-  );
-}
-
-function FormSkeleton() {
-  return (
-    <div className="space-y-4 px-4 pt-4">
-      <SkelBar className="h-6 w-40" />
-      <SkelBlock className="h-12" />
-      <SkelBlock className="h-12" />
-      <div className="grid grid-cols-2 gap-3">
-        <SkelBlock className="h-20" />
-        <SkelBlock className="h-20" />
-      </div>
-      <SkelBlock className="h-12" />
-    </div>
-  );
-}
-
-function GenericSkeleton() {
-  return (
-    <div className="space-y-4 px-4 pt-4">
-      <SkelBar className="h-6 w-40" />
-      <SkelBlock className="h-32" />
-      <div className="space-y-2">
-        <SkelBar className="h-3 w-full" />
-        <SkelBar className="h-3 w-5/6" />
-        <SkelBar className="h-3 w-2/3" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <SkelBlock className="h-24" />
-        <SkelBlock className="h-24" />
-      </div>
-    </div>
-  );
-}
-
-function pickSkeleton(pathname: string) {
-  if (pathname === "/" || pathname.startsWith("/jeux/nouveau")) return <FormSkeleton />;
-  if (pathname === "/jeux" || pathname.startsWith("/jeux/")) return <GamesGridSkeleton />;
-  if (
-    pathname.startsWith("/game/") ||
-    pathname.startsWith("/chess/") ||
-    pathname.startsWith("/domino/") ||
-    pathname.startsWith("/fanorona/") ||
-    pathname.startsWith("/rami/") ||
-    pathname.startsWith("/poker/")
-  ) {
-    return <BoardSkeleton />;
-  }
-  if (pathname.startsWith("/profile") || pathname.startsWith("/joueur")) return <ProfileSkeleton />;
-  if (
-    pathname.startsWith("/history") ||
-    pathname.startsWith("/rankings") ||
-    pathname.startsWith("/chat") ||
-    pathname.startsWith("/live") ||
-    pathname.startsWith("/tournaments") ||
-    pathname.startsWith("/lobby") ||
-    pathname.startsWith("/discussion") ||
-    pathname.startsWith("/admin")
-  ) {
-    return <ListSkeleton />;
-  }
-  return <GenericSkeleton />;
 }
 
 function RouteSkeletonOverlay() {
@@ -296,21 +230,30 @@ function RouteSkeletonOverlay() {
   const [show, setShow] = React.useState(false);
   React.useEffect(() => {
     if (!isLoading) { setShow(false); return; }
-    const t = setTimeout(() => setShow(true), 350);
+    const t = setTimeout(() => setShow(true), 200);
     return () => clearTimeout(t);
   }, [isLoading, pathname]);
   if (!isLoading || !show) return null;
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 animate-in fade-in duration-150"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 animate-in fade-in duration-200"
       style={{ top: 56 }}
     >
       <div className="h-full w-full overflow-hidden bg-background">
-        {pickSkeleton(pathname)}
+        <BrandedLoader />
       </div>
     </div>
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Push notifications manager — registers SW and subscribes to push
+// ═══════════════════════════════════════════════════════════════════════════
+
+function PushNotificationsManager() {
+  usePushNotifications();
+  return null;
 }
 
 function RootComponent() {
@@ -322,9 +265,8 @@ function RootComponent() {
           <ConfirmProvider>
             <Outlet />
             <RouteSkeletonOverlay />
+            <PushNotificationsManager />
             <AutoTranslator />
-
-
             <Toaster richColors position="top-center" />
           </ConfirmProvider>
         </AuthProvider>

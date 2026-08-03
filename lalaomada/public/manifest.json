@@ -1,0 +1,18 @@
+{
+  "name": "Lalao MADA",
+  "short_name": "Lalao MADA",
+  "description": "Jeux de société malgaches en ligne — Ludo, Domino, Échecs et plus",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "orientation": "portrait",
+  "categories": ["games", "entertainment"]
+}
