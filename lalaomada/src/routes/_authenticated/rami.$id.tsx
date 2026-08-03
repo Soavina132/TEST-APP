@@ -392,14 +392,14 @@ function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | 
   if (cards.length !== 7) return false;
   const baseValid = (sub: number[]): boolean => {
     if (sub.length < 3) return false;
-    const isJoker = (c: number) => c >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && c === randomJoker);
+    const isJoker = (c: number) => CARD_BASE(c) >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker));
     const jokerCount = sub.filter(isJoker).length;
     const real = sub.filter(c => !isJoker(c));
     if (real.length < 2) return false;
     // set
-    const rank = real[0] % 13;
-    const suits = real.map(c => Math.floor(c / 13));
-    if (sub.length <= 4 && real.every(c => c % 13 === rank) && new Set(suits).size === suits.length) return true;
+    const rank = CARD_BASE(real[0]) % 13;
+    const suits = real.map(c => Math.floor(CARD_BASE(c) / 13));
+    if (sub.length <= 4 && real.every(c => CARD_BASE(c) % 13 === rank) && new Set(suits).size === suits.length) return true;
     // run
     const suit = Math.floor(CARD_BASE(real[0]) / 13);
     if (!real.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
@@ -510,7 +510,7 @@ function getSelectionFeedback(
   if (cards.length === 0) return { hint: "", severity: 'info' };
 
   const isJoker = (c: number) =>
-    c >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && c === randomJoker);
+    CARD_BASE(c) >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker));
 
   const validity = validateMeld(cards, jokerMode, randomJoker);
   if (validity === 'valid') return { hint: "✓ Combinaison valide — prête à poser", severity: 'ok' };
@@ -519,8 +519,8 @@ function getSelectionFeedback(
     if (cards.length === 1) return { hint: "Sélectionne 2 cartes de plus pour un trio, ou 2+ de même couleur pour un escalier", severity: 'info' };
     const real = cards.filter(c => !isJoker(c));
     if (real.length >= 2) {
-      const sameSuit = real.every(c => Math.floor(c / 13) === Math.floor(real[0] / 13));
-      const sameRank = real.every(c => c % 13 === real[0] % 13);
+      const sameSuit = real.every(c => Math.floor(CARD_BASE(c) / 13) === Math.floor(CARD_BASE(real[0]) / 13));
+      const sameRank = real.every(c => CARD_BASE(c) % 13 === CARD_BASE(real[0]) % 13);
       if (sameSuit) {
         const suitName = ["♠ Pique", "♥ Cœur", "♦ Carreau", "♣ Trèfle"][Math.floor(real[0] / 13)];
         return { hint: `Escalier ${suitName} en cours — ajoute une carte adjacente`, severity: 'info' };
@@ -540,8 +540,8 @@ function getSelectionFeedback(
 
   if (real.length === 0) return { hint: "Uniquement des Jokers — ajoute des cartes réelles", severity: 'error' };
 
-  const allSameSuit = real.every(c => Math.floor(c / 13) === Math.floor(real[0] / 13));
-  const allSameRank = real.every(c => c % 13 === real[0] % 13);
+  const allSameSuit = real.every(c => Math.floor(CARD_BASE(c) / 13) === Math.floor(CARD_BASE(real[0]) / 13));
+  const allSameRank = real.every(c => CARD_BASE(c) % 13 === CARD_BASE(real[0]) % 13);
 
   if (!allSameSuit && !allSameRank) {
     return { hint: "Cartes mixtes — sélectionne soit même valeur (trio), soit même couleur (escalier)", severity: 'error' };
@@ -549,7 +549,7 @@ function getSelectionFeedback(
 
   if (allSameRank) {
     // Check for duplicate suits
-    const suits = real.map(c => Math.floor(c / 13));
+    const suits = real.map(c => Math.floor(CARD_BASE(c) / 13));
     if (new Set(suits).size < suits.length) {
       return { hint: "Deux cartes de même couleur dans le trio — retire-en une", severity: 'error' };
     }
@@ -559,7 +559,7 @@ function getSelectionFeedback(
   }
 
   if (allSameSuit) {
-    const ranks = real.map(c => c % 13).sort((a, b) => a - b);
+    const ranks = real.map(c => CARD_BASE(c) % 13).sort((a, b) => a - b);
     let gaps = 0;
     for (let i = 1; i < ranks.length; i++) {
       const diff = ranks[i] - ranks[i - 1];
@@ -715,9 +715,9 @@ function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct }: {
   const minPts = rows[0]?.pts ?? 0;
 
   const cardLabel = (c: number) => {
-    if (c >= 52) return { rank: "★", suit: "", color: "#7c3aed" };
-    const s = Math.floor(c / 13);
-    const r = c % 13;
+    if (CARD_BASE(c) >= 52) return { rank: "★", suit: "", color: "#7c3aed" };
+    const s = Math.floor(CARD_BASE(c) / 13);
+    const r = CARD_BASE(c) % 13;
     return { rank: RANKS[r], suit: SUITS[s], color: SUIT_COLORS[s] };
   };
 
