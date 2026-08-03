@@ -49,6 +49,8 @@ export default function GameWaitingRoom({
   createdAt,
   slug,
   isTournament = false,
+  matchType = "solo",
+  onJoinTeam,
 }: {
   gameLabel: string;
   parts: Participant[];
@@ -64,6 +66,8 @@ export default function GameWaitingRoom({
   createdAt?: string | null;
   slug?: GameSlug;
   isTournament?: boolean;
+  matchType?: "solo" | "groupe";
+  onJoinTeam?: (team: number) => void | Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [avatars, setAvatars] = useState<Record<string, { pseudo?: string; avatar_url?: string }>>({});
@@ -193,6 +197,50 @@ export default function GameWaitingRoom({
         )}
       </div>
 
+      {matchType === "groupe" && slug === "ludo" && (
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2].map((team) => {
+            const teamMembers = parts.filter((p: any) => p.team === team);
+            const myTeam = parts.find((p: any) => p.user_id === meUserId)?.team === team;
+            const isFull = teamMembers.length >= 2;
+            return (
+              <div key={team} className={`rounded-2xl p-3 border-2 space-y-2 ${myTeam ? "border-primary bg-primary/5" : "border-border/60 bg-card"}`}>
+                <div className="font-bold text-sm text-center">
+                  {team === 1 ? "🔴 Groupe 1" : "🔵 Groupe 2"}
+                </div>
+                {teamMembers.map((m: any) => {
+                  const prof = avatars[m.user_id];
+                  const name = prof?.pseudo || m.display_name || "Joueur";
+                  const initials = (name || "?").slice(0, 2).toUpperCase();
+                  return (
+                    <div key={m.user_id} className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 bg-accent flex items-center justify-center font-bold text-[10px]">
+                        {(prof?.avatar_url || m.avatar_url) ? <img src={prof?.avatar_url || m.avatar_url} alt="" width={28} height={28} className="w-full h-full object-cover" /> : initials}
+                      </div>
+                      <span className="text-xs font-semibold truncate">{name}{m.user_id === meUserId ? " (vous)" : ""}</span>
+                    </div>
+                  );
+                })}
+                {Array.from({ length: Math.max(0, 2 - teamMembers.length) }).map((_, i) => (
+                  <button
+                    key={`e${i}`}
+                    onClick={() => onJoinTeam?.(team)}
+                    disabled={!isParticipant || isFull}
+                    className={`w-full py-2 rounded-lg border border-dashed flex items-center justify-center gap-1 text-xs font-semibold transition-all ${
+                      isParticipant && !isFull
+                        ? "border-primary/40 text-primary hover:bg-primary/5 active:scale-95"
+                        : "border-border/40 text-muted-foreground/50 cursor-not-allowed"
+                    }`}
+                  >
+                    {isFull ? "Complet" : (<><span className="text-base leading-none">+</span> Rejoindre</>)}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="rounded-3xl bg-card p-5 shadow-[var(--shadow-soft)] space-y-3">
         {parts.map((p) => {
           const prof = avatars[p.user_id];
@@ -208,13 +256,20 @@ export default function GameWaitingRoom({
                   {name}{p.user_id === meUserId ? " (vous)" : ""}
                 </div>
               </div>
-              {p.ready ? (
-                <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 font-bold shrink-0 flex items-center gap-1">
-                  <Check className="w-3 h-3" /> Prêt
-                </span>
-              ) : (
-                <span className="text-xs px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 font-bold shrink-0">Pas prêt</span>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {matchType === "groupe" && p.team && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${p.team === 1 ? "bg-red-500/15 text-red-600" : "bg-blue-500/15 text-blue-600"}`}>
+                    {p.team === 1 ? "G1" : "G2"}
+                  </span>
+                )}
+                {p.ready ? (
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Prêt
+                  </span>
+                ) : (
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 font-bold">Pas prêt</span>
+                )}
+              </div>
             </div>
           );
         })}

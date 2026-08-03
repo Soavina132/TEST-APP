@@ -97,7 +97,7 @@ function GamePage() {
         <GameWaitingRoom
           isTournament={!!game.tournament_match_id}
           slug="ludo"
-          gameLabel={`Ludo · ${game.max_players} joueurs · ${game.mode === "fast" ? "vs AMIES" : "vs BOT"}`}
+          gameLabel={`Ludo · ${game.max_players} joueurs · ${game.match_type === "groupe" ? "2v2 Groupe" : "Solo"}`}
           parts={(() => {
             const bots = parts.filter((p: any) => p.is_bot).sort((a: any, b: any) => a.slot - b.slot);
             const botIndex = new Map<string, number>();
@@ -108,6 +108,7 @@ function GamePage() {
                 user_id: p.user_id,
                 display_name: p.is_bot ? `Joueur ${idx}` : p.display_name,
                 slot: p.slot,
+                team: p.team,
                 ready: p.is_bot ? true : p.ready,
                 avatar_url: p.is_bot ? `https://api.dicebear.com/7.x/adventurer/svg?seed=joueur${idx || 1}` : undefined,
               };
@@ -125,6 +126,12 @@ function GamePage() {
           onToggleReady={async (ready) => {
             const { error } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: ready } as any);
             if (error) toast.error(error.message);
+          }}
+          matchType={game.match_type === "groupe" ? "groupe" : "solo"}
+          onJoinTeam={async (team) => {
+            const { error } = await supabase.rpc("ludo_join_team" as any, { _game_id: id, _team: team } as any);
+            if (error) toast.error(error.message);
+            else toast.success(team === 1 ? "Groupe 1 rejoint !" : "Groupe 2 rejoint !");
           }}
         />
         {!game.is_private && (isAdmin || (Number(game.stake) === 0 && isParticipant)) && parts.length < game.max_players && (
