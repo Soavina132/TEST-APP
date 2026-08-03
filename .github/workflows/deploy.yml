@@ -1,0 +1,27 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        run: |
+          cd lalaomada
+          vercel deploy --yes --prod --token ${{ secrets.VERCEL_TOKEN }} --project test-app --cwd ..
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
