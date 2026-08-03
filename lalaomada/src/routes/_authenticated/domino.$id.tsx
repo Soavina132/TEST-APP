@@ -18,6 +18,8 @@ import DominoTable, { DominoTile, PlayerHeader } from "@/components/DominoTable"
 import { useGameConfig } from "@/hooks/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
 import TurnBanner from "@/components/TurnBanner";
+import { useDominoSounds } from "@/hooks/use-domino-sounds";
+import { playClack, playDraw, playPass } from "@/lib/game-sounds";
 
 
 export const Route = createFileRoute("/_authenticated/domino/$id")({
@@ -245,6 +247,9 @@ function DominoPage() {
     })));
   }, [id]);
 
+  // ── Sound effects ──────────────────────────────────────────────────────
+  useDominoSounds({ game, parts, myUserId: profile?.id });
+
   useEffect(() => {
     load();
     const ch = supabase.channel("domino-"+id)
@@ -349,6 +354,7 @@ function DominoPage() {
     try {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
+      playDraw();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -358,6 +364,7 @@ function DominoPage() {
     try {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
+      if (!opts?.silent) playPass();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -450,6 +457,7 @@ function DominoPage() {
       const move: any = side === "auto" ? { action: "play", tile } : { action: "play", tile, side };
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
+      playClack();
       setSelectedTile(null);
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
