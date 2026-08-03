@@ -370,7 +370,7 @@ function SnakeBoard({
 
 
 export default function DominoTable({
-  seats, maxPlayers, meSlot, board, leftEnd, rightEnd, stockSize, targetScore, statusMessage,
+  seats, maxPlayers, meSlot, board, leftEnd, rightEnd, stockSize, targetScore, statusMessage, statusType,
   canDropLeft, canDropRight, onDropLeft, onDropRight, canDropAny, onDropAny, seed,
 }: {
   seats: Seat[];
@@ -382,6 +382,7 @@ export default function DominoTable({
   stockSize: number;
   targetScore?: number;
   statusMessage?: string;
+  statusType?: "blocked" | "pass" | undefined;
   canDropLeft?: boolean;
   canDropRight?: boolean;
   onDropLeft?: () => void;
@@ -449,7 +450,7 @@ export default function DominoTable({
 
       {statusMessage && (
         <div className="px-4 pb-3 flex justify-center">
-          <div className="px-5 py-3 rounded-xl bg-[#0a1a3e]/90 text-white text-center font-bold text-sm shadow-lg max-w-[90%]">
+          <div className={`px-5 py-3 rounded-xl text-center font-bold text-sm shadow-lg max-w-[90%] ${statusType === "blocked" ? "bg-red-600/90 text-white animate-pulse" : statusType === "pass" ? "bg-orange-500/90 text-white" : "bg-[#0a1a3e]/90 text-white"}`}>
             {statusMessage}
           </div>
         </div>

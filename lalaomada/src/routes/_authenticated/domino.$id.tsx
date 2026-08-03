@@ -348,7 +348,12 @@ function DominoPage() {
   const drawMode: "with" | "without" = game?.state?.draw_mode === "without" ? "without" : "with";
 
   const noMove = !!(isMyTurn && board.length > 0 && !canPlay && (drawMode === "without" || stockSize === 0));
-  const oppNoMove = !!(!isMyTurn && game?.state?.last_pass_by !== undefined && game?.state?.last_pass_by !== me?.slot);
+  const passSlot = game?.state?.last_pass_by;
+  const passCount = Number(game?.state?.passes) || 0;
+  const activePlayers = parts.filter(p => !p.forfeited).length;
+  const isBlocked = passCount >= activePlayers && activePlayers > 0;
+  const passPart = typeof passSlot === "number" ? parts.find(p => p.slot === passSlot) : null;
+  const oppNoMove = !!(!isMyTurn && passSlot !== undefined && passSlot !== me?.slot);
 
   const draw = async () => {
     setBusy(true);
@@ -534,15 +539,20 @@ function DominoPage() {
           seed={id}
           statusMessage={(() => {
             if (game.status !== "playing") return undefined;
-            const passSlot = game?.state?.last_pass_by;
-            const passPart = typeof passSlot === "number" ? parts.find(p => p.slot === passSlot) : null;
             const passName = passPart ? (passPart.user_id === profile?.id ? "Vous" : passPart.display_name) : null;
             const currentPart = parts.find(p => p.slot === game.current_turn);
             const currentName = currentPart ? (currentPart.user_id === profile?.id ? "Vous" : currentPart.display_name) : null;
-            if (noMove) return "Aucun domino jouable — votre tour est passé";
-            if (oppNoMove && passName) return `${passName} n'a aucun domino jouable — tour passé`;
-            if (isMyTurn) return canPlay ? "À vous de jouer" : (drawMode === "with" && stockSize > 0 ? "À vous — piochez pour continuer" : "À vous de jouer");
+            if (isBlocked) return "🚫 Domino bloqué ! Fin de la manche";
+            if (noMove) return "Aucun domino jouable — vous passez votre tour";
+            if (oppNoMove && passName) return `${passName} passe son tour`;
+            if (isMyTurn) return canPlay ? "À vous de jouer" : (drawMode === "with" && stockSize > 0 ? "Piochez pour continuer" : "Aucun domino jouable — passez");
             if (currentName) return `Tour de ${currentName}…`;
+            return undefined;
+          })()}
+          statusType={(() => {
+            if (game.status !== "playing") return undefined;
+            if (isBlocked) return "blocked";
+            if (noMove || (oppNoMove && passSlot !== me?.slot)) return "pass";
             return undefined;
           })()}
           canDropLeft={canDropLeft}
