@@ -1,0 +1,28 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+        working-directory: lalaomada
+      - run: bun run build
+        working-directory: lalaomada
+        env:
+          VITE_SUPABASE_URL: https://gifwfjgciwbsottztzoc.supabase.co
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_DEPLOY_TOKEN }}
+          vercel-org-id: team_HLqeCMkbBfUZFCV0QBJkcMqY
+          vercel-project-id: prj_HHrBjM8reyQfUZf7fVvQZil3j7si
+          vercel-args: '--prod --cwd lalaomada'
+          working-directory: lalaomada
