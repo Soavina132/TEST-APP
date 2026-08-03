@@ -76,7 +76,7 @@ function LoginPage() {
   }, [otpResendIn]);
 
   useEffect(() => {
-    if (user) router.navigate({ to: "/accueil", replace: true });
+    if (user) router.navigate({ to: "/lobby", replace: true });
   }, [user, router]);
 
 

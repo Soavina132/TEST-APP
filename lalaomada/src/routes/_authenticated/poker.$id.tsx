@@ -264,7 +264,12 @@ function PokerPage() {
   const sbSeat: number = state.sb_seat ?? -1;
   const bbSeat: number = state.bb_seat ?? -1;
   const myChips = Number(me?.chips || 0);
-  const minRaise = Math.max(curBet * 2, curBet + (state.last_raise || state.big_blind || 100));
+  // Relance minimale identique au serveur : mise courante + dernière relance (≥ grosse blinde)
+  const bigBlind = Number(state.big_blind || game.big_blind || 20);
+  const lastRaise = Math.max(Number(state.last_raise || 0), bigBlind);
+  const maxTotal = myChips + Number(me?.bet_round || 0);
+  const minRaise = Math.min(curBet + lastRaise, maxTotal);
+  const canRaise = maxTotal > curBet;
 
   // Layout
   const W = 680; const H = 620;
@@ -509,13 +514,13 @@ function PokerPage() {
       {isPlayer && isMyTurn && game.status === "playing" && me?.status === "playing" && (
         <div className="px-3 pb-4 space-y-2">
           {/* Raise slider */}
-          {myChips > callAmt && (
+          {canRaise && maxTotal > minRaise && (
             <div className="rounded-2xl bg-black/70 backdrop-blur px-4 py-3 space-y-2">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-white/60">Relance</span>
                 <span className="font-extrabold text-amber-400">{raiseAmt.toLocaleString("fr-FR")} jetons</span>
               </div>
-              <input type="range" min={minRaise} max={myChips + Number(me?.bet_round||0)} step={state.big_blind || 100}
+              <input type="range" min={minRaise} max={maxTotal} step={bigBlind}
                 value={raiseAmt || minRaise}
                 onChange={e => setRaiseAmt(Number(e.target.value))}
                 className="w-full accent-amber-400"/>
@@ -524,9 +529,9 @@ function PokerPage() {
                   { l:"½ Pot", v: Math.round((game.pot||0)/2) },
                   { l:"Pot",   v: game.pot||0 },
                   { l:"2×Pot", v: (game.pot||0)*2 },
-                  { l:"Tapis", v: myChips + Number(me?.bet_round||0) },
+                  { l:"Tapis", v: maxTotal },
                 ].map(({ l, v }) => (
-                  <button key={l} onClick={() => setRaiseAmt(Math.min(Math.max(v, minRaise), myChips + Number(me?.bet_round||0)))}
+                  <button key={l} onClick={() => setRaiseAmt(Math.min(Math.max(v, minRaise), maxTotal))}
                     className="py-1.5 rounded-xl text-[10px] font-bold bg-white/10 text-white hover:bg-amber-500/30 transition-colors">
                     {l}
                   </button>
@@ -554,11 +559,15 @@ function PokerPage() {
               </button>
             )}
 
-            {myChips > callAmt && (
-              <button disabled={busy} onClick={() => doAction(curBet === 0 ? "bet" : "raise", raiseAmt || minRaise)}
+            {canRaise && (
+              <button disabled={busy} onClick={() => {
+                const amt = Math.min(Math.max(raiseAmt || minRaise, minRaise), maxTotal);
+                if (amt >= maxTotal) return doAction("allin");
+                doAction(curBet === 0 ? "bet" : "raise", amt);
+              }}
                 className="py-4 rounded-2xl font-extrabold text-sm transition-all shadow-lg active:scale-95 text-black disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)" }}>
-                ↑ {curBet===0?"Miser":"Relancer"}<br/><span className="text-xs font-normal opacity-80">{(raiseAmt||minRaise).toLocaleString()}</span>
+                ↑ {curBet===0?"Miser":"Relancer"}<br/><span className="text-xs font-normal opacity-80">{Math.min(Math.max(raiseAmt||minRaise,minRaise),maxTotal).toLocaleString()}</span>
               </button>
             )}
           </div>

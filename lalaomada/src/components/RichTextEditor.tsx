@@ -1,4 +1,3 @@
-import DOMPurify from "dompurify";
 import { useEffect, useRef } from "react";
 
 interface RichTextEditorProps {
@@ -25,13 +24,13 @@ export default function RichTextEditor({
   // Keep DOM in sync when `value` changes externally (without losing caret on each keystroke).
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== (value || "")) {
-      ref.current.innerHTML = DOMPurify.sanitize(value || "");
+      ref.current.innerHTML = value || "";
     }
   }, [value]);
 
   const exec = (cmd: string, arg?: string) => {
     document.execCommand(cmd, false, arg);
-    if (ref.current) onChange(DOMPurify.sanitize(ref.current.innerHTML));
+    if (ref.current) onChange(ref.current.innerHTML);
   };
 
   const addLink = () => {
@@ -68,7 +67,7 @@ export default function RichTextEditor({
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        onInput={(e) => onChange(DOMPurify.sanitize((e.currentTarget as HTMLDivElement).innerHTML))}
+        onInput={(e) => onChange((e.currentTarget as HTMLDivElement).innerHTML)}
         className="prose prose-sm max-w-none p-3 focus:outline-none [&[data-placeholder]:empty:before]:content-[attr(data-placeholder)] [&[data-placeholder]:empty:before]:text-muted-foreground"
         style={{ minHeight }}
       />

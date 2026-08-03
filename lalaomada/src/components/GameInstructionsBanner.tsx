@@ -6,11 +6,7 @@ export default function GameInstructionsBanner({ slug }: { slug: string }) {
   const [cfg, setCfg] = useState<{ rules_markdown: string; instructions_dismissible: boolean } | null>(null);
   const [hidden, setHidden] = useState(false);
 
-  // Include a hash of the rules text in the storage key so updated rules reappear
-  const rulesHash = cfg?.rules_markdown
-    ? cfg.rules_markdown.length.toString(36) + cfg.rules_markdown.slice(0, 8).replace(/\s/g, "")
-    : "";
-  const storageKey = `rules-dismissed:${slug}:${rulesHash}`;
+  const storageKey = `rules-dismissed:${slug}`;
 
   useEffect(() => {
     (async () => {

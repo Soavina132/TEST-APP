@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public._export_auth_dump(text);

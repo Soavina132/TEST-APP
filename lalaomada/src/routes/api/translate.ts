@@ -18,11 +18,6 @@ export const Route = createFileRoute("/api/translate")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          // Require auth to prevent quota abuse
-          const auth = request.headers.get("authorization") || "";
-          const token = auth.replace(/^Bearer\s+/i, "").trim();
-          if (!token) return new Response("unauthorized", { status: 401 });
-          
           const body = (await request.json()) as { lang?: string; texts?: unknown };
           const lang = body.lang === "mg" ? "mg" : body.lang === "en" ? "en" : null;
           if (!lang) return new Response("bad lang", { status: 400 });

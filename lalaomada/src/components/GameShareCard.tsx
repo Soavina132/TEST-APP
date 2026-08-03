@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 
 const ROUTE: Record<string, string> = {
-  ludo: "/ludo/$id",
+  ludo: "/game/$id",
   domino: "/domino/$id",
   chess: "/chess/$id",
   fanorona: "/fanorona/$id",

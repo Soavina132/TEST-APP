@@ -73,7 +73,7 @@ export default function GameEndScreen({
     } else {
       setBusy("replay");
       try {
-        await navigate({ to: "/jeux/$slug", params: { slug } });
+        await navigate({ to: "/jeux/nouveau/$slug", params: { slug } });
       } finally {
         setBusy(null);
       }

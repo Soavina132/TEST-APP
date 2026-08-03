@@ -315,19 +315,6 @@ function DominoPage() {
     return () => clearTimeout(t);
   }, [game?.state?.bot_think_until, game?.status, id]);
 
-  // Trigger domino_tick immediately when it becomes a bot's turn.
-  // The server-side _domino_autoplay_bots() plays immediately (no think timer).
-  useEffect(() => {
-    if (game?.status !== "playing" || !id) return;
-    const currentPart = parts.find((p: any) => p.slot === game.current_turn);
-    if (!currentPart?.is_bot) return;
-    // Small delay so the board renders before the bot plays
-    const t = setTimeout(() => {
-      supabase.rpc("domino_tick" as any, { _game_id: id } as any);
-    }, 800);
-    return () => clearTimeout(t);
-  }, [game?.current_turn, game?.status, id, parts]);
-
   const me = parts.find(p => p.user_id === profile?.id);
   const isPlayer = !!me;
   const isMyTurn = game && me && game.current_turn === me.slot && game.status === "playing" && !isRoundTransition;

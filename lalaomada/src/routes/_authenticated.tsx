@@ -7,10 +7,14 @@ import TermsModal from "@/components/TermsModal";
 import FloatingBackButton from "@/components/BackButton";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import ContactFab from "@/components/ContactFab";
+import ShareAppCta from "@/components/ShareAppCta";
+import OnlineStatusBar from "@/components/OnlineStatusBar";
 import DesktopNav from "@/components/DesktopNav";
 import { useLocation } from "@tanstack/react-router";
 import { useT } from "@/lib/i18n";
 import { useWaitingRoomActive } from "@/lib/game-ui-state";
+// AdminApprovalWatcher supprimé — sécurité admin désactivée
+
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthLayout,
@@ -46,6 +50,7 @@ function AuthLayout() {
       <FloatingBackButton />
       <PauseBanner />
       <Header />
+      {!inGame && <OnlineStatusBar />}
       <DesktopNav />
       <div className="md:ml-56">
         <Outlet />
@@ -54,6 +59,9 @@ function AuthLayout() {
       <TermsModal />
       <AnnouncementsModal />
       {!inGame && !inChat && <ContactFab />}
+      {!inGame && !inChat && <ShareAppCta />}
+      
     </>
   );
 }
+

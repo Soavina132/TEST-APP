@@ -17,8 +17,10 @@ export default function AnnouncementsModal() {
       setIdx(0);
     };
     load();
-    const interval = setInterval(load, 60_000);
-    return () => clearInterval(interval);
+    const ch = supabase.channel("ann-modal")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "announcements" }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const close = () => {

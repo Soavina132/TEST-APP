@@ -399,7 +399,7 @@ export default function DominoTable({
   }
 
   return (
-    <div className="game-table-light relative w-full h-full flex flex-col overflow-hidden"
+    <div className="relative w-full h-full flex flex-col overflow-hidden"
       style={{
         background: "linear-gradient(180deg,#0b3a86 0%,#0f4aa8 60%,#1257c2 100%)",
         minHeight: 260,

@@ -45,7 +45,7 @@ function LivePage() {
     if (gt === "chess")    return { to: "/chess/$id",    params: { id: g.id } };
     if (gt === "fanorona") return { to: "/fanorona/$id", params: { id: g.id } };
     if (gt === "rami")     return { to: "/rami/$id",     params: { id: g.id } };
-    return { to: "/ludo/$id", params: { id: g.id }, search: { spectate: 1 } as any };
+    return { to: "/game/$id", params: { id: g.id }, search: { spectate: 1 } as any };
   };
 
   const labelFor = (gt?: string) => {

@@ -405,7 +405,7 @@ function ChessPage() {
   };
   const doReplay = async () => {
     if (!game) return;
-    if (game.mode !== "solo") { navigate({ to: "/jeux/$slug", params: { slug: "chess" } }); return; }
+    if (game.mode !== "solo") { navigate({ to: "/jeux/nouveau/$slug", params: { slug: "chess" } }); return; }
     setBusy(true);
     try {
       const { data, error } = await supabase.rpc("chess_create_solo" as any, {
@@ -425,7 +425,7 @@ function ChessPage() {
       <main className="min-h-screen bg-background p-6 flex flex-col items-center justify-center text-center gap-4">
         <p className="text-lg font-bold text-foreground">Lien de partie invalide</p>
         <p className="text-sm text-muted-foreground max-w-xs">Cette ancienne adresse n'est pas une vraie partie d'échecs.</p>
-        <Button onClick={() => navigate({ to: "/jeux/$slug", params: { slug: "chess" } })}>Créer une partie</Button>
+        <Button onClick={() => navigate({ to: "/jeux/nouveau/$slug", params: { slug: "chess" } })}>Créer une partie</Button>
       </main>
     );
   }
@@ -600,7 +600,7 @@ function ChessPage() {
 
 
       {/* Board */}
-      <div className="game-table-light flex-1 flex items-center justify-center px-2 py-2">
+      <div className="flex-1 flex items-center justify-center px-2 py-2">
         <ChessBoard
           fen={game.fen}
           myColor={orientation}

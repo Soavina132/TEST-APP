@@ -12,8 +12,10 @@ export default function PauseBanner() {
   useEffect(() => {
     const load = () => supabase.from("app_settings").select("paused,pause_message").eq("id", 1).maybeSingle().then(({ data }) => setS(data as any));
     load();
-    const interval = setInterval(load, 30_000);
-    return () => clearInterval(interval);
+    const ch = supabase.channel("app-settings")
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
   if (!s?.paused || closed || isAdmin) return null;
   return (

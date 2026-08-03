@@ -15,8 +15,10 @@ export default function MoneyOffersSection() {
       setItems((data || []).filter((o: any) => !o.expires_at || new Date(o.expires_at).getTime() > now));
     };
     load();
-    const interval = setInterval(load, 60_000);
-    return () => clearInterval(interval);
+    const ch = supabase.channel("offers")
+      .on("postgres_changes", { event: "*", schema: "public", table: "money_offers" }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   if (!items.length) return null;

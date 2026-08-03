@@ -36,9 +36,15 @@ export function useAdminPending(): AdminPending {
     }
 
     load();
-    // Polling every 30s — no realtime channel
-    const interval = setInterval(load, 30_000);
-    return () => clearInterval(interval);
+
+    const ch = supabase
+      .channel("admin-pending-counts")
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposits" },    load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bug_reports" }, load)
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
   }, [isAdmin]);
 
   return state;

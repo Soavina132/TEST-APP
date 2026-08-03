@@ -47,13 +47,3 @@ Thumbs.db
 # Replit
 .cache/
 .local/
-
-# Environment files — NEVER commit secrets
-.env
-.env.local
-.env.*.local
-lalaomada/.env
-!.env.example
-
-# Lovable
-.lovable

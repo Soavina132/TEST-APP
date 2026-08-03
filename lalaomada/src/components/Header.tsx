@@ -1,60 +1,49 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useRef, useEffect } from "react";
-import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Zap, Moon, Sun } from "lucide-react";
+import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Menu, Zap } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import AppMenu from "@/components/AppMenu";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useT } from "@/lib/i18n";
-import { useOnlineStatus, NetworkQuality } from "@/hooks/use-online-status";
 
-// ── Dark mode hook ──────────────────────────────────────────────────────
-function useDarkMode() {
-  const [dark, setDark] = useState(() => {
-    if (typeof document === "undefined") return false;
-    const stored = localStorage.getItem("lalaomada-theme");
-    if (stored) return stored === "dark";
-    return document.documentElement.classList.contains("dark");
-  });
+function RouteLoadingBar() {
+  const status = useRouterState({ select: (s) => s.status });
+  const isLoading = status === "pending";
+  const [visible, setVisible] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (dark) root.classList.add("dark");
-    else root.classList.remove("dark");
-    localStorage.setItem("lalaomada-theme", dark ? "dark" : "light");
-  }, [dark]);
+    let raf: number | undefined;
+    let hideTimer: number | undefined;
+    if (isLoading) {
+      setVisible(true);
+      setProgress(10);
+      const tick = () => {
+        setProgress((p) => (p < 90 ? p + Math.max(0.4, (90 - p) * 0.04) : p));
+        raf = window.requestAnimationFrame(tick);
+      };
+      raf = window.requestAnimationFrame(tick);
+    } else if (visible) {
+      setProgress(100);
+      hideTimer = window.setTimeout(() => {
+        setVisible(false);
+        setProgress(0);
+      }, 250);
+    }
+    return () => {
+      if (raf !== undefined) cancelAnimationFrame(raf);
+      if (hideTimer !== undefined) clearTimeout(hideTimer);
+    };
+  }, [isLoading]);
 
-  return { dark, toggle: () => setDark(d => !d) };
-}
-
-// ── Player level badge ─────────────────────────────────────────────────
-function getLevelInfo(referralCount: number = 0, gamesPlayed: number = 0) {
-  const score = referralCount + gamesPlayed;
-  if (score >= 50) return { label: "Diamant", emoji: "💎", color: "text-cyan-400", bg: "bg-cyan-400/10" };
-  if (score >= 20) return { label: "Or", emoji: "🥇", color: "text-amber-400", bg: "bg-amber-400/10" };
-  if (score >= 5)  return { label: "Argent", emoji: "🥈", color: "text-slate-400", bg: "bg-slate-400/10" };
-  return { label: "Bronze", emoji: "🥉", color: "text-orange-600", bg: "bg-orange-600/10" };
-}
-
-// ── Compact signal bars (no text) ──────────────────────────────────────
-const NET_Q: Record<NetworkQuality, { bars: number; color: string }> = {
-  excellent: { bars: 4, color: "text-emerald-500" },
-  good:      { bars: 3, color: "text-emerald-400" },
-  fair:      { bars: 2, color: "text-amber-500" },
-  poor:      { bars: 1, color: "text-red-500" },
-  offline:   { bars: 0, color: "text-red-600" },
-  unknown:   { bars: 0, color: "text-muted-foreground" },
-};
-
-function MiniSignalBars({ bars, color }: { bars: number; color: string }) {
+  if (!visible) return null;
   return (
-    <div className={`flex items-end gap-[1.5px] ${color}`} style={{ height: 9, width: 12 }}>
-      {[1, 2, 3, 4].map(b => (
-        <div
-          key={b}
-          className={`w-[2px] rounded-[0.5px] transition-all duration-300 ${b <= bars ? "opacity-100" : "opacity-20"}`}
-          style={{ height: `${b * 25}%`, background: "currentColor" }}
-        />
-      ))}
+    <div className="absolute left-0 right-0 bottom-0 h-[2px] overflow-hidden pointer-events-none">
+      <div
+        className="h-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.7)] transition-[width,opacity] duration-200 ease-out"
+        style={{ width: `${progress}%`, opacity: progress === 100 ? 0 : 1 }}
+      />
     </div>
   );
 }
@@ -80,9 +69,6 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const { onlineCount, quality, isOnline } = useOnlineStatus(user?.id);
-  const netCfg = NET_Q[quality];
-  const { dark, toggle } = useDarkMode();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -95,13 +81,13 @@ export default function Header() {
   if (!user || !profile) return null;
   const initials = (profile.pseudo || "?").slice(0, 2).toUpperCase();
   const balance = Math.round(profile.balance_ar).toLocaleString("fr-FR");
-  const level = getLevelInfo((profile as any).referral_count, (profile as any).games_played);
 
   return (
     <>
       <header className="sticky top-0 z-30">
         <div className="relative border-b border-border/40 bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
           <div className="max-w-5xl mx-auto px-3 h-14 flex items-center justify-between gap-2">
+
 
             <Link to="/" className="flex items-center gap-2.5 group" aria-label="Lalao MADA">
               <Logo />
@@ -116,21 +102,15 @@ export default function Header() {
             </Link>
 
             <div className="flex items-center gap-1.5">
-              {/* Online count — just number, no text */}
-              <div className="flex items-center gap-1 px-1.5">
-                <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
-                <span className="text-xs font-bold tabular-nums text-foreground">{onlineCount}</span>
-              </div>
+              <button
+                onClick={() => setMenuOpen(true)}
+                className="p-2 rounded-xl hover:bg-accent/80 transition-colors md:hidden"
+                aria-label={t("home")}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
 
-              {/* Network signal — compact bars only */}
-              <div className="flex items-center px-1">
-                {isOnline ? (
-                  <MiniSignalBars bars={netCfg.bars} color={netCfg.color} />
-                ) : (
-                  <span className="text-red-600 text-xs">✕</span>
-                )}
-              </div>
-
+              <LanguageSwitcher />
               <NotificationsBell />
 
               <div className="relative" ref={ref}>
@@ -157,12 +137,7 @@ export default function Header() {
                     <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-400 border-2 border-card" />
                   </div>
                   <div className="hidden sm:flex flex-col items-start leading-none">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold truncate max-w-[80px]">{profile.pseudo}</span>
-                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold ${level.bg} ${level.color}`}>
-                        {level.emoji} {level.label}
-                      </span>
-                    </div>
+                    <span className="text-xs font-semibold truncate max-w-[80px]">{profile.pseudo}</span>
                     <span className="text-[10px] text-muted-foreground font-medium tabular-nums">{balance} Ar</span>
                   </div>
                   <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
@@ -179,27 +154,14 @@ export default function Header() {
                             : initials
                           }
                         </div>
-                        <div className="flex-1">
+                        <div>
                           <div className="font-bold text-sm">{profile.pseudo}</div>
                           <div className="text-[10px] text-muted-foreground font-mono">{profile.unique_code}</div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <div className="flex items-center gap-1">
-                              <Zap className="w-3 h-3 text-amber-500" />
-                              <span className="text-xs font-semibold text-amber-600 tabular-nums">{balance} Ar</span>
-                            </div>
-                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${level.bg} ${level.color}`}>
-                              {level.emoji} {level.label}
-                            </span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Zap className="w-3 h-3 text-amber-500" />
+                            <span className="text-xs font-semibold text-amber-600 tabular-nums">{balance} Ar</span>
                           </div>
                         </div>
-                        {/* Theme toggle — top-right of the dropdown header */}
-                        <button
-                          onClick={toggle}
-                          className="p-2 rounded-xl bg-card/60 hover:bg-card border border-border/40 hover:border-border transition-colors active:scale-90 flex-shrink-0"
-                          aria-label={dark ? "Mode clair" : "Mode sombre"}
-                        >
-                          {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
-                        </button>
                       </div>
                     </div>
 
@@ -257,7 +219,7 @@ export default function Header() {
               </div>
             </div>
           </div>
-          
+          <RouteLoadingBar />
         </div>
       </header>
       <AppMenu open={menuOpen} onClose={() => setMenuOpen(false)} />

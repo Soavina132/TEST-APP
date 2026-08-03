@@ -6,6 +6,7 @@ export function useLiveAvailable(): number {
 
   useEffect(() => {
     let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     async function load() {
       const { data: s } = await supabase.from("app_settings").select("live_enabled").eq("id", 1).maybeSingle();
@@ -19,11 +20,25 @@ export function useLiveAvailable(): number {
 
     load();
 
-    // Polling only (15s) — no realtime channels
+    try {
+      channel = supabase
+        .channel(`live-available-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games" }, load)
+        .on("postgres_changes", { event: "*", schema: "public", table: "domino_games" }, load)
+        .on("postgres_changes", { event: "*", schema: "public", table: "chess_games" }, load)
+        .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_games" }, load)
+        .on("postgres_changes", { event: "*", schema: "public", table: "rami_games" }, load)
+        .on("postgres_changes", { event: "*", schema: "public", table: "game_spectators" }, load)
+        .subscribe();
+    } catch (error) {
+      console.warn("Live realtime subscription unavailable; using polling fallback.", error);
+    }
+
     const t = setInterval(load, 15000);
 
     return () => {
       cancelled = true;
+      if (channel) supabase.removeChannel(channel);
       clearInterval(t);
     };
   }, []);

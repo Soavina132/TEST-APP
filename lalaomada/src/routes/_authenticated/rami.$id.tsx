@@ -20,6 +20,11 @@ import { useGameConfig } from "@/hooks/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useLongPressDrag } from "@/hooks/use-long-press-drag";
 import ramiCover from "@/assets/games/rami.asset.json";
+import feltAsset from "@/assets/rami/felt.jpg.asset.json";
+import cardBackAsset from "@/assets/rami/card-back.jpg.asset.json";
+
+const FELT_URL = feltAsset.url;
+const CARD_BACK_URL = cardBackAsset.url;
 
 export const Route = createFileRoute("/_authenticated/rami/$id")({
   component: RamiPage,
@@ -83,108 +88,111 @@ function PipCard({ rank, suit }: { rank: number; suit: number }) {
   </>;
 }
 
-import jackAsset from "@/assets/rami/jack.png.asset.json";
-import queenAsset from "@/assets/rami/queen.png.asset.json";
-import kingAsset from "@/assets/rami/king.png.asset.json";
 import joker0Asset from "@/assets/rami/joker-0.png.asset.json";
 import joker1Asset from "@/assets/rami/joker-1.png.asset.json";
 import joker2Asset from "@/assets/rami/joker-2.png.asset.json";
 import joker3Asset from "@/assets/rami/joker-3.png.asset.json";
 
-const FACE_ART: Record<number, string> = {
-  10: jackAsset.url,  // J
-  11: queenAsset.url, // Q
-  12: kingAsset.url,  // K
-};
 const JOKER_ART = [joker0Asset.url, joker1Asset.url, joker2Asset.url, joker3Asset.url];
+
+/** Moitié supérieure d'une figure de carte classique (dessin vectoriel). */
+function CourtHalf({ rank, suit }: { rank: number; suit: number }) {
+  const isRed = suit === 1 || suit === 2;
+  const ink = "#1f2937";
+  const main = isRed ? "#c81e2a" : "#1e3a8a";
+  const gold = "#d9a441";
+  const skin = "#f7dcc4";
+  const hair = rank === 11 ? "#8b5a2b" : "#6b4423";
+
+  return (
+    <g>
+      {/* fond du panneau */}
+      <rect x="9" y="21" width="82" height="49" fill="#fffdf7" />
+      {/* épaules / robe */}
+      <path d="M22 70 C24 55, 34 49, 50 49 C66 49, 76 55, 78 70 Z" fill={main} />
+      <path d="M50 49 L41 70 L50 63 L59 70 Z" fill="#fffdf7" stroke={ink} strokeWidth="0.5" />
+      {/* col */}
+      <path d="M38 51 C42 58, 58 58, 62 51" fill="none" stroke={gold} strokeWidth="1.4" />
+      {/* visage */}
+      <ellipse cx="50" cy="41" rx="10" ry="11" fill={skin} stroke={ink} strokeWidth="0.6" />
+      {/* cheveux / barbe selon la figure */}
+      {rank === 12 && (
+        <path d="M40 41 C40 55, 60 55, 60 41 C60 50, 55 53, 50 53 C45 53, 40 50, 40 41 Z" fill={hair} />
+      )}
+      {rank === 11 && (
+        <>
+          <path d="M39 40 C36 50, 41 54, 43 54 L43 42 Z" fill={hair} />
+          <path d="M61 40 C64 50, 59 54, 57 54 L57 42 Z" fill={hair} />
+        </>
+      )}
+      {rank === 10 && <path d="M40 38 C42 33, 58 33, 60 38 L60 43 C56 39, 44 39, 40 43 Z" fill={hair} />}
+      {/* yeux + bouche */}
+      <circle cx="46" cy="40" r="1.1" fill={ink} />
+      <circle cx="54" cy="40" r="1.1" fill={ink} />
+      <path d="M46.5 45.5 C48.5 47, 51.5 47, 53.5 45.5" fill="none" stroke={ink} strokeWidth="0.7" strokeLinecap="round" />
+      {/* coiffe */}
+      {rank === 12 && (
+        <>
+          {/* Roi : couronne haute à croix */}
+          <path d="M38 31 L38 24 L43 28 L50 21 L57 28 L62 24 L62 31 Z" fill={gold} stroke={ink} strokeWidth="0.6" />
+          <rect x="38" y="31" width="24" height="3.2" fill={main} stroke={ink} strokeWidth="0.5" />
+          <path d="M50 21 L50 17 M48 19 L52 19" stroke={gold} strokeWidth="1.2" strokeLinecap="round" />
+        </>
+      )}
+      {rank === 11 && (
+        <>
+          {/* Dame : diadème */}
+          <path d="M39 32 C42 25, 58 25, 61 32 Z" fill={gold} stroke={ink} strokeWidth="0.6" />
+          <circle cx="50" cy="26.5" r="1.6" fill={main} stroke={ink} strokeWidth="0.4" />
+          <path d="M37 33 C42 29, 58 29, 63 33" fill="none" stroke={main} strokeWidth="1.2" />
+        </>
+      )}
+      {rank === 10 && (
+        <>
+          {/* Valet : chapeau à plume */}
+          <path d="M37 33 C40 25, 60 25, 63 33 Z" fill={main} stroke={ink} strokeWidth="0.6" />
+          <path d="M62 30 C68 24, 72 26, 70 31 C68 35, 64 34, 62 32 Z" fill={gold} stroke={ink} strokeWidth="0.5" />
+          <rect x="36" y="32.6" width="28" height="2.8" rx="1" fill={gold} stroke={ink} strokeWidth="0.4" />
+        </>
+      )}
+      {/* petite enseigne de couleur sur la robe */}
+      <text x="31" y="67" textAnchor="middle" fontSize="8" fill={isRed ? "#c81e2a" : "#111827"}>{SUITS[suit]}</text>
+    </g>
+  );
+}
 
 function FacePortrait({ rank, suit }: { rank: number; suit: number }) {
   const isRed = suit === 1 || suit === 2;
   const frame = isRed ? "#b91c1c" : "#1e3a5f";
-  const robe = isRed ? "#dc2626" : "#1e40af";
-  const robeDark = isRed ? "#7f1d1d" : "#1e3a8a";
-  const skin = "#f5d0a9";
-  const gold = "#eab308";
-  const goldDark = "#a16207";
   const uid = `${suit}-${rank}`;
 
-  // Draw a stylized figure top / rotated bottom
-  const Figure = () => (
-    <g>
-      {/* robe / shoulders */}
-      <path d={`M20,58 Q20,44 50,44 Q80,44 80,58 L80,68 L20,68 Z`} fill={robe} />
-      <path d={`M20,58 Q20,44 50,44 Q80,44 80,58 L80,60 L20,60 Z`} fill={robeDark} opacity="0.55" />
-      {/* collar V */}
-      <path d="M42,44 L50,54 L58,44 Z" fill={skin} />
-      {/* neck */}
-      <rect x="46" y="40" width="8" height="6" fill={skin} />
-      {/* face */}
-      <ellipse cx="50" cy="34" rx="10" ry="11" fill={skin} />
-      {/* hair / beard hints per rank */}
-      {rank === 12 && (
-        // King: full beard + moustache
-        <>
-          <path d="M40,34 Q40,44 50,46 Q60,44 60,34 L60,40 Q50,50 40,40 Z" fill="#4b3218" />
-          <path d="M44,34 Q50,37 56,34" stroke="#4b3218" strokeWidth="1.4" fill="none" />
-        </>
-      )}
-      {rank === 11 && (
-        // Queen: long hair falling on shoulders
-        <>
-          <path d="M38,32 Q36,50 44,58 L44,44 Z" fill="#5b3a1e" />
-          <path d="M62,32 Q64,50 56,58 L56,44 Z" fill="#5b3a1e" />
-          <path d="M40,26 Q50,20 60,26 Q60,32 50,30 Q40,32 40,26 Z" fill="#5b3a1e" />
-        </>
-      )}
-      {rank === 10 && (
-        // Jack: youthful, hat feather cap
-        <>
-          <path d="M40,30 Q50,20 60,30 L58,26 Q50,22 42,26 Z" fill="#4b3218" />
-          <path d="M60,26 Q68,20 66,14 L60,22 Z" fill={isRed ? "#f59e0b" : "#f59e0b"} />
-        </>
-      )}
-      {/* eyes */}
-      <circle cx="46" cy="33" r="0.9" fill="#111827" />
-      <circle cx="54" cy="33" r="0.9" fill="#111827" />
-      {/* Crown */}
-      <g>
-        <path d="M36,22 L42,14 L46,20 L50,12 L54,20 L58,14 L64,22 L64,26 L36,26 Z" fill={gold} stroke={goldDark} strokeWidth="0.6" />
-        <rect x="36" y="24" width="28" height="2.2" fill={goldDark} />
-        <circle cx="42" cy="14" r="1.1" fill="#fca5a5" />
-        <circle cx="50" cy="12" r="1.3" fill="#86efac" />
-        <circle cx="58" cy="14" r="1.1" fill="#93c5fd" />
-      </g>
-      {/* suit medallion on chest */}
-      <circle cx="50" cy="62" r="4.2" fill={isRed ? "#fee2e2" : "#dbeafe"} stroke={frame} strokeWidth="0.6" />
-      <text x="50" y="64.5" textAnchor="middle" fontSize="6" fontWeight="900" fill={isRed ? "#dc2626" : "#111827"}>{SUITS[suit]}</text>
-    </g>
-  );
-
   return <>
-    {/* card interior panel */}
-    <rect x="7" y="19" width="86" height="102" rx="4" fill={isRed ? "#fef2f2" : "#eff6ff"} />
-    <rect x="7" y="19" width="86" height="102" rx="4" fill="none" stroke={frame} strokeWidth="1" opacity="0.55" />
-    {/* separator */}
-    <line x1="10" y1="70" x2="90" y2="70" stroke={frame} strokeWidth="0.4" opacity="0.35" />
-    {/* top figure */}
-    <clipPath id={`tc-${uid}`}><rect x="7" y="19" width="86" height="51" /></clipPath>
+    {/* classic double-headed court card panel */}
+    <rect x="7" y="19" width="86" height="102" rx="3" fill="#fffdf7" />
+    <rect x="7" y="19" width="86" height="102" rx="3" fill="none" stroke={frame} strokeWidth="1" opacity="0.7" />
+    <clipPath id={`tc-${uid}`}><rect x="8" y="20" width="84" height="50" /></clipPath>
     <g clipPath={`url(#tc-${uid})`}>
-      <Figure />
+      <CourtHalf rank={rank} suit={suit} />
     </g>
-    {/* bottom mirrored figure */}
-    <clipPath id={`bc-${uid}`}><rect x="7" y="70" width="86" height="51" /></clipPath>
+    <clipPath id={`bc-${uid}`}><rect x="8" y="70" width="84" height="50" /></clipPath>
     <g clipPath={`url(#bc-${uid})`} transform="rotate(180 50 70)">
-      <Figure />
+      <CourtHalf rank={rank} suit={suit} />
     </g>
-    {/* corner rank label (letter of the face card in the centre band) */}
+    {/* central divider band with rank + suit */}
+    <line x1="7" y1="70" x2="93" y2="70" stroke={frame} strokeWidth="0.8" opacity="0.75" />
     <g>
-      <rect x="42" y="66" width="16" height="8" rx="1.5" fill={frame} />
-      <text x="50" y="72.5" textAnchor="middle" fontSize="6.4" fontWeight="900" fill={gold} fontFamily="Georgia, serif" letterSpacing="1">
+      <rect x="38" y="65.4" width="24" height="9.2" rx="1.6" fill="#ffffff" stroke={frame} strokeWidth="0.6" />
+      <text x="45" y="72.4" textAnchor="middle" fontSize="6.6" fontWeight="900" fill={frame} fontFamily="Georgia, serif">
         {RANKS[rank]}
+      </text>
+      <text x="55" y="72.6" textAnchor="middle" fontSize="6.6" fontWeight="900" fill={isRed ? "#dc2626" : "#111827"}>
+        {SUITS[suit]}
       </text>
     </g>
   </>;
 }
+
+
 
 
 function JokerFace({ idx }: { idx: number }) {
@@ -225,26 +233,24 @@ function Card({
 
   if (faceDown || c === undefined) {
     return (
-      <div className={`${sizeClass} rounded-md shrink-0 shadow overflow-hidden`} style={{ ...dealStyle, ...styleOverride }}>
-
-        <svg viewBox="0 0 100 140" className="w-full h-full">
-          <rect x="0" y="0" width="100" height="140" rx="6" fill="#1e40af" />
-          <rect x="4" y="4" width="92" height="132" rx="5" fill="none" stroke="#93c5fd" strokeWidth="1" />
-          {Array.from({ length: 7 }, (_, i) => i).map(row =>
-            Array.from({ length: 5 }, (_, col) => (
-              <path key={`${row}-${col}`}
-                d={`M${10 + col * 16 + (row % 2 === 0 ? 8 : 0)},${12 + row * 18} l6,-8 l6,8 l-6,8Z`}
-                fill="#1d4ed8" stroke="#3b82f6" strokeWidth="0.3" />
-            ))
-          )}
-        </svg>
-      </div>
+      <div
+        className={`${sizeClass} rounded-md shrink-0 shadow overflow-hidden bg-white`}
+        style={{
+          ...dealStyle,
+          ...styleOverride,
+          backgroundImage: `url(${CARD_BACK_URL})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          border: "1px solid rgba(255,255,255,0.85)",
+        }}
+      />
     );
   }
 
-  const isJoker = c >= 52;
-  const suit = isJoker ? 0 : Math.floor(c / 13);
-  const rank = isJoker ? 0 : c % 13;
+  const base = c % 56; // 2 paquets : ids 0..55 et 56..111
+  const isJoker = base >= 52;
+  const suit = isJoker ? 0 : Math.floor(base / 13);
+  const rank = isJoker ? 0 : base % 13;
   const rankLabel = isJoker ? "★" : RANKS[rank];
   const suitSymbol = isJoker ? "" : SUITS[suit];
   const color = isJoker ? "#7c3aed" : SUIT_COLORS[suit];
@@ -266,7 +272,7 @@ function Card({
         <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow">
           <rect x="0.5" y="0.5" width="99" height="139" rx="6" fill="white" stroke="#d1d5db" strokeWidth="1" />
           {isJoker ? (
-            <JokerFace idx={c - 52} />
+            <JokerFace idx={base - 52} />
           ) : (
             <>
               <text x="5.5" y="14" fontSize={fontSize} fontWeight="900" fill={color} fontFamily="Georgia, serif">{rankLabel}</text>
@@ -298,9 +304,12 @@ function Card({
 
 
 // ── Optimal play suggester ────────────────────────────────────────────────
+const CARD_BASE = (c: number): number => c % 56;
+
 const CARD_POINTS = (c: number): number => {
-  if (c >= 52) return 15;
-  const r = c % 13;
+  const b = CARD_BASE(c);
+  if (b >= 52) return 15;
+  const r = b % 13;
   if (r === 0) return 11;
   if (r >= 10) return 10;
   return r + 1;
@@ -316,8 +325,8 @@ function validateMeld(
   if (cards.length < 3) return 'unknown';
 
   const isJoker = (c: number) => {
-    if (c >= 52) return true;
-    if (jokerMode === 'aleatoire' && randomJoker !== null && c === randomJoker) return true;
+    if (CARD_BASE(c) >= 52) return true;
+    if (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker)) return true;
     return false;
   };
 
@@ -328,17 +337,17 @@ function validateMeld(
     if (cards.length > 4) return false;
     // Mirror server rule: at least 2 real cards required (no all-joker melds)
     if (real.length < 2) return false;
-    const rank = real[0] % 13;
-    if (!real.every(c => c % 13 === rank)) return false;
-    const suits = real.map(c => Math.floor(c / 13));
+    const rank = CARD_BASE(real[0]) % 13;
+    if (!real.every(c => CARD_BASE(c) % 13 === rank)) return false;
+    const suits = real.map(c => Math.floor(CARD_BASE(c) / 13));
     return new Set(suits).size === suits.length;
   };
 
   const checkSequence = (): boolean => {
     if (real.length < 2) return false;
-    const suit = Math.floor(real[0] / 13);
-    if (!real.every(c => Math.floor(c / 13) === suit)) return false;
-    const ranks = real.map(c => c % 13).sort((a, b) => a - b);
+    const suit = Math.floor(CARD_BASE(real[0]) / 13);
+    if (!real.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
+    const ranks = real.map(c => CARD_BASE(c) % 13).sort((a, b) => a - b);
     let gaps = 0;
     for (let i = 1; i < ranks.length; i++) {
       const diff = ranks[i] - ranks[i - 1];
@@ -348,7 +357,70 @@ function validateMeld(
     return gaps <= jokerCount;
   };
 
-  return checkSet() || checkSequence() ? 'valid' : 'invalid';
+  if (checkSet() || checkSequence()) return 'valid';
+  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker)) return 'valid';
+  return 'invalid';
+}
+
+/** Type détecté d'une sélection : carré, trio, escalier ou 7 cartes. */
+type MeldKind = 'carre' | 'trio' | 'run' | 'seven' | null;
+
+function meldKind(cards: number[], jokerMode: string, randomJoker: number | null): MeldKind {
+  if (cards.length < 3) return null;
+  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker)) return 'seven';
+  if (validateMeld(cards, jokerMode, randomJoker) !== 'valid') return null;
+  const isJoker = (c: number) =>
+    CARD_BASE(c) >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker));
+  const real = cards.filter(c => !isJoker(c));
+  const sameRank = real.length > 0 && real.every(c => CARD_BASE(c) % 13 === CARD_BASE(real[0]) % 13);
+  if (sameRank && cards.length <= 4) return cards.length === 4 ? 'carre' : 'trio';
+  return 'run';
+}
+
+const MELD_LABEL: Record<Exclude<MeldKind, null>, string> = {
+  carre: "Carré",
+  trio: "Trio",
+  run: "Escalier",
+  seven: "7 Cartes (Miverim-bola)",
+};
+
+/**
+ * "7 Cartes - Miverim-bola" : carré (4 identiques) + brelan (3 identiques),
+ * ou suite de 4 de la même couleur + brelan.
+ */
+function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null): boolean {
+  if (cards.length !== 7) return false;
+  const baseValid = (sub: number[]): boolean => {
+    if (sub.length < 3) return false;
+    const isJoker = (c: number) => c >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && c === randomJoker);
+    const jokerCount = sub.filter(isJoker).length;
+    const real = sub.filter(c => !isJoker(c));
+    if (real.length < 2) return false;
+    // set
+    const rank = real[0] % 13;
+    const suits = real.map(c => Math.floor(c / 13));
+    if (sub.length <= 4 && real.every(c => c % 13 === rank) && new Set(suits).size === suits.length) return true;
+    // run
+    const suit = Math.floor(CARD_BASE(real[0]) / 13);
+    if (!real.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
+    const ranks = real.map(c => CARD_BASE(c) % 13).sort((a, b) => a - b);
+    let gaps = 0;
+    for (let i = 1; i < ranks.length; i++) {
+      const diff = ranks[i] - ranks[i - 1];
+      if (diff === 0) return false;
+      gaps += diff - 1;
+    }
+    return gaps <= jokerCount;
+  };
+  for (let i = 0; i < 4; i++)
+    for (let j = i + 1; j < 5; j++)
+      for (let k = j + 1; k < 6; k++)
+        for (let l = k + 1; l < 7; l++) {
+          const four = [cards[i], cards[j], cards[k], cards[l]];
+          const three = cards.filter((_, idx) => idx !== i && idx !== j && idx !== k && idx !== l);
+          if (baseValid(four) && baseValid(three)) return true;
+        }
+  return false;
 }
 
 // Find all valid melds (3–7 cards) in a hand
@@ -781,6 +853,7 @@ function RamiPage() {
   const [game, setGame] = useState<any>(null);
   const [parts, setParts] = useState<any[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
+  const [sevenFx, setSevenFx] = useState<string | null>(null);
   const [staged, setStaged] = useState<number[][]>([]);
   const [sortMode, setSortMode] = useState<'none' | 'suit' | 'rank'>('none');
   // Custom hand order for drag-reorder
@@ -866,7 +939,13 @@ function RamiPage() {
         newMeldIdxs.push(i);
         const m = currentMelds[i];
         const p = parts.find(pp => pp.user_id === m.player);
-        if (p?.is_bot) {
+        if (m.type === "seven") {
+          const who = p?.display_name || "Un joueur";
+          setSevenFx(who);
+          setTimeout(() => setSevenFx(null), 3500);
+          toast.success(`🎊 ${who} : 7 Cartes — Miverim-bola !`, { duration: 3500 });
+        }
+        if (p?.is_bot && m.type !== "seven") {
           const kind = m.type === "run" ? "suite" : m.type === "set" ? "brelan/carré" : "combinaison";
           toast.info(`🤖 ${p.display_name || "Bot"} a posé une ${kind} (${m.cards.length} cartes)`, { duration: 2500 });
         }
@@ -894,20 +973,8 @@ function RamiPage() {
     }
   }, [game?.state?.melds, game?.state?.discards, game?.state?.last_discard_by, parts]);
 
-  // Intro animation (deal cards with stagger)
-  useEffect(() => {
-    if (game?.status !== "playing" || !game?.started_at) return;
-    const elapsed = serverNow() - new Date(game.started_at).getTime();
-    if (elapsed > 9000) return;
-    const firstSlot = game?.state?.first_player;
-    const firstPart = parts.find((p: any) => p.slot === firstSlot);
-    setIntro({ phase: "shuffle" });
-    setDealAnimating(true);
-    const t1 = setTimeout(() => setIntro({ phase: "joker" }), 3000);
-    const t2 = setTimeout(() => setIntro({ phase: "first", pickName: firstPart?.display_name || `Joueur ${(firstSlot ?? 0) + 1}` }), 5500);
-    const t3 = setTimeout(() => { setIntro(null); setDealAnimating(false); }, 9000);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [game?.status, game?.started_at, game?.state?.first_player, parts]);
+  // Animation d'intro supprimée : la partie démarre directement.
+
 
   const me = parts.find(p => p.user_id === profile?.id);
   const isPlayer = !!me;
@@ -927,6 +994,7 @@ function RamiPage() {
   const deckCount: number = (game?.state?.deck || []).length;
   const melds: { player: string; cards: number[]; type?: string }[] = game?.state?.melds || [];
   const jokerMode: string = game?.joker_mode || "classique";
+  const gameMode: "bordel" | "naturel" = (game?.game_mode as any) || "bordel";
   const randomJoker: number | null = game?.random_joker ?? null;
   const refunded: Record<string, boolean> = game?.state?.refunded || {};
   const myRefunded = !!(profile?.id && refunded[profile.id]);
@@ -953,16 +1021,16 @@ function RamiPage() {
     const cards = [...handCards];
     if (sortMode === 'suit') {
       cards.sort((a, b) => {
-        const sA = a >= 52 ? 4 : Math.floor(a / 13);
-        const sB = b >= 52 ? 4 : Math.floor(b / 13);
-        return sA !== sB ? sA - sB : (a % 13) - (b % 13);
+        const sA = CARD_BASE(a) >= 52 ? 4 : Math.floor(CARD_BASE(a) / 13);
+        const sB = CARD_BASE(b) >= 52 ? 4 : Math.floor(CARD_BASE(b) / 13);
+        return sA !== sB ? sA - sB : (CARD_BASE(a) % 13) - (CARD_BASE(b) % 13);
       });
     } else if (sortMode === 'rank') {
       cards.sort((a, b) => {
-        if (a >= 52) return 1;
-        if (b >= 52) return -1;
-        const rA = a % 13, rB = b % 13;
-        return rA !== rB ? rA - rB : Math.floor(a / 13) - Math.floor(b / 13);
+        if (CARD_BASE(a) >= 52) return 1;
+        if (CARD_BASE(b) >= 52) return -1;
+        const rA = CARD_BASE(a) % 13, rB = CARD_BASE(b) % 13;
+        return rA !== rB ? rA - rB : Math.floor(CARD_BASE(a) / 13) - Math.floor(CARD_BASE(b) / 13);
       });
     }
     return cards;
@@ -991,8 +1059,10 @@ function RamiPage() {
   }, [phase, selected.length, newCard]);
 
   const selectionValidity = useMemo(() => validateMeld(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  const selectionKind = useMemo(() => meldKind(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
   const selectionFeedback = useMemo(() => getSelectionFeedback(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
   const stagedValidity = useMemo(() => staged.map(g => validateMeld(g, jokerMode, randomJoker)), [staged, jokerMode, randomJoker]);
+  const isSeven = useMemo(() => isSevenCombo(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
 
   // Compute which melds can accept the selected cards (for layoff highlighting)
   const layoffCandidates = useMemo(() => {
@@ -1024,6 +1094,69 @@ function RamiPage() {
   const toggleSel = (c: number) => {
     setSelected(s => s.includes(c) ? s.filter(x => x !== c) : [...s, c]);
   };
+
+  // Pose directe de la sélection scannée (trio / carré / escalier / 7 cartes)
+  const postSelection = async () => {
+    const kind = meldKind(selected, jokerMode, randomJoker);
+    if (!kind) return toast.error("Sélection invalide");
+    const cards = [...selected];
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("rami_meld" as any, { _game_id: id, _cards: cards });
+      if (error) throw error;
+      setSelected([]);
+      if (kind === 'seven') {
+        setSevenFx(MELD_LABEL.seven);
+        setTimeout(() => setSevenFx(null), 3500);
+        toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
+      } else {
+        toast.success(`✓ ${MELD_LABEL[kind]} validé`);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Combinaison invalide");
+    } finally { setBusy(false); }
+  };
+
+  // ── 7 cartes : le joueur clique lui-même ses combinaisons posées ───────
+  const [pickedMelds, setPickedMelds] = useState<number[]>([]);
+  const [showDiscardHistory, setShowDiscardHistory] = useState(false);
+  const usedExtraTime = !!(profile?.id && (game?.state?.extra_time || {})[profile.id]);
+
+  const toggleMeldPick = (i: number) =>
+    setPickedMelds(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i]);
+
+  const alreadySeven = useMemo(
+    () => melds.some(m => m.player === profile?.id && (m as { seven?: boolean }).seven === true),
+    [melds, profile?.id],
+  );
+
+  const canClaimSeven = useMemo(() => {
+    if (!profile?.id || alreadySeven || pickedMelds.length < 2) return false;
+    const picked = pickedMelds.map(i => melds[i]).filter(Boolean);
+    if (picked.some(m => m.player !== profile.id)) return false;
+    const combo = picked.flatMap(m => m.cards);
+    return combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker);
+  }, [melds, pickedMelds, profile?.id, alreadySeven, jokerMode, randomJoker]);
+
+  const claimSeven = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("rami_claim_seven" as any, { _game_id: id } as any);
+      if (error) throw error;
+      if (data) {
+        setPickedMelds([]);
+        setSevenFx(MELD_LABEL.seven);
+        setTimeout(() => setSevenFx(null), 3500);
+        toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
+      } else {
+        toast.error("Pas de 7 cartes valide sur tes combinaisons");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Action impossible");
+    } finally { setBusy(false); }
+  };
+
+
 
   const addToStaged = () => {
     if (selected.length < 3) return toast.error("Sélectionne au moins 3 cartes pour former une combinaison");
@@ -1140,9 +1273,30 @@ function RamiPage() {
     setShowOptimal(false);
   };
 
+  const hasPosedMeld = useMemo(
+    () => !!profile?.id && melds.some(m => m.player === profile.id),
+    [melds, profile?.id],
+  );
+
   const layoff = (meldIdx: number) => {
     if (selected.length < 1) return toast.error("Sélectionne au moins 1 carte");
+    if (gameMode === "naturel" && !hasPosedMeld)
+      return toast.info("Mode Naturel : pose d'abord ta propre combinaison (brelan ou suite de 3+)");
     call("rami_layoff", { _game_id: id, _meld_index: meldIdx, _cards: selected });
+  };
+
+  // Casser une de ses propres combinaisons : les cartes reviennent en main
+  const unmeld = async (meldIdx: number) => {
+    if (!isMyTurn || phase !== "play") return toast.info("Tu ne peux modifier tes combinaisons que pendant ton tour");
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("rami_unmeld" as any, { _game_id: id, _meld_index: meldIdx });
+      if (error) throw error;
+      setSelected([]);
+      toast.success("Combinaison reprise en main");
+    } catch (e: any) {
+      toast.error(e.message || "Impossible de casser cette combinaison");
+    } finally { setBusy(false); }
   };
 
   const confirm = useConfirm();
@@ -1318,8 +1472,11 @@ function RamiPage() {
     );
   }
 
-  const drawablePile = discards[lastDiscardBy] || [];
+  const drawablePile = (discards[lastDiscardBy] || []).length > 0
+    ? discards[lastDiscardBy]
+    : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) || []);
   const topDiscard = drawablePile.length > 0 ? drawablePile[drawablePile.length - 1] : undefined;
+
 
   // Build discard entries: one per participant + seed (if still present)
   const _discardColors = ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
@@ -1340,7 +1497,15 @@ function RamiPage() {
   });
 
   return (
-    <main className="max-w-3xl mx-auto px-3 py-2 space-y-2 pb-3" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.06) 0%, transparent 60%)" }}>
+    <main
+      className="max-w-3xl mx-auto px-3 py-2 space-y-2 pb-3 rounded-xl"
+      style={{
+        backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.35)), url(${FELT_URL})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        boxShadow: "inset 0 0 60px rgba(0,0,0,0.45), 0 0 0 6px #0f3d20, 0 8px 24px rgba(0,0,0,0.4)",
+      }}
+    >
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       {cardFx && (
         <FlyingCard card={cardFx.card} from={cardFx.from} to={cardFx.to} />
@@ -1366,293 +1531,306 @@ function RamiPage() {
         <RamiLeaderboard entries={lbEntries} meUserId={profile?.id} onReset={resetLb} />
       )}
 
-      {/* Turn banner */}
+      {/* ── PLATEAU FEUTRE (style classique) ── */}
       {game?.status === "playing" && (() => {
-        const currentPart = parts.find(p => p.slot === game.current_turn);
-        const currentName = currentPart?.user_id === profile?.id ? "À toi de jouer !" : `Au tour de ${currentPart?.display_name || "…"}`;
+        const sorted = parts.slice().sort((a, b) => a.slot - b.slot);
+        const meIdx = sorted.findIndex(p => p.user_id === profile?.id);
+        const others = meIdx >= 0
+          ? [...sorted.slice(meIdx + 1), ...sorted.slice(0, meIdx)]
+          : sorted;
+        const seatFor = (i: number): "left" | "top" | "right" => {
+          if (others.length === 1) return "top";
+          if (others.length === 2) return i === 0 ? "left" : "right";
+          return (["left", "top", "right"] as const)[i] ?? "top";
+        };
+        const keyOf = (p: typeof sorted[number]) => (p.user_id as string) || `bot:${p.slot}`;
+        const handLenOf = (uid: string) =>
+          Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
+
+        const NamePlate = ({ name, count, turn, vertical }: { name: string; count: number; turn: boolean; vertical?: boolean }) => (
+          <div
+            className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap border shadow-sm ${
+              turn ? "bg-yellow-300 text-black border-yellow-600" : "bg-white/95 text-emerald-950 border-emerald-700"
+            }`}
+            style={vertical ? { writingMode: "vertical-rl", transform: "rotate(180deg)" } : undefined}
+          >
+            {name} ({count})
+          </div>
+        );
+
+        const BackFan = ({ n, vertical }: { n: number; vertical?: boolean }) => (
+          <div className={`flex ${vertical ? "flex-col" : "flex-row"}`}>
+            {Array.from({ length: Math.max(1, Math.min(n, 7)) }).map((_, k) => (
+              <div
+                key={k}
+                className="rounded-[2px] overflow-hidden shrink-0 shadow-sm"
+                style={{
+                  width: vertical ? 20 : 9,
+                  height: vertical ? 9 : 20,
+                  marginLeft: !vertical && k > 0 ? -1 : 0,
+                  marginTop: vertical && k > 0 ? -1 : 0,
+                  backgroundImage: `url(${CARD_BACK_URL})`,
+                  backgroundSize: "cover",
+                  border: "1px solid rgba(0,0,0,0.35)",
+                }}
+              />
+            ))}
+          </div>
+        );
+
+        // Seules MES combinaisons sont visibles ; celles des adversaires restent
+        // cachées, sauf un "7 cartes" validé publiquement.
+        const nameOfKey = (k: string) => {
+          const p = sorted.find(x => ((x.user_id as string) || `bot:${x.slot}`) === k);
+          return (p?.display_name || "Joueur").slice(0, 10);
+        };
+        const isSeven = (m: { type?: string; seven?: boolean }) =>
+          m.type === "seven" || m.seven === true;
+        const myMelds = melds
+          .map((m, i) => ({ m, i }))
+          .filter(x => !!profile?.id && x.m.player === profile.id);
+        const publicSevenMelds = melds
+          .map((m, i) => ({ m, i }))
+          .filter(x => (!profile?.id || x.m.player !== profile.id) && isSeven(x.m as any))
+          .map(x => ({ ...x, name: nameOfKey(x.m.player) }));
+
+
+        const MeldRow = ({ m, i, mine }: { m: { player: string; cards: number[]; type?: string }; i: number; mine: boolean }) => {
+          const kind = (m.type as Exclude<MeldKind, null>) || meldKind(m.cards, jokerMode, randomJoker);
+          const isSevenMeld = kind === "seven" || (m as { seven?: boolean }).seven === true;
+          const revealed = mine || isSevenMeld;
+          const canLayoff = layoffCandidates.has(i);
+          const canBreak = mine && !!isMyTurn && phase === "play" && selected.length === 0 && !busy;
+          const picked = pickedMelds.includes(i);
+          return (
+            <button
+              key={`meld-${i}`}
+              onClick={() => {
+                if (canLayoff) layoff(i);
+                else if (mine && !alreadySeven && !canBreak) toggleMeldPick(i);
+                else if (canBreak) { if (picked || pickedMelds.length > 0) toggleMeldPick(i); else unmeld(i); }
+              }}
+              onDoubleClick={() => { if (canBreak) unmeld(i); }}
+              disabled={!canLayoff && !mine}
+              className={`relative flex rounded-md p-0.5 transition-all ${
+                picked
+                  ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
+                  : isSevenMeld
+                    ? "ring-2 ring-amber-400 shadow-[0_0_14px_-4px_rgba(251,191,36,0.9)]"
+                    : canLayoff
+                      ? "ring-2 ring-emerald-400"
+                      : ""
+
+              }`}
+            >
+              {m.cards.map((c, ci) => (
+                <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -16 : 0 }} className="shadow-[2px_0_3px_rgba(0,0,0,0.35)]">
+                  <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 26, height: 38 }} />
+                </div>
+              ))}
+            </button>
+          );
+        };
+
         return (
-          <div className={`rounded-2xl px-3 py-2 flex items-center gap-3 border transition-all ${
-            isMyTurn
-              ? "bg-gradient-to-r from-emerald-500/15 via-emerald-400/10 to-transparent border-emerald-500/40 shadow-md shadow-emerald-500/20 animate-pulse"
-              : "bg-white/5 border-white/10"
-          }`}>
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold shrink-0 ${
-              isMyTurn ? "bg-emerald-500/25 text-emerald-300 ring-2 ring-emerald-400/60" : "bg-white/10 text-foreground ring-1 ring-white/20"
-            }`}>
-              {(currentPart?.display_name || "?").slice(0, 2).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className={`text-xs font-black tracking-wide truncate ${isMyTurn ? "text-emerald-300" : "text-foreground/90"}`}>
-                {currentName}
+          <div
+            className="relative w-full rounded-[22px] overflow-hidden"
+            style={{
+              height: "46vh",
+              minHeight: 300,
+              backgroundImage: `url(${FELT_URL})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              boxShadow: "inset 0 0 70px rgba(0,0,0,0.5), 0 10px 26px rgba(0,0,0,0.35)",
+              border: "5px solid #0b3a1f",
+            }}
+          >
+            {/* Adversaires sur les bords */}
+            {others.map((p, i) => {
+              const seat = seatFor(i);
+              const turn = game.current_turn === p.slot;
+              const n = handLenOf(keyOf(p));
+              const name = (p.display_name || "Joueur").slice(0, 10);
+              if (seat === "top") {
+                return (
+                  <div key={keyOf(p)} className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5">
+                    <BackFan n={n} />
+                    <NamePlate name={name} count={n} turn={turn} />
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={keyOf(p)}
+                  className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-0.5 ${seat === "left" ? "left-1" : "right-1 flex-row-reverse"}`}
+                >
+                  <BackFan n={n} vertical />
+                  <NamePlate name={name} count={n} turn={turn} vertical />
+                </div>
+              );
+            })}
+
+            {/* Pioche / Défausse — CENTRE du plateau */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="flex items-end gap-3 pointer-events-auto">
+                <div className="flex flex-col items-center gap-0.5">
+                  <button
+                    ref={deckRef}
+                    disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
+                    onClick={drawDeck}
+                    className={`relative rounded-md disabled:opacity-60 active:scale-95 transition-all ${
+                      isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
+                    }`}
+                  >
+                    <Card faceDown styleOverride={{ width: 38, height: 55 }} />
+                  </button>
+                  <span className="text-[8px] font-mono font-bold text-white/90">Pioche · {deckCount}</span>
+                </div>
+
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="flex items-end gap-1">
+                    <button
+                      disabled={!(isMyTurn && phase === "draw" && !busy && topDiscard !== undefined)}
+                      onClick={drawDiscard}
+                      className={`relative rounded-md active:scale-95 transition-all ${
+                        isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg" : ""
+                      } ${flashDiscards.includes(lastDiscardBy) ? "ring-2 ring-amber-400" : ""}`}
+                    >
+                      <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
+                        {topDiscard !== undefined
+                          ? <Card c={topDiscard} styleOverride={{ width: 38, height: 55 }} />
+                          : <div className="rounded-md border border-dashed border-white/40" style={{ width: 38, height: 55 }} />}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setShowDiscardHistory(true)}
+                      className="w-5 h-5 rounded-full bg-black/60 text-white text-[10px] font-bold flex items-center justify-center border border-white/30"
+                      title="Historique de la défausse"
+                    >
+                      ⋯
+                    </button>
+                  </div>
+                  <span className="text-[8px] font-mono font-bold text-white/90">Défausse</span>
+                </div>
+
+                {randomJoker !== null && (
+                  <div className="flex flex-col items-center gap-0.5">
+                    <Card c={randomJoker} styleOverride={{ width: 38, height: 55 }} />
+                    <span className="text-[8px] font-mono font-bold text-amber-300">Joker</span>
+                  </div>
+                )}
               </div>
-              <div className="text-[10px] text-muted-foreground">
-                Phase : <span className="font-bold uppercase">{phase === "draw" ? "Pioche" : "Jeu"}</span>
+            </div>
+
+            {/* 7 cartes révélés publiquement (adversaires) — en haut */}
+            {publicSevenMelds.length > 0 && (
+              <div className="absolute top-9 inset-x-2 flex flex-wrap justify-center gap-1.5">
+                {publicSevenMelds.map(({ m, i, name }) => (
+                  <div key={`pub-${i}`} className="flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-amber-300">🎊 {name}</span>
+                    <MeldRow m={m} i={i} mine={false} />
+                  </div>
+                ))}
               </div>
+            )}
+
+            {/* Mes combinaisons — sans cadre, au-dessus de ma plaque */}
+            <div className="absolute bottom-8 inset-x-2 overflow-x-auto">
+              {myMelds.length === 0 ? (
+                <div className="text-center text-white/35 text-[9px]">Aucune combinaison posée</div>
+              ) : (
+                <div className="flex items-end justify-center gap-2 min-w-max px-1">
+                  {myMelds.map(({ m, i }) => <MeldRow key={i} m={m} i={i} mine />)}
+                </div>
+              )}
             </div>
-            <div className={`px-3 py-1.5 rounded-xl font-mono font-black text-base tabular-nums ${
-              isUrgent ? "bg-destructive text-destructive-foreground timer-urgent" : isMyTurn ? "bg-emerald-500 text-white" : "bg-white/10 text-foreground"
-            }`}>
-              {remaining}s
-            </div>
+
+
+            {/* Ma plaque nom en bas */}
+            {me && (
+              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                <NamePlate
+                  name={(profile?.pseudo as string) || "Moi"}
+                  count={handCards.length}
+                  turn={!!isMyTurn}
+                />
+                {isMyTurn && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold ${isUrgent ? "bg-destructive text-white" : "bg-black/70 text-white"}`}>
+                    {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
+                    {usedExtraTime ? " · dernière chance" : ""}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         );
       })()}
 
-      {/* Compact players strip: turn indicator + remaining cards per player */}
-      {game?.status === "playing" && parts.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-
-          {parts.slice().sort((a, b) => a.slot - b.slot).map((p) => {
-            const isTurn = game.current_turn === p.slot;
-            const isMe = p.user_id === profile?.id;
-            const handLen = Array.isArray(game?.state?.hands?.[p.user_id]) ? game.state.hands[p.user_id].length : 0;
-            const initials = (p.display_name || "?").slice(0, 2).toUpperCase();
-            const playerMelds = melds.filter(m => m.player === p.user_id);
-            const meldsCount = playerMelds.length;
-            const meldedCards = playerMelds.reduce((s, m) => s + m.cards.length, 0);
-            const hasPosed = meldsCount > 0;
-            return (
-              <div
-                key={p.user_id}
-                className={`shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full border bg-white/5 transition-all ${
-                  isTurn
-                    ? "border-primary/60 ring-1 ring-primary/40 shadow-sm shadow-primary/20"
-                    : "border-white/10"
-                }`}
-              >
-                <div className={`relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold bg-white/10 text-foreground ${isTurn ? "ring-1 ring-primary/60" : ""}`}>
-                  {initials}
-                  {isTurn && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-background animate-pulse" />
-                  )}
-                </div>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] font-semibold truncate max-w-[70px]">
-                    {isMe ? "Moi" : (p.display_name || "Joueur")}
-                  </span>
-                  <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                    <Layers className="w-2.5 h-2.5" />
-                    <span className="font-mono font-bold">{handLen}</span>
-                    {isTurn && (
-                      <span className={`ml-1 font-mono font-bold ${isUrgent ? "text-destructive" : "text-primary"}`}>
-                        {remaining}s
-                      </span>
-                    )}
-                  </span>
-                </div>
-                {/* Meld status: minimal dot */}
-                <span
-                  title={hasPosed ? `${meldsCount} combinaison${meldsCount > 1 ? "s" : ""} · ${meldedCards} cartes` : "Pas encore posé"}
-                  className={`ml-0.5 w-1.5 h-1.5 rounded-full ${hasPosed ? "bg-emerald-400" : "bg-amber-400/60"}`}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Table: deck + per-seat discard piles */}
-      <div className="game-table-light" style={{ height: "46vh" }}>
+      {/* Historique de la défausse */}
+      {showDiscardHistory && (
         <div
-          className="relative w-full h-full rounded-3xl overflow-hidden p-3 sm:p-4"
-          style={{
-            background: "#123a86",
-            boxShadow: "inset 0 0 60px rgba(0,0,0,0.25), 0 12px 30px rgba(0,0,0,0.35)",
-          }}
+          className="fixed inset-0 z-[200] bg-black/70 flex items-end sm:items-center justify-center p-3"
+          onClick={() => setShowDiscardHistory(false)}
         >
-
-          {(() => {
-            // Split entries: seed (center), me (bottom-left), opponents (top row)
-            const seedEntry = discardEntries.find(e => e.key === "_seed");
-            const meEntry = discardEntries.find(e => e.isMe);
-            // Rotate opponents so seat order starts at my LEFT (next slot after me)
-            const rawOpps = discardEntries.filter(e => !e.isMe && e.key !== "_seed");
-            const meIdx = discardEntries.findIndex(e => e.isMe);
-            const nonSeed = discardEntries.filter(e => e.key !== "_seed");
-            const meNonSeedIdx = Math.max(0, nonSeed.findIndex(e => e.isMe));
-            const oppEntries = meIdx < 0
-              ? rawOpps
-              : nonSeed.slice(meNonSeedIdx + 1).concat(nonSeed.slice(0, meNonSeedIdx)).filter(e => !e.isMe);
-
-            // Anchor positions per opponent count (relative to me at bottom)
-            const oppAnchors: Array<React.CSSProperties> =
-              oppEntries.length <= 1
-                ? [{ top: "6%", right: "8%" }]
-                : oppEntries.length === 2
-                ? [
-                    { top: "6%", left: "8%" },
-                    { top: "6%", right: "8%" },
-                  ]
-                : [
-                    // 3 opponents (4-player game): left, top, right
-                    { top: "50%", left: "4%", transform: "translateY(-50%)" },
-                    { top: "6%", left: "50%", transform: "translateX(-50%)" },
-                    { top: "50%", right: "4%", transform: "translateY(-50%)" },
-                  ];
-
-
-
-            const renderPile = (e: typeof discardEntries[number]) => {
-              const top = e.pile.length > 0 ? e.pile[e.pile.length - 1] : undefined;
-              const drawable = isMyTurn && phase === "draw" && !busy && e.key === lastDiscardBy && top !== undefined;
-              const isFlash = flashDiscards.includes(e.key);
-              const initials = (e.label || "?").replace(/\s+/g, "").slice(0, 2).toUpperCase();
-              return (
-                <button
-                  disabled={!drawable}
-                  onClick={drawDiscard}
-                  className={`flex flex-col items-center gap-1 disabled:opacity-80 transition-all active:scale-95 ${drawable ? "hover:-translate-y-1.5" : ""} ${isFlash ? "-translate-y-1" : ""}`}
-                  title={`Défausse — ${e.label}`}
-                >
-                  {/* Title */}
-                  <div className="text-[8px] text-white/50 font-semibold uppercase tracking-widest leading-none">
-                    Défausse
+          <div
+            className="w-full max-w-md rounded-2xl bg-card text-card-foreground p-3 max-h-[70vh] overflow-y-auto space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm">Historique de la défausse</h3>
+              <button onClick={() => setShowDiscardHistory(false)} className="text-xs font-bold px-2 py-1 rounded-lg bg-muted">
+                Fermer
+              </button>
+            </div>
+            {discardEntries.every(e => e.pile.length === 0) ? (
+              <p className="text-xs text-muted-foreground">Aucune carte défaussée pour le moment.</p>
+            ) : (
+              discardEntries.filter(e => e.pile.length > 0).map(entry => (
+                <div key={entry.key} className="space-y-1">
+                  <div className="text-[11px] font-bold" style={{ color: entry.color }}>
+                    {entry.label} · {entry.pile.length} carte{entry.pile.length > 1 ? "s" : ""}
                   </div>
-                  <div ref={(el) => { discardRefs.current[e.key] = el; }} className={`relative rounded-md transition-all ${isFlash ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-black/50 shadow-lg shadow-amber-500/40 animate-scale-in" : drawable ? "ring-2 ring-emerald-400 ring-offset-1 ring-offset-black/50 animate-pulse" : ""}`} style={{ boxShadow: `0 0 0 2px ${e.color}55` }}>
-                    {top !== undefined
-                      ? <Card c={top} size="sm" />
-                      : <div className="w-11 h-16 rounded-md border-2 border-dashed flex items-center justify-center text-white/30 text-lg" style={{ borderColor: `${e.color}66` }}>⊘</div>}
-                    {/* Owner badge (initials) — top-left of the card */}
-                    <span
-                      className="absolute -top-2 -left-2 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[9px] font-extrabold text-white shadow ring-1 ring-black/40"
-                      style={{ background: e.color }}
-                    >
-                      {e.isMe ? "moi" : initials}
-                    </span>
-                    {e.pile.length > 1 && (
-                      <span className="absolute -top-1 -right-1 text-[9px] font-mono font-bold bg-black/70 text-white rounded-full px-1 leading-tight">
-                        {e.pile.length}
-                      </span>
-                    )}
-                    {isFlash && (
-                      <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-bold bg-amber-500 text-black rounded-full px-1.5 py-0.5 shadow animate-pulse whitespace-nowrap">🤖 défausse</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 max-w-[72px] px-1.5 py-0.5 rounded-full bg-black/50 border border-white/10">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: e.color }} />
-                    <span className="text-[9px] text-white/90 font-semibold truncate uppercase tracking-wide">{e.label}</span>
-                  </div>
-                </button>
-              );
-
-            };
-
-            return (
-              <div className="relative w-full h-full" style={{ minHeight: "calc(46vh - 32px)" }}>
-                {/* Opponents' discards — anchored to seat position */}
-                {oppEntries.map((e, i) => (
-                  <div key={e.key} className="absolute z-30" style={oppAnchors[i]}>
-                    {renderPile(e)}
-                  </div>
-                ))}
-
-                {/* Deck — centre du plateau (couche basse pour ne jamais recouvrir les défausses) */}
-                <div className="absolute z-10" style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="relative">
-                      <button
-                        ref={deckRef}
-                        disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
-                        onClick={drawDeck}
-                        className="relative z-10 disabled:opacity-40 transition-all hover:-translate-y-2 hover:shadow-2xl active:scale-95"
-                      >
-                        <Card faceDown size="sm" />
-                      </button>
-                    </div>
-                    <div className="px-2 py-0.5 rounded-full bg-white/10 text-white text-[10px] font-mono font-bold">
-                      {deckCount} sisa
-                    </div>
-                    {randomJoker !== null && (
-                      <div className="mt-1" title="Faux Joker">
-                        <Card c={randomJoker} size="sm" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* My discard — bottom-left */}
-                {meEntry && (
-                  <div className="absolute z-30" style={{ bottom: "8%", left: "6%" }}>
-                    {renderPile(meEntry)}
-                  </div>
-                )}
-
-              </div>
-            );
-          })()}
-        </div>
-      </div>
-
-
-
-      {/* Refund button */}
-      {Number(game.stake) > 0 && !myRefunded && (
-        <button
-          onClick={async () => {
-            setBusy(true);
-            const { error } = await supabase.rpc("rami_request_refund" as any, { _game_id: id } as any);
-            setBusy(false);
-            if (error) toast.error(error.message);
-            else toast.success("Mise remboursée — tu peux continuer la partie");
-          }}
-          disabled={busy}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500/8 text-amber-600 dark:text-amber-300 font-semibold text-sm border border-amber-500/15 hover:bg-amber-500/12 active:scale-[0.98] transition-all disabled:opacity-50">
-          <span>💰</span>
-          <span>Demander retour de mise</span>
-          <span className="text-[10px] opacity-60 font-normal">(Carré + Escalier ≥3 ou Trio + Escalier ≥4)</span>
-        </button>
-      )}
-
-      {/* Intro animation overlay */}
-      {intro && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "radial-gradient(ellipse at center, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.98) 100%)", backdropFilter: "blur(12px)" }}>
-          <div className="text-center text-white space-y-6 max-w-sm w-full">
-            {intro.phase === "shuffle" && (
-              <>
-                <div className="text-6xl mb-2" style={{ animation: "dealCard 0.5s ease-out" }}>🎴</div>
-                <div className="text-2xl font-extrabold tracking-tight">Mélange des cartes…</div>
-                <div className="text-sm text-white/50">Préparation de la partie</div>
-                <div className="flex justify-center gap-2 mt-4">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i}
-                      className="w-10 h-14 rounded-lg shadow-xl"
-                      style={{ background: "linear-gradient(135deg,#1d4ed8,#7c3aed)", border:"1px solid rgba(255,255,255,0.2)", animation: `dealCard 0.4s ease-out ${i * 100}ms both` }} />
-                  ))}
-                </div>
-              </>
-            )}
-            {intro.phase === "joker" && (
-              <>
-                <div className="text-3xl font-extrabold">{randomJoker !== null ? "🃏 Tirage du Joker" : "🃏 Distribution"}</div>
-                {randomJoker !== null ? (
-                  <div className="flex justify-center" style={{ animation: "dealCard 0.5s ease-out" }}>
-                    <Card c={randomJoker} size="lg" />
-                  </div>
-                ) : (
-                  <div className="flex justify-center gap-1.5">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <Card key={i} faceDown size="sm" dealDelay={i * 70} />
+                  <div className="flex flex-wrap gap-1">
+                    {entry.pile.map((c, ci) => (
+                      <Card key={`h-${entry.key}-${ci}`} c={c} styleOverride={{ width: 28, height: 40 }} />
                     ))}
                   </div>
-                )}
-                <div className="text-sm text-white/60 font-medium">13 cartes par joueur</div>
-              </>
-            )}
-            {intro.phase === "first" && (
-              <>
-                <div className="text-5xl mb-2">🎲</div>
-                <div className="text-base text-white/50 uppercase tracking-widest font-semibold">Premier joueur</div>
-                <div className="text-3xl font-extrabold">{intro.pickName}</div>
-                <div className="mt-4 inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary text-sm font-bold">
-                  🃏 Commence la partie !
                 </div>
-              </>
+              ))
             )}
           </div>
         </div>
       )}
 
-      {/* Melds on table — masqué à la demande */}
+
+      {/* 7 cartes : sélectionner ses combinaisons posées puis réclamer */}
+      {!!me && !alreadySeven && pickedMelds.length > 0 && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={claimSeven}
+            disabled={busy || !canClaimSeven}
+            className={`flex-1 rounded-xl px-3 py-2 font-black text-xs text-white shadow-lg active:scale-95 ${
+              canClaimSeven
+                ? "bg-gradient-to-r from-amber-500 to-fuchsia-600 animate-pulse"
+                : "bg-white/15 text-white/60"
+            }`}
+          >
+            {canClaimSeven
+              ? "🎊 Valider mes 7 cartes — mise remboursée"
+              : `Sélection : ${pickedMelds.reduce((s, i) => s + (melds[i]?.cards.length || 0), 0)}/7 cartes`}
+          </button>
+          <button
+            onClick={() => setPickedMelds([])}
+            className="px-2.5 py-2 rounded-xl bg-black/40 text-white text-[11px] font-bold"
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+
+
+
+
 
       {/* ── MY HAND ── */}
       {me && (
@@ -1688,7 +1866,7 @@ function RamiPage() {
                 const perRow = Math.ceil(n / 2);
                 const rows = [orderedHandCards.slice(0, perRow), orderedHandCards.slice(perRow)];
                 const avail = (typeof window !== "undefined" ? Math.min(window.innerWidth, 480) : 360) - 24;
-                const cw = Math.max(56, Math.min(84, Math.floor((avail - (perRow - 1) * 6) / Math.max(perRow, 1))));
+                const cw = Math.max(38, Math.min(56, Math.floor((avail - (perRow - 1) * 6) / Math.max(perRow, 1))));
                 const ch = Math.round(cw * 1.42);
                 let globalIdx = 0;
                 return rows.map((row, ri) => (
@@ -1783,6 +1961,48 @@ function RamiPage() {
                 </div>
               )}
 
+              {/* Bouton flottant : apparaît dès 3+ cartes sélectionnées */}
+              {selected.length >= 3 && (
+                <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 pointer-events-none">
+                  <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/70 backdrop-blur-md p-1.5 shadow-2xl border border-white/10 animate-scale-in">
+                    <button
+                      onClick={() => postSelection()}
+                      disabled={busy}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full font-black text-sm active:scale-95 transition-all ${
+                        selectionKind === "seven"
+                          ? "bg-gradient-to-r from-amber-500 to-fuchsia-600 text-white"
+                          : selectionKind
+                            ? "bg-emerald-600 text-white"
+                            : "bg-white/15 text-white/70"
+                      }`}
+                    >
+                      <Check className="w-4 h-4" />
+                      {selectionKind === "seven"
+                        ? "7 cartes validé"
+                        : selectionKind
+                          ? `Valider le ${MELD_LABEL[selectionKind]}`
+                          : `Valider (${selected.length})`}
+                    </button>
+                    <button
+                      onClick={() => setSelected([])}
+                      className="w-9 h-9 rounded-full bg-white/10 text-white/80 flex items-center justify-center active:scale-95"
+                      aria-label="Annuler la sélection"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+
+              {sevenFx && (
+                <div className="fixed inset-x-0 top-20 z-50 flex justify-center pointer-events-none">
+                  <div className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-fuchsia-600 text-white font-black text-sm shadow-xl animate-[bounce_1s_ease-in-out_2]">
+                    🎊 7 Cartes — Miverim-bola ! <span className="font-semibold opacity-90">({sevenFx})</span>
+                  </div>
+                </div>
+              )}
+
               {/* Selected cards preview + feedback */}
               {selected.length > 0 && (
                 <div className={`rounded-2xl border p-3 space-y-2.5 transition-all ${
@@ -1808,13 +2028,35 @@ function RamiPage() {
                       </div>
                     )}
                   </div>
+                  {isSeven && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-fuchsia-500/20 border border-amber-400/40 animate-pulse">
+                      <span className="text-lg">🎊</span>
+                      <span className="text-[11px] font-black tracking-wide text-amber-300">7 Cartes — Miverim-bola</span>
+                    </div>
+                  )}
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {selected.map((c, i) => <Card key={`sel-${c}-${i}`} c={c} size="md" />)}
                   </div>
                   <div className="flex gap-2 flex-wrap">
+                    {selected.length >= 3 && (
+                      <button onClick={() => postSelection()} disabled={busy}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-black text-sm shadow-md active:scale-95 transition-all animate-scale-in ${
+                          selectionKind === 'seven'
+                            ? "bg-gradient-to-r from-amber-500 to-fuchsia-600 text-white shadow-amber-600/30"
+                            : "bg-emerald-600 text-white shadow-emerald-600/30 hover:bg-emerald-500"
+                        }`}>
+                        <Check className="w-4 h-4" />
+                        {selectionKind === 'seven'
+                          ? "7 cartes validé"
+                          : selectionKind
+                            ? `Valider le ${MELD_LABEL[selectionKind]}`
+                            : "Valider la combinaison"}
+                      </button>
+                    )}
+
                     <button onClick={addToStaged} disabled={busy || selected.length < 3}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm disabled:opacity-40 shadow-md shadow-emerald-600/25 hover:bg-emerald-500 active:scale-95 transition-all">
-                      <Plus className="w-4 h-4" /> Ajouter au plateau
+                      className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/8 text-foreground font-semibold text-sm disabled:opacity-40 hover:bg-white/12 active:scale-95 transition-all">
+                      <Plus className="w-4 h-4" /> Préparer
                     </button>
                     <button onClick={discardOne} disabled={busy || selected.length !== 1}
                       className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-destructive text-white font-bold text-sm disabled:opacity-40 shadow-md shadow-destructive/25 hover:bg-destructive/90 active:scale-95 transition-all">

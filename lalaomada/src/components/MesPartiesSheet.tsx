@@ -18,7 +18,7 @@ type MyGame = {
 };
 
 const ROUTE: Record<string, string> = {
-  ludo:     "/ludo/$id",
+  ludo:     "/game/$id",
   chess:    "/chess/$id",
   domino:   "/domino/$id",
   fanorona: "/fanorona/$id",

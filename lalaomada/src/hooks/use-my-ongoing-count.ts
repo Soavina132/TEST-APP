@@ -23,11 +23,21 @@ export function useMyOngoingCount(): number {
     };
     load();
 
-    // Polling only (20s) — no realtime channel
+    const tables = [
+      "ludo_games", "domino_games", "fanorona_games",
+      "chess_games", "rami_games", "poker_games",
+    ];
+    const ch = supabase.channel(`my-ongoing-${user.id}`);
+    tables.forEach(t => {
+      ch.on("postgres_changes" as any, { event: "*", schema: "public", table: t }, load);
+    });
+    ch.subscribe();
+
     const timer = setInterval(load, 20000);
 
     return () => {
       cancelled = true;
+      supabase.removeChannel(ch);
       clearInterval(timer);
     };
   }, [user?.id]);

@@ -1113,7 +1113,7 @@ function GamesList() {
                   {g.status === "open" && g.ludo_participants.length < g.max_players && (
                     <button onClick={() => addBot(g.id)} className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-sm font-semibold">+ Bot</button>
                   )}
-                  <a href={`/ludo/${g.id}`} className="px-3 py-1.5 rounded-full bg-secondary text-sm font-semibold text-center">👁 Entrer</a>
+                  <a href={`/game/${g.id}`} className="px-3 py-1.5 rounded-full bg-secondary text-sm font-semibold text-center">👁 Entrer</a>
                 </div>
               </div>
             </div>

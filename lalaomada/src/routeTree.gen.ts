@@ -9,47 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as JeuxPublicsRouteImport } from './routes/jeux-publics'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AuthenticatedAccueilRouteImport } from './routes/_authenticated/accueil'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedAdminBugReportsRouteImport } from './routes/_authenticated/admin-bug-reports'
-import { Route as AuthenticatedAdminExtraRouteImport } from './routes/_authenticated/admin-extra'
-import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
-import { Route as AuthenticatedFaqRouteImport } from './routes/_authenticated/faq'
-import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
-import { Route as AuthenticatedJeuxRouteImport } from './routes/_authenticated/jeux'
-import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
-import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
-import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
-import { Route as AuthenticatedTutosRouteImport } from './routes/_authenticated/tutos'
-import { Route as ApiAiChatRouteImport } from './routes/api/ai-chat'
-import { Route as ApiLinkPreviewRouteImport } from './routes/api/link-preview'
+import { Route as JeuxPublicsRouteImport } from './routes/jeux-publics'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTranslateRouteImport } from './routes/api/translate'
-import { Route as AuthenticatedChessIdRouteImport } from './routes/_authenticated/chess.$id'
-import { Route as AuthenticatedDiscussionSlugRouteImport } from './routes/_authenticated/discussion.$slug'
-import { Route as AuthenticatedDominoIdRouteImport } from './routes/_authenticated/domino.$id'
-import { Route as AuthenticatedFanoronaIdRouteImport } from './routes/_authenticated/fanorona.$id'
+import { Route as ApiLinkPreviewRouteImport } from './routes/api/link-preview'
+import { Route as ApiAiChatRouteImport } from './routes/api/ai-chat'
+import { Route as AuthenticatedTutosRouteImport } from './routes/_authenticated/tutos'
+import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
+import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
+import { Route as AuthenticatedLobbyRouteImport } from './routes/_authenticated/lobby'
+import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
+import { Route as AuthenticatedJeuxRouteImport } from './routes/_authenticated/jeux'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedFaqRouteImport } from './routes/_authenticated/faq'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
+import { Route as AuthenticatedAdminExtraRouteImport } from './routes/_authenticated/admin-extra'
+import { Route as AuthenticatedAdminBugReportsRouteImport } from './routes/_authenticated/admin-bug-reports'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedJeuxIndexRouteImport } from './routes/_authenticated/jeux.index'
-import { Route as AuthenticatedJeuxSlugRouteImport } from './routes/_authenticated/jeux.$slug'
-import { Route as AuthenticatedJoueurIdRouteImport } from './routes/_authenticated/joueur.$id'
-import { Route as AuthenticatedLudoIdRouteImport } from './routes/_authenticated/ludo.$id'
-import { Route as AuthenticatedPetanqueIdRouteImport } from './routes/_authenticated/petanque.$id'
-import { Route as AuthenticatedPokerIdRouteImport } from './routes/_authenticated/poker.$id'
-import { Route as AuthenticatedRamiIdRouteImport } from './routes/_authenticated/rami.$id'
 import { Route as AuthenticatedTournamentsIdRouteImport } from './routes/_authenticated/tournaments_.$id'
+import { Route as AuthenticatedRamiIdRouteImport } from './routes/_authenticated/rami.$id'
+import { Route as AuthenticatedPokerIdRouteImport } from './routes/_authenticated/poker.$id'
+import { Route as AuthenticatedPetanqueIdRouteImport } from './routes/_authenticated/petanque.$id'
+import { Route as AuthenticatedJoueurIdRouteImport } from './routes/_authenticated/joueur.$id'
+import { Route as AuthenticatedJeuxSlugRouteImport } from './routes/_authenticated/jeux.$slug'
+import { Route as AuthenticatedGameIdRouteImport } from './routes/_authenticated/game.$id'
+import { Route as AuthenticatedFanoronaIdRouteImport } from './routes/_authenticated/fanorona.$id'
+import { Route as AuthenticatedDominoIdRouteImport } from './routes/_authenticated/domino.$id'
+import { Route as AuthenticatedDiscussionSlugRouteImport } from './routes/_authenticated/discussion.$slug'
+import { Route as AuthenticatedChessIdRouteImport } from './routes/_authenticated/chess.$id'
+import { Route as AuthenticatedJeuxNouveauSlugRouteImport } from './routes/_authenticated/jeux.nouveau.$slug'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JeuxPublicsRoute = JeuxPublicsRouteImport.update({
@@ -57,70 +54,33 @@ const JeuxPublicsRoute = JeuxPublicsRouteImport.update({
   path: '/jeux-publics',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAccueilRoute = AuthenticatedAccueilRouteImport.update({
-  id: '/accueil',
-  path: '/accueil',
-  getParentRoute: () => AuthenticatedRoute,
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRoute,
+const ApiTranslateRoute = ApiTranslateRouteImport.update({
+  id: '/api/translate',
+  path: '/api/translate',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminBugReportsRoute =
-  AuthenticatedAdminBugReportsRouteImport.update({
-    id: '/admin-bug-reports',
-    path: '/admin-bug-reports',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminExtraRoute = AuthenticatedAdminExtraRouteImport.update({
-  id: '/admin-extra',
-  path: '/admin-extra',
-  getParentRoute: () => AuthenticatedRoute,
+const ApiLinkPreviewRoute = ApiLinkPreviewRouteImport.update({
+  id: '/api/link-preview',
+  path: '/api/link-preview',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => AuthenticatedRoute,
+const ApiAiChatRoute = ApiAiChatRouteImport.update({
+  id: '/api/ai-chat',
+  path: '/api/ai-chat',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedFaqRoute = AuthenticatedFaqRouteImport.update({
-  id: '/faq',
-  path: '/faq',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedJeuxRoute = AuthenticatedJeuxRouteImport.update({
-  id: '/jeux',
-  path: '/jeux',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
-  id: '/live',
-  path: '/live',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedParrainageRoute = AuthenticatedParrainageRouteImport.update({
-  id: '/parrainage',
-  path: '/parrainage',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
-  id: '/rankings',
-  path: '/rankings',
+const AuthenticatedTutosRoute = AuthenticatedTutosRouteImport.update({
+  id: '/tutos',
+  path: '/tutos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTournamentsRoute =
@@ -129,29 +89,116 @@ const AuthenticatedTournamentsRoute =
     path: '/tournaments',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedTutosRoute = AuthenticatedTutosRouteImport.update({
-  id: '/tutos',
-  path: '/tutos',
+const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
+  id: '/rankings',
+  path: '/rankings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const ApiAiChatRoute = ApiAiChatRouteImport.update({
-  id: '/api/ai-chat',
-  path: '/api/ai-chat',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const ApiLinkPreviewRoute = ApiLinkPreviewRouteImport.update({
-  id: '/api/link-preview',
-  path: '/api/link-preview',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedParrainageRoute = AuthenticatedParrainageRouteImport.update({
+  id: '/parrainage',
+  path: '/parrainage',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const ApiTranslateRoute = ApiTranslateRouteImport.update({
-  id: '/api/translate',
-  path: '/api/translate',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedLobbyRoute = AuthenticatedLobbyRouteImport.update({
+  id: '/lobby',
+  path: '/lobby',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedChessIdRoute = AuthenticatedChessIdRouteImport.update({
-  id: '/chess/$id',
-  path: '/chess/$id',
+const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedJeuxRoute = AuthenticatedJeuxRouteImport.update({
+  id: '/jeux',
+  path: '/jeux',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedFaqRoute = AuthenticatedFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminExtraRoute = AuthenticatedAdminExtraRouteImport.update({
+  id: '/admin-extra',
+  path: '/admin-extra',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminBugReportsRoute =
+  AuthenticatedAdminBugReportsRouteImport.update({
+    id: '/admin-bug-reports',
+    path: '/admin-bug-reports',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedJeuxIndexRoute = AuthenticatedJeuxIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedJeuxRoute,
+} as any)
+const AuthenticatedTournamentsIdRoute =
+  AuthenticatedTournamentsIdRouteImport.update({
+    id: '/tournaments_/$id',
+    path: '/tournaments/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRamiIdRoute = AuthenticatedRamiIdRouteImport.update({
+  id: '/rami/$id',
+  path: '/rami/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPokerIdRoute = AuthenticatedPokerIdRouteImport.update({
+  id: '/poker/$id',
+  path: '/poker/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPetanqueIdRoute = AuthenticatedPetanqueIdRouteImport.update({
+  id: '/petanque/$id',
+  path: '/petanque/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedJoueurIdRoute = AuthenticatedJoueurIdRouteImport.update({
+  id: '/joueur/$id',
+  path: '/joueur/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedJeuxSlugRoute = AuthenticatedJeuxSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => AuthenticatedJeuxRoute,
+} as any)
+const AuthenticatedGameIdRoute = AuthenticatedGameIdRouteImport.update({
+  id: '/game/$id',
+  path: '/game/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedFanoronaIdRoute = AuthenticatedFanoronaIdRouteImport.update({
+  id: '/fanorona/$id',
+  path: '/fanorona/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDominoIdRoute = AuthenticatedDominoIdRouteImport.update({
+  id: '/domino/$id',
+  path: '/domino/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDiscussionSlugRoute =
@@ -160,63 +207,22 @@ const AuthenticatedDiscussionSlugRoute =
     path: '/discussion/$slug',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedDominoIdRoute = AuthenticatedDominoIdRouteImport.update({
-  id: '/domino/$id',
-  path: '/domino/$id',
+const AuthenticatedChessIdRoute = AuthenticatedChessIdRouteImport.update({
+  id: '/chess/$id',
+  path: '/chess/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedFanoronaIdRoute = AuthenticatedFanoronaIdRouteImport.update({
-  id: '/fanorona/$id',
-  path: '/fanorona/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedJeuxIndexRoute = AuthenticatedJeuxIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedJeuxRoute,
-} as any)
-const AuthenticatedJeuxSlugRoute = AuthenticatedJeuxSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => AuthenticatedJeuxRoute,
-} as any)
-const AuthenticatedJoueurIdRoute = AuthenticatedJoueurIdRouteImport.update({
-  id: '/joueur/$id',
-  path: '/joueur/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedLudoIdRoute = AuthenticatedLudoIdRouteImport.update({
-  id: '/ludo/$id',
-  path: '/ludo/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedPetanqueIdRoute = AuthenticatedPetanqueIdRouteImport.update({
-  id: '/petanque/$id',
-  path: '/petanque/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedPokerIdRoute = AuthenticatedPokerIdRouteImport.update({
-  id: '/poker/$id',
-  path: '/poker/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedRamiIdRoute = AuthenticatedRamiIdRouteImport.update({
-  id: '/rami/$id',
-  path: '/rami/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedTournamentsIdRoute =
-  AuthenticatedTournamentsIdRouteImport.update({
-    id: '/tournaments_/$id',
-    path: '/tournaments/$id',
-    getParentRoute: () => AuthenticatedRoute,
+const AuthenticatedJeuxNouveauSlugRoute =
+  AuthenticatedJeuxNouveauSlugRouteImport.update({
+    id: '/nouveau/$slug',
+    path: '/nouveau/$slug',
+    getParentRoute: () => AuthenticatedJeuxRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
-  '/accueil': typeof AuthenticatedAccueilRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
   '/admin-extra': typeof AuthenticatedAdminExtraRoute
@@ -225,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof AuthenticatedHistoryRoute
   '/jeux': typeof AuthenticatedJeuxRouteWithChildren
   '/live': typeof AuthenticatedLiveRoute
+  '/lobby': typeof AuthenticatedLobbyRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
@@ -237,20 +244,20 @@ export interface FileRoutesByFullPath {
   '/discussion/$slug': typeof AuthenticatedDiscussionSlugRoute
   '/domino/$id': typeof AuthenticatedDominoIdRoute
   '/fanorona/$id': typeof AuthenticatedFanoronaIdRoute
+  '/game/$id': typeof AuthenticatedGameIdRoute
   '/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/joueur/$id': typeof AuthenticatedJoueurIdRoute
-  '/ludo/$id': typeof AuthenticatedLudoIdRoute
   '/petanque/$id': typeof AuthenticatedPetanqueIdRoute
   '/poker/$id': typeof AuthenticatedPokerIdRoute
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux/': typeof AuthenticatedJeuxIndexRoute
+  '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
-  '/accueil': typeof AuthenticatedAccueilRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
   '/admin-extra': typeof AuthenticatedAdminExtraRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/faq': typeof AuthenticatedFaqRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/live': typeof AuthenticatedLiveRoute
+  '/lobby': typeof AuthenticatedLobbyRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
@@ -270,14 +278,15 @@ export interface FileRoutesByTo {
   '/discussion/$slug': typeof AuthenticatedDiscussionSlugRoute
   '/domino/$id': typeof AuthenticatedDominoIdRoute
   '/fanorona/$id': typeof AuthenticatedFanoronaIdRoute
+  '/game/$id': typeof AuthenticatedGameIdRoute
   '/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/joueur/$id': typeof AuthenticatedJoueurIdRoute
-  '/ludo/$id': typeof AuthenticatedLudoIdRoute
   '/petanque/$id': typeof AuthenticatedPetanqueIdRoute
   '/poker/$id': typeof AuthenticatedPokerIdRoute
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux': typeof AuthenticatedJeuxIndexRoute
+  '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -285,7 +294,6 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
-  '/_authenticated/accueil': typeof AuthenticatedAccueilRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
   '/_authenticated/admin-extra': typeof AuthenticatedAdminExtraRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/jeux': typeof AuthenticatedJeuxRouteWithChildren
   '/_authenticated/live': typeof AuthenticatedLiveRoute
+  '/_authenticated/lobby': typeof AuthenticatedLobbyRoute
   '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
@@ -306,14 +315,15 @@ export interface FileRoutesById {
   '/_authenticated/discussion/$slug': typeof AuthenticatedDiscussionSlugRoute
   '/_authenticated/domino/$id': typeof AuthenticatedDominoIdRoute
   '/_authenticated/fanorona/$id': typeof AuthenticatedFanoronaIdRoute
+  '/_authenticated/game/$id': typeof AuthenticatedGameIdRoute
   '/_authenticated/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/_authenticated/joueur/$id': typeof AuthenticatedJoueurIdRoute
-  '/_authenticated/ludo/$id': typeof AuthenticatedLudoIdRoute
   '/_authenticated/petanque/$id': typeof AuthenticatedPetanqueIdRoute
   '/_authenticated/poker/$id': typeof AuthenticatedPokerIdRoute
   '/_authenticated/rami/$id': typeof AuthenticatedRamiIdRoute
   '/_authenticated/tournaments_/$id': typeof AuthenticatedTournamentsIdRoute
   '/_authenticated/jeux/': typeof AuthenticatedJeuxIndexRoute
+  '/_authenticated/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -321,7 +331,6 @@ export interface FileRouteTypes {
     | '/'
     | '/jeux-publics'
     | '/login'
-    | '/accueil'
     | '/admin'
     | '/admin-bug-reports'
     | '/admin-extra'
@@ -330,6 +339,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/jeux'
     | '/live'
+    | '/lobby'
     | '/parrainage'
     | '/profile'
     | '/rankings'
@@ -342,20 +352,20 @@ export interface FileRouteTypes {
     | '/discussion/$slug'
     | '/domino/$id'
     | '/fanorona/$id'
+    | '/game/$id'
     | '/jeux/$slug'
     | '/joueur/$id'
-    | '/ludo/$id'
     | '/petanque/$id'
     | '/poker/$id'
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux/'
+    | '/jeux/nouveau/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/jeux-publics'
     | '/login'
-    | '/accueil'
     | '/admin'
     | '/admin-bug-reports'
     | '/admin-extra'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/history'
     | '/live'
+    | '/lobby'
     | '/parrainage'
     | '/profile'
     | '/rankings'
@@ -375,21 +386,21 @@ export interface FileRouteTypes {
     | '/discussion/$slug'
     | '/domino/$id'
     | '/fanorona/$id'
+    | '/game/$id'
     | '/jeux/$slug'
     | '/joueur/$id'
-    | '/ludo/$id'
     | '/petanque/$id'
     | '/poker/$id'
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux'
+    | '/jeux/nouveau/$slug'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/jeux-publics'
     | '/login'
-    | '/_authenticated/accueil'
     | '/_authenticated/admin'
     | '/_authenticated/admin-bug-reports'
     | '/_authenticated/admin-extra'
@@ -398,6 +409,7 @@ export interface FileRouteTypes {
     | '/_authenticated/history'
     | '/_authenticated/jeux'
     | '/_authenticated/live'
+    | '/_authenticated/lobby'
     | '/_authenticated/parrainage'
     | '/_authenticated/profile'
     | '/_authenticated/rankings'
@@ -410,14 +422,15 @@ export interface FileRouteTypes {
     | '/_authenticated/discussion/$slug'
     | '/_authenticated/domino/$id'
     | '/_authenticated/fanorona/$id'
+    | '/_authenticated/game/$id'
     | '/_authenticated/jeux/$slug'
     | '/_authenticated/joueur/$id'
-    | '/_authenticated/ludo/$id'
     | '/_authenticated/petanque/$id'
     | '/_authenticated/poker/$id'
     | '/_authenticated/rami/$id'
     | '/_authenticated/tournaments_/$id'
     | '/_authenticated/jeux/'
+    | '/_authenticated/jeux/nouveau/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -432,18 +445,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jeux-publics': {
@@ -453,123 +459,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JeuxPublicsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/accueil': {
-      id: '/_authenticated/accueil'
-      path: '/accueil'
-      fullPath: '/accueil'
-      preLoaderRoute: typeof AuthenticatedAccueilRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin-bug-reports': {
-      id: '/_authenticated/admin-bug-reports'
-      path: '/admin-bug-reports'
-      fullPath: '/admin-bug-reports'
-      preLoaderRoute: typeof AuthenticatedAdminBugReportsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin-extra': {
-      id: '/_authenticated/admin-extra'
-      path: '/admin-extra'
-      fullPath: '/admin-extra'
-      preLoaderRoute: typeof AuthenticatedAdminExtraRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/chat': {
-      id: '/_authenticated/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof AuthenticatedChatRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/faq': {
-      id: '/_authenticated/faq'
-      path: '/faq'
-      fullPath: '/faq'
-      preLoaderRoute: typeof AuthenticatedFaqRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/history': {
-      id: '/_authenticated/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/jeux': {
-      id: '/_authenticated/jeux'
-      path: '/jeux'
-      fullPath: '/jeux'
-      preLoaderRoute: typeof AuthenticatedJeuxRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/live': {
-      id: '/_authenticated/live'
-      path: '/live'
-      fullPath: '/live'
-      preLoaderRoute: typeof AuthenticatedLiveRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/parrainage': {
-      id: '/_authenticated/parrainage'
-      path: '/parrainage'
-      fullPath: '/parrainage'
-      preLoaderRoute: typeof AuthenticatedParrainageRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/rankings': {
-      id: '/_authenticated/rankings'
-      path: '/rankings'
-      fullPath: '/rankings'
-      preLoaderRoute: typeof AuthenticatedRankingsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tournaments': {
-      id: '/_authenticated/tournaments'
-      path: '/tournaments'
-      fullPath: '/tournaments'
-      preLoaderRoute: typeof AuthenticatedTournamentsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tutos': {
-      id: '/_authenticated/tutos'
-      path: '/tutos'
-      fullPath: '/tutos'
-      preLoaderRoute: typeof AuthenticatedTutosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/api/ai-chat': {
-      id: '/api/ai-chat'
-      path: '/api/ai-chat'
-      fullPath: '/api/ai-chat'
-      preLoaderRoute: typeof ApiAiChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/link-preview': {
-      id: '/api/link-preview'
-      path: '/api/link-preview'
-      fullPath: '/api/link-preview'
-      preLoaderRoute: typeof ApiLinkPreviewRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/translate': {
@@ -579,32 +480,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTranslateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/chess/$id': {
-      id: '/_authenticated/chess/$id'
-      path: '/chess/$id'
-      fullPath: '/chess/$id'
-      preLoaderRoute: typeof AuthenticatedChessIdRouteImport
+    '/api/link-preview': {
+      id: '/api/link-preview'
+      path: '/api/link-preview'
+      fullPath: '/api/link-preview'
+      preLoaderRoute: typeof ApiLinkPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai-chat': {
+      id: '/api/ai-chat'
+      path: '/api/ai-chat'
+      fullPath: '/api/ai-chat'
+      preLoaderRoute: typeof ApiAiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/tutos': {
+      id: '/_authenticated/tutos'
+      path: '/tutos'
+      fullPath: '/tutos'
+      preLoaderRoute: typeof AuthenticatedTutosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/discussion/$slug': {
-      id: '/_authenticated/discussion/$slug'
-      path: '/discussion/$slug'
-      fullPath: '/discussion/$slug'
-      preLoaderRoute: typeof AuthenticatedDiscussionSlugRouteImport
+    '/_authenticated/tournaments': {
+      id: '/_authenticated/tournaments'
+      path: '/tournaments'
+      fullPath: '/tournaments'
+      preLoaderRoute: typeof AuthenticatedTournamentsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/domino/$id': {
-      id: '/_authenticated/domino/$id'
-      path: '/domino/$id'
-      fullPath: '/domino/$id'
-      preLoaderRoute: typeof AuthenticatedDominoIdRouteImport
+    '/_authenticated/rankings': {
+      id: '/_authenticated/rankings'
+      path: '/rankings'
+      fullPath: '/rankings'
+      preLoaderRoute: typeof AuthenticatedRankingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/fanorona/$id': {
-      id: '/_authenticated/fanorona/$id'
-      path: '/fanorona/$id'
-      fullPath: '/fanorona/$id'
-      preLoaderRoute: typeof AuthenticatedFanoronaIdRouteImport
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/parrainage': {
+      id: '/_authenticated/parrainage'
+      path: '/parrainage'
+      fullPath: '/parrainage'
+      preLoaderRoute: typeof AuthenticatedParrainageRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/lobby': {
+      id: '/_authenticated/lobby'
+      path: '/lobby'
+      fullPath: '/lobby'
+      preLoaderRoute: typeof AuthenticatedLobbyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/live': {
+      id: '/_authenticated/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof AuthenticatedLiveRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/jeux': {
+      id: '/_authenticated/jeux'
+      path: '/jeux'
+      fullPath: '/jeux'
+      preLoaderRoute: typeof AuthenticatedJeuxRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/faq': {
+      id: '/_authenticated/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof AuthenticatedFaqRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin-extra': {
+      id: '/_authenticated/admin-extra'
+      path: '/admin-extra'
+      fullPath: '/admin-extra'
+      preLoaderRoute: typeof AuthenticatedAdminExtraRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin-bug-reports': {
+      id: '/_authenticated/admin-bug-reports'
+      path: '/admin-bug-reports'
+      fullPath: '/admin-bug-reports'
+      preLoaderRoute: typeof AuthenticatedAdminBugReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/jeux/': {
@@ -614,39 +599,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJeuxIndexRouteImport
       parentRoute: typeof AuthenticatedJeuxRoute
     }
-    '/_authenticated/jeux/$slug': {
-      id: '/_authenticated/jeux/$slug'
-      path: '/$slug'
-      fullPath: '/jeux/$slug'
-      preLoaderRoute: typeof AuthenticatedJeuxSlugRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
-    '/_authenticated/joueur/$id': {
-      id: '/_authenticated/joueur/$id'
-      path: '/joueur/$id'
-      fullPath: '/joueur/$id'
-      preLoaderRoute: typeof AuthenticatedJoueurIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/ludo/$id': {
-      id: '/_authenticated/ludo/$id'
-      path: '/ludo/$id'
-      fullPath: '/ludo/$id'
-      preLoaderRoute: typeof AuthenticatedLudoIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/petanque/$id': {
-      id: '/_authenticated/petanque/$id'
-      path: '/petanque/$id'
-      fullPath: '/petanque/$id'
-      preLoaderRoute: typeof AuthenticatedPetanqueIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/poker/$id': {
-      id: '/_authenticated/poker/$id'
-      path: '/poker/$id'
-      fullPath: '/poker/$id'
-      preLoaderRoute: typeof AuthenticatedPokerIdRouteImport
+    '/_authenticated/tournaments_/$id': {
+      id: '/_authenticated/tournaments_/$id'
+      path: '/tournaments/$id'
+      fullPath: '/tournaments/$id'
+      preLoaderRoute: typeof AuthenticatedTournamentsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/rami/$id': {
@@ -656,12 +613,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRamiIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/tournaments_/$id': {
-      id: '/_authenticated/tournaments_/$id'
-      path: '/tournaments/$id'
-      fullPath: '/tournaments/$id'
-      preLoaderRoute: typeof AuthenticatedTournamentsIdRouteImport
+    '/_authenticated/poker/$id': {
+      id: '/_authenticated/poker/$id'
+      path: '/poker/$id'
+      fullPath: '/poker/$id'
+      preLoaderRoute: typeof AuthenticatedPokerIdRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/petanque/$id': {
+      id: '/_authenticated/petanque/$id'
+      path: '/petanque/$id'
+      fullPath: '/petanque/$id'
+      preLoaderRoute: typeof AuthenticatedPetanqueIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/joueur/$id': {
+      id: '/_authenticated/joueur/$id'
+      path: '/joueur/$id'
+      fullPath: '/joueur/$id'
+      preLoaderRoute: typeof AuthenticatedJoueurIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/jeux/$slug': {
+      id: '/_authenticated/jeux/$slug'
+      path: '/$slug'
+      fullPath: '/jeux/$slug'
+      preLoaderRoute: typeof AuthenticatedJeuxSlugRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
+    '/_authenticated/game/$id': {
+      id: '/_authenticated/game/$id'
+      path: '/game/$id'
+      fullPath: '/game/$id'
+      preLoaderRoute: typeof AuthenticatedGameIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/fanorona/$id': {
+      id: '/_authenticated/fanorona/$id'
+      path: '/fanorona/$id'
+      fullPath: '/fanorona/$id'
+      preLoaderRoute: typeof AuthenticatedFanoronaIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/domino/$id': {
+      id: '/_authenticated/domino/$id'
+      path: '/domino/$id'
+      fullPath: '/domino/$id'
+      preLoaderRoute: typeof AuthenticatedDominoIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/discussion/$slug': {
+      id: '/_authenticated/discussion/$slug'
+      path: '/discussion/$slug'
+      fullPath: '/discussion/$slug'
+      preLoaderRoute: typeof AuthenticatedDiscussionSlugRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/chess/$id': {
+      id: '/_authenticated/chess/$id'
+      path: '/chess/$id'
+      fullPath: '/chess/$id'
+      preLoaderRoute: typeof AuthenticatedChessIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/jeux/nouveau/$slug': {
+      id: '/_authenticated/jeux/nouveau/$slug'
+      path: '/nouveau/$slug'
+      fullPath: '/jeux/nouveau/$slug'
+      preLoaderRoute: typeof AuthenticatedJeuxNouveauSlugRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
     }
   }
 }
@@ -669,18 +689,19 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedJeuxRouteChildren {
   AuthenticatedJeuxSlugRoute: typeof AuthenticatedJeuxSlugRoute
   AuthenticatedJeuxIndexRoute: typeof AuthenticatedJeuxIndexRoute
+  AuthenticatedJeuxNouveauSlugRoute: typeof AuthenticatedJeuxNouveauSlugRoute
 }
 
 const AuthenticatedJeuxRouteChildren: AuthenticatedJeuxRouteChildren = {
   AuthenticatedJeuxSlugRoute: AuthenticatedJeuxSlugRoute,
   AuthenticatedJeuxIndexRoute: AuthenticatedJeuxIndexRoute,
+  AuthenticatedJeuxNouveauSlugRoute: AuthenticatedJeuxNouveauSlugRoute,
 }
 
 const AuthenticatedJeuxRouteWithChildren =
   AuthenticatedJeuxRoute._addFileChildren(AuthenticatedJeuxRouteChildren)
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAccueilRoute: typeof AuthenticatedAccueilRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAdminBugReportsRoute: typeof AuthenticatedAdminBugReportsRoute
   AuthenticatedAdminExtraRoute: typeof AuthenticatedAdminExtraRoute
@@ -689,6 +710,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedJeuxRoute: typeof AuthenticatedJeuxRouteWithChildren
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
+  AuthenticatedLobbyRoute: typeof AuthenticatedLobbyRoute
   AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
@@ -698,8 +720,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDiscussionSlugRoute: typeof AuthenticatedDiscussionSlugRoute
   AuthenticatedDominoIdRoute: typeof AuthenticatedDominoIdRoute
   AuthenticatedFanoronaIdRoute: typeof AuthenticatedFanoronaIdRoute
+  AuthenticatedGameIdRoute: typeof AuthenticatedGameIdRoute
   AuthenticatedJoueurIdRoute: typeof AuthenticatedJoueurIdRoute
-  AuthenticatedLudoIdRoute: typeof AuthenticatedLudoIdRoute
   AuthenticatedPetanqueIdRoute: typeof AuthenticatedPetanqueIdRoute
   AuthenticatedPokerIdRoute: typeof AuthenticatedPokerIdRoute
   AuthenticatedRamiIdRoute: typeof AuthenticatedRamiIdRoute
@@ -707,7 +729,6 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAccueilRoute: AuthenticatedAccueilRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAdminBugReportsRoute: AuthenticatedAdminBugReportsRoute,
   AuthenticatedAdminExtraRoute: AuthenticatedAdminExtraRoute,
@@ -716,6 +737,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedJeuxRoute: AuthenticatedJeuxRouteWithChildren,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
+  AuthenticatedLobbyRoute: AuthenticatedLobbyRoute,
   AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
@@ -725,8 +747,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDiscussionSlugRoute: AuthenticatedDiscussionSlugRoute,
   AuthenticatedDominoIdRoute: AuthenticatedDominoIdRoute,
   AuthenticatedFanoronaIdRoute: AuthenticatedFanoronaIdRoute,
+  AuthenticatedGameIdRoute: AuthenticatedGameIdRoute,
   AuthenticatedJoueurIdRoute: AuthenticatedJoueurIdRoute,
-  AuthenticatedLudoIdRoute: AuthenticatedLudoIdRoute,
   AuthenticatedPetanqueIdRoute: AuthenticatedPetanqueIdRoute,
   AuthenticatedPokerIdRoute: AuthenticatedPokerIdRoute,
   AuthenticatedRamiIdRoute: AuthenticatedRamiIdRoute,

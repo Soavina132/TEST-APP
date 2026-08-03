@@ -103,7 +103,7 @@ const HOST_COL: Record<Slug, string> = {
   chess: "host_id", rami: "created_by", poker: "created_by", petanque: "creator_id",
 };
 const ROUTE: Record<Slug, string> = {
-  ludo: "/ludo/$id", domino: "/domino/$id", fanorona: "/fanorona/$id",
+  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id",
   chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id", petanque: "/petanque/$id",
 };
 const JOIN_CODE_RPC: Record<Slug, string> = {
@@ -412,8 +412,8 @@ function JeuxPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => status === "active" && navigate({ to: "/jeux/$slug", params: { slug: g.slug } })}
-                  className={`relative w-full aspect-square rounded-[22%] overflow-hidden group transition-all shadow border border-white/8 bg-muted ${status === "active" ? "active:scale-[0.93] cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                  onClick={() => status === "active" && navigate({ to: "/jeux/nouveau/$slug", params: { slug: g.slug } })}
+                  className={`relative w-full aspect-square rounded-[22%] overflow-hidden group transition-all shadow border border-white/8 ${status === "active" ? "active:scale-[0.93] cursor-pointer" : "cursor-not-allowed opacity-70"}`}
                 >
                   <div className="absolute inset-0"><CoverArt /></div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />

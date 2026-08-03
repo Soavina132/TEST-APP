@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -40,18 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Track whether getSession() has resolved — we only setLoading(false)
-  // after that point to avoid a blank flash from an early onAuthStateChange
-  // event that fires before the real session is known.
-  const sessionResolved = useRef(false);
-
-  const loadProfile = async (uid: string, retries = 5): Promise<void> => {
+  const loadProfile = async (uid: string) => {
     const { data: p } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
-    if (!p && retries > 0) {
-      // Profile not created yet (trigger delay) — retry after short delay
-      await new Promise(r => setTimeout(r, 800));
-      return loadProfile(uid, retries - 1);
-    }
     setProfile(p as Profile | null);
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
     setIsAdmin(!!roles?.some((r: any) => r.role === "admin"));
@@ -59,34 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Auth session bootstrap + change listener
   useEffect(() => {
-    // 1. Subscribe to future auth changes (sign-in, sign-out, token refresh…)
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
       setSession(s);
       setUser(s?.user ?? null);
-
       if (s?.user) {
-        // Use setTimeout(0) to avoid Supabase deadlock inside the callback
-        setTimeout(() => {
-          loadProfile(s.user.id).finally(() => {
-            // Only unblock the UI once getSession() has already resolved.
-            // If it hasn't yet, getSession() will call setLoading(false) itself.
-            if (sessionResolved.current) setLoading(false);
-          });
-        }, 0);
+        setTimeout(() => { loadProfile(s.user.id); }, 0);
       } else {
-        setProfile(null);
-        setIsAdmin(false);
-        // Same guard: only release loading after getSession() resolved
-        if (sessionResolved.current) setLoading(false);
+        setProfile(null); setIsAdmin(false);
       }
     });
 
-    // 2. Authoritative initial session fetch — this MUST be the source of truth
-    //    for the very first render. Once it resolves we mark sessionResolved so
-    //    the onAuthStateChange listener above can also call setLoading(false)
-    //    for future events (sign-out, token refresh, etc.).
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      sessionResolved.current = true;
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
@@ -97,9 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => { sub.subscription.unsubscribe(); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Realtime balance/profile sync
+  // Realtime balance/profile sync — re-subscribed whenever the user changes,
+  // plus a transactions INSERT safety net so any credit/debit flushes the profile
+  // even if a profiles UPDATE event is missed.
   useEffect(() => {
     if (!user?.id) return;
     const uid = user.id;
@@ -119,7 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
 
   const refreshProfile = async () => { if (user) await loadProfile(user.id); };
   const signOut = async () => { await supabase.auth.signOut(); };

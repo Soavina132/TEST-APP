@@ -2456,6 +2456,7 @@ export type Database = {
           afk_pause_for: string | null
           afk_pause_name: string | null
           afk_warning: Json | null
+          big_blind: number
           commission_pct: number
           community_cards: number[]
           created_at: string
@@ -2465,14 +2466,19 @@ export type Database = {
           hand_number: number
           id: string
           is_private: boolean
+          max_buy_in: number
           max_players: number
+          min_buy_in: number
           pause_deadline: string | null
           pause_used: boolean
           paused: boolean
           paused_turn_remaining_s: number | null
           phase: string
           pot: number
+          rake_cap: number
           room_code: string | null
+          side_pots: Json
+          small_blind: number
           stake: number
           started_at: string | null
           state: Json
@@ -2487,6 +2493,7 @@ export type Database = {
           afk_pause_for?: string | null
           afk_pause_name?: string | null
           afk_warning?: Json | null
+          big_blind?: number
           commission_pct?: number
           community_cards?: number[]
           created_at?: string
@@ -2496,14 +2503,19 @@ export type Database = {
           hand_number?: number
           id?: string
           is_private?: boolean
+          max_buy_in?: number
           max_players?: number
+          min_buy_in?: number
           pause_deadline?: string | null
           pause_used?: boolean
           paused?: boolean
           paused_turn_remaining_s?: number | null
           phase?: string
           pot?: number
+          rake_cap?: number
           room_code?: string | null
+          side_pots?: Json
+          small_blind?: number
           stake?: number
           started_at?: string | null
           state?: Json
@@ -2518,6 +2530,7 @@ export type Database = {
           afk_pause_for?: string | null
           afk_pause_name?: string | null
           afk_warning?: Json | null
+          big_blind?: number
           commission_pct?: number
           community_cards?: number[]
           created_at?: string
@@ -2527,14 +2540,19 @@ export type Database = {
           hand_number?: number
           id?: string
           is_private?: boolean
+          max_buy_in?: number
           max_players?: number
+          min_buy_in?: number
           pause_deadline?: string | null
           pause_used?: boolean
           paused?: boolean
           paused_turn_remaining_s?: number | null
           phase?: string
           pot?: number
+          rake_cap?: number
           room_code?: string | null
+          side_pots?: Json
+          small_blind?: number
           stake?: number
           started_at?: string | null
           state?: Json
@@ -2949,6 +2967,7 @@ export type Database = {
           created_by: string | null
           current_turn: number
           finished_at: string | null
+          game_mode: string
           id: string
           is_private: boolean
           joker_mode: string
@@ -2979,6 +2998,7 @@ export type Database = {
           created_by?: string | null
           current_turn?: number
           finished_at?: string | null
+          game_mode?: string
           id?: string
           is_private?: boolean
           joker_mode?: string
@@ -3009,6 +3029,7 @@ export type Database = {
           created_by?: string | null
           current_turn?: number
           finished_at?: string | null
+          game_mode?: string
           id?: string
           is_private?: boolean
           joker_mode?: string
@@ -4148,10 +4169,14 @@ export type Database = {
         Returns: undefined
       }
       _poker_bot_act: { Args: { _gid: string }; Returns: boolean }
+      _poker_deal_hand: { Args: { _gid: string }; Returns: undefined }
+      _poker_end_hand: { Args: { _gid: string }; Returns: undefined }
       _poker_hand_strength: {
         Args: { community: number[]; hole: number[] }
         Returns: number
       }
+      _poker_next_street: { Args: { _gid: string }; Returns: undefined }
+      _poker_showdown: { Args: { _gid: string }; Returns: undefined }
       _rami_active_humans: { Args: { _gid: string }; Returns: number }
       _rami_all_discards: { Args: { _state: Json }; Returns: number[] }
       _rami_autoplay_bots: { Args: { _game_id: string }; Returns: undefined }
@@ -4164,6 +4189,12 @@ export type Database = {
         Args: { _c: number; _mode: string; _rj: number }
         Returns: boolean
       }
+      _rami_is_seven: {
+        Args: { _cards: number[]; _mode: string; _rj: number }
+        Returns: boolean
+      }
+      _rami_jarr: { Args: { _v: Json }; Returns: number[] }
+      _rami_jset: { Args: { _a: number[] }; Returns: Json }
       _rami_last_discarder: { Args: { _state: Json }; Returns: string }
       _rami_meld_type: {
         Args: { _cards: number[]; _mode: string; _rj: number }
@@ -5456,6 +5487,19 @@ export type Database = {
         Returns: undefined
       }
       poker_autoplay_bots: { Args: { _game_id: string }; Returns: number }
+      poker_create: {
+        Args: {
+          _big_blind?: number
+          _buy_in?: number
+          _commission?: number
+          _max?: number
+          _private?: boolean
+          _rake_cap?: number
+          _small_blind?: number
+          _stake: number
+        }
+        Returns: string
+      }
       poker_join: { Args: { _game_id: string }; Returns: string }
       poker_my_hole_cards: {
         Args: { _game_id: string }
@@ -5473,20 +5517,35 @@ export type Database = {
         Args: { _difficulty?: string; _max_players?: number }
         Returns: string
       }
-      rami_add_bot: {
-        Args: { _bot_name?: string; _game_id: string }
-        Returns: undefined
-      }
-      rami_create: {
-        Args: {
-          _commission: number
-          _joker_mode?: string
-          _max: number
-          _private: boolean
-          _stake: number
-        }
-        Returns: string
-      }
+      rami_add_bot:
+        | { Args: { _bot_name?: string; _game_id: string }; Returns: undefined }
+        | {
+            Args: { _bot_name?: string; _difficulty?: string; _game_id: string }
+            Returns: undefined
+          }
+      rami_claim_seven: { Args: { _game_id: string }; Returns: boolean }
+      rami_create:
+        | {
+            Args: {
+              _commission: number
+              _joker_mode?: string
+              _max: number
+              _private: boolean
+              _stake: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _commission: number
+              _game_mode?: string
+              _joker_mode?: string
+              _max: number
+              _private: boolean
+              _stake: number
+            }
+            Returns: string
+          }
       rami_discard: {
         Args: { _card: number; _game_id: string }
         Returns: undefined
@@ -5512,15 +5571,29 @@ export type Database = {
         Returns: undefined
       }
       rami_start: { Args: { _game_id: string }; Returns: undefined }
-      rami_start_solo_bot: {
-        Args: {
-          _difficulty?: string
-          _joker_mode?: string
-          _max_players?: number
-        }
-        Returns: string
-      }
+      rami_start_solo_bot:
+        | {
+            Args: {
+              _difficulty?: string
+              _joker_mode?: string
+              _max_players?: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _difficulty?: string
+              _game_mode?: string
+              _joker_mode?: string
+              _max_players?: number
+            }
+            Returns: string
+          }
       rami_tick: { Args: { _game_id: string }; Returns: undefined }
+      rami_unmeld: {
+        Args: { _game_id: string; _meld_index: number }
+        Returns: undefined
+      }
       rami_validate_hand: {
         Args: { _discard_card: number; _game_id: string; _layout: Json }
         Returns: Json

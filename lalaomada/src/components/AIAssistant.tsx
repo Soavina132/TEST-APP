@@ -301,9 +301,20 @@ function AssistantChatPanel({ userId, userName, onClose }: { userId: string; use
 
   useEffect(() => {
     refreshContext();
-    // Polling only (30s) — avoids 6 realtime table subscriptions that eat connections
     const interval = setInterval(refreshContext, 30_000);
-    return () => clearInterval(interval);
+    const channel = supabase
+      .channel("ai-context-watcher")
+      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games" }, refreshContext)
+      .on("postgres_changes", { event: "*", schema: "public", table: "domino_games" }, refreshContext)
+      .on("postgres_changes", { event: "*", schema: "public", table: "chess_games" }, refreshContext)
+      .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_games" }, refreshContext)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rami_games" }, refreshContext)
+      .on("postgres_changes", { event: "*", schema: "public", table: "poker_games" }, refreshContext)
+      .subscribe();
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [refreshContext]);
 
   // ── Transport ─────────────────────────────────────────────────────────────

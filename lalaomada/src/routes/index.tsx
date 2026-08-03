@@ -22,7 +22,7 @@ function IndexRedirect() {
 
   useEffect(() => {
     if (loading) return;
-    router.navigate({ to: user ? "/accueil" : "/login", replace: true });
+    router.navigate({ to: user ? "/lobby" : "/login", replace: true });
   }, [loading, user, router]);
 
   return (

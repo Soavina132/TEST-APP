@@ -134,14 +134,11 @@
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
-  --gradient-bg: linear-gradient(180deg, oklch(0.129 0.042 264.695) 0%, oklch(0.15 0.045 264) 100%);
-  --gradient-primary: linear-gradient(135deg, oklch(0.72 0.18 45), oklch(0.78 0.16 55));
 }
 
 @layer base {
   * { border-color: var(--color-border); min-width: 0; }
   html, body { background: var(--gradient-bg); color: var(--color-foreground); min-height: 100dvh; overflow-x: clip; max-width: 100vw; overscroll-behavior-x: none; }
-  html.dark, html.dark body { background: var(--gradient-bg); }
   html { height: 100%; }
   body { min-height: 100dvh; word-wrap: break-word; overflow-wrap: anywhere; }
   #root { overflow-x: clip; max-width: 100vw; }
@@ -219,73 +216,3 @@
   50%      { transform: translateY(-14%) scale(1.12); box-shadow: 0 0 0 6px rgba(255,255,255,0), 0 10px 16px rgba(0,0,0,0.55); }
 }
 .ludo-playable { animation: ludo-playable-bounce 0.85s cubic-bezier(.5,.05,.5,.95) infinite; transform-origin: 50% 60%; }
-
-/* ── Force light theme on game tables (dark mode exempt) ──────────────── */
-/* When .dark is on <html>, game tables keep their bright/light look.     */
-.game-table-light {
-  --background: oklch(0.975 0.018 70);
-  --foreground: oklch(0.22 0.04 50);
-  --card: oklch(0.99 0.012 75);
-  --card-foreground: oklch(0.22 0.04 50);
-  --popover: oklch(0.99 0.012 75);
-  --popover-foreground: oklch(0.22 0.04 50);
-  --primary: oklch(0.72 0.18 45);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.94 0.025 70);
-  --secondary-foreground: oklch(0.22 0.04 50);
-  --muted: oklch(0.94 0.025 70);
-  --muted-foreground: oklch(0.5 0.03 60);
-  --accent: oklch(0.92 0.04 70);
-  --accent-foreground: oklch(0.22 0.04 50);
-  --destructive: oklch(0.6 0.22 25);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.9 0.025 70);
-  --input: oklch(0.94 0.02 70);
-  --ring: oklch(0.72 0.18 45);
-  --gradient-bg: linear-gradient(180deg, oklch(0.97 0.025 60), oklch(0.94 0.045 75));
-  background: var(--gradient-bg);
-  color: var(--foreground);
-}
-
-/* === Ludo enhancements: sounds, confetti, reactions, 3D dice, turn indicator === */
-
-@keyframes reaction-float {
-  0%   { transform: translateY(0) scale(0.5); opacity: 0; }
-  15%  { transform: translateY(-10px) scale(1.2); opacity: 1; }
-  100% { transform: translateY(-80px) scale(1); opacity: 0; }
-}
-
-@keyframes victory-pop {
-  0%   { transform: scale(0.5); opacity: 0; }
-  50%  { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-/* 3D Dice */
-@keyframes dice-3d-roll {
-  0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
-  25%  { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg); }
-  50%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg); }
-  75%  { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg); }
-  100% { transform: rotateX(720deg) rotateY(360deg) rotateZ(180deg); }
-}
-
-.dice-3d-rolling { animation: dice-3d-roll 0.7s ease-out; }
-
-/* Enhanced turn indicator */
-@keyframes turn-glow {
-  0%, 100% { box-shadow: 0 0 8px var(--turn-color, #CC0000), 0 0 16px var(--turn-color, #CC0000)44; }
-  50%      { box-shadow: 0 0 16px var(--turn-color, #CC0000), 0 0 32px var(--turn-color, #CC0000)66; }
-}
-
-.turn-active-glow { animation: turn-glow 1.5s ease-in-out infinite; }
-
-@keyframes timer-bar-shrink {
-  from { width: 100%; }
-  to   { width: 0%; }
-}
