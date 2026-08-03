@@ -118,7 +118,7 @@ function Lobby() {
   // Ludo : déplacement automatique d'un pion jouable quand le timer expire
   // (uniquement si le dé a déjà été lancé).
   const [ludoAutoMove, setLudoAutoMove] = useState(true);
-  const [matchType, setMatchType] = useState<"bot" | "friends">("bot");
+  const [matchType, setMatchType] = useState<"bot" | "friends">("friends");
   const [drawMode, setDrawMode] = useState<"with" | "without">("with");
   const [firstTileRule, setFirstTileRule] = useState<"libre" | "under6">("libre");
   const [targetScore, setTargetScore] = useState(100);
@@ -398,10 +398,31 @@ function Lobby() {
     if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
   };
 
-  const createPrivate = withAdminRename(async () => {
+  const createPrivate = withAdminRename(async (overrideName) => {
     if (!checkGuards(stake)) return;
     setBusy(true);
-    try { await createNew(visibility === "private"); } catch (e: any) { toast.error(e.message || "Erreur"); } finally { setBusy(false); }
+    try {
+      if (matchType === "bot" && slug === "ludo") {
+        // Mode Solo Ludo avec mise : créer une partie privée avec bots
+        const { data, error } = await supabase.rpc("create_private_game" as any, {
+          _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: "solo",
+        } as any);
+        if (error) throw error;
+        const id = extractGameId(data);
+        if (!id) throw new Error("Identifiant de partie invalide");
+        if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
+        await applyLudoAutoMove(id);
+        const botsNeeded = Math.max(0, maxP - 1);
+        for (let i = 0; i < botsNeeded; i++) {
+          const { error: berr } = await supabase.rpc("player_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
+          if (berr) throw berr;
+        }
+        await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
+        refreshProfile(); goTo(id);
+      } else {
+        await createNew(visibility === "private");
+      }
+    } catch (e: any) { toast.error(e.message || "Erreur"); } finally { setBusy(false); }
   });
 
   const joinExisting = (gameId: string) => withAdminRename(async () => {
@@ -480,7 +501,7 @@ function Lobby() {
           <TabBtn label="Code" active={tab === "code"} onClick={() => setTab("code")} icon={<span className="text-sm leading-none">🔑</span>} />
           <TabBtn label="Mes" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
         </div>
-        {((tab === "public" && matchType === "friends") || tab === "private") && (
+        {((tab === "public" && (slug !== "ludo" || matchType === "friends")) || (tab === "private" && (slug !== "ludo" || matchType === "friends"))) && (
           <div className="grid grid-cols-2 gap-1.5 shrink-0" role="tablist" aria-label="Visibilité">
             <button onClick={() => setVisibility("public")} aria-pressed={visibility === "public"}
               className={`px-2 py-1.5 rounded-lg font-semibold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-[0.97] border ${
@@ -507,7 +528,9 @@ function Lobby() {
         {tab === "public" && supportsPublicJoin && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              {slug === "ludo" && (
+                <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              )}
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -575,6 +598,9 @@ function Lobby() {
         {tab === "private" && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
+              {slug === "ludo" && (
+                <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              )}
               {showMaxP && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -630,12 +656,14 @@ function Lobby() {
             <button onClick={createPrivate} disabled={busy || (slug === "domino" && mode === "points" && targetScore < 1)}
               className="w-full py-3.5 rounded-full text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/40 active:scale-[0.98] transition-transform sticky bottom-2"
               style={{ background: "var(--gradient-primary)" }}>
-              {visibility === "public"
-                ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Créer la partie"}</>)
-                : (<><Lock className="w-4 h-4" /> {busy ? "…" : "Créer la partie privée"}</>)}
+              {matchType === "bot" && slug === "ludo"
+                ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Commencer la partie"}</>)
+                : visibility === "public"
+                  ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Créer la partie"}</>)
+                  : (<><Lock className="w-4 h-4" /> {busy ? "…" : "Créer la partie privée"}</>)}
             </button>
 
-            {visibility === "private" && (
+            {visibility === "private" && (slug !== "ludo" || matchType === "friends") && (
               <div className="text-[11px] text-muted-foreground text-center">Un code à 6 caractères sera généré pour inviter tes amis.</div>
             )}
           </section>
