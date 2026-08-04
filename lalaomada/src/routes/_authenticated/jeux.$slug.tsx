@@ -98,6 +98,7 @@ function SalonJeu() {
   const [maxP, setMaxP] = useState(2);
   const [targetScore, setTargetScore] = useState(0);
   const [mode, setMode] = useState<"direct" | "points">("direct");
+  const [opponentMode, setOpponentMode] = useState<"amis" | "bot">("amis");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [openTrn, setOpenTrn] = useState<any[]>([]);
@@ -211,8 +212,17 @@ function SalonJeu() {
     try {
       let id: string | null = null;
       if (slug === "ludo") {
-        const { data, error } = await supabase.rpc("create_private_game" as any, { _max_players: maxP, _stake: stake, _mode: "classic" } as any);
+        const ludoMode = stake === 0 && opponentMode === "amis" ? "fast" : "classic";
+        const { data, error } = await supabase.rpc("create_private_game" as any, { _max_players: maxP, _stake: stake, _mode: ludoMode } as any);
         if (error) throw error; id = data as string;
+        // Auto-add bots if "vs Bot" mode selected
+        if (stake === 0 && opponentMode === "bot" && id) {
+          for (let i = 1; i < maxP; i++) {
+            const botNames = ["Bot Rado", "Bot Mamy", "Bot Tsy Maty"];
+            const { error: botErr } = await supabase.rpc("player_add_bot" as any, { _game_id: id, _bot_name: botNames[i-1] || "Bot" } as any);
+            if (botErr) console.warn("Bot add failed:", botErr.message);
+          }
+        }
       } else if (slug === "domino") {
         const { data, error } = await supabase.rpc("domino_create" as any, { _stake: stake, _max: maxP, _private: true, _mode: mode === "points" ? "points" : "classic", _commission: 10, _target_score: mode === "points" ? targetScore : 0 } as any);
         if (error) throw error; id = data as string;
@@ -342,6 +352,22 @@ function SalonJeu() {
               <input type="number" min={0} step={100} value={stake} onChange={e => setStake(Number(e.target.value)||0)}
                 className="w-full px-4 py-2.5 rounded-2xl bg-secondary outline-none" />
             </div>
+
+            {slug === "ludo" && stake === 0 && (
+              <div>
+                <div className="text-xs uppercase text-muted-foreground mb-1">Jouer contre</div>
+                <div className="flex gap-2">
+                  <button onClick={() => setOpponentMode("amis")} className={`flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 ${opponentMode==="amis"?"bg-primary text-primary-foreground":"bg-secondary"}`}>👥 Amis</button>
+                  <button onClick={() => setOpponentMode("bot")} className={`flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 ${opponentMode==="bot"?"bg-primary text-primary-foreground":"bg-secondary"}`}>🤖 Bot</button>
+                </div>
+                {opponentMode === "bot" && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5">Les bots rempliront automatiquement les places libres.</p>
+                )}
+                {opponentMode === "amis" && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5">Partage le code avec tes amis pour les inviter.</p>
+                )}
+              </div>
+            )}
 
             {meta.maxOpts.length > 1 && (
               <div>
