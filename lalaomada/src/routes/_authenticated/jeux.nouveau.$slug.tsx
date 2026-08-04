@@ -599,8 +599,11 @@ function Lobby() {
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
               <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
-              {showMaxP && (
+              {showMaxP && matchType === "solo" && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
+              )}
+              {matchType === "groupe" && (
+                <SummaryRow icon="👥" label="Joueurs" value="4 (2v2)" onClick={() => {}} />
               )}
               <SummaryRow icon="💰" label="Mise" value={stake > 0 ? `${stake.toLocaleString("fr-FR")} Ar` : "Gratuit"} onClick={() => setSheet("stake")} />
               {slug === "ludo" && (
@@ -747,7 +750,7 @@ function Lobby() {
 
 
       <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Équipe">
-        <ModeBlock options={[{ v: "solo", l: "🤖 Solo" }, { v: "groupe", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
+        <ModeBlock options={[{ v: "solo", l: "🤖 Solo" }, { v: "groupe", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); if (v === "groupe") setMaxP(4); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "opponent_mode"} onClose={closeSheet} title="Adversaire">
         <ModeBlock options={[{ v: "bot", l: "🤖 vs Bot" }, { v: "friends", l: "👥 vs Amis" }]} value={opponentMode} onChange={(v) => { setOpponentMode(v as any); closeSheet(); }} />
