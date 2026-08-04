@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Menu, Zap } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import AppMenu from "@/components/AppMenu";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import WalletButton from "@/components/WalletButton";
 import { useT } from "@/lib/i18n";
 
@@ -102,9 +101,8 @@ export default function Header() {
               </div>
             </Link>
 
-            {/* Right controls */}
+            {/* Right controls — clean: wallet + bell + avatar */}
             <div className="flex items-center gap-1.5">
-              {/* Balance pill + deposit/withdraw */}
               <WalletButton />
 
               <button
@@ -115,10 +113,9 @@ export default function Header() {
                 <Menu className="w-5 h-5" />
               </button>
 
-              <LanguageSwitcher />
               <NotificationsBell />
 
-              {/* Profile avatar (no balance — it's in WalletButton now) */}
+              {/* Profile avatar */}
               <div className="relative" ref={ref}>
                 <button
                   onClick={() => setOpen(o => !o)}
