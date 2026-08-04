@@ -17,6 +17,7 @@ import GameWaitingRoom from "@/components/GameWaitingRoom";
 import GameBoardSkin from "@/components/GameBoardSkin";
 import TurnBanner from "@/components/TurnBanner";
 import { useGameConfig } from "@/hooks/use-game-config";
+import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useLongPressDrag } from "@/hooks/use-long-press-drag";
 import ramiCover from "@/assets/games/rami.asset.json";
@@ -1071,6 +1072,12 @@ function RamiPage() {
   }, [melds, selected, isMyTurn, phase, jokerMode, randomJoker]);
 
   const cfg = useGameConfig("rami");
+  const globalTimer = useGlobalGameTimer({
+    game: "rami",
+    gameId: id,
+    status: game?.status,
+    deadline: (game as any)?.game_deadline,
+  });
   const [remaining, setRemaining] = useState(cfg.turn_timer_seconds);
   useEffect(() => {
     if (!game?.turn_deadline || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
@@ -2174,6 +2181,17 @@ function RamiPage() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Global game timer banner */}
+      {game?.status === "playing" && globalTimer.enabled && globalTimer.remainingMs !== null && (
+        <div className={`px-3 py-1 mx-2 rounded-lg text-center text-xs font-bold ${
+          globalTimer.remainingMs <= 30000
+            ? "bg-destructive/15 text-destructive animate-pulse"
+            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        }`}>
+          ⏳ Temps global restant : {globalTimer.remainingLabel}
         </div>
       )}
 

@@ -16,6 +16,7 @@ import GameWaitingRoom from "@/components/GameWaitingRoom";
 import DominoRoundBreak from "@/components/DominoRoundBreak";
 import DominoTable, { DominoTile, PlayerHeader } from "@/components/DominoTable";
 import { useGameConfig } from "@/hooks/use-game-config";
+import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
 import { useConfirm } from "@/components/ConfirmDialog";
 import TurnBanner from "@/components/TurnBanner";
 import { useDominoSounds } from "@/hooks/use-domino-sounds";
@@ -276,6 +277,12 @@ function DominoPage() {
 
 
   const cfg = useGameConfig("domino");
+  const globalTimer = useGlobalGameTimer({
+    game: "domino",
+    gameId: id,
+    status: game?.status,
+    deadline: (game as any)?.game_deadline,
+  });
   const [remaining, setRemaining] = useState<number>(cfg.turn_timer_seconds);
   const phase = game?.state?.phase;
   const isRoundTransition = phase === "reveal" || phase === "break";
@@ -724,6 +731,17 @@ function DominoPage() {
           )}
         </div>
       )}
+      {/* Global game timer banner */}
+      {game?.status === "playing" && globalTimer.enabled && globalTimer.remainingMs !== null && (
+        <div className={`px-3 py-1 mx-2 rounded-lg text-center text-xs font-bold ${
+          globalTimer.remainingMs <= 30000
+            ? "bg-destructive/15 text-destructive animate-pulse"
+            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        }`}>
+          ⏳ Temps global restant : {globalTimer.remainingLabel}
+        </div>
+      )}
+
       <GamePauseControl
         slug="domino"
         gameId={id}

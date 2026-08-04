@@ -10,6 +10,7 @@ import { GameReconnectOverlay } from "@/components/GameReconnectOverlay";
 import { ArrowLeft, Copy, Check, Timer, Plus } from "lucide-react";
 import GameChatDrawer from "@/components/GameChatDrawer";
 import GamePauseControl from "@/components/GamePauseControl";
+import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
 import GameEndScreen from "@/components/GameEndScreen";
 import GameWaitingRoom from "@/components/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -210,6 +211,13 @@ function PokerPage() {
   }, [id, load]);
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
+
+  const globalTimer = useGlobalGameTimer({
+    game: "poker",
+    gameId: id,
+    status: game?.status,
+    deadline: game?.game_deadline,
+  });
 
   // Timer
   useEffect(() => {
@@ -598,6 +606,17 @@ function PokerPage() {
           </div>
         </div>
       )}
+      {/* Global game timer banner */}
+      {game?.status === "playing" && globalTimer.enabled && globalTimer.remainingMs !== null && (
+        <div className={`px-3 py-1 mx-2 rounded-lg text-center text-xs font-bold ${
+          globalTimer.remainingMs <= 30000
+            ? "bg-destructive/15 text-destructive animate-pulse"
+            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        }`}>
+          ⏳ Temps global restant : {globalTimer.remainingLabel}
+        </div>
+      )}
+
       <GamePauseControl
         slug="poker"
         gameId={id}
