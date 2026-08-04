@@ -5,8 +5,8 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "dev": "cd lalaomada && bun install && bun run dev",
-    "build": "cd lalaomada && bun install && bun run build && cd .. && bun run sync:dist",
-    "build:dev": "cd lalaomada && bun install && bun run build:dev && cd .. && bun run sync:dist",
+    "build": "cd lalaomada && bun install && bun run build",
+    "build:dev": "cd lalaomada && bun install && bun run build:dev",
     "sync:dist": "rm -rf dist && if [ -d lalaomada/dist ]; then cp -R lalaomada/dist dist; elif [ -d lalaomada/.output/public ]; then cp -R lalaomada/.output/public dist; else echo \"Missing build output: expected lalaomada/dist\" >&2; exit 1; fi",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
