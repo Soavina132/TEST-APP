@@ -15,8 +15,6 @@ import GameEndScreen from "@/components/GameEndScreen";
 import GameWaitingRoom from "@/components/GameWaitingRoom";
 import GameBoardSkin from "@/components/GameBoardSkin";
 import { useGameConfig } from "@/hooks/use-game-config";
-import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
-import TurnBanner from "@/components/TurnBanner";
 import { useConfirm } from "@/components/ConfirmDialog";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import { playFanoronaMove, playFanoronaCapture, playFanoronaWin, playFanoronaLose, unlockAudio } from "@/lib/fanorona-sounds";
@@ -81,6 +79,44 @@ function makeHelpers(COLS: number, ROWS: number) {
 
 function countPieces(board: number[], color: number): number {
   return board.filter(v => v === color).length;
+}
+
+/** Compact single-line player bar (used above/below the board — mirrors the Ludo/Domino style). */
+function FanoronaPlayerBar({
+  p, isCurrent, isMe, pieceCount, remaining,
+}: {
+  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; remaining: number;
+}) {
+  const isWhite = p.color === "white";
+  return (
+    <div className={`relative flex items-center gap-2 rounded-lg px-2 py-1 border transition-colors duration-300 ${
+      isCurrent ? "bg-primary/8 border-primary/40" : "bg-card border-white/6"
+    }`}>
+      {isCurrent && <span className="absolute left-0 top-1 bottom-1 w-1 rounded-full bg-primary" />}
+      <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ring-1 ${isWhite ? "bg-white text-gray-900 ring-white/30" : "bg-gray-900 text-white ring-white/10"}`}>
+        {isWhite ? "⚪" : "⚫"}
+      </div>
+      <span className="font-bold text-xs truncate">{p.display_name}</span>
+      {p.is_bot && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
+      {isMe && <span className="text-[10px] text-primary/60 shrink-0">(vous)</span>}
+      <span className="text-[10px] font-semibold text-muted-foreground truncate ml-auto shrink-0">
+        {p.forfeited ? <span className="text-destructive">Forfait</span> : `${pieceCount} pions`}
+      </span>
+      {isCurrent && (
+        <div className={`shrink-0 flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${remaining <= 10 ? "bg-destructive text-white timer-urgent" : "bg-primary/15 text-primary"}`}>
+          <Timer className="w-2.5 h-2.5" /> {remaining}s
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FanoronaWaitingBar() {
+  return (
+    <div className="rounded-lg p-1.5 bg-card border-2 border-dashed border-white/10 text-center text-[11px] text-muted-foreground">
+      ⏳ En attente adversaire…
+    </div>
+  );
 }
 
 function FanoronaPage() {
@@ -225,7 +261,6 @@ function FanoronaPage() {
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
 
-  const globalTimer = useGlobalGameTimer({ game: "fanorona", gameId: id, status: game?.status, deadline: game?.game_deadline });
 
   // Valid move targets for selected piece
   const validTargets = useMemo(() => {
@@ -392,105 +427,58 @@ function FanoronaPage() {
   const cy = (r: number) => r * CELL_PX;
 
   return (
-    <main className="max-w-2xl mx-auto px-3 py-3 space-y-3 pb-6" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
+    <main className="max-w-3xl mx-auto px-2 py-2 space-y-1.5 pb-4" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       <GameInstructionsBanner slug="fanorona" />
 
-      {/* ── Compact header : titre + infos partie + actions ── */}
-      <div className="rounded-2xl bg-card border border-white/8 px-3.5 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-xl shrink-0">⚫</div>
-          <div className="min-w-0 flex-1">
-            <div className="font-extrabold text-base leading-tight truncate">
-              {game.variant === "telo" ? "Telo 3×3" : game.variant === "dimy" ? "Dimy 5×5" : "Tsivy 9×5"}
-            </div>
-            <div className="text-[11px] text-muted-foreground leading-tight">
-              {Number(game.pot) > 0 ? (
-                <span className="font-bold text-emerald-500">
-                  {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar au gagnant
-                </span>
-              ) : "Partie gratuite"}
-              {game.is_private && (
-                <button onClick={() => { copyText(game.room_code).then(ok => toast[ok ? "success" : "error"](ok ? "Copié" : "Impossible de copier")); }}
-                  className="ml-2 inline-flex items-center gap-1 font-mono text-muted-foreground/60 hover:text-foreground transition-colors">
-                  {game.room_code} <Copy className="w-2.5 h-2.5" />
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button onClick={() => setRotated90(r => !r)} title="Pivoter le plateau"
-              className="p-2 rounded-xl bg-white/6 hover:bg-white/10 text-muted-foreground transition-all">
-              <RotateCw className="w-4 h-4" />
-            </button>
-            {me ? (
-              <button onClick={forfeit}
-                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-destructive/8 text-destructive hover:bg-destructive/15 text-xs font-semibold transition-all border border-destructive/15">
-                <LogOut className="w-3.5 h-3.5" /> Quitter
-              </button>
-            ) : (
-              <button onClick={() => navigate({ to: "/live" })}
-                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 text-xs font-semibold transition-all border border-white/10">
-                <LogOut className="w-3.5 h-3.5" /> Sortir
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${mandatoryCapture ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" : "bg-white/6 text-muted-foreground/70 border border-white/10"}`}>
-            {mandatoryCapture ? "⚠ Capture obligatoire" : "Capture libre"}
+      {/* ── Header compact (aligné sur le style Ludo/Domino) ── */}
+      <div className="rounded-md bg-card/70 border border-white/8 px-2 py-1 flex items-center gap-2 text-xs">
+        <span className="font-bold text-sm shrink-0">⚫</span>
+        <span className="font-extrabold text-sm truncate shrink-0">
+          {game.variant === "telo" ? "Telo 3×3" : game.variant === "dimy" ? "Dimy 5×5" : "Tsivy 9×5"}
+        </span>
+        {Number(game.pot) > 0 ? (
+          <span className="font-bold text-emerald-500 truncate">
+            {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
           </span>
-          {parts.some(p => p.is_bot) && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-500 border border-violet-500/20">🤖 Solo vs bot</span>
-          )}
-        </div>
-      </div>
-
-      {game.status === "playing" && (
-        <TurnBanner isMyTurn={!!isMyTurn} opponentName={parts.find(p => p.slot !== me?.slot)?.display_name}
-          globalTimerEnabled={globalTimer.enabled} globalTimerLabel={globalTimer.remainingLabel} />
-      )}
-
-      {/* ── Match strip : deux joueurs côte à côte, indicateur unique de tour actif ── */}
-      <div className="flex gap-2">
-        {parts.map(p => {
-          const isCurrent = game.current_turn === p.slot && game.status === "playing";
-          const isMe = p.user_id === profile?.id;
-          const isWhite = p.color === "white";
-          const pieceCount = isWhite ? whiteCount : blackCount;
-          return (
-            <div key={p.id}
-              className={`relative flex-1 min-w-0 flex items-center gap-2 rounded-2xl px-3 py-2.5 border transition-colors duration-300 ${
-                isCurrent ? "bg-primary/8 border-primary/40" : "bg-card border-white/6"
-              }`}>
-              {isCurrent && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-primary" />}
-              <div className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-lg font-bold ring-2 ${isWhite ? "bg-white text-gray-900 ring-white/30" : "bg-gray-900 text-white ring-white/10"}`}>
-                {isWhite ? "⚪" : "⚫"}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-sm truncate leading-tight flex items-center gap-1">
-                  <span className="truncate">{p.display_name}</span>
-                  {p.is_bot && <span className="text-[10px] font-normal text-violet-500 shrink-0">🤖</span>}
-                  {isMe && <span className="text-[10px] font-normal text-primary/60 shrink-0">(vous)</span>}
-                </div>
-                <div className="text-[10px] font-semibold text-muted-foreground truncate">
-                  {p.forfeited ? <span className="text-destructive">Forfait</span> : `${pieceCount} pions`}
-                </div>
-              </div>
-              {isCurrent && (
-                <div className={`shrink-0 flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${remaining <= 10 ? "bg-destructive text-white timer-urgent" : "bg-primary/15 text-primary"}`}>
-                  <Timer className="w-3 h-3" /> {remaining}s
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {parts.length < 2 && (
-          <div className="flex-1 rounded-2xl p-3 bg-card border-2 border-dashed border-white/10 text-center text-xs text-muted-foreground">
-            <div className="text-base mb-1">⏳</div> En attente adversaire…
-          </div>
+        ) : (
+          <span className="text-muted-foreground truncate">Gratuite</span>
+        )}
+        {mandatoryCapture && <span title="Capture obligatoire" className="shrink-0">⚠️</span>}
+        {parts.some(p => p.is_bot) && <span title="Solo vs bot" className="shrink-0">🤖</span>}
+        {game.is_private && (
+          <button onClick={() => { copyText(game.room_code).then(ok => toast[ok ? "success" : "error"](ok ? "Copié" : "Impossible de copier")); }}
+            className="flex items-center gap-1 font-mono text-muted-foreground/60 hover:text-foreground transition-colors shrink-0">
+            {game.room_code} <Copy className="w-2.5 h-2.5" />
+          </button>
+        )}
+        <button onClick={() => setRotated90(r => !r)} title="Pivoter le plateau"
+          className="ml-auto p-1 rounded bg-white/6 hover:bg-white/10 text-muted-foreground transition-all shrink-0">
+          <RotateCw className="w-3.5 h-3.5" />
+        </button>
+        {me ? (
+          <button onClick={forfeit}
+            className="flex items-center gap-1 px-2 py-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 text-xs font-semibold border border-destructive/20 shrink-0">
+            <LogOut className="w-3.5 h-3.5" /> Quitter
+          </button>
+        ) : (
+          <button onClick={() => navigate({ to: "/live" })}
+            className="flex items-center gap-1 px-2 py-1 rounded bg-secondary text-foreground hover:bg-secondary/80 text-xs font-semibold border border-white/10 shrink-0">
+            <LogOut className="w-3.5 h-3.5" /> Sortir
+          </button>
         )}
       </div>
+
+      {/* ── Carte adversaire, juste au-dessus du plateau ── */}
+      {(() => {
+        const opponent = parts.find(p => p.user_id !== me?.user_id) ?? (me ? undefined : parts[0]);
+        if (!opponent) return <FanoronaWaitingBar />;
+        const isCurrent = game.current_turn === opponent.slot && game.status === "playing";
+        const pieceCount = opponent.color === "white" ? whiteCount : blackCount;
+        return (
+          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} remaining={remaining} />
+        );
+      })()}
 
       {game.status === "finished" && (
         <GameEndScreen slug="fanorona" meUserId={profile?.id} winnerId={game.winner_id}
@@ -498,12 +486,12 @@ function FanoronaPage() {
           commissionPct={Number(game.commission_pct) || 10} onReplay={replayFanorona} />
       )}
 
-      <GameBoardSkin coverUrl={fanoronaCover.url}>
-        <div className={rotated90 ? "overflow-hidden mx-auto" : "overflow-x-auto"} style={rotated90 ? { width: "min(100%, 70vh)", aspectRatio: `${ROWS} / ${COLS}`, position: "relative" } : undefined}>
+      <GameBoardSkin coverUrl={fanoronaCover.url} compact>
+        <div className={rotated90 ? "overflow-hidden mx-auto" : "overflow-x-auto"} style={rotated90 ? { width: "min(100%, 88vh)", aspectRatio: `${ROWS} / ${COLS}`, position: "relative" } : undefined}>
           <svg viewBox={`-24 -24 ${SIZE_W + 48} ${SIZE_H + 48}`} className={rotated90 ? "" : "w-full"} style={rotated90 ? {
             position: "absolute", width: `${(COLS / ROWS) * 100}%`, height: `${(ROWS / COLS) * 100}%`,
             top: "50%", left: "50%", transform: `translate(-50%, -50%) rotate(${flipped ? 270 : 90}deg)`, transformOrigin: "center",
-          } : { maxWidth: 600, transform: flipped ? "rotate(180deg)" : undefined }}>
+          } : { transform: flipped ? "rotate(180deg)" : undefined }}>
             <defs>
               <radialGradient id="wood-inner" cx="50%" cy="35%" r="80%">
                 <stop offset="0%" stopColor="#d9a86a" /><stop offset="60%" stopColor="#a06b35" /><stop offset="100%" stopColor="#5e3618" />
@@ -587,7 +575,7 @@ function FanoronaPage() {
             })}
           </svg>
           {/* Astuce contextuelle : seulement quand elle apporte une info utile
-              (le tour actif est déjà visible via le TurnBanner + la bande joueurs) */}
+              (le tour actif est déjà visible via les cartes joueurs) */}
           {isMyTurn && (chainFrom !== null || (canCapture && mandatoryCapture)) && (
             <div className={`text-xs text-center mt-3 font-semibold ${chainFrom !== null ? "text-amber-400" : "text-red-400"}`}>
               {chainFrom !== null ? "⛓ Chaîne en cours — continue ou termine" : "⚠ Capture obligatoire disponible"}
@@ -602,6 +590,15 @@ function FanoronaPage() {
           )}
         </div>
       </GameBoardSkin>
+
+      {/* ── Carte "vous", juste sous le plateau ── */}
+      {me && (() => {
+        const isCurrent = game.current_turn === me.slot && game.status === "playing";
+        const pieceCount = me.color === "white" ? whiteCount : blackCount;
+        return (
+          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} remaining={remaining} />
+        );
+      })()}
 
       {captureChoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setCaptureChoice(null)}>
