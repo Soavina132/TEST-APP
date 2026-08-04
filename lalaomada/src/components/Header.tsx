@@ -5,6 +5,7 @@ import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Menu, Zap } fr
 import NotificationsBell from "@/components/NotificationsBell";
 import AppMenu from "@/components/AppMenu";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import WalletButton from "@/components/WalletButton";
 import { useT } from "@/lib/i18n";
 
 function RouteLoadingBar() {
@@ -88,7 +89,7 @@ export default function Header() {
         <div className="relative border-b border-border/40 bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
           <div className="max-w-5xl mx-auto px-3 h-14 flex items-center justify-between gap-2">
 
-
+            {/* Logo + brand */}
             <Link to="/" className="flex items-center gap-2.5 group" aria-label="Lalao MADA">
               <Logo />
               <div className="flex flex-col leading-none">
@@ -101,7 +102,11 @@ export default function Header() {
               </div>
             </Link>
 
+            {/* Right controls */}
             <div className="flex items-center gap-1.5">
+              {/* Balance pill + deposit/withdraw */}
+              <WalletButton />
+
               <button
                 onClick={() => setMenuOpen(true)}
                 className="p-2 rounded-xl hover:bg-accent/80 transition-colors md:hidden"
@@ -113,6 +118,7 @@ export default function Header() {
               <LanguageSwitcher />
               <NotificationsBell />
 
+              {/* Profile avatar (no balance — it's in WalletButton now) */}
               <div className="relative" ref={ref}>
                 <button
                   onClick={() => setOpen(o => !o)}
@@ -136,10 +142,7 @@ export default function Header() {
                     </div>
                     <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-400 border-2 border-card" />
                   </div>
-                  <div className="hidden sm:flex flex-col items-start leading-none">
-                    <span className="text-xs font-semibold truncate max-w-[80px]">{profile.pseudo}</span>
-                    <span className="text-[10px] text-muted-foreground font-medium tabular-nums">{balance} Ar</span>
-                  </div>
+                  <span className="hidden sm:block text-xs font-semibold truncate max-w-[80px]">{profile.pseudo}</span>
                   <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
                 </button>
 
