@@ -10,31 +10,13 @@ export type GlobalTimerState = {
   expired: boolean;
 };
 
-type GameSlug = "chess" | "fanorona" | "domino" | "rami" | "poker";
-
-const CONFIG_COLUMNS: Record<GameSlug, { enabled: string; minutes: string }> = {
-  chess:    { enabled: "chess_global_timer_enabled",    minutes: "chess_global_timer_minutes" },
-  fanorona: { enabled: "fanorona_global_timer_enabled", minutes: "fanorona_global_timer_minutes" },
-  domino:   { enabled: "domino_global_timer_enabled",   minutes: "domino_global_timer_minutes" },
-  rami:     { enabled: "rami_global_timer_enabled",      minutes: "rami_global_timer_minutes" },
-  poker:    { enabled: "poker_global_timer_enabled",    minutes: "poker_global_timer_minutes" },
-};
-
-const TIMEOUT_RPC: Record<GameSlug, string> = {
-  chess:    "chess_check_global_timeout",
-  fanorona: "fanorona_check_global_timeout",
-  domino:   "domino_check_global_timeout",
-  rami:     "rami_check_global_timeout",
-  poker:    "poker_check_global_timeout",
-};
-
 /**
- * Reads the global game timer config from app_settings,
- * ticks down based on the row's `game_deadline`,
+ * Reads the global game timer config (chess_global_* / fanorona_global_*)
+ * from app_settings, ticks down based on the row's `game_deadline`,
  * and calls the matching `*_check_global_timeout` RPC when it hits zero.
  */
 export function useGlobalGameTimer(opts: {
-  game: GameSlug;
+  game: "chess" | "fanorona";
   gameId: string;
   status: string | undefined;
   deadline: string | null | undefined;
@@ -47,18 +29,28 @@ export function useGlobalGameTimer(opts: {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const cols = CONFIG_COLUMNS[game];
       const { data } = await supabase
         .from("app_settings" as any)
-        .select(`${cols.enabled}, ${cols.minutes}`)
+        .select(
+          game === "chess"
+            ? "chess_global_timer_enabled,chess_global_timer_minutes"
+            : "fanorona_global_timer_enabled,fanorona_global_timer_minutes",
+        )
         .eq("id", 1)
         .maybeSingle();
       if (cancelled || !data) return;
       const d: any = data;
-      setEnabled(!!d[cols.enabled]);
-      setMins(Number(d[cols.minutes]) || 10);
+      if (game === "chess") {
+        setEnabled(!!d.chess_global_timer_enabled);
+        setMins(Number(d.chess_global_timer_minutes) || 10);
+      } else {
+        setEnabled(!!d.fanorona_global_timer_enabled);
+        setMins(Number(d.fanorona_global_timer_minutes) || 10);
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [game]);
 
   useEffect(() => {
@@ -76,7 +68,12 @@ export function useGlobalGameTimer(opts: {
 
   useEffect(() => {
     if (!expired || status !== "playing") return;
-    supabase.rpc(TIMEOUT_RPC[game] as any, { _game_id: gameId } as any);
+    supabase.rpc(
+      (game === "chess"
+        ? "chess_check_global_timeout"
+        : "fanorona_check_global_timeout") as any,
+      { _game_id: gameId } as any,
+    );
   }, [expired, status, game, gameId]);
 
   let label = "";
