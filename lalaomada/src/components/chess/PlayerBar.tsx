@@ -24,9 +24,10 @@ export const PlayerBar = memo(function PlayerBar(p: PlayerBarProps) {
   const low = p.timeMs < 30_000;
   const critical = p.timeMs < 10_000;
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-card/80 backdrop-blur border border-border">
+    <div className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg ${p.isTurn ? "bg-card shadow-md border border-amber-400/40" : "bg-card/80 backdrop-blur border border-border"}`}>
+      {/* Avatar */}
       <div
-        className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2"
+        className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 border-2"
         style={{ borderColor: p.color === "w" ? "#fafaf9" : "#1c1917" }}
       >
         {p.avatarUrl ? (
@@ -37,16 +38,17 @@ export const PlayerBar = memo(function PlayerBar(p: PlayerBarProps) {
           </div>
         )}
       </div>
+      {/* Name + captured pieces */}
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-sm truncate flex items-center gap-2">
+        <div className="font-semibold text-xs truncate flex items-center gap-1.5">
           {p.name}
-          {p.isTurn && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+          {p.isTurn && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
         </div>
-        <div className="flex items-center gap-0.5 min-h-5 flex-wrap">
+        <div className="flex items-center gap-0.5 min-h-4 flex-wrap mt-0.5">
           {(p.captured ?? []).slice(0, 16).map((c, i) => (
             <span
               key={i}
-              className="text-base leading-none"
+              className="text-xs leading-none"
               style={{
                 color: p.color === "w" ? "#1c1917" : "#f5f5f4",
                 textShadow: p.color === "w"
@@ -58,15 +60,16 @@ export const PlayerBar = memo(function PlayerBar(p: PlayerBarProps) {
             </span>
           ))}
           {(p.materialDiff ?? 0) > 0 && (
-            <span className="ml-1 text-xs font-bold text-emerald-600">+{p.materialDiff}</span>
+            <span className="ml-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">+{p.materialDiff}</span>
           )}
         </div>
       </div>
+      {/* Clock */}
       <div
-        className={`font-mono text-lg font-bold tabular-nums px-3 py-1 rounded-md ${
-          critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600" : ""
+        className={`font-mono text-base font-bold tabular-nums px-2.5 py-1 rounded-md transition-colors ${
+          critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : ""
         }`}
-        style={!critical ? { background: p.isTurn ? "rgba(251,191,36,0.15)" : undefined } : undefined}
+        style={!critical ? { background: p.isTurn ? "rgba(251,191,36,0.12)" : undefined } : undefined}
       >
         {fmt(p.timeMs)}
       </div>
