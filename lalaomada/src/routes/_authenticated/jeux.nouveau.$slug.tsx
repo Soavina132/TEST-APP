@@ -528,7 +528,10 @@ function Lobby() {
         {tab === "public" && supportsPublicJoin && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              {slug === "ludo"
+                ? <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+                : <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent")} />
+              }
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -596,7 +599,10 @@ function Lobby() {
         {tab === "private" && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              {slug === "ludo"
+                ? <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+                : <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent")} />
+              }
               {showMaxP && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -745,7 +751,7 @@ function Lobby() {
 
 
       <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Adversaire">
-        <ModeBlock options={[{ v: "bot", l: "🤖 Solo" }, { v: "friends", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
+        <ModeBlock options={slug === "ludo" ? [{ v: "bot", l: "🤖 Solo" }, { v: "friends", l: "👥 Groupe" }] : [{ v: "bot", l: "🤖 vs Bot" }, { v: "friends", l: "👥 vs Amis" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "players"} onClose={closeSheet} title="Nombre de joueurs">
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${meta.maxOpts.length}, minmax(0,1fr))` }}>
