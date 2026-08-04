@@ -402,7 +402,7 @@ export default function WalletButton() {
   const ref = useRef<HTMLDivElement>(null);
 
   const settings = useAppSettings();
-  const balance = profile ? Math.round(profile.balance_ar).toString() : "0";
+  const balance = profile ? Math.round(profile.balance_ar).toLocaleString("en-US") : "0";
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -419,11 +419,11 @@ export default function WalletButton() {
       <div className="relative" ref={ref}>
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-1 py-1 pr-1 rounded-full transition-all duration-200"
+          className="flex items-center gap-1 py-1 pr-1 rounded-full transition-all duration-200 whitespace-nowrap shrink-0"
           aria-label="Solde — Déposer / Retirer"
         >
           {/* Balance text */}
-          <span className="text-xs font-bold tabular-nums text-foreground">{balance}ar</span>
+          <span className="text-xs font-bold tabular-nums text-foreground whitespace-nowrap">{balance}Ar</span>
 
           {/* Plus button */}
           <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -437,7 +437,7 @@ export default function WalletButton() {
               <div className="flex items-center gap-1.5">
                 <Wallet className="w-3.5 h-3.5 text-primary" />
                 <span className="text-xs text-muted-foreground">Solde</span>
-                <span className="ml-auto text-sm font-bold tabular-nums">{balance}ar</span>
+                <span className="ml-auto text-sm font-bold tabular-nums whitespace-nowrap">{balance}Ar</span>
               </div>
             </div>
             <button

@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useRef, useEffect } from "react";
-import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Menu, Zap } from "lucide-react";
+import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Zap } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import AppMenu from "@/components/AppMenu";
 import WalletButton from "@/components/WalletButton";
@@ -97,16 +97,8 @@ export default function Header() {
             </Link>
 
             {/* Right controls — clean: wallet + bell + avatar */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <WalletButton />
-
-              <button
-                onClick={() => setMenuOpen(true)}
-                className="p-2 rounded-xl hover:bg-accent/80 transition-colors md:hidden"
-                aria-label={t("home")}
-              >
-                <Menu className="w-5 h-5" />
-              </button>
 
               <NotificationsBell />
 
