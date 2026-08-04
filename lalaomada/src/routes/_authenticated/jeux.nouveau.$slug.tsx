@@ -529,7 +529,9 @@ function Lobby() {
         {tab === "public" && supportsPublicJoin && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              {slug === "ludo" && (
+                <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              )}
               <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
@@ -598,11 +600,13 @@ function Lobby() {
         {tab === "private" && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
-              {showMaxP && matchType === "solo" && (
+              {slug === "ludo" && (
+                <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              )}
+              {showMaxP && (slug !== "ludo" || matchType === "solo") && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
-              {matchType === "groupe" && (
+              {slug === "ludo" && matchType === "groupe" && (
                 <SummaryRow icon="👥" label="Joueurs" value="4 (2v2)" onClick={() => {}} />
               )}
               <SummaryRow icon="💰" label="Mise" value={stake > 0 ? `${stake.toLocaleString("fr-FR")} Ar` : "Gratuit"} onClick={() => setSheet("stake")} />
