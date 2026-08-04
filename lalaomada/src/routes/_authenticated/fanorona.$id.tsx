@@ -100,7 +100,7 @@ function FanoronaPage() {
   const [lastMove, setLastMove] = useState<{ from: number; to: number; captured: number[] } | null>(null);
   const [animatingCapture, setAnimatingCapture] = useState<number[]>([]);
   const [remaining, setRemaining] = useState(60);
-  const botTriggeredRef = useRef<number>(-1);
+  const botTriggeredRef = useRef<number | string>(-1);
   const lastBoardRef = useRef<string>("");
 
   const load = useCallback(async () => {
@@ -306,22 +306,31 @@ function FanoronaPage() {
     navigate({ to: "/jeux" });
   }, [game?.stake, game?.status, id, navigate, confirm]);
 
-  // Bot play for solo mode
+  // Bot play for solo mode.
+  // IMPORTANT: a bot capture can chain (multiple sequential captures with the
+  // same piece before the turn passes back). Each chain step is a *separate*
+  // fanorona_bot_play call, and move_count only increments once the whole
+  // chain ends — so we must key the "already triggered" guard on chain_from
+  // (not just moveCount/current_turn), otherwise the bot gets stuck mid-chain
+  // waiting for a re-trigger that never comes.
   const moveCount = game?.state?.move_count ?? 0;
+  const botChainFrom = game?.state?.chain_from ?? null;
   useEffect(() => {
     if (!game || game.status !== "playing" || !me) return;
-    const isSolo = parts.some(p => p.is_bot);
-    if (!isSolo || isMyTurn) return;
-    if (botTriggeredRef.current === moveCount) return;
-    botTriggeredRef.current = moveCount;
+    const botPart = parts.find(p => p.is_bot);
+    if (!botPart) return;
+    if (game.current_turn !== botPart.slot) return;
+    const triggerKey = `${game.current_turn}:${moveCount}:${botChainFrom}`;
+    if (botTriggeredRef.current === (triggerKey as any)) return;
+    botTriggeredRef.current = triggerKey as any;
     const timer = setTimeout(async () => {
       try {
         const { error } = await supabase.rpc("fanorona_bot_play" as any, { _game_id: id } as any);
         if (error) console.error("fanorona_bot_play error", error);
       } catch (e) { console.error("bot play failed", e); }
-    }, 600 + Math.random() * 800);
+    }, 500 + Math.random() * 600);
     return () => clearTimeout(timer);
-  }, [game?.status, game?.current_turn, moveCount, me, parts, isMyTurn, id]);
+  }, [game?.status, game?.current_turn, moveCount, botChainFrom, me, parts, id]);
 
   // ── EARLY RETURNS AFTER ALL HOOKS ──
   if (!loaded) return <div className="p-6 text-center text-muted-foreground">Chargement…</div>;
@@ -387,50 +396,52 @@ function FanoronaPage() {
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       <GameInstructionsBanner slug="fanorona" />
 
-      <div className="rounded-2xl bg-card border border-white/8 px-4 py-3 flex items-center gap-3 shadow-sm">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-xl shrink-0">⚫</div>
-        <div className="flex-1 min-w-0">
-          <div className="font-extrabold text-base leading-tight">
-            Fanorona · {game.variant === "telo" ? "Telo 3×3" : game.variant === "dimy" ? "Dimy 5×5" : "Tsivy 9×5"}
-          </div>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {Number(game.pot) > 0 ? (
-              <span className="flex items-baseline gap-1">
-                <span className="text-[9px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
-                <span className="font-extrabold text-[13px] text-emerald-500">
-                  {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
+      {/* ── Compact header : titre + infos partie + actions ── */}
+      <div className="rounded-2xl bg-card border border-white/8 px-3.5 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-xl shrink-0">⚫</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-extrabold text-base leading-tight truncate">
+              {game.variant === "telo" ? "Telo 3×3" : game.variant === "dimy" ? "Dimy 5×5" : "Tsivy 9×5"}
+            </div>
+            <div className="text-[11px] text-muted-foreground leading-tight">
+              {Number(game.pot) > 0 ? (
+                <span className="font-bold text-emerald-500">
+                  {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar au gagnant
                 </span>
-              </span>
-            ) : <span className="text-[11px] text-muted-foreground">Partie gratuite</span>}
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mandatoryCapture ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" : "bg-white/6 text-muted-foreground/60"}`}>
-              {mandatoryCapture ? "⚠ Capture oblig." : "Libre"}
-            </span>
-            {parts.some(p => p.is_bot) && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-500 border border-violet-500/20">🤖 Solo</span>
+              ) : "Partie gratuite"}
+              {game.is_private && (
+                <button onClick={() => { copyText(game.room_code).then(ok => toast[ok ? "success" : "error"](ok ? "Copié" : "Impossible de copier")); }}
+                  className="ml-2 inline-flex items-center gap-1 font-mono text-muted-foreground/60 hover:text-foreground transition-colors">
+                  {game.room_code} <Copy className="w-2.5 h-2.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button onClick={() => setRotated90(r => !r)} title="Pivoter le plateau"
+              className="p-2 rounded-xl bg-white/6 hover:bg-white/10 text-muted-foreground transition-all">
+              <RotateCw className="w-4 h-4" />
+            </button>
+            {me ? (
+              <button onClick={forfeit}
+                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-destructive/8 text-destructive hover:bg-destructive/15 text-xs font-semibold transition-all border border-destructive/15">
+                <LogOut className="w-3.5 h-3.5" /> Quitter
+              </button>
+            ) : (
+              <button onClick={() => navigate({ to: "/live" })}
+                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 text-xs font-semibold transition-all border border-white/10">
+                <LogOut className="w-3.5 h-3.5" /> Sortir
+              </button>
             )}
           </div>
-          {game.is_private && (
-            <button onClick={() => { copyText(game.room_code).then(ok => toast[ok ? "success" : "error"](ok ? "Copié" : "Impossible de copier")); }}
-              className="mt-1 flex items-center gap-1 text-[10px] font-mono text-muted-foreground/60 hover:text-foreground transition-colors">
-              {game.room_code} <Copy className="w-2.5 h-2.5" />
-            </button>
-          )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setRotated90(r => !r)}
-            className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-white/6 hover:bg-white/10 text-muted-foreground text-xs font-semibold transition-all">
-            <RotateCw className="w-3.5 h-3.5" /> {rotated90 ? "⇔" : "↕"}
-          </button>
-          {me ? (
-            <button onClick={forfeit}
-              className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-destructive/8 text-destructive hover:bg-destructive/15 text-xs font-semibold transition-all border border-destructive/15">
-              <LogOut className="w-3.5 h-3.5" /> Quitter
-            </button>
-          ) : (
-            <button onClick={() => navigate({ to: "/live" })}
-              className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 text-xs font-semibold transition-all border border-white/10">
-              <LogOut className="w-3.5 h-3.5" /> Sortir
-            </button>
+        <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${mandatoryCapture ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" : "bg-white/6 text-muted-foreground/70 border border-white/10"}`}>
+            {mandatoryCapture ? "⚠ Capture obligatoire" : "Capture libre"}
+          </span>
+          {parts.some(p => p.is_bot) && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-500 border border-violet-500/20">🤖 Solo vs bot</span>
           )}
         </div>
       </div>
@@ -440,43 +451,42 @@ function FanoronaPage() {
           globalTimerEnabled={globalTimer.enabled} globalTimerLabel={globalTimer.remainingLabel} />
       )}
 
-      <div className="grid grid-cols-2 gap-2.5">
+      {/* ── Match strip : deux joueurs côte à côte, indicateur unique de tour actif ── */}
+      <div className="flex gap-2">
         {parts.map(p => {
           const isCurrent = game.current_turn === p.slot && game.status === "playing";
           const isMe = p.user_id === profile?.id;
           const isWhite = p.color === "white";
           const pieceCount = isWhite ? whiteCount : blackCount;
           return (
-            <div key={p.id} className={`relative rounded-2xl p-3 transition-all duration-300 border ${isCurrent ? "bg-primary/8 border-primary/35 shadow-lg shadow-primary/10" : "bg-card border-white/6"}`}>
-              {isCurrent && <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/50 animate-pulse pointer-events-none" />}
-              <div className="flex items-center gap-2.5">
-                <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-xl font-bold ring-2 ${isWhite ? "bg-white text-gray-900 ring-white/30" : "bg-gray-900 text-white ring-white/10"} ${isCurrent ? "shadow-lg" : ""}`}>
-                  {isWhite ? "⚪" : "⚫"}
+            <div key={p.id}
+              className={`relative flex-1 min-w-0 flex items-center gap-2 rounded-2xl px-3 py-2.5 border transition-colors duration-300 ${
+                isCurrent ? "bg-primary/8 border-primary/40" : "bg-card border-white/6"
+              }`}>
+              {isCurrent && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-primary" />}
+              <div className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-lg font-bold ring-2 ${isWhite ? "bg-white text-gray-900 ring-white/30" : "bg-gray-900 text-white ring-white/10"}`}>
+                {isWhite ? "⚪" : "⚫"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-sm truncate leading-tight flex items-center gap-1">
+                  <span className="truncate">{p.display_name}</span>
+                  {p.is_bot && <span className="text-[10px] font-normal text-violet-500 shrink-0">🤖</span>}
+                  {isMe && <span className="text-[10px] font-normal text-primary/60 shrink-0">(vous)</span>}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-sm truncate leading-tight">
-                    {p.display_name}
-                    {p.is_bot && <span className="ml-1 text-[10px] font-normal text-violet-500">🤖</span>}
-                    {isMe && <span className="ml-1 text-[10px] font-normal text-primary/60">(vous)</span>}
-                  </div>
-                  <div className={`text-[10px] font-semibold ${isWhite ? "text-white/60" : "text-muted-foreground"}`}>
-                    {isWhite ? "Blancs" : "Noirs"} {p.forfeited && <span className="text-destructive ml-1">· Forfait</span>}
-                    {!p.forfeited && <span className="ml-1 opacity-70">· {pieceCount} pions</span>}
-                  </div>
-                </div>
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  {isCurrent && (
-                    <div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${remaining <= 10 ? "bg-destructive text-white timer-urgent" : "bg-primary/15 text-primary"}`}>
-                      <Timer className="w-3 h-3" /> {remaining}s
-                    </div>
-                  )}
+                <div className="text-[10px] font-semibold text-muted-foreground truncate">
+                  {p.forfeited ? <span className="text-destructive">Forfait</span> : `${pieceCount} pions`}
                 </div>
               </div>
+              {isCurrent && (
+                <div className={`shrink-0 flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${remaining <= 10 ? "bg-destructive text-white timer-urgent" : "bg-primary/15 text-primary"}`}>
+                  <Timer className="w-3 h-3" /> {remaining}s
+                </div>
+              )}
             </div>
           );
         })}
         {parts.length < 2 && (
-          <div className="rounded-2xl p-3 bg-card border-2 border-dashed border-white/10 text-center text-xs text-muted-foreground col-span-1">
+          <div className="flex-1 rounded-2xl p-3 bg-card border-2 border-dashed border-white/10 text-center text-xs text-muted-foreground">
             <div className="text-base mb-1">⏳</div> En attente adversaire…
           </div>
         )}
@@ -576,15 +586,13 @@ function FanoronaPage() {
               );
             })}
           </svg>
-          <div className="text-xs text-center mt-3 font-medium" style={{ color: "rgba(255,225,190,0.9)" }}>
-            {!me ? "Spectateur" : game.status !== "playing" ? "Partie terminée" :
-              isMyTurn ? (chainFrom !== null
-                ? <span className="text-amber-500 font-semibold">⛓ Chaîne en cours — continue ou termine</span>
-                : canCapture && mandatoryCapture
-                  ? <span className="text-red-400 font-semibold">⚠ Capture obligatoire disponible</span>
-                  : "À toi de jouer")
-              : "Tour de l'adversaire"}
-          </div>
+          {/* Astuce contextuelle : seulement quand elle apporte une info utile
+              (le tour actif est déjà visible via le TurnBanner + la bande joueurs) */}
+          {isMyTurn && (chainFrom !== null || (canCapture && mandatoryCapture)) && (
+            <div className={`text-xs text-center mt-3 font-semibold ${chainFrom !== null ? "text-amber-400" : "text-red-400"}`}>
+              {chainFrom !== null ? "⛓ Chaîne en cours — continue ou termine" : "⚠ Capture obligatoire disponible"}
+            </div>
+          )}
           {isMyTurn && (
             <button onClick={endTurn}
               className={`mt-3 w-full py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${chainFrom !== null ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-amber-100 text-amber-950 hover:bg-amber-200"}`}>
