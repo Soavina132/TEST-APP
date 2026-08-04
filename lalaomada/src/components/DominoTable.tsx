@@ -401,6 +401,7 @@ function SnakeBoard({
 export default function DominoTable({
   seats, maxPlayers, meSlot, board, leftEnd, rightEnd, stockSize, targetScore, statusMessage, statusType,
   canDropLeft, canDropRight, onDropLeft, onDropRight, canDropAny, onDropAny, seed,
+  noMoveSlot,
 }: {
   seats: Seat[];
   maxPlayers: number;
@@ -419,6 +420,7 @@ export default function DominoTable({
   canDropAny?: boolean;
   onDropAny?: () => void;
   seed?: string;
+  noMoveSlot?: number | null;
 }) {
   const base = meSlot ?? 0;
   // All non-me players ordered by slot starting after me.
@@ -438,7 +440,7 @@ export default function DominoTable({
       <div className="relative px-3 pt-2 pb-2"
         style={{ background: "linear-gradient(180deg,#071634 0%,#0b214b 100%)" }}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2">
-          <div className="flex items-start justify-start">
+          <div className={`flex items-start justify-start ${noMoveSlot != null && opponents[0] && opponents[0].slot === noMoveSlot ? "rounded-lg border-2 border-red-500 p-1 shadow-[0_0_14px_rgba(239,68,68,0.6)] animate-pulse" : ""}`}>
             {opponents.length >= 2 ? (
               <PlayerHeader seat={opponents[0]} side="left" size="lg" />
             ) : <div />}
@@ -450,7 +452,7 @@ export default function DominoTable({
                 style={{ border: "2px solid #c0392b" }}>CO</div>
             </div>
           ) : <div />}
-          <div className="flex items-start justify-end">
+          <div className={`flex items-start justify-end ${(() => { const ops = opponents.length >= 2 ? opponents.slice(1, 2) : opponents.slice(0, 1); return ops.length > 0 && noMoveSlot != null && ops[0].slot === noMoveSlot ? "rounded-lg border-2 border-red-500 p-1 shadow-[0_0_14px_rgba(239,68,68,0.6)] animate-pulse" : ""; })()}`}>
             {(opponents.length >= 2 ? opponents.slice(1, 2) : opponents.slice(0, 1)).map(op => (
               <PlayerHeader key={op.user_id} seat={op} side="right" size="lg" />
             ))}

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { serverNow } from "@/lib/server-time";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
@@ -210,6 +210,10 @@ function DominoPage() {
   const [parts, setParts] = useState<any[]>([]);
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  // Tracks which opponent's hand has no playable tile (via realtime broadcast),
+  // so a red frame can be shown to all players before the auto-pass completes.
+  const [remoteNoMoveSlot, setRemoteNoMoveSlot] = useState<number | null>(null);
+  const noMoveChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   // Available width for the hand row; tile width is derived from it and from
   // the number of tiles held (a player can hold more than 7 after drawing).
   const [handAvail, setHandAvail] = useState<number>(190);
@@ -374,6 +378,44 @@ function DominoPage() {
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); }
   };
+
+  // Subscribe to no-move broadcasts from other players so everyone sees the
+  // red frame before the auto-pass completes.
+  useEffect(() => {
+    if (!id) return;
+    const ch = supabase.channel(`domino-nomove-${id}`)
+      .on("broadcast", { event: "no_move" }, (payload: any) => {
+        const { slot } = payload.payload || {};
+        if (typeof slot === "number") setRemoteNoMoveSlot(slot);
+      })
+      .on("broadcast", { event: "no_move_clear" }, () => {
+        setRemoteNoMoveSlot(null);
+      })
+      .subscribe();
+    noMoveChRef.current = ch;
+    return () => {
+      supabase.removeChannel(ch);
+      noMoveChRef.current = null;
+    };
+  }, [id]);
+
+  // Broadcast our no-move state to other players
+  useEffect(() => {
+    if (!noMoveChRef.current || me?.slot === undefined) return;
+    if (noMove) {
+      noMoveChRef.current.send({
+        type: "broadcast",
+        event: "no_move",
+        payload: { slot: me.slot },
+      });
+    } else {
+      noMoveChRef.current.send({
+        type: "broadcast",
+        event: "no_move_clear",
+        payload: { slot: me.slot },
+      });
+    }
+  }, [noMove, me?.slot]);
 
   // Auto-pass when player has no valid move. Retries every 2s (not just once)
   // so a transient RPC/network failure, or a stale client-side playability
@@ -555,6 +597,7 @@ function DominoPage() {
             if (noMove || (oppNoMove && passSlot !== me?.slot)) return "pass";
             return undefined;
           })()}
+          noMoveSlot={noMove ? (me?.slot ?? null) : remoteNoMoveSlot}
           canDropLeft={canDropLeft}
           canDropRight={canDropRight}
           canDropAny={canDropAny}
@@ -619,7 +662,7 @@ function DominoPage() {
 
       {/* Hand + actions */}
       {me && game.status === "playing" && !isRoundTransition && (
-        <div className="space-y-1.5 shrink-0">
+        <div className={`space-y-1.5 shrink-0 ${noMove ? "rounded-xl border-2 border-red-500 p-1.5 shadow-[0_0_16px_rgba(239,68,68,0.6)] animate-pulse" : ""}`}>
           <div className="flex items-end gap-2 pb-1 px-0">
             {/* Your profile (avatar + name + score + timer) anchored to the bottom-left of your hand */}
             <div className="shrink-0">
