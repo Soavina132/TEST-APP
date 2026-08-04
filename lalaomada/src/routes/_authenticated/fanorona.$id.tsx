@@ -1,25 +1,26 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { serverNow } from "@/lib/server-time";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/use-game-connection";
 import { GameReconnectOverlay } from "@/components/GameReconnectOverlay";
-import { LogOut, Copy, Timer, RotateCw, SkipForward, Plus } from "lucide-react";
+import { LogOut, Copy, Timer, RotateCw, SkipForward } from "lucide-react";
 import GameChatDrawer from "@/components/GameChatDrawer";
 import GamePauseControl from "@/components/GamePauseControl";
 import GameInstructionsBanner from "@/components/GameInstructionsBanner";
 import GameEndScreen from "@/components/GameEndScreen";
 import GameWaitingRoom from "@/components/GameWaitingRoom";
 import GameBoardSkin from "@/components/GameBoardSkin";
-
+import FanoronaDrawDialog from "@/components/FanoronaDrawDialog";
 import { useGameConfig } from "@/hooks/use-game-config";
 import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
 import TurnBanner from "@/components/TurnBanner";
 import { useConfirm } from "@/components/ConfirmDialog";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
+import { playFanoronaMove, playFanoronaCapture, playFanoronaWin, playFanoronaLose, unlockAudio } from "@/lib/fanorona-sounds";
 
 export const Route = createFileRoute("/_authenticated/fanorona/$id")({
   component: FanoronaPage,
@@ -29,18 +30,44 @@ export const Route = createFileRoute("/_authenticated/fanorona/$id")({
 const isStrong = (r: number, c: number) => (r + c) % 2 === 0;
 const DIRS_ORTHO = [[-1,0],[1,0],[0,-1],[0,1]];
 const DIRS_DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
+const ALL_DIRS = [...DIRS_ORTHO, ...DIRS_DIAG];
+
+function axisKey(dr: number, dc: number): string {
+  return (dr < 0 || (dr === 0 && dc < 0)) ? `${-dr},${-dc}` : `${dr},${dc}`;
+}
 
 function makeHelpers(COLS: number, ROWS: number) {
   const idx = (r: number, c: number) => r * COLS + c;
   const inBounds = (r: number, c: number) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
   function neighbors(r: number, c: number): number[][] {
-    const dirs = isStrong(r, c) ? [...DIRS_ORTHO, ...DIRS_DIAG] : DIRS_ORTHO;
+    const dirs = isStrong(r, c) ? ALL_DIRS : DIRS_ORTHO;
     return dirs.filter(([dr, dc]) => inBounds(r+dr, c+dc));
+  }
+  function legalTargets(board: number[], from: number, myColor: number, chainFrom: number | null, visited: number[], lastAxis: string | null) {
+    const fr = Math.floor(from / COLS), fc = from % COLS;
+    const strong = isStrong(fr, fc);
+    const dirs = strong ? ALL_DIRS : DIRS_ORTHO;
+    const targets: { to: number; approach: number[]; withdrawal: number[] }[] = [];
+    for (const [dr, dc] of dirs) {
+      const nr = fr + dr, nc = fc + dc;
+      if (!inBounds(nr, nc)) continue;
+      const to = idx(nr, nc);
+      if (board[to] !== 0) continue;
+      if (chainFrom !== null) {
+        if (visited.includes(to)) continue;
+        const ax = axisKey(dr, dc);
+        if (lastAxis && ax === lastAxis) continue;
+      }
+      const opp = myColor === 1 ? 2 : 1;
+      const { approach, withdrawal } = computeCaptures(board, from, to, myColor);
+      targets.push({ to, approach, withdrawal });
+    }
+    return targets;
   }
   function computeCaptures(board: number[], from: number, to: number, myColor: number) {
     const opp = myColor === 1 ? 2 : 1;
     const fr = Math.floor(from / COLS), fc = from % COLS;
-    const tr = Math.floor(to / COLS),   tc = to % COLS;
+    const tr = Math.floor(to / COLS), tc = to % COLS;
     const dr = tr - fr, dc = tc - fc;
     const approach: number[] = [];
     let r = tr + dr, c = tc + dc;
@@ -50,13 +77,19 @@ function makeHelpers(COLS: number, ROWS: number) {
     while (inBounds(r, c) && board[idx(r, c)] === opp) { withdrawal.push(idx(r, c)); r -= dr; c -= dc; }
     return { approach, withdrawal };
   }
-  return { idx, inBounds, neighbors, computeCaptures };
+  return { idx, inBounds, neighbors, legalTargets, computeCaptures };
+}
+
+function countPieces(board: number[], color: number): number {
+  return board.filter(v => v === color).length;
 }
 
 function FanoronaPage() {
   const { id } = Route.useParams();
-  const { profile, isAdmin } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
+
+  // ALL HOOKS FIRST — before any early return
   const [game, setGame] = useState<any>(null);
   const [parts, setParts] = useState<any[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -65,6 +98,11 @@ function FanoronaPage() {
   const [captureChoice, setCaptureChoice] = useState<{ from: number; to: number; approach: number[]; withdrawal: number[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [rotated90, setRotated90] = useState(false);
+  const [lastMove, setLastMove] = useState<{ from: number; to: number; captured: number[] } | null>(null);
+  const [animatingCapture, setAnimatingCapture] = useState<number[]>([]);
+  const [remaining, setRemaining] = useState(60);
+  const botTriggeredRef = useRef<number>(-1);
+  const lastBoardRef = useRef<string>("");
 
   const load = useCallback(async () => {
     const { data: g, error } = await supabase.from("fanorona_games" as any).select("*").eq("id", id).maybeSingle();
@@ -79,7 +117,7 @@ function FanoronaPage() {
 
   useEffect(() => {
     load();
-    const ch = supabase.channel("fanorona-"+id)
+    const ch = supabase.channel("fanorona-" + id)
       .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_games", filter: `id=eq.${id}` }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_participants", filter: `game_id=eq.${id}` }, () => load())
       .subscribe();
@@ -96,21 +134,84 @@ function FanoronaPage() {
     }
   }, [game?.status, navigate]);
 
+  // Sound effects on board change
+  const boardKey = useMemo(() => JSON.stringify(game?.state?.board || []), [game?.state?.board]);
+
+  useEffect(() => {
+    if (!boardKey || boardKey === "[]" || boardKey === lastBoardRef.current) return;
+    const oldKey = lastBoardRef.current;
+    lastBoardRef.current = boardKey;
+    if (!oldKey || oldKey === "[]" || oldKey === "[]") return;
+
+    // Compare boards to detect move
+    try {
+      const oldBoard = JSON.parse(oldKey) as number[];
+      const newBoard = JSON.parse(boardKey) as number[];
+      let fromIdx = -1, toIdx = -1;
+      const captured: number[] = [];
+      for (let i = 0; i < oldBoard.length; i++) {
+        if (oldBoard[i] !== 0 && newBoard[i] === 0) {
+          // Did this piece move elsewhere?
+          let foundElsewhere = false;
+          for (let j = 0; j < newBoard.length; j++) {
+            if (oldBoard[j] === 0 && newBoard[j] === oldBoard[i] && j !== i) {
+              fromIdx = i; toIdx = j; foundElsewhere = true;
+            }
+          }
+          if (!foundElsewhere) captured.push(i);
+        }
+      }
+      if (fromIdx >= 0 && toIdx >= 0) {
+        // Recheck captured: also exclude fromIdx
+        const realCaptured: number[] = [];
+        for (let i = 0; i < oldBoard.length; i++) {
+          if (oldBoard[i] !== 0 && newBoard[i] === 0 && i !== fromIdx) {
+            realCaptured.push(i);
+          }
+        }
+        setLastMove({ from: fromIdx, to: toIdx, captured: realCaptured });
+        if (realCaptured.length > 0) {
+          setAnimatingCapture(realCaptured);
+          setTimeout(() => setAnimatingCapture([]), 600);
+          playFanoronaCapture();
+        } else {
+          playFanoronaMove();
+        }
+      }
+    } catch {}
+  }, [boardKey]);
+
+  // Win/lose sounds
+  useEffect(() => {
+    if (game?.status === "finished" && game?.winner_id) {
+      const myPart = parts.find(p => p.user_id === profile?.id);
+      if (myPart && !myPart.forfeited) {
+        if (game.winner_id === profile?.id) playFanoronaWin();
+        else playFanoronaLose();
+      }
+    }
+  }, [game?.status, game?.winner_id, profile?.id]);
+
   const COLS: number = (game?.cols as number) || 9;
   const ROWS: number = (game?.rows as number) || 5;
-  const { idx, neighbors, computeCaptures } = useMemo(() => makeHelpers(COLS, ROWS), [COLS, ROWS]);
+  const { idx, neighbors, legalTargets } = useMemo(() => makeHelpers(COLS, ROWS), [COLS, ROWS]);
 
   const me = parts.find(p => p.user_id === profile?.id);
   const isPlayer = !!me;
   const myColor = me?.color === "white" ? 1 : me?.color === "black" ? 2 : 0;
-  const isMyTurn = game && me && game.current_turn === me.slot && game.status === "playing";
-  const board: number[] = useMemo(() => (game?.state?.board as number[]) || Array(ROWS*COLS).fill(0), [game, ROWS, COLS]);
+  const isMyTurn = !!(game && me && game.current_turn === me.slot && game.status === "playing");
+  const board: number[] = useMemo(
+    () => (game?.state?.board as number[]) || Array(ROWS * COLS).fill(0),
+    [game?.state?.board, ROWS, COLS]
+  );
   const chainFrom: number | null = game?.state?.chain_from ?? null;
+  const visited: number[] = useMemo(() => (game?.state?.visited as number[]) || [], [game?.state?.visited]);
+  const lastAxis: string | null = game?.state?.last_axis ?? null;
   const mandatoryCapture: boolean = game?.mandatory_capture !== false;
 
   const cfg = useGameConfig("fanorona");
   const flipped = me?.color === "black";
-  const [remaining, setRemaining] = useState(cfg.turn_timer_seconds);
+
   useEffect(() => {
     if (!game?.turn_deadline || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
     let fired = false;
@@ -118,10 +219,7 @@ function FanoronaPage() {
       const ms = new Date(game.turn_deadline).getTime() - serverNow();
       const s = Math.max(0, Math.ceil(ms / 1000));
       setRemaining(s);
-      if (s === 0 && !fired) {
-        fired = true;
-        supabase.rpc("fanorona_tick" as any, { _game_id: id } as any);
-      }
+      if (s === 0 && !fired) { fired = true; supabase.rpc("fanorona_tick" as any, { _game_id: id } as any); }
     };
     tick();
     const t = setInterval(tick, 500);
@@ -130,7 +228,33 @@ function FanoronaPage() {
 
   const globalTimer = useGlobalGameTimer({ game: "fanorona", gameId: id, status: game?.status, deadline: game?.game_deadline });
 
-  const sendMove = async (move: any) => {
+  // Valid move targets for selected piece
+  const validTargets = useMemo(() => {
+    if (!isMyTurn || (selected === null && chainFrom === null)) return new Map<number, { approach: number[]; withdrawal: number[] }>();
+    const from = chainFrom !== null ? chainFrom : selected;
+    if (from === null || board[from] !== myColor) return new Map();
+    const targets = legalTargets(board, from, myColor, chainFrom, visited, lastAxis);
+    const map = new Map<number, { approach: number[]; withdrawal: number[] }>();
+    for (const t of targets) map.set(t.to, { approach: t.approach, withdrawal: t.withdrawal });
+    return map;
+  }, [isMyTurn, selected, chainFrom, board, myColor, visited, lastAxis, legalTargets]);
+
+  // Can current player capture?
+  const canCapture = useMemo(() => {
+    if (!isMyTurn || !board || !myColor) return false;
+    for (let i = 0; i < board.length; i++) {
+      if (board[i] === myColor) {
+        const targets = legalTargets(board, i, myColor, null, [], null);
+        if (targets.some(t => t.approach.length > 0 || t.withdrawal.length > 0)) return true;
+      }
+    }
+    return false;
+  }, [isMyTurn, board, myColor, legalTargets]);
+
+  const whiteCount = useMemo(() => countPieces(board, 1), [board]);
+  const blackCount = useMemo(() => countPieces(board, 2), [board]);
+
+  const sendMove = useCallback(async (move: any) => {
     setBusy(true);
     try {
       const { error } = await supabase.rpc("fanorona_play" as any, { _game_id: id, _move: move } as any);
@@ -138,38 +262,36 @@ function FanoronaPage() {
       setSelected(null); setCaptureChoice(null);
     } catch (e: any) { toast.error(e.message || "Coup invalide"); }
     finally { setBusy(false); }
-  };
-  const endTurn = () => sendMove({ pass: true });
+  }, [id]);
 
-  const onCellClick = (cell: number) => {
+  const endTurn = useCallback(() => sendMove({ pass: true }), [sendMove]);
+
+  const onCellClick = useCallback((cell: number) => {
     if (!isMyTurn || busy) return;
+    unlockAudio();
     const effectiveSelected = chainFrom !== null ? chainFrom : selected;
-
     if (effectiveSelected === null) {
       if (board[cell] === myColor) setSelected(cell);
       return;
     }
     if (cell === effectiveSelected) { if (chainFrom === null) setSelected(null); return; }
     if (board[cell] === myColor && chainFrom === null) { setSelected(cell); return; }
-
-    const fr = Math.floor(effectiveSelected / COLS), fc = effectiveSelected % COLS;
-    const tr = Math.floor(cell / COLS), tc = cell % COLS;
-    const dr = tr - fr, dc = tc - fc;
-    if (Math.abs(dr) > 1 || Math.abs(dc) > 1 || (dr===0 && dc===0)) { toast.error("Mouvement invalide"); return; }
-    if (dr !== 0 && dc !== 0 && !isStrong(fr, fc)) { toast.error("Diagonale interdite ici"); return; }
-    if (board[cell] !== 0) { toast.error("Case occupée"); return; }
-
-    const { approach, withdrawal } = computeCaptures(board, effectiveSelected, cell, myColor);
+    const targetInfo = validTargets.get(cell);
+    if (!targetInfo) {
+      if (chainFrom === null && board[cell] === 0) toast.error("Déplacement invalide");
+      return;
+    }
+    const { approach, withdrawal } = targetInfo;
     if (approach.length > 0 && withdrawal.length > 0) {
       setCaptureChoice({ from: effectiveSelected, to: cell, approach, withdrawal });
       return;
     }
     const captured = approach.length > 0 ? approach : withdrawal;
     sendMove({ from: effectiveSelected, to: cell, captured, chain: false });
-  };
+  }, [isMyTurn, busy, chainFrom, selected, board, myColor, validTargets, sendMove]);
 
   const confirm = useConfirm();
-  const forfeit = async () => {
+  const forfeit = useCallback(async () => {
     const stake = Number(game?.stake) || 0;
     if (game?.status !== "open") {
       const ok = await confirm({
@@ -177,16 +299,33 @@ function FanoronaPage() {
         description: stake > 0
           ? <>Si tu quittes, tu perdras automatiquement et ta mise sera définitivement perdue. <b>{stake.toLocaleString("fr-FR")} Ar</b>.</>
           : "Si tu quittes, tu perdras automatiquement la partie.",
-        confirmLabel: "Confirmer quitter",
-        destructive: true,
+        confirmLabel: "Confirmer quitter", destructive: true,
       });
       if (!ok) return;
     }
     await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any);
     navigate({ to: "/jeux" });
-  };
+  }, [game?.stake, game?.status, id, navigate, confirm]);
 
-  if (!loaded) return <div className="p-6 text-center">Chargement…</div>;
+  // Bot play for solo mode
+  const moveCount = game?.state?.move_count ?? 0;
+  useEffect(() => {
+    if (!game || game.status !== "playing" || !me) return;
+    const isSolo = parts.some(p => p.is_bot);
+    if (!isSolo || isMyTurn) return;
+    if (botTriggeredRef.current === moveCount) return;
+    botTriggeredRef.current = moveCount;
+    const timer = setTimeout(async () => {
+      try {
+        const { error } = await supabase.rpc("fanorona_bot_play" as any, { _game_id: id } as any);
+        if (error) console.error("fanorona_bot_play error", error);
+      } catch (e) { console.error("bot play failed", e); }
+    }, 600 + Math.random() * 800);
+    return () => clearTimeout(timer);
+  }, [game?.status, game?.current_turn, moveCount, me, parts, isMyTurn, id]);
+
+  // ── EARLY RETURNS AFTER ALL HOOKS ──
+  if (!loaded) return <div className="p-6 text-center text-muted-foreground">Chargement…</div>;
   if (!game) return (
     <div className="p-6 text-center space-y-3">
       <div className="text-2xl">😕</div>
@@ -196,15 +335,23 @@ function FanoronaPage() {
   );
 
   const replayFanorona = async () => {
-    const { data, error } = await supabase.rpc("fanorona_create" as any, {
-      _stake: Number(game.stake) || 0,
-      _private: !!game.is_private,
-      _commission: Number(game.commission_pct) || 10,
-      _variant: game.variant || "tsivy",
-      _mandatory_capture: game.mandatory_capture !== false,
-    } as any);
-    if (error) { toast.error(error.message); return; }
-    navigate({ to: "/fanorona/$id", params: { id: data as string } });
+    const isSolo = parts.some(p => p.is_bot);
+    if (isSolo) {
+      const { data, error } = await supabase.rpc("fanorona_create_solo" as any, {
+        _stake: 0, _variant: game.variant || "tsivy",
+        _mandatory_capture: game.mandatory_capture !== false, _bot_intelligence: 3,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+      navigate({ to: "/fanorona/$id", params: { id: data as string } });
+    } else {
+      const { data, error } = await supabase.rpc("fanorona_create" as any, {
+        _stake: Number(game.stake) || 0, _private: !!game.is_private,
+        _commission: Number(game.commission_pct) || 10, _variant: game.variant || "tsivy",
+        _mandatory_capture: game.mandatory_capture !== false,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+      navigate({ to: "/fanorona/$id", params: { id: data as string } });
+    }
   };
 
   if (game.status === "open") {
@@ -216,37 +363,21 @@ function FanoronaPage() {
           gameLabel="Fanorona · 2 joueurs"
           parts={parts}
           maxPlayers={2}
-          stake={Number(game.stake) || 0}
-          pot={Number(game.pot) || 0}
-          roomCode={game.is_private ? game.room_code : null}
-          shareSlug="fanorona"
+          stake={Number(game.stake)}
+          pot={Number(game.pot)}
+          roomCode={game.room_code}
           meUserId={profile?.id}
           isParticipant={!!me}
+          shareSlug="fanorona"
           createdAt={game.created_at}
-          onQuit={forfeit}
-          onToggleReady={async (ready) => {
-            const { error } = await supabase.rpc("fanorona_set_ready" as any, { _game_id: id, _ready: ready } as any);
-            if (error) toast.error(error.message);
-          }}
+          onQuit={async () => { await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any); navigate({ to: "/jeux" }); }}
+          onToggleReady={async (ready: boolean) => { await supabase.rpc("fanorona_set_ready" as any, { _game_id: id, _ready: ready } as any); }}
         />
-        {((isAdmin || (Number(game.stake) === 0 && !!me)) && parts.length < 2) && (
-          <button
-            onClick={async () => {
-              const { error } = await supabase.rpc("fanorona_add_bot" as any, { _game_id: id, _bot_name: "Bot" } as any);
-              if (error) toast.error(error.message); else toast.success("Bot ajouté");
-            }}
-            className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Ajouter un bot
-          </button>
-        )}
-        <GameChatDrawer gameId={id} />
       </main>
     );
   }
 
-  // Board sizing — keep cells visually similar across variants.
-  const CELL_PX = 40;
+  const CELL_PX = 52;
   const SIZE_W = (COLS - 1) * CELL_PX;
   const SIZE_H = (ROWS - 1) * CELL_PX;
   const cx = (c: number) => c * CELL_PX;
@@ -256,13 +387,14 @@ function FanoronaPage() {
     <main className="max-w-2xl mx-auto px-3 py-3 space-y-3 pb-6" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       <GameInstructionsBanner slug="fanorona" />
+
       <div className="rounded-2xl bg-card border border-white/8 px-4 py-3 flex items-center gap-3 shadow-sm">
         <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-xl shrink-0">⚫</div>
         <div className="flex-1 min-w-0">
           <div className="font-extrabold text-base leading-tight">
             Fanorona · {game.variant === "telo" ? "Telo 3×3" : game.variant === "dimy" ? "Dimy 5×5" : "Tsivy 9×5"}
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {Number(game.pot) > 0 ? (
               <span className="flex items-baseline gap-1">
                 <span className="text-[9px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
@@ -270,12 +402,13 @@ function FanoronaPage() {
                   {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
                 </span>
               </span>
-            ) : (
-              <span className="text-[11px] text-muted-foreground">Partie gratuite</span>
-            )}
+            ) : <span className="text-[11px] text-muted-foreground">Partie gratuite</span>}
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mandatoryCapture ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" : "bg-white/6 text-muted-foreground/60"}`}>
               {mandatoryCapture ? "⚠ Capture oblig." : "Libre"}
             </span>
+            {parts.some(p => p.is_bot) && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-500 border border-violet-500/20">🤖 Solo</span>
+            )}
           </div>
           {game.is_private && (
             <button onClick={() => { copyText(game.room_code).then(ok => toast[ok ? "success" : "error"](ok ? "Copié" : "Impossible de copier")); }}
@@ -297,43 +430,39 @@ function FanoronaPage() {
           ) : (
             <button onClick={() => navigate({ to: "/live" })}
               className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 text-xs font-semibold transition-all border border-white/10">
-              <LogOut className="w-3.5 h-3.5" /> Sortir du live
+              <LogOut className="w-3.5 h-3.5" /> Sortir
             </button>
           )}
         </div>
       </div>
 
       {game.status === "playing" && (
-        <TurnBanner
-          isMyTurn={!!isMyTurn}
-          opponentName={parts.find(p => p.slot !== me?.slot)?.display_name}
-          globalTimerEnabled={globalTimer.enabled}
-          globalTimerLabel={globalTimer.remainingLabel}
-        />
+        <TurnBanner isMyTurn={!!isMyTurn} opponentName={parts.find(p => p.slot !== me?.slot)?.display_name}
+          globalTimerEnabled={globalTimer.enabled} globalTimerLabel={globalTimer.remainingLabel} />
       )}
 
       <div className="grid grid-cols-2 gap-2.5">
         {parts.map(p => {
           const isCurrent = game.current_turn === p.slot && game.status === "playing";
-          const skips = Number(game.turn_skips?.[p.user_id] || 0);
           const isMe = p.user_id === profile?.id;
           const isWhite = p.color === "white";
+          const pieceCount = isWhite ? whiteCount : blackCount;
           return (
             <div key={p.id} className={`relative rounded-2xl p-3 transition-all duration-300 border ${isCurrent ? "bg-primary/8 border-primary/35 shadow-lg shadow-primary/10" : "bg-card border-white/6"}`}>
               {isCurrent && <div className="absolute inset-0 rounded-2xl ring-2 ring-primary/50 animate-pulse pointer-events-none" />}
               <div className="flex items-center gap-2.5">
-                <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-xl font-bold ring-2 ${
-                  isWhite ? "bg-white text-gray-900 ring-white/30" : "bg-gray-900 text-white ring-white/10"
-                } ${isCurrent ? "shadow-lg" : ""}`}>
+                <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-xl font-bold ring-2 ${isWhite ? "bg-white text-gray-900 ring-white/30" : "bg-gray-900 text-white ring-white/10"} ${isCurrent ? "shadow-lg" : ""}`}>
                   {isWhite ? "⚪" : "⚫"}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-sm truncate leading-tight">
                     {p.display_name}
+                    {p.is_bot && <span className="ml-1 text-[10px] font-normal text-violet-500">🤖</span>}
                     {isMe && <span className="ml-1 text-[10px] font-normal text-primary/60">(vous)</span>}
                   </div>
                   <div className={`text-[10px] font-semibold ${isWhite ? "text-white/60" : "text-muted-foreground"}`}>
                     {isWhite ? "Blancs" : "Noirs"} {p.forfeited && <span className="text-destructive ml-1">· Forfait</span>}
+                    {!p.forfeited && <span className="ml-1 opacity-70">· {pieceCount} pions</span>}
                   </div>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-1">
@@ -342,7 +471,6 @@ function FanoronaPage() {
                       <Timer className="w-3 h-3" /> {remaining}s
                     </div>
                   )}
-                  {skips > 0 && <div className="text-[9px] text-amber-500">⚠ {skips} skip</div>}
                 </div>
               </div>
             </div>
@@ -358,132 +486,139 @@ function FanoronaPage() {
       {game.status === "finished" && (
         <GameEndScreen slug="fanorona" meUserId={profile?.id} winnerId={game.winner_id}
           participants={parts} stake={Number(game.stake)} pot={Number(game.pot)}
-          commissionPct={Number(game.commission_pct) || 10}
-          onReplay={replayFanorona} />
+          commissionPct={Number(game.commission_pct) || 10} onReplay={replayFanorona} />
       )}
 
       <GameBoardSkin coverUrl={fanoronaCover.url}>
-      <div className={rotated90 ? "overflow-hidden mx-auto" : "overflow-x-auto"} style={rotated90 ? { width: "min(100%, 70vh)", aspectRatio: `${ROWS} / ${COLS}`, position: "relative" } : undefined}>
-        <svg viewBox={`-24 -24 ${SIZE_W+48} ${SIZE_H+48}`} className={rotated90 ? "" : "w-full"} style={rotated90 ? {
-          position: "absolute",
-          width: `${(COLS / ROWS) * 100}%`,
-          height: `${(ROWS / COLS) * 100}%`,
-          top: "50%",
-          left: "50%",
-          transform: `translate(-50%, -50%) rotate(${flipped ? 270 : 90}deg)`,
-          transformOrigin: "center",
-        } : { maxWidth: 600, transform: flipped ? "rotate(180deg)" : undefined }}>
-          <defs>
-            <radialGradient id="wood-inner" cx="50%" cy="35%" r="80%">
-              <stop offset="0%" stopColor="#d9a86a" />
-              <stop offset="60%" stopColor="#a06b35" />
-              <stop offset="100%" stopColor="#5e3618" />
-            </radialGradient>
-            <radialGradient id="white-stone" cx="35%" cy="30%" r="70%">
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="55%" stopColor="#ece4d2" />
-              <stop offset="100%" stopColor="#8b806a" />
-            </radialGradient>
-            <radialGradient id="black-stone" cx="35%" cy="30%" r="70%">
-              <stop offset="0%" stopColor="#5a5a5a" />
-              <stop offset="50%" stopColor="#1d1d1d" />
-              <stop offset="100%" stopColor="#000000" />
-            </radialGradient>
-            <filter id="stone-shadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="2" stdDeviation="1.6" floodColor="#000" floodOpacity="0.55" />
-            </filter>
-          </defs>
-
-          <rect x={-18} y={-18} width={SIZE_W+36} height={SIZE_H+36} rx={14} fill="url(#wood-inner)" />
-
-          {Array.from({length: ROWS}).map((_, r) => Array.from({length: COLS}).map((_, c) => {
-            const here = idx(r,c);
-            return neighbors(r,c).map(([dr,dc]) => {
-              const r2 = r+dr, c2 = c+dc;
-              if (r2*COLS+c2 < here) return null;
+        <div className={rotated90 ? "overflow-hidden mx-auto" : "overflow-x-auto"} style={rotated90 ? { width: "min(100%, 70vh)", aspectRatio: `${ROWS} / ${COLS}`, position: "relative" } : undefined}>
+          <svg viewBox={`-24 -24 ${SIZE_W + 48} ${SIZE_H + 48}`} className={rotated90 ? "" : "w-full"} style={rotated90 ? {
+            position: "absolute", width: `${(COLS / ROWS) * 100}%`, height: `${(ROWS / COLS) * 100}%`,
+            top: "50%", left: "50%", transform: `translate(-50%, -50%) rotate(${flipped ? 270 : 90}deg)`, transformOrigin: "center",
+          } : { maxWidth: 600, transform: flipped ? "rotate(180deg)" : undefined }}>
+            <defs>
+              <radialGradient id="wood-inner" cx="50%" cy="35%" r="80%">
+                <stop offset="0%" stopColor="#d9a86a" /><stop offset="60%" stopColor="#a06b35" /><stop offset="100%" stopColor="#5e3618" />
+              </radialGradient>
+              <radialGradient id="white-stone" cx="35%" cy="30%" r="70%">
+                <stop offset="0%" stopColor="#ffffff" /><stop offset="55%" stopColor="#ece4d2" /><stop offset="100%" stopColor="#8b806a" />
+              </radialGradient>
+              <radialGradient id="black-stone" cx="35%" cy="30%" r="70%">
+                <stop offset="0%" stopColor="#5a5a5a" /><stop offset="50%" stopColor="#1d1d1d" /><stop offset="100%" stopColor="#000000" />
+              </radialGradient>
+              <filter id="stone-shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="2" stdDeviation="1.6" floodColor="#000" floodOpacity="0.55" />
+              </filter>
+              <filter id="capture-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            <rect x={-18} y={-18} width={SIZE_W + 36} height={SIZE_H + 36} rx={14} fill="url(#wood-inner)" />
+            {Array.from({ length: ROWS }).map((_, r) => Array.from({ length: COLS }).map((_, c) => {
+              const here = idx(r, c);
+              return neighbors(r, c).map(([dr, dc]) => {
+                const r2 = r + dr, c2 = c + dc;
+                if (r2 * COLS + c2 < here) return null;
+                return (
+                  <g key={`${r}-${c}-${dr}-${dc}`}>
+                    <line x1={cx(c)} y1={cy(r) + 1} x2={cx(c2)} y2={cy(r2) + 1} stroke="rgba(0,0,0,0.55)" strokeWidth={1.6} strokeLinecap="round" />
+                    <line x1={cx(c)} y1={cy(r)} x2={cx(c2)} y2={cy(r2)} stroke="rgba(255,225,180,0.85)" strokeWidth={1} strokeLinecap="round" />
+                  </g>
+                );
+              });
+            }))}
+            {board.map((_, i) => {
+              const r = Math.floor(i / COLS), c = i % COLS;
+              return <circle key={`s-${i}`} cx={cx(c)} cy={cy(r)} r={4} fill="rgba(0,0,0,0.35)" />;
+            })}
+            {lastMove && (
+              <>
+                <circle cx={cx(lastMove.from % COLS)} cy={cy(Math.floor(lastMove.from / COLS))} r={16} fill="rgba(255,235,59,0.25)" />
+                <circle cx={cx(lastMove.to % COLS)} cy={cy(Math.floor(lastMove.to / COLS))} r={16} fill="rgba(255,235,59,0.35)" />
+              </>
+            )}
+            {isMyTurn && validTargets.size > 0 && Array.from(validTargets.entries()).map(([to, info]) => {
+              const r = Math.floor(to / COLS), c = to % COLS;
+              const hasCapture = info.approach.length > 0 || info.withdrawal.length > 0;
               return (
-                <g key={`${r}-${c}-${dr}-${dc}`}>
-                  <line x1={cx(c)} y1={cy(r)+1} x2={cx(c2)} y2={cy(r2)+1} stroke="rgba(0,0,0,0.55)" strokeWidth={1.6} strokeLinecap="round" />
-                  <line x1={cx(c)} y1={cy(r)} x2={cx(c2)} y2={cy(r2)} stroke="rgba(255,225,180,0.85)" strokeWidth={1} strokeLinecap="round" />
+                <g key={`target-${to}`}>
+                  {hasCapture ? (
+                    <circle cx={cx(c)} cy={cy(r)} r={16} fill="none" stroke="#ef4444" strokeWidth={2} opacity={0.7} strokeDasharray="4 2">
+                      <animate attributeName="r" values="14;18;14" dur="1s" repeatCount="indefinite" />
+                    </circle>
+                  ) : (
+                    <circle cx={cx(c)} cy={cy(r)} r={6} fill="rgba(34,197,94,0.4)" />
+                  )}
                 </g>
               );
-            });
-          }))}
-
-          {board.map((_, i) => {
-            const r = Math.floor(i/COLS), c = i % COLS;
-            return <circle key={`s-${i}`} cx={cx(c)} cy={cy(r)} r={4} fill="rgba(0,0,0,0.35)" />;
-          })}
-
-          {board.map((v, i) => {
-            const r = Math.floor(i / COLS), c = i % COLS;
-            const isSel = selected === i || chainFrom === i;
-            const isMine = v === myColor;
-            if (v === 0) {
+            })}
+            {board.map((v, i) => {
+              const r = Math.floor(i / COLS), c = i % COLS;
+              const isSel = selected === i || chainFrom === i;
+              const isCaptured = animatingCapture.includes(i);
+              if (v === 0) {
+                return (
+                  <circle key={i} cx={cx(c)} cy={cy(r)} r={14} fill="transparent"
+                    onClick={() => onCellClick(i)}
+                    style={{ cursor: isMyTurn && (selected !== null || chainFrom !== null) ? "pointer" : "default" }} />
+                );
+              }
               return (
-                <circle
-                  key={i}
-                  cx={cx(c)} cy={cy(r)} r={14}
-                  fill="transparent"
-                  onClick={() => onCellClick(i)}
-                  style={{ cursor: isMyTurn && selected !== null ? "pointer" : "default" }}
-                />
+                <g key={i} onClick={() => onCellClick(i)}
+                   style={{ cursor: isMyTurn && (v === myColor || selected !== null || chainFrom !== null) ? "pointer" : "default", opacity: isCaptured ? 0.3 : 1, transition: "opacity 0.4s ease-out" }}>
+                  {isSel && (
+                    <circle cx={cx(c)} cy={cy(r)} r={16} fill="none" stroke="#22c55e" strokeWidth={2.5} opacity={0.9}>
+                      <animate attributeName="r" values="14;18;14" dur="1s" repeatCount="indefinite" />
+                    </circle>
+                  )}
+                  <ellipse cx={cx(c)} cy={cy(r) + 2} rx={11} ry={3.5} fill="rgba(0,0,0,0.45)" />
+                  <circle cx={cx(c)} cy={cy(r)} r={11.5} fill={v === 1 ? "url(#white-stone)" : "url(#black-stone)"} filter={isCaptured ? "url(#capture-glow)" : "url(#stone-shadow)"} />
+                  <ellipse cx={cx(c) - 3.5} cy={cy(r) - 4} rx={3.5} ry={2} fill={v === 1 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.3)"} />
+                </g>
               );
-            }
-            return (
-              <g key={i} onClick={() => onCellClick(i)}
-                 style={{ cursor: isMyTurn && (isMine || selected !== null || chainFrom !== null) ? "pointer" : "default" }}>
-                {isSel && <circle cx={cx(c)} cy={cy(r)} r={15} fill="none" stroke="#22c55e" strokeWidth={2.5} opacity={0.9} />}
-                <ellipse cx={cx(c)} cy={cy(r)+2} rx={11} ry={3.5} fill="rgba(0,0,0,0.45)" />
-                <circle cx={cx(c)} cy={cy(r)} r={11.5} fill={v === 1 ? "url(#white-stone)" : "url(#black-stone)"} filter="url(#stone-shadow)" />
-                <ellipse cx={cx(c)-3.5} cy={cy(r)-4} rx={3.5} ry={2} fill={v === 1 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.3)"} />
-              </g>
-            );
-          })}
-        </svg>
-        <div className="text-xs text-center mt-3 font-medium" style={{ color: "rgba(255,225,190,0.9)" }}>
-          {!me ? "Spectateur" :
-            game.status !== "playing" ? "En attente du démarrage…" :
-            isMyTurn ? (chainFrom !== null ? "Chaîne en cours — continue ou termine" : "À toi de jouer") : "Tour de l'adversaire"}
+            })}
+          </svg>
+          <div className="text-xs text-center mt-3 font-medium" style={{ color: "rgba(255,225,190,0.9)" }}>
+            {!me ? "Spectateur" : game.status !== "playing" ? "Partie terminée" :
+              isMyTurn ? (chainFrom !== null
+                ? <span className="text-amber-500 font-semibold">⛓ Chaîne en cours — continue ou termine</span>
+                : canCapture && mandatoryCapture
+                  ? <span className="text-red-400 font-semibold">⚠ Capture obligatoire disponible</span>
+                  : "À toi de jouer")
+              : "Tour de l'adversaire"}
+          </div>
+          {isMyTurn && (
+            <button onClick={endTurn}
+              className={`mt-3 w-full py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${chainFrom !== null ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-amber-100 text-amber-950 hover:bg-amber-200"}`}>
+              <SkipForward className="w-4 h-4" />
+              {chainFrom !== null ? "Terminer la chaîne" : "Passer mon tour"}
+            </button>
+          )}
         </div>
-        {isMyTurn && (
-          <button onClick={endTurn}
-            className="mt-3 w-full py-2.5 rounded-full bg-amber-100 text-amber-950 font-bold text-sm shadow-lg flex items-center justify-center gap-2">
-            <SkipForward className="w-4 h-4" />
-            {chainFrom !== null ? "Terminer mon tour" : "Passer mon tour"}
-          </button>
-        )}
-      </div>
       </GameBoardSkin>
 
       {captureChoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setCaptureChoice(null)}>
-          <div className="bg-card rounded-3xl p-5 max-w-sm w-full space-y-3" onClick={e => e.stopPropagation()}>
-            <div className="font-bold text-center">Choisir le type de capture</div>
+          <div className="bg-card rounded-3xl p-5 max-w-sm w-full space-y-3 border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="font-bold text-center text-lg">Choisir le type de capture</div>
+            <p className="text-xs text-muted-foreground text-center">Les deux options capturent des pièces adverses.</p>
             <button onClick={() => { sendMove({ from: captureChoice.from, to: captureChoice.to, captured: captureChoice.approach, chain: false }); }}
-              className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold">
-              Approche ({captureChoice.approach.length} pion{captureChoice.approach.length>1?"s":""})
+              className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+              <span>⚡ Approche</span>
+              <span className="text-sm opacity-80">({captureChoice.approach.length} pion{captureChoice.approach.length > 1 ? "s" : ""})</span>
             </button>
             <button onClick={() => { sendMove({ from: captureChoice.from, to: captureChoice.to, captured: captureChoice.withdrawal, chain: false }); }}
-              className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold">
-              Éloignement ({captureChoice.withdrawal.length} pion{captureChoice.withdrawal.length>1?"s":""})
+              className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+              <span>↩ Éloignement</span>
+              <span className="text-sm opacity-80">({captureChoice.withdrawal.length} pion{captureChoice.withdrawal.length > 1 ? "s" : ""})</span>
             </button>
-            <button onClick={() => setCaptureChoice(null)} className="w-full py-2 rounded-full bg-secondary text-sm">Annuler</button>
+            <button onClick={() => setCaptureChoice(null)} className="w-full py-2 rounded-full bg-secondary text-sm hover:bg-secondary/80 transition-colors">Annuler</button>
           </div>
         </div>
       )}
-      <GamePauseControl
-        slug="fanorona"
-        gameId={id}
-        game={game}
-        remaining={remaining}
-        totalSeconds={cfg.turn_timer_seconds}
-        isMyTurn={!!isMyTurn}
-        isPlayer={isPlayer}
-        myUserId={profile?.id ?? null}
-      />
+
+      <GamePauseControl slug="fanorona" gameId={id} game={game} remaining={remaining} totalSeconds={cfg.turn_timer_seconds}
+        isMyTurn={!!isMyTurn} isPlayer={isPlayer} myUserId={profile?.id ?? null} />
       <GameChatDrawer gameId={id} />
     </main>
-
   );
 }
