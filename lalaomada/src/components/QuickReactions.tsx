@@ -29,10 +29,12 @@ export default function QuickReactions({
   gameId,
   gameSlug,
   participants = [],
+  position = "bottom-right",
 }: {
   gameId: string;
   gameSlug: "ludo" | "domino";
   participants?: { user_id?: string | null; display_name?: string | null; slot?: number; is_bot?: boolean }[];
+  position?: "bottom-right" | "top-right";
 }) {
   const { profile } = useAuth();
   const [showBar, setShowBar] = useState(false);
@@ -126,10 +128,10 @@ export default function QuickReactions({
         {floaters.map((f) => (
           <div
             key={f.id}
-            className="absolute bottom-24"
+            className={position === "top-right" ? "absolute top-24" : "absolute bottom-24"}
             style={{
               left: `${f.x}%`,
-              animation: "floatUp 2.5s ease-out forwards",
+              animation: `${position === "top-right" ? "floatDown" : "floatUp"} 2.5s ease-out forwards`,
             }}
           >
             <div className="flex flex-col items-center gap-0.5">
@@ -144,9 +146,9 @@ export default function QuickReactions({
         ))}
       </div>
 
-      {/* Recent reactions log (small badges above the bar) */}
+      {/* Recent reactions log (small badges above/below the bar) */}
       {recentReactions.length > 0 && !showBar && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-1 items-center pointer-events-none">
+        <div className={`fixed z-40 flex flex-col gap-1 items-center pointer-events-none ${position === "top-right" ? "top-32 left-1/2" : "bottom-20 left-1/2"} -translate-x-1/2`}>
           {recentReactions.slice(0, 3).map((r, i) => (
             <div
               key={i}
@@ -162,35 +164,67 @@ export default function QuickReactions({
 
       {/* Reaction bar trigger + expanded bar */}
       <div
-        className="fixed bottom-4 right-3 z-40 flex flex-col items-end gap-2"
+        className={`fixed z-40 flex flex-col items-end gap-2 ${position === "top-right" ? "top-[68px] right-3" : "bottom-4 right-3"}`}
         onMouseEnter={keepBarOpen}
       >
-        {showBar && (
-          <div
-            className="flex items-center gap-1 bg-card rounded-full shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in"
-            onMouseEnter={keepBarOpen}
-          >
-            {REACTIONS.map((r) => (
-              <button
-                key={r.emoji}
-                onClick={() => sendReaction(r.emoji)}
-                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-accent hover:scale-125 transition-all duration-150 active:scale-90"
-                title={r.label}
-                aria-label={r.label}
+        {position === "top-right" ? (
+          <>
+            <button
+              onClick={() => (showBar ? setShowBar(false) : openBar())}
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 hover:bg-accent transition-colors active:scale-90"
+              aria-label="Réactions rapides"
+            >
+              <span className="text-2xl">😀</span>
+            </button>
+            {showBar && (
+              <div
+                className="flex items-center gap-1 bg-card rounded-full shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in"
+                onMouseEnter={keepBarOpen}
               >
-                <span className="text-xl">{r.emoji}</span>
-              </button>
-            ))}
-          </div>
-        )}
+                {REACTIONS.map((r) => (
+                  <button
+                    key={r.emoji}
+                    onClick={() => sendReaction(r.emoji)}
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-accent hover:scale-125 transition-all duration-150 active:scale-90"
+                    title={r.label}
+                    aria-label={r.label}
+                  >
+                    <span className="text-xl">{r.emoji}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {showBar && (
+              <div
+                className="flex items-center gap-1 bg-card rounded-full shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in"
+                onMouseEnter={keepBarOpen}
+              >
+                {REACTIONS.map((r) => (
+                  <button
+                    key={r.emoji}
+                    onClick={() => sendReaction(r.emoji)}
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-accent hover:scale-125 transition-all duration-150 active:scale-90"
+                    title={r.label}
+                    aria-label={r.label}
+                  >
+                    <span className="text-xl">{r.emoji}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
-        <button
-          onClick={() => (showBar ? setShowBar(false) : openBar())}
-          className="w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 hover:bg-accent transition-colors active:scale-90"
-          aria-label="Réactions rapides"
-        >
-          <span className="text-2xl">😀</span>
-        </button>
+            <button
+              onClick={() => (showBar ? setShowBar(false) : openBar())}
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 hover:bg-accent transition-colors active:scale-90"
+              aria-label="Réactions rapides"
+            >
+              <span className="text-2xl">😀</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Keyframes injected once */}
@@ -199,6 +233,11 @@ export default function QuickReactions({
           0% { transform: translateY(0) scale(0.5); opacity: 0; }
           15% { transform: translateY(-10px) scale(1.2); opacity: 1; }
           100% { transform: translateY(-200px) scale(1); opacity: 0; }
+        }
+        @keyframes floatDown {
+          0% { transform: translateY(0) scale(0.5); opacity: 0; }
+          15% { transform: translateY(10px) scale(1.2); opacity: 1; }
+          100% { transform: translateY(200px) scale(1); opacity: 0; }
         }
       `}</style>
     </>
