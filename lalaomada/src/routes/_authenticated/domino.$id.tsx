@@ -250,7 +250,7 @@ function DominoPage() {
       user_id: r.user_id || `bot_${r.slot}`,
       avatar_url: r.user_id ? (byId.get(r.user_id) || null) : null,
     })));
-  }, [id]);
+  }, [id, profile?.id]);
 
   // ── Sound effects ──────────────────────────────────────────────────────
   useDominoSounds({ game, parts, myUserId: profile?.id });

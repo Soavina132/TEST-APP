@@ -132,7 +132,7 @@ function PetanquePage() {
     setGame((g as any) || null);
     setParts(((ps as any[]) || []) as Participant[]);
     setBoules(((bs as any[]) || []) as Boule[]);
-  }, [id]);
+  }, [id, profile?.id]);
 
   useEffect(() => { load(); }, [load]);
 

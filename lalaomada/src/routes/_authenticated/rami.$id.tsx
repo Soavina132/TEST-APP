@@ -886,7 +886,7 @@ function RamiPage() {
     setGame(g);
     const { data: p } = await supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot");
     setParts((p as any[]) || []);
-  }, [id]);
+  }, [id, profile?.id]);
 
   useEffect(() => {
     load();

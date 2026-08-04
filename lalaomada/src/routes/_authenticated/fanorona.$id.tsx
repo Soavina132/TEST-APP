@@ -160,7 +160,7 @@ function FanoronaPage() {
     const { data: p } = await supabase.from("fanorona_participants" as any).select("*").eq("game_id", id).order("slot");
     setParts((p as any[]) || []);
     setLoaded(true);
-  }, [id]);
+  }, [id, profile?.id]);
 
   useEffect(() => {
     load();

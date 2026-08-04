@@ -266,7 +266,11 @@ function Lobby() {
           if (berr) throw berr;
         }
         // Auto-ready pour démarrer immédiatement (bypass salle d'attente)
-        await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
+        const { error: readyErr } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
+        if (readyErr) {
+          // Phone not verified or other issue — game stays open, user goes to waiting room
+          toast.error(readyErr.message);
+        }
       } else if (slug === "domino") {
         const { data, error } = await supabase.rpc("domino_create" as any, {
           _stake: 0, _max: maxP, _private: true,
@@ -438,7 +442,8 @@ function Lobby() {
           const { error: berr } = await supabase.rpc("player_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
           if (berr) throw berr;
         }
-        await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
+        const { error: readyErr2 } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
+        if (readyErr2) toast.error(readyErr2.message);
         refreshProfile(); goTo(id);
       } else {
         await createNew(visibility === "private");

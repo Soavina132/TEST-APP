@@ -197,7 +197,7 @@ function PokerPage() {
       (profs || []).forEach((p: any) => { m[p.id] = p; });
       setProfilesMap(prev => ({ ...prev, ...m }));
     }
-  }, [id]);
+  }, [id, profile?.id]);
 
   useEffect(() => { load(); }, [load]);
 

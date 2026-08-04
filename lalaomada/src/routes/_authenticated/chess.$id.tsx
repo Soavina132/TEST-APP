@@ -214,7 +214,7 @@ function ChessPage() {
       if (last?.uci) setLastMove({ from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) });
       setMoveHistory(moves.map((m: any) => ({ san: m.san, ply: m.ply })));
     }
-  }, [id, isValidGameId]);
+  }, [id, isValidGameId, profile?.id]);
 
   useEffect(() => { void load(); }, [load]);
 

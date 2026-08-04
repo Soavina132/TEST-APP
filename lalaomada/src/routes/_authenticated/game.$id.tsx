@@ -39,15 +39,30 @@ function GamePage() {
     if (g?.status === "finished") refreshProfile();
   };
 
+  // Initial load — fetch game data immediately
   useEffect(() => {
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Realtime subscription — only after auth session is restored
+  // Waiting for profile?.id ensures the Supabase client has a valid auth token,
+  // so RLS policies allow realtime events to reach the client.
+  useEffect(() => {
+    if (!profile?.id) return; // auth not ready yet — skip subscription
     const ch = supabase.channel("game-" + id)
       .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games", filter: `id=eq.${id}` }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "ludo_participants", filter: `game_id=eq.${id}` }, load)
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") { /* connected */ }
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Retry: remove and re-subscribe after a short delay
+          setTimeout(() => { load(); }, 500);
+        }
+      });
     return () => { supabase.removeChannel(ch); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, profile?.id]);
 
   useEffect(() => {
     if (!profile?.id) return;
