@@ -83,12 +83,21 @@ function countPieces(board: number[], color: number): number {
 }
 
 /** Compact single-line player bar (used above/below the board — mirrors the Ludo/Domino style). */
+function fmtClock(ms: number) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
 function FanoronaPlayerBar({
-  p, isCurrent, isMe, pieceCount, remaining,
+  p, isCurrent, isMe, pieceCount, timeMs,
 }: {
-  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; remaining: number;
+  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number;
 }) {
   const isWhite = p.color === "white";
+  const low = timeMs < 30_000;
+  const critical = timeMs < 10_000;
   return (
     <div className={`relative flex items-center gap-2 rounded-lg px-2 py-1 border transition-colors duration-300 ${
       isCurrent ? "bg-primary/8 border-primary/40" : "bg-card border-white/6"
@@ -103,11 +112,13 @@ function FanoronaPlayerBar({
       <span className="text-[10px] font-semibold text-muted-foreground truncate ml-auto shrink-0">
         {p.forfeited ? <span className="text-destructive">Forfait</span> : `${pieceCount} pions`}
       </span>
-      {isCurrent && (
-        <div className={`shrink-0 flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${remaining <= 10 ? "bg-destructive text-white timer-urgent" : "bg-primary/15 text-primary"}`}>
-          <Timer className="w-2.5 h-2.5" /> {remaining}s
-        </div>
-      )}
+      <div
+        className={`shrink-0 font-mono text-sm font-bold tabular-nums px-2 py-0.5 rounded-md transition-colors ${
+          critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : isCurrent ? "bg-primary/15 text-primary" : "text-muted-foreground"
+        }`}
+      >
+        {fmtClock(timeMs)}
+      </div>
     </div>
   );
 }
@@ -136,7 +147,7 @@ function FanoronaPage() {
   const [rotated90, setRotated90] = useState(false);
   const [lastMove, setLastMove] = useState<{ from: number; to: number; captured: number[] } | null>(null);
   const [animatingCapture, setAnimatingCapture] = useState<number[]>([]);
-  const [remaining, setRemaining] = useState(60);
+  // Clock state handled by cumulative timer below
   const botTriggeredRef = useRef<number | string>(-1);
   const lastBoardRef = useRef<string>("");
 
@@ -254,19 +265,36 @@ function FanoronaPage() {
   });
   const flipped = me?.color === "black";
 
+  /* -------- Cumulative clock tick (like chess) -------- */
+  const [now, setNow] = useState(serverNow());
   useEffect(() => {
-    if (!game?.turn_deadline || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
-    let fired = false;
-    const tick = () => {
-      const ms = new Date(game.turn_deadline).getTime() - serverNow();
-      const s = Math.max(0, Math.ceil(ms / 1000));
-      setRemaining(s);
-      if (s === 0 && !fired) { fired = true; supabase.rpc("fanorona_tick" as any, { _game_id: id } as any); }
-    };
-    tick();
-    const t = setInterval(tick, 500);
+    const t = setInterval(() => setNow(serverNow()), 250);
     return () => clearInterval(t);
-  }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
+  }, []);
+
+  const elapsedSinceMove = useMemo(() => {
+    if (!game || game.status !== "playing") return 0;
+    const base = new Date(game.last_move_at ?? game.started_at ?? new Date(serverNow()).toISOString()).getTime();
+    return Math.max(0, now - base);
+  }, [game, now]);
+
+  const wTime = game ? Math.max(0, game.white_time_ms - (game.current_turn === 0 ? elapsedSinceMove : 0)) : 0;
+  const bTime = game ? Math.max(0, game.black_time_ms - (game.current_turn === 1 ? elapsedSinceMove : 0)) : 0;
+
+  /* -------- Flag fall timeout -------- */
+  const timeoutFiredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!game || game.status !== "playing") return;
+    if (wTime > 0 && bTime > 0) return;
+    const loserSlot = wTime <= 0 ? 0 : 1;
+    const key = `${game.id}:${game.state?.move_count ?? 0}:${loserSlot}`;
+    if (timeoutFiredRef.current === key) return;
+    timeoutFiredRef.current = key;
+    (async () => {
+      await supabase.rpc("fanorona_tick" as any, { _game_id: id } as any);
+      setTimeout(() => load(), 1200);
+    })();
+  }, [game, id, wTime, bTime, load]);
 
 
   // Valid move targets for selected piece
@@ -483,7 +511,7 @@ function FanoronaPage() {
         const isCurrent = game.current_turn === opponent.slot && game.status === "playing";
         const pieceCount = opponent.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} remaining={remaining} />
+          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} timeMs={me?.color === "white" ? bTime : wTime} />
         );
       })()}
 
@@ -603,7 +631,7 @@ function FanoronaPage() {
         const isCurrent = game.current_turn === me.slot && game.status === "playing";
         const pieceCount = me.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} remaining={remaining} />
+          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} />
         );
       })()}
 
@@ -638,7 +666,7 @@ function FanoronaPage() {
         </div>
       )}
 
-      <GamePauseControl slug="fanorona" gameId={id} game={game} remaining={remaining} totalSeconds={cfg.turn_timer_seconds}
+      <GamePauseControl slug="fanorona" gameId={id} game={game} remaining={Math.ceil((me?.color === "white" ? wTime : bTime) / 1000)} totalSeconds={cfg.turn_timer_seconds}
         isMyTurn={!!isMyTurn} isPlayer={isPlayer} myUserId={profile?.id ?? null} />
       <GameChatDrawer gameId={id} />
     </main>
