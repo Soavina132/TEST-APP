@@ -91,7 +91,7 @@ export default function Header() {
             {/* Logo + brand */}
             <Link to="/" className="flex items-center gap-2.5 group" aria-label="Lalao MADA">
               <Logo />
-              <span className="font-black text-base tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
+              <span className="font-black text-xl tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
                 Lalao MADA
               </span>
             </Link>
