@@ -227,6 +227,7 @@ function GamePage() {
         pauseDeadline={game?.pause_deadline ?? null}
         afkWarning={game?.afk_warning ?? null}
         afkPauseFor={game?.afk_pause_for ?? null}
+        matchType={game.match_type}
       />
 
       <QuickReactions gameId={id} gameSlug="ludo" participants={parts} />

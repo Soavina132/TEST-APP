@@ -61,6 +61,7 @@ interface Participant {
   is_bot: boolean; display_name: string; forfeited: boolean; missed_turns: number;
   bot_intelligence?: number; bot_win_bias?: number;
   afk_t1?: number; afk_t2?: number;
+  team?: number | null;
 }
 interface GameState {
   pawns: Record<string, { s: "yard"|"track"|"finished"; k: number }[]>;
@@ -83,9 +84,10 @@ interface Props {
   pauseDeadline?: string | null;
   afkWarning?: any | null;
   afkPauseFor?: string | null;
+  matchType?: string;
 }
 
-export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor }: Props) {
+export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType }: Props) {
   const [boardSize, setBoardSize] = useState(600);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -413,7 +415,14 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     </span>
                   </div>
                   <div className="flex min-w-0 flex-col leading-tight">
-                    <span className={`truncate text-sm font-semibold ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`truncate text-sm font-semibold ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
+                      {matchType === "groupe" && p.team && (
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${p.team === 1 ? "bg-red-500/15 text-red-600" : "bg-blue-500/15 text-blue-600"}`}>
+                          {p.team === 1 ? "🔴 G1" : "🔵 G2"}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] font-medium text-emerald-600">🏁 {finishedCount}/{totalPawns}</span>
                     {!p.is_bot && (
                       <span className="text-[10px] text-muted-foreground">
