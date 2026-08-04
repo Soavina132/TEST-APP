@@ -583,12 +583,12 @@ function FanoronaPage() {
           </svg>
           {/* Astuce contextuelle : seulement quand elle apporte une info utile
               (le tour actif est déjà visible via les cartes joueurs) */}
-          {isMyTurn && (chainFrom !== null || (canCapture && mandatoryCapture)) && (
-            <div className={`text-xs text-center mt-3 font-semibold ${chainFrom !== null ? "text-amber-400" : "text-red-400"}`}>
-              {chainFrom !== null ? "⛓ Chaîne en cours — continue ou termine" : "⚠ Capture obligatoire disponible"}
+          {isMyTurn && chainFrom !== null && (
+            <div className="text-xs text-center mt-3 font-semibold text-amber-400">
+              ⛓ Chaîne en cours — continue ou termine
             </div>
           )}
-          {isMyTurn && (
+          {isMyTurn && (chainFrom !== null || !(canCapture && mandatoryCapture)) && (
             <button onClick={endTurn}
               className={`mt-3 w-full py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${chainFrom !== null ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-amber-100 text-amber-950 hover:bg-amber-200"}`}>
               <SkipForward className="w-4 h-4" />
