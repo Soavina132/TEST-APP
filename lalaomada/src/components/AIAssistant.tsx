@@ -9,6 +9,10 @@ import { toast } from "sonner";
 const ROW_TO_UI = (r: { id: string; role: string; content: string }): UIMessage =>
   ({ id: r.id, role: r.role as any, parts: [{ type: "text", text: r.content }] }) as any;
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const AI_CHAT_URL = `${SUPABASE_URL}/functions/v1/ai-chat`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Collecte le contexte temps réel de l'application pour l'injecter dans l'IA
 // ─────────────────────────────────────────────────────────────────────────────
@@ -318,7 +322,21 @@ function AssistantChatPanel({ userId, userName, onClose }: { userId: string; use
   }, [refreshContext]);
 
   // ── Transport ─────────────────────────────────────────────────────────────
-  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/ai-chat" }), []);
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: AI_CHAT_URL,
+        fetch: async (input, init) => {
+          const { data: sess } = await supabase.auth.getSession();
+          const token = sess.session?.access_token || SUPABASE_ANON_KEY;
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${token}`);
+          headers.set("apikey", SUPABASE_ANON_KEY);
+          return fetch(input, { ...init, headers });
+        },
+      }),
+    []
+  );
 
   useEffect(() => {
     let alive = true;

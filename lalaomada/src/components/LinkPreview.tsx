@@ -12,6 +12,9 @@ function extractUrl(text: string): string | null {
   return m ? m[0] : null;
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
 function usePreview(url: string) {
   const [meta, setMeta] = useState<Meta | null | "loading">("loading");
   useEffect(() => {
@@ -23,10 +26,13 @@ function usePreview(url: string) {
       const token = sess.session?.access_token;
       if (!token) { cache.set(url, null); setMeta(null); return; }
       try {
-        const r = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, {
-          signal: ctrl.signal,
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const r = await fetch(
+          `${SUPABASE_URL}/functions/v1/link-preview?url=${encodeURIComponent(url)}`,
+          {
+            signal: ctrl.signal,
+            headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+          }
+        );
         const d: Meta | null = r.ok ? await r.json() : null;
         cache.set(url, d?.title ? d : null);
         setMeta(d?.title ? d : null);

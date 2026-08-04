@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, FormEvent, useEffect } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
@@ -9,10 +8,28 @@ import {
   Sparkles, Phone, MessageCircle, ChevronDown, ChevronUp, HelpCircle,
 } from "lucide-react";
 import { Logo } from "@/components/Header";
-import { completePasswordReset } from "@/lib/password-reset.functions";
-import { signupWithPhone } from "@/lib/signup.functions";
 import { COVER_COMPONENTS, GAME_DEFS } from "@/components/GameCovers";
 import DOMPurify from "dompurify";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+async function callEdgeFunction(fnName: string, payload: unknown) {
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token || SUPABASE_ANON_KEY;
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      apikey: SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || "Erreur serveur");
+  return json;
+}
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -62,7 +79,6 @@ function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [busy, setBusy] = useState(false);
-  const doPhoneSignup = useServerFn(signupWithPhone);
   const [showForgot, setShowForgot] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -125,15 +141,12 @@ function LoginPage() {
       } else {
         if (isPhone) {
           // Inscription téléphone directe (sans OTP, sans faux e-mail)
-          const signup = doPhoneSignup;
-          await signup({
-            data: {
-              phone: phone!,
-              password,
-              pseudo: pseudo.trim(),
-              referral_code: referral.trim().toUpperCase() || null,
-            },
-          } as any);
+          await callEdgeFunction("signup", {
+            phone: phone!,
+            password,
+            pseudo: pseudo.trim(),
+            referral_code: referral.trim().toUpperCase() || null,
+          });
           const { error: sErr } = await supabase.auth.signInWithPassword({ phone: phone!, password });
           if (sErr) throw sErr;
           toast.success("Compte créé !");
@@ -465,7 +478,6 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
-  const finishReset = useServerFn(completePasswordReset);
 
   const normContact = () =>
     type === "phone" ? normalizePhone(contact) : contact.trim().toLowerCase();
@@ -493,7 +505,9 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
     if (!/^\d{4,8}$/.test(code)) return toast.error("Code invalide");
     setBusy(true);
     try {
-      await finishReset({ data: { contact: normContact(), contactType: type, code, newPassword: pw1 } });
+      await callEdgeFunction("password-reset", {
+        contact: normContact(), contactType: type, code, newPassword: pw1,
+      });
       setStep("done");
     } catch (err: any) {
       toast.error(err?.message || "Échec de la réinitialisation");
