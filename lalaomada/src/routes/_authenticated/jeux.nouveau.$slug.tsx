@@ -501,7 +501,7 @@ function Lobby() {
           <TabBtn label="Code" active={tab === "code"} onClick={() => setTab("code")} icon={<span className="text-sm leading-none">🔑</span>} />
           <TabBtn label="Mes" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
         </div>
-        {((tab === "public" && (slug !== "ludo" || matchType === "friends")) || (tab === "private" && (slug !== "ludo" || matchType === "friends"))) && (
+        {((tab === "public" && matchType === "friends") || (tab === "private" && matchType === "friends")) && (
           <div className="grid grid-cols-2 gap-1.5 shrink-0" role="tablist" aria-label="Visibilité">
             <button onClick={() => setVisibility("public")} aria-pressed={visibility === "public"}
               className={`px-2 py-1.5 rounded-lg font-semibold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-[0.97] border ${
@@ -528,9 +528,7 @@ function Lobby() {
         {tab === "public" && supportsPublicJoin && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              {slug === "ludo" && (
-                <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
-              )}
+              <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -598,9 +596,7 @@ function Lobby() {
         {tab === "private" && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              {slug === "ludo" && (
-                <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
-              )}
+              <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               {showMaxP && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
