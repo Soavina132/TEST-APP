@@ -14,7 +14,6 @@ import GameInstructionsBanner from "@/components/GameInstructionsBanner";
 import GameEndScreen from "@/components/GameEndScreen";
 import GameWaitingRoom from "@/components/GameWaitingRoom";
 import GameBoardSkin from "@/components/GameBoardSkin";
-import FanoronaDrawDialog from "@/components/FanoronaDrawDialog";
 import { useGameConfig } from "@/hooks/use-game-config";
 import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
 import TurnBanner from "@/components/TurnBanner";
