@@ -17,6 +17,9 @@ const COVER_BY_SLUG: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/_authenticated/jeux/$slug")({
+  beforeLoad: ({ params }) => {
+    throw { kind: "redirect", to: "/jeux/nouveau/$slug", params: { slug: params.slug } };
+  },
   component: SalonJeu,
   validateSearch: (s: Record<string, unknown>) => ({
     create: s.create ? 1 : undefined,
