@@ -17,7 +17,7 @@ jobs:
         working-directory: lalaomada
         env:
           VITE_SUPABASE_URL: https://gifwfjgciwbsottztzoc.supabase.co
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
         with:
