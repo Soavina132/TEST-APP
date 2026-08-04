@@ -125,6 +125,7 @@ function Lobby() {
   const [targetScore, setTargetScore] = useState(100);
   const [fanoronaVariant, setFanoronaVariant] = useState<"telo" | "dimy" | "tsivy">("tsivy");
   const [fanoronaMandatory, setFanoronaMandatory] = useState<boolean>(true);
+  const [fanoronaBotDifficulty, setFanoronaBotDifficulty] = useState<number>(3);
   const [ramiJokerMode, setRamiJokerMode] = useState<"sans" | "aleatoire" | "classique" | "double">("sans");
   const [ramiGameMode, setRamiGameMode] = useState<"bordel" | "naturel">("bordel");
   const [ramiBotDifficulty, setRamiBotDifficulty] = useState<"easy" | "medium" | "hard">("medium");
@@ -292,6 +293,13 @@ function Lobby() {
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
+      } else if (slug === "fanorona") {
+        const { data, error } = await supabase.rpc("fanorona_create_solo" as any, {
+          _stake: 0, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory, _bot_intelligence: fanoronaBotDifficulty,
+        } as any);
+        if (error) throw error;
+        id = extractGameId(data);
+        if (!id) throw new Error("Identifiant de partie invalide");
       } else if (slug === "petanque") {
         const { data, error } = await supabase.rpc("petanque_create" as any, { p_stake: 0, p_public: false } as any);
         if (error) throw error;
@@ -339,8 +347,13 @@ function Lobby() {
         } as any);
         if (error) throw error; id = extractGameId(data);
       } else if (slug === "fanorona") {
-        const { data, error } = await supabase.rpc("fanorona_create" as any, { _stake: 0, _private: priv, _commission: commission, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory } as any);
-        if (error) throw error; id = extractGameId(data);
+        if (opponentMode === "bot") {
+          const { data, error } = await supabase.rpc("fanorona_create_solo" as any, { _stake: 0, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory, _bot_intelligence: fanoronaBotDifficulty } as any);
+          if (error) throw error; id = extractGameId(data);
+        } else {
+          const { data, error } = await supabase.rpc("fanorona_create" as any, { _stake: 0, _private: priv, _commission: commission, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory } as any);
+          if (error) throw error; id = extractGameId(data);
+        }
       } else if (slug === "chess") {
         const { data, error } = await supabase.rpc("chess_create_friends" as any, { _time_min: chessTime } as any);
         if (error) throw error;
@@ -378,11 +391,18 @@ function Lobby() {
       } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "fanorona") {
-      const { data, error } = await supabase.rpc("fanorona_create" as any, {
-        _stake: stake, _private: priv, _commission: commission,
-        _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory,
-      } as any);
-      if (error) throw error; id = extractGameId(data);
+      if (opponentMode === "bot") {
+        const { data, error } = await supabase.rpc("fanorona_create_solo" as any, {
+          _stake: 0, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory, _bot_intelligence: fanoronaBotDifficulty,
+        } as any);
+        if (error) throw error; id = extractGameId(data);
+      } else {
+        const { data, error } = await supabase.rpc("fanorona_create" as any, {
+          _stake: stake, _private: priv, _commission: commission,
+          _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory,
+        } as any);
+        if (error) throw error; id = extractGameId(data);
+      }
     } else if (slug === "chess") {
       const { data, error } = await supabase.rpc("chess_create_stake" as any, { _stake: stake, _time_min: chessTime } as any);
       if (error) throw error; id = extractGameId(data);
@@ -547,7 +567,12 @@ function Lobby() {
                 <SummaryRow icon="🤖" label="Déplacement auto" value={ludoAutoMove ? "Activé" : "Désactivé"} onClick={() => setLudoAutoMove(v => !v)} />
               )}
               {slug === "fanorona" && (
-                <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                <>
+                  <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                  {opponentMode === "bot" && (
+                    <SummaryRow icon="⭐" label="Difficulté" value={({ 1:"⭐ Débutant", 2:"⭐⭐ Amateur", 3:"⭐⭐⭐ Confirmé", 4:"⭐⭐⭐⭐ Expert", 5:"⭐⭐⭐⭐⭐ Maître" } as any)[fanoronaBotDifficulty]} onClick={() => setSheet("fanorona_diff")} />
+                  )}
+                </>
               )}
               {slug === "chess" && opponentMode === "bot" && (
                 <>
@@ -624,7 +649,12 @@ function Lobby() {
                 </>
               )}
               {slug === "fanorona" && (
-                <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                <>
+                  <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                  {opponentMode === "bot" && (
+                    <SummaryRow icon="⭐" label="Difficulté" value={({ 1:"⭐ Débutant", 2:"⭐⭐ Amateur", 3:"⭐⭐⭐ Confirmé", 4:"⭐⭐⭐⭐ Expert", 5:"⭐⭐⭐⭐⭐ Maître" } as any)[fanoronaBotDifficulty]} onClick={() => setSheet("fanorona_diff")} />
+                  )}
+                </>
               )}
               {slug === "rami" && (
                 <>
@@ -790,8 +820,17 @@ function Lobby() {
         <ModeBlock options={[{ v: "libre", l: "Libre" }, { v: "under6", l: "1er domino <6" }]} value={firstTileRule} onChange={(v) => { setFirstTileRule(v as any); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "fanorona"} onClose={closeSheet} title="Fanorona">
-        <FanoronaConfigBlock variant={fanoronaVariant} onVariant={setFanoronaVariant} mandatory={fanoronaMandatory} onMandatory={setFanoronaMandatory} />
+        <FanoronaConfigBlock variant={fanoronaVariant} onVariant={setFanoronaVariant} mandatory={fanoronaMandatory} onMandatory={setFanoronaMandatory} botDifficulty={opponentMode === "bot" ? fanoronaBotDifficulty : undefined} onBotDifficulty={opponentMode === "bot" ? setFanoronaBotDifficulty : undefined} />
         <button onClick={closeSheet} className="mt-3 w-full py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm">Valider</button>
+      </BottomSheet>
+      <BottomSheet open={sheet === "fanorona_diff"} onClose={closeSheet} title="Difficulté du bot">
+        <ModeBlock columns={5} options={[
+          { v: "1", l: "⭐", sub: "Débutant" },
+          { v: "2", l: "⭐⭐", sub: "Amateur" },
+          { v: "3", l: "⭐⭐⭐", sub: "Confirmé" },
+          { v: "4", l: "⭐⭐⭐⭐", sub: "Expert" },
+          { v: "5", l: "⭐⭐⭐⭐⭐", sub: "Maître" },
+        ]} value={String(fanoronaBotDifficulty)} onChange={(v) => { setFanoronaBotDifficulty(Number(v)); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "rami"} onClose={closeSheet} title="Mode Joker">
         <RamiJokerBlock value={ramiJokerMode} onChange={(v) => { setRamiJokerMode(v); closeSheet(); }} />
@@ -1105,9 +1144,10 @@ function GameRow({ g, onJoin, slug }: { g: any; onJoin: () => void; slug: Slug }
   );
 }
 
-function FanoronaConfigBlock({ variant, onVariant, mandatory, onMandatory }: {
+function FanoronaConfigBlock({ variant, onVariant, mandatory, onMandatory, botDifficulty, onBotDifficulty }: {
   variant: "telo" | "dimy" | "tsivy"; onVariant: (v: "telo" | "dimy" | "tsivy") => void;
   mandatory: boolean; onMandatory: (b: boolean) => void;
+  botDifficulty?: number; onBotDifficulty?: (n: number) => void;
 }) {
   const variants: { v: "telo" | "dimy" | "tsivy"; l: string; d: string }[] = [
     { v: "telo",  l: "Telo (3×3)",  d: "9 cases" },
@@ -1144,6 +1184,26 @@ function FanoronaConfigBlock({ variant, onVariant, mandatory, onMandatory }: {
           L'enchaînement reste actif dans les deux cas.
         </div>
       </div>
+      {botDifficulty !== undefined && onBotDifficulty && (
+        <div>
+          <div className="font-bold mb-2">Difficulté du bot</div>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[
+              { v: 1, l: "⭐", d: "Débutant" },
+              { v: 2, l: "⭐⭐", d: "Amateur" },
+              { v: 3, l: "⭐⭐⭐", d: "Confirmé" },
+              { v: 4, l: "⭐⭐⭐⭐", d: "Expert" },
+              { v: 5, l: "⭐⭐⭐⭐⭐", d: "Maître" },
+            ].map(x => (
+              <button key={x.v} onClick={() => onBotDifficulty(x.v)}
+                className={`py-2.5 rounded-2xl font-bold text-xs ${botDifficulty === x.v ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                <div>{x.l}</div>
+                <div className="text-[9px] opacity-80 font-normal">{x.d}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
