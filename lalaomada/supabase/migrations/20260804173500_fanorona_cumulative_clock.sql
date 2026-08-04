@@ -305,3 +305,61 @@ BEGIN
     turn_deadline = now() + (_cfg.turn_timer_seconds || ' seconds')::interval
   WHERE id = _game_id;
 END $function$;
+
+-- 5) Update fanorona_create_solo to initialize clocks and last_move_at
+CREATE OR REPLACE FUNCTION public.fanorona_create_solo(_stake numeric DEFAULT 0, _variant text DEFAULT 'tsivy', _mandatory_capture boolean DEFAULT true, _bot_intelligence integer DEFAULT 3)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'extensions'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_id uuid;
+  v_name text;
+  v_cols int; v_rows int;
+  v_bot_name text;
+  v_time_ms int;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'auth required'; END IF;
+  IF _stake < 0 THEN RAISE EXCEPTION 'invalid stake'; END IF;
+
+  CASE _variant
+    WHEN 'telo'  THEN v_cols := 3; v_rows := 3;
+    WHEN 'dimy'  THEN v_cols := 5; v_rows := 5;
+    WHEN 'tsivy' THEN v_cols := 9; v_rows := 5;
+    ELSE v_cols := 9; v_rows := 5; _variant := 'tsivy';
+  END CASE;
+
+  SELECT pseudo INTO v_name FROM public.profiles WHERE id = v_uid;
+  v_bot_name := CASE _bot_intelligence WHEN 1 THEN 'Debutant' WHEN 2 THEN 'Amateur' WHEN 3 THEN 'Confirme' WHEN 4 THEN 'Expert' ELSE 'Maitre' END;
+  v_time_ms := 10 * 60 * 1000;
+
+  INSERT INTO public.fanorona_games(
+    host_id, max_players, stake, pot, commission_pct, is_private, room_code,
+    state, cols, rows, variant, mandatory_capture, bot_intelligence, status, started_at, last_move_at,
+    white_time_ms, black_time_ms
+  )
+  VALUES (
+    v_uid, 2, 0, 0, 0, true, null,
+    jsonb_build_object('phase','playing', 'board', public._fanorona_init_board(v_cols, v_rows), 'chain_from',null,'chain_dirs','[]'::jsonb,'move_count',0,'visited','[]'::jsonb,'last_axis',null),
+    v_cols, v_rows, _variant, COALESCE(_mandatory_capture, true), COALESCE(_bot_intelligence, 3), 'playing', now(), now(),
+    v_time_ms, v_time_ms
+  ) RETURNING id INTO v_id;
+
+  INSERT INTO public.fanorona_participants(game_id, user_id, slot, color, display_name, is_bot)
+  VALUES (v_id, v_uid, 0, 'white', COALESCE(v_name, 'Joueur'), false);
+
+  INSERT INTO public.fanorona_participants(game_id, user_id, slot, color, display_name, is_bot, bot_intelligence)
+  VALUES (v_id, NULL, 1, 'black', 'Bot ' || v_bot_name, true, COALESCE(_bot_intelligence, 3));
+
+  UPDATE public.fanorona_games
+    SET current_turn = 0,
+        turn_deadline = now() + (COALESCE((SELECT turn_timer_seconds FROM public._game_cfg('fanorona')), 60) || ' seconds')::interval
+    WHERE id = v_id;
+
+  RETURN v_id;
+END $function$;
+
+-- 6) Fix existing playing games that have NULL last_move_at
+UPDATE public.fanorona_games SET last_move_at = now() WHERE status = 'playing' AND last_move_at IS NULL;
