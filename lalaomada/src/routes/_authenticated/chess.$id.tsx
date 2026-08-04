@@ -410,9 +410,9 @@ function ChessPage() {
     setBusy(true);
     try {
       if (game.draw_offered_by && game.draw_offered_by !== profile?.id) {
-        await supabase.rpc("chess_accept_draw" as any, { _id: game.id } as any);
+        await supabase.rpc("chess_accept_draw" as any, { _game_id: game.id } as any);
       } else {
-        await supabase.rpc("chess_offer_draw" as any, { _id: game.id } as any);
+        await supabase.rpc("chess_offer_draw" as any, { _game_id: game.id } as any);
         toast.success("Nulle proposée");
       }
     } catch (e: any) { toast.error(e.message); }
@@ -650,7 +650,7 @@ function ChessPage() {
               className="px-3 py-1 rounded-md bg-amber-500 text-white text-xs font-bold hover:bg-amber-600">
               Accepter
             </button>
-            <button onClick={async () => { await supabase.rpc("chess_decline_draw" as any, { _id: game.id } as any); }}
+            <button onClick={async () => { await supabase.rpc("chess_decline_draw" as any, { _game_id: game.id } as any); }}
               className="px-3 py-1 rounded-md bg-secondary text-foreground text-xs font-bold">
               Refuser
             </button>
