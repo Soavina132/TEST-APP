@@ -259,6 +259,35 @@ function ChessPage() {
   const wTime = game ? Math.max(0, game.white_time_ms - (game.turn === "w" ? elapsedSinceMove : 0)) : 0;
   const bTime = game ? Math.max(0, game.black_time_ms - (game.turn === "b" ? elapsedSinceMove : 0)) : 0;
 
+  /* Captured pieces + material diff — computed unconditionally (Rules of Hooks) */
+  const { capturedByWhite, capturedByBlack, materialDiff } = useMemo(() => {
+    const startCount: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+    const cur: Record<string, { w: number; b: number }> = {};
+    if (game) {
+      try {
+        for (const row of new Chess(game.fen).board()) for (const c of row) if (c) {
+          cur[c.type] ??= { w: 0, b: 0 }; cur[c.type][c.color]++;
+        }
+      } catch {}
+    }
+    const cw: string[] = [];
+    const cb: string[] = [];
+    let wMat = 0, bMat = 0;
+    for (const t of Object.keys(startCount)) {
+      const w = cur[t]?.w ?? 0;
+      const b = cur[t]?.b ?? 0;
+      for (let i = 0; i < startCount[t] - b; i++) cw.push(t);
+      for (let i = 0; i < startCount[t] - w; i++) cb.push(t);
+      wMat += (startCount[t] - b) * (PIECE_VAL[t] ?? 0);
+      bMat += (startCount[t] - w) * (PIECE_VAL[t] ?? 0);
+    }
+    return { capturedByWhite: cw, capturedByBlack: cb, materialDiff: wMat - bMat };
+  }, [game?.fen]);
+
+  const gameChess = useMemo(() => {
+    try { return new Chess(game?.fen ?? undefined); } catch { return new Chess(); }
+  }, [game?.fen]);
+
   /* -------- Play a move -------- */
   const play = useCallback(async (uci: string, san: string, fenAfter: string) => {
     if (!game) return;
@@ -532,29 +561,6 @@ function ChessPage() {
   const meTime = meColor === "w" ? wTime : bTime;
   const oppTime = oppColor === "w" ? wTime : bTime;
 
-  /* Captured pieces + material diff */
-  const { capturedByWhite, capturedByBlack, materialDiff } = useMemo(() => {
-    const startCount: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
-    const cur: Record<string, { w: number; b: number }> = {};
-    try {
-      for (const row of new Chess(game.fen).board()) for (const c of row) if (c) {
-        cur[c.type] ??= { w: 0, b: 0 }; cur[c.type][c.color]++;
-      }
-    } catch {}
-    const cw: string[] = [];
-    const cb: string[] = [];
-    let wMat = 0, bMat = 0;
-    for (const t of Object.keys(startCount)) {
-      const w = cur[t]?.w ?? 0;
-      const b = cur[t]?.b ?? 0;
-      for (let i = 0; i < startCount[t] - b; i++) cw.push(t);
-      for (let i = 0; i < startCount[t] - w; i++) cb.push(t);
-      wMat += (startCount[t] - b) * (PIECE_VAL[t] ?? 0);
-      bMat += (startCount[t] - w) * (PIECE_VAL[t] ?? 0);
-    }
-    return { capturedByWhite: cw, capturedByBlack: cb, materialDiff: wMat - bMat };
-  }, [game.fen]);
-
   const meCaptured = meColor === "w" ? capturedByWhite : capturedByBlack;
   const oppCaptured = oppColor === "w" ? capturedByWhite : capturedByBlack;
   const meMatDiff = meColor === "w" ? Math.max(0, materialDiff) : Math.max(0, -materialDiff);
@@ -562,10 +568,9 @@ function ChessPage() {
 
   const drawOfferedByOpp = game.draw_offered_by && game.draw_offered_by !== profile?.id;
 
-  // Check/checkmate status
-  const gameChess = useMemo(() => { try { return new Chess(game.fen); } catch { return new Chess(); } }, [game.fen]);
   const inCheck = gameChess.inCheck() && isActive;
   const isCheckmate = gameChess.isCheckmate() && isActive;
+
 
   return (
     <div className="h-[100dvh] overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950">
