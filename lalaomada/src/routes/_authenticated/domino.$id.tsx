@@ -689,7 +689,7 @@ function DominoPage() {
         myUserId={profile?.id ?? null}
         simplePause={parts.some((p: any) => p.is_bot)}
       />
-      <QuickReactions gameId={id} gameSlug="domino" participants={parts} position="top-right" />
+      <QuickReactions gameId={id} gameSlug="domino" participants={parts} position="bottom-right-high" />
       <GameChatDrawer gameId={id} />
     </main>
   );

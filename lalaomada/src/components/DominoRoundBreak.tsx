@@ -3,6 +3,7 @@ import { DominoTile, Tile } from "@/components/DominoTable";
 
 type LastRound = {
   winner_uid: string | null;
+  winner_slot?: number | null;
   round_score: number;
   hand_pips: Record<string, number>;
   final_hands?: Record<string, Tile[]>;
@@ -46,8 +47,12 @@ export default function DominoRoundBreak({
     return () => clearInterval(t);
   }, [breakUntil]);
 
-  const isTie = !lastRound.winner_uid;
-  const winnerName = participants.find(p => p.user_id === lastRound.winner_uid)?.display_name || "Match nul";
+  // Bots have no real user_id in the DB (winner_uid is null for them) — the
+  // participants list upstream already remaps bot user_id to "bot_<slot>",
+  // so we do the same fallback here to correctly match the actual winner.
+  const winnerKey = lastRound.winner_uid || (lastRound.winner_slot != null ? `bot_${lastRound.winner_slot}` : null);
+  const isTie = !winnerKey;
+  const winnerName = participants.find(p => p.user_id === winnerKey)?.display_name || "Match nul";
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3">
@@ -60,8 +65,10 @@ export default function DominoRoundBreak({
           <div className={`mt-1 text-sm font-bold ${isTie ? "text-amber-200" : "text-emerald-200"}`}>
             {isTie ? "🤝 Match nul — égalité des points" : `🏆 Victoire : ${winnerName}`}
           </div>
-          {isTie && (
-            <div className="text-[11px] mt-1 opacity-90">Aucun domino jouable pour personne, nouvelle manche relancée</div>
+          {lastRound.blocked && (
+            <div className="text-[11px] mt-1 opacity-90">
+              {isTie ? "Aucun domino jouable pour personne, nouvelle manche relancée" : "Blocage : personne ne peut jouer — victoire au moins de points"}
+            </div>
           )}
           <div className="text-xs mt-1 opacity-90">Note gagnante : {targetScore}</div>
         </div>
@@ -71,7 +78,7 @@ export default function DominoRoundBreak({
             const total = Number(scores?.[p.user_id] || 0);
             const pips = lastRound.hand_pips?.[p.user_id] ?? 0;
             const tiles = lastRound.final_hands?.[p.user_id] || [];
-            const isWinner = p.user_id === lastRound.winner_uid;
+            const isWinner = p.user_id === winnerKey;
             const roundScore = isWinner ? lastRound.round_score : 0;
             return (
               <div key={p.user_id} className="px-1 space-y-2 rounded-xl py-2"

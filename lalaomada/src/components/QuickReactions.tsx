@@ -18,6 +18,9 @@ const REACTIONS = [
   { emoji: "😤", label: "Grrr" },
 ] as const;
 
+// How long a floating emoji / recent-reaction badge stays visible before disappearing.
+const REACTION_LIFETIME_MS = 3000;
+
 type FloatingReaction = {
   id: number;
   emoji: string;
@@ -25,22 +28,32 @@ type FloatingReaction = {
   sender: string;
 };
 
+type RecentReaction = {
+  id: number;
+  emoji: string;
+  sender: string;
+};
+
 export default function QuickReactions({
   gameId,
   gameSlug,
   participants = [],
+  // "bottom-right" anchors near the bottom (used by Ludo, whose board leaves
+  // room below). "bottom-right-high" anchors above the player's hand (used by
+  // Domino, so the button never overlaps the domino tiles).
   position = "bottom-right",
 }: {
   gameId: string;
   gameSlug: "ludo" | "domino";
   participants?: { user_id?: string | null; display_name?: string | null; slot?: number; is_bot?: boolean }[];
-  position?: "bottom-right" | "top-right";
+  position?: "bottom-right" | "bottom-right-high";
 }) {
   const { profile } = useAuth();
   const [showBar, setShowBar] = useState(false);
   const [floaters, setFloaters] = useState<FloatingReaction[]>([]);
-  const [recentReactions, setRecentReactions] = useState<{ emoji: string; sender: string }[]>([]);
+  const [recentReactions, setRecentReactions] = useState<RecentReaction[]>([]);
   const floatId = useRef(0);
+  const recentId = useRef(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,6 +67,23 @@ export default function QuickReactions({
     [profile?.id, profile?.pseudo, participants],
   );
 
+  const pushReaction = useCallback((emoji: string, sender: string) => {
+    // Floating emoji — auto-removed after REACTION_LIFETIME_MS
+    const fid = ++floatId.current;
+    const x = 20 + Math.random() * 60; // 20%-80% position
+    setFloaters((prev) => [...prev, { id: fid, emoji, x, sender }]);
+    setTimeout(() => {
+      setFloaters((prev) => prev.filter((f) => f.id !== fid));
+    }, REACTION_LIFETIME_MS);
+
+    // Recent reactions log badge — also auto-removed after REACTION_LIFETIME_MS
+    const rid = ++recentId.current;
+    setRecentReactions((prev) => [{ id: rid, emoji, sender }, ...prev].slice(0, 5));
+    setTimeout(() => {
+      setRecentReactions((prev) => prev.filter((r) => r.id !== rid));
+    }, REACTION_LIFETIME_MS);
+  }, []);
+
   // Subscribe to reaction broadcasts
   useEffect(() => {
     const ch = supabase
@@ -62,17 +92,7 @@ export default function QuickReactions({
         const { emoji, user_id, display_name } = payload.payload || {};
         if (!emoji) return;
         const sender = display_name || getName(user_id) || "Joueur";
-
-        // Add floating emoji
-        const id = ++floatId.current;
-        const x = 20 + Math.random() * 60; // 20%-80% position
-        setFloaters((prev) => [...prev, { id, emoji, x, sender }]);
-        setTimeout(() => {
-          setFloaters((prev) => prev.filter((f) => f.id !== id));
-        }, 2500);
-
-        // Add to recent reactions log
-        setRecentReactions((prev) => [{ emoji, sender }, ...prev].slice(0, 5));
+        pushReaction(emoji, sender);
       })
       .subscribe();
 
@@ -93,20 +113,12 @@ export default function QuickReactions({
       });
 
       // Also show locally (broadcast doesn't echo back to sender)
-      const id = ++floatId.current;
-      const x = 20 + Math.random() * 60;
-      const sender = profile?.pseudo || "Vous";
-      setFloaters((prev) => [...prev, { id, emoji, x, sender }]);
-      setTimeout(() => {
-        setFloaters((prev) => prev.filter((f) => f.id !== id));
-      }, 2500);
-
-      setRecentReactions((prev) => [{ emoji, sender }, ...prev].slice(0, 5));
+      pushReaction(emoji, profile?.pseudo || "Vous");
 
       // Auto-hide bar after selection
       setShowBar(false);
     },
-    [profile?.id, profile?.pseudo],
+    [profile?.id, profile?.pseudo, pushReaction],
   );
 
   // Auto-hide bar after inactivity
@@ -121,6 +133,8 @@ export default function QuickReactions({
     hideTimer.current = setTimeout(() => setShowBar(false), 4000);
   }, []);
 
+  const isHigh = position === "bottom-right-high";
+
   return (
     <>
       {/* Floating reactions overlay */}
@@ -128,10 +142,10 @@ export default function QuickReactions({
         {floaters.map((f) => (
           <div
             key={f.id}
-            className={position === "top-right" ? "absolute top-24" : "absolute bottom-24"}
+            className={isHigh ? "absolute bottom-40" : "absolute bottom-24"}
             style={{
               left: `${f.x}%`,
-              animation: `${position === "top-right" ? "floatDown" : "floatUp"} 2.5s ease-out forwards`,
+              animation: "floatUp 3s ease-out forwards",
             }}
           >
             <div className="flex flex-col items-center gap-0.5">
@@ -146,12 +160,12 @@ export default function QuickReactions({
         ))}
       </div>
 
-      {/* Recent reactions log (small badges above/below the bar) */}
+      {/* Recent reactions log (small badges above the bar), each auto-expires */}
       {recentReactions.length > 0 && !showBar && (
-        <div className={`fixed z-40 flex flex-col gap-1 items-center pointer-events-none ${position === "top-right" ? "top-32 left-1/2" : "bottom-20 left-1/2"} -translate-x-1/2`}>
+        <div className={`fixed z-40 flex flex-col gap-1 items-center pointer-events-none left-1/2 -translate-x-1/2 ${isHigh ? "bottom-36" : "bottom-20"}`}>
           {recentReactions.slice(0, 3).map((r, i) => (
             <div
-              key={i}
+              key={r.id}
               className="flex items-center gap-1 bg-card/90 rounded-full px-2 py-0.5 shadow-md backdrop-blur-sm animate-pop-in"
               style={{ opacity: 1 - i * 0.25 }}
             >
@@ -162,69 +176,38 @@ export default function QuickReactions({
         </div>
       )}
 
-      {/* Reaction bar trigger + expanded bar */}
+      {/* Reaction bar trigger + expanded bar — always bottom-right, "high" variant
+          sits above the hand so it never covers the domino tiles */}
       <div
-        className={`fixed z-40 flex flex-col items-end gap-2 ${position === "top-right" ? "top-[68px] right-3" : "bottom-4 right-3"}`}
+        className={`fixed z-40 flex flex-col items-end gap-2 right-3 ${isHigh ? "bottom-[112px]" : "bottom-4"}`}
         onMouseEnter={keepBarOpen}
       >
-        {position === "top-right" ? (
-          <>
-            <button
-              onClick={() => (showBar ? setShowBar(false) : openBar())}
-              className="w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 hover:bg-accent transition-colors active:scale-90"
-              aria-label="Réactions rapides"
-            >
-              <span className="text-2xl">😀</span>
-            </button>
-            {showBar && (
-              <div
-                className="flex items-center gap-1 bg-card rounded-full shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in"
-                onMouseEnter={keepBarOpen}
+        {showBar && (
+          <div
+            className="flex items-center gap-1 bg-card rounded-full shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in"
+            onMouseEnter={keepBarOpen}
+          >
+            {REACTIONS.map((r) => (
+              <button
+                key={r.emoji}
+                onClick={() => sendReaction(r.emoji)}
+                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-accent hover:scale-125 transition-all duration-150 active:scale-90"
+                title={r.label}
+                aria-label={r.label}
               >
-                {REACTIONS.map((r) => (
-                  <button
-                    key={r.emoji}
-                    onClick={() => sendReaction(r.emoji)}
-                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-accent hover:scale-125 transition-all duration-150 active:scale-90"
-                    title={r.label}
-                    aria-label={r.label}
-                  >
-                    <span className="text-xl">{r.emoji}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            {showBar && (
-              <div
-                className="flex items-center gap-1 bg-card rounded-full shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in"
-                onMouseEnter={keepBarOpen}
-              >
-                {REACTIONS.map((r) => (
-                  <button
-                    key={r.emoji}
-                    onClick={() => sendReaction(r.emoji)}
-                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-accent hover:scale-125 transition-all duration-150 active:scale-90"
-                    title={r.label}
-                    aria-label={r.label}
-                  >
-                    <span className="text-xl">{r.emoji}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button
-              onClick={() => (showBar ? setShowBar(false) : openBar())}
-              className="w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 hover:bg-accent transition-colors active:scale-90"
-              aria-label="Réactions rapides"
-            >
-              <span className="text-2xl">😀</span>
-            </button>
-          </>
+                <span className="text-xl">{r.emoji}</span>
+              </button>
+            ))}
+          </div>
         )}
+
+        <button
+          onClick={() => (showBar ? setShowBar(false) : openBar())}
+          className="w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 hover:bg-accent transition-colors active:scale-90"
+          aria-label="Réactions rapides"
+        >
+          <span className="text-2xl">😀</span>
+        </button>
       </div>
 
       {/* Keyframes injected once */}
@@ -233,11 +216,6 @@ export default function QuickReactions({
           0% { transform: translateY(0) scale(0.5); opacity: 0; }
           15% { transform: translateY(-10px) scale(1.2); opacity: 1; }
           100% { transform: translateY(-200px) scale(1); opacity: 0; }
-        }
-        @keyframes floatDown {
-          0% { transform: translateY(0) scale(0.5); opacity: 0; }
-          15% { transform: translateY(10px) scale(1.2); opacity: 1; }
-          100% { transform: translateY(200px) scale(1); opacity: 0; }
         }
       `}</style>
     </>
