@@ -12,9 +12,6 @@ import { PlayerBar } from "@/components/chess/PlayerBar";
 import GameEndScreen from "@/components/GameEndScreen";
 import GameWaitingRoom from "@/components/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
-import { serverNow } from "@/lib/server-time";
-import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
-import GamePauseControl from "@/components/GamePauseControl";
 import { playChessMove, playChessCapture, playChessCastle, playChessCheck, playChessEnd, unlockAudio } from "@/lib/game-sounds";
 
 export const Route = createFileRoute("/_authenticated/chess/$id")({
@@ -36,19 +33,6 @@ type Game = {
   white_time_ms: number; black_time_ms: number;
   last_move_at: string | null; started_at: string | null; finished_at: string | null;
   draw_offered_by: string | null;
-  turn_deadline: string | null;
-  game_deadline: string | null;
-  paused: boolean;
-  pause_deadline: string | null;
-  paused_turn_remaining_s: number | null;
-  pause_used_deadline: string | null;
-  paused_turn_holder_id: string | null;
-  afk_warning: any;
-  afk_pause_for: string | null;
-  afk_pause_name: string | null;
-  ready_white: boolean;
-  ready_black: boolean;
-  created_at: string;
 };
 
 type Profile = { id: string; pseudo: string | null; avatar_url: string | null };
@@ -168,7 +152,7 @@ function ChessPage() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [moveHistory, setMoveHistory] = useState<{ san: string; ply: number }[]>([]);
-  const [now, setNow] = useState(serverNow());
+  const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
@@ -235,7 +219,7 @@ function ChessPage() {
 
   /* -------- Timer tick (UI) -------- */
   useEffect(() => {
-    const t = setInterval(() => setNow(serverNow()), 250);
+    const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
   }, []);
 
@@ -265,20 +249,10 @@ function ChessPage() {
 
   const isActive = game?.status === "playing";
 
-  /* -------- Global game timer (chess) -------- */
-  const globalTimer = useGlobalGameTimer({
-    game: "chess",
-    gameId: id,
-    status: game?.status,
-    deadline: game?.game_deadline,
-  });
-
-  const isPlayer = !!(profile?.id && game && (game.white_id === profile.id || game.black_id === profile.id));
-
   /* -------- Time computation -------- */
   const elapsedSinceMove = useMemo(() => {
     if (!game || !isActive) return 0;
-    const base = new Date(game.last_move_at ?? game.started_at ?? new Date(serverNow()).toISOString()).getTime();
+    const base = new Date(game.last_move_at ?? game.started_at ?? Date.now()).getTime();
     return Math.max(0, now - base);
   }, [game, isActive, now]);
 
@@ -366,7 +340,7 @@ function ChessPage() {
       if (chess.isGameOver()) { setBotThinking(false); return; }
       const mv = preMove ?? pickBotMove(game.fen, level);
       if (!mv) { setBotThinking(false); return; }
-      const gameElapsed = Math.max(0, serverNow() - new Date(game.last_move_at ?? game.started_at ?? new Date(serverNow()).toISOString()).getTime());
+      const gameElapsed = Math.max(0, Date.now() - new Date(game.last_move_at ?? game.started_at ?? Date.now()).getTime());
       const { error } = await supabase.rpc("chess_bot_play" as any, {
         _id: game.id, _uci: mv.uci, _san: mv.san, _fen_after: mv.fenAfter, _elapsed_ms: gameElapsed,
       } as any);
@@ -751,27 +725,6 @@ function ChessPage() {
           )}
         </div>
       )}
-
-      {/* Global game timer banner */}
-      {isActive && globalTimer.enabled && globalTimer.remainingMs !== null && (
-        <div className={`px-3 py-1 mx-2 rounded-lg text-center text-xs font-bold ${
-          globalTimer.remainingMs <= 30000
-            ? "bg-destructive/15 text-destructive animate-pulse"
-            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-        }`}>
-          ⏳ Temps global restant : {globalTimer.remainingLabel}
-        </div>
-      )}
-
-      {/* Pause control (AFK vote + pause overlay) */}
-      <GamePauseControl
-        slug="chess"
-        gameId={id}
-        game={game}
-        isPlayer={isPlayer}
-        myUserId={profile?.id ?? null}
-        simplePause={game.mode === "solo"}
-      />
 
       {/* End screen */}
       {game.status === "finished" && (() => {
