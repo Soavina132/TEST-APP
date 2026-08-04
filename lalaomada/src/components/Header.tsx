@@ -1,10 +1,11 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useRef, useEffect } from "react";
-import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Zap } from "lucide-react";
+import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Menu, Zap } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import AppMenu from "@/components/AppMenu";
 import WalletButton from "@/components/WalletButton";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useT } from "@/lib/i18n";
 
 function RouteLoadingBar() {
@@ -48,7 +49,7 @@ function RouteLoadingBar() {
   );
 }
 
-function Logo() {
+export function Logo() {
   return (
     <div className="relative w-9 h-9 flex-shrink-0">
       <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-red-500 via-orange-500 to-yellow-400 opacity-20 blur-sm" />
@@ -88,17 +89,32 @@ export default function Header() {
         <div className="relative border-b border-border/40 bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
           <div className="max-w-5xl mx-auto px-3 h-14 flex items-center justify-between gap-2">
 
-            {/* Logo + brand */}
+            {/* Left: Logo + brand name + balance (replaces "JEUX" subtitle) */}
             <Link to="/" className="flex items-center gap-2.5 group" aria-label="Lalao MADA">
               <Logo />
-              <span className="font-black text-xl tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
-                Lalao MADA
-              </span>
+              <div className="flex flex-col leading-none">
+                <span className="font-black text-lg tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
+                  Lalao MADA
+                </span>
+                {/* Balance replaces the old "JEUX" subtitle */}
+                <div className="mt-0.5">
+                  <WalletButton compact />
+                </div>
+              </div>
             </Link>
 
-            {/* Right controls — clean: wallet + bell + avatar */}
+            {/* Right controls: hamburger + language + bell + avatar */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <WalletButton />
+              {/* Hamburger menu */}
+              <button
+                onClick={() => setMenuOpen(true)}
+                className="p-2 rounded-xl hover:bg-accent/80 transition-colors md:hidden"
+                aria-label={t("home")}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+
+              <LanguageSwitcher />
 
               <NotificationsBell />
 
@@ -193,9 +209,9 @@ export default function Header() {
                       <div className="mx-3 my-1 border-t border-border/40" />
                       <button
                         onClick={async () => { setOpen(false); await signOut(); navigate({ to: "/login" }); }}
-                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-destructive/8 flex items-center gap-3 text-sm font-medium transition-colors group"
+                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-destructive/10 flex items-center gap-3 text-sm font-medium transition-colors group"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/15 transition-colors">
+                        <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/20 transition-colors">
                           <LogOut className="w-3.5 h-3.5 text-destructive" />
                         </div>
                         <span className="text-destructive">{t("logout")}</span>
@@ -206,12 +222,12 @@ export default function Header() {
               </div>
             </div>
           </div>
+
           <RouteLoadingBar />
         </div>
       </header>
+
       <AppMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 }
-
-export { Logo };

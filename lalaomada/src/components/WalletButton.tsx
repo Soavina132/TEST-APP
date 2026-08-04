@@ -394,7 +394,7 @@ function RetraitModal({ open, onClose, minWithdrawal, onSuccess }: {
 }
 
 // ─── WalletButton — balance pill + "+" menu ──────────────────
-export default function WalletButton() {
+export default function WalletButton({ compact = false }: { compact?: boolean }) {
   const { profile, refreshProfile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -419,15 +419,21 @@ export default function WalletButton() {
       <div className="relative" ref={ref}>
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-1 py-1 pr-1 rounded-full transition-all duration-200 whitespace-nowrap shrink-0"
+          className={compact
+            ? "flex items-center gap-0.5 py-0 px-0 transition-all duration-200 whitespace-nowrap"
+            : "flex items-center gap-1 py-1 pr-1 rounded-full transition-all duration-200 whitespace-nowrap shrink-0"}
           aria-label="Solde — Déposer / Retirer"
         >
           {/* Balance text */}
-          <span className="text-xs font-bold tabular-nums text-foreground whitespace-nowrap">{balance}Ar</span>
+          <span className={compact
+            ? "text-[10px] font-semibold tabular-nums text-muted-foreground whitespace-nowrap"
+            : "text-xs font-bold tabular-nums text-foreground whitespace-nowrap"}>{balance}Ar</span>
 
           {/* Plus button */}
-          <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <Plus className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+          <span className={compact
+            ? "w-4 h-4 rounded-full bg-primary flex items-center justify-center shrink-0"
+            : "w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0"}>
+            <Plus className={compact ? "w-2.5 h-2.5 text-primary-foreground" : "w-3 h-3 text-primary-foreground"} strokeWidth={3} />
           </span>
         </button>
 
