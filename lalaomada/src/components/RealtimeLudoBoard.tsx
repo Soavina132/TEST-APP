@@ -24,14 +24,21 @@ function stepAnim(
   });
 }
 
-// IMPORTANT: DB color names ("red","green","yellow","blue") drive server slot order.
-// We remap them visually so the board matches the classic layout (TL=green,
-// TR=yellow, BR=blue, BL=red), without touching server logic / paths.
+// ═══ VISUAL COLOR REMAPPING ══════════════════════════════════════════
+// DB stores colors as "red","green","yellow","blue" for slot ordering.
+// The board visually remaps them to match the classic Ludo layout:
+//   DB red    → Visual Green  (top-left quadrant)
+//   DB green  → Visual Yellow (top-right quadrant)
+//   DB yellow → Visual Blue   (bottom-right quadrant)
+//   DB blue   → Visual Red    (bottom-left quadrant)
+// `name` is the DISPLAY name shown to users (matches the visual color).
+// `hex/bg/text/soft/ring` all use the VISUAL color, not the DB color.
+// ════════════════════════════════════════════════════════════════════
 const COLOR_META: Record<Color, { name: string; hex: string; bg: string; text: string; soft: string; ring: string }> = {
-  red:    { name: "Vert",  hex: "#16a34a", bg: "bg-green-500",  text: "text-green-700",  soft: "bg-green-200",  ring: "ring-green-600" },  // TL
-  green:  { name: "Jaune", hex: "#eab308", bg: "bg-yellow-400", text: "text-yellow-700", soft: "bg-yellow-200", ring: "ring-yellow-500" }, // TR
-  yellow: { name: "Bleu",  hex: "#2563eb", bg: "bg-blue-500",   text: "text-blue-700",   soft: "bg-blue-200",   ring: "ring-blue-600" },   // BR
-  blue:   { name: "Rouge", hex: "#dc2626", bg: "bg-red-500",    text: "text-red-700",    soft: "bg-red-200",    ring: "ring-red-600" },    // BL
+  red:    { name: "Vert",  hex: "#16a34a", bg: "bg-green-500",  text: "text-green-700",  soft: "bg-green-200",  ring: "ring-green-600" },  // DB red → visual green (TL)
+  green:  { name: "Jaune", hex: "#eab308", bg: "bg-yellow-400", text: "text-yellow-700", soft: "bg-yellow-200", ring: "ring-yellow-500" }, // DB green → visual yellow (TR)
+  yellow: { name: "Bleu",  hex: "#2563eb", bg: "bg-blue-500",   text: "text-blue-700",   soft: "bg-blue-200",   ring: "ring-blue-600" },   // DB yellow → visual blue (BR)
+  blue:   { name: "Rouge", hex: "#dc2626", bg: "bg-red-500",    text: "text-red-700",    soft: "bg-red-200",    ring: "ring-red-600" },    // DB blue → visual red (BL)
 };
 
 const PATH: [number, number][] = [
