@@ -32,8 +32,8 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Deploy to Vercel
-        run: vercel deploy --yes --prod --token "${{ secrets.VERCEL_DEPLOY_TOKEN }}" --project test-app
+      - name: Deploy to Vercel (prebuilt)
+        run: vercel deploy --prebuilt --yes --prod --token "${{ secrets.VERCEL_DEPLOY_TOKEN }}" --project test-app --cwd lalaomada
         env:
           VERCEL_ORG_ID: team_HLqeCMkbBfUZFCV0QBJkcMqY
           VERCEL_PROJECT_ID: prj_HHrBjM8reyQfUZf7fVvQZil3j7si

@@ -53,3 +53,5 @@ Thumbs.db
 .env.*
 !.env.example
 supabase/.temp/
+lalaomada/.vercel/
+lalaomada/.output/
