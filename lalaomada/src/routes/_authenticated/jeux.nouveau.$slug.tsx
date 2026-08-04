@@ -529,7 +529,7 @@ function Lobby() {
         {tab === "public" && supportsPublicJoin && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Mode" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
@@ -598,7 +598,7 @@ function Lobby() {
         {tab === "private" && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="🎯" label="Mode" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
               {showMaxP && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
@@ -747,7 +747,7 @@ function Lobby() {
       </div>
 
 
-      <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Mode de jeu">
+      <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Équipe">
         <ModeBlock options={[{ v: "solo", l: "🤖 Solo" }, { v: "groupe", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "opponent_mode"} onClose={closeSheet} title="Adversaire">
