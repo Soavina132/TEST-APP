@@ -8,10 +8,12 @@ import { toast } from "sonner";
 import {
   Camera, Copy, Coins, ShieldCheck, LogOut, Trash2,
   Phone, Trophy, Gamepad2, User, ChevronRight,
-  CheckCheck, Send,
+  CheckCheck, Send, Moon, Sun,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import ThemeToggle from "@/components/ThemeToggle";
 import { compressImageToWebp } from "@/lib/image-compress";
+import { useTheme } from "@/hooks/use-theme";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -364,6 +366,8 @@ function ProfilePage() {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const { t } = useT();
+  const { theme, toggle: toggleTheme } = useTheme();
+  const isDark = theme === "dark";
   const [tab, setTab] = useState<Tab>("apercu");
   const [pseudo, setPseudo] = useState(profile?.pseudo || "");
   const [uploading, setUploading] = useState(false);
@@ -516,8 +520,19 @@ function ProfilePage() {
             </div>
 
             <div className="text-right shrink-0">
-              <div className="text-xl font-black tabular-nums leading-none">{Math.round(profile.balance_ar).toLocaleString("fr-FR")}</div>
-              <div className="text-[10px] text-white/70 uppercase tracking-wider mt-1">Ariary</div>
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={toggleTheme}
+                  aria-label={isDark ? "Mode clair" : "Mode sombre"}
+                  className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors text-white"
+                >
+                  {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                </button>
+                <div>
+                  <div className="text-xl font-black tabular-nums leading-none">{Math.round(profile.balance_ar).toLocaleString("fr-FR")}</div>
+                  <div className="text-[10px] text-white/70 uppercase tracking-wider mt-1">Ariary</div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -742,6 +757,9 @@ function ProfilePage() {
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
           </Link>
+
+          {/* Theme toggle */}
+          <ThemeToggle />
 
           {/* Security */}
           <div className="rounded-2xl bg-card p-4 shadow-sm space-y-2">
