@@ -1,9 +1,8 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useRef, useEffect } from "react";
-import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Menu, Zap } from "lucide-react";
+import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Zap } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
-import AppMenu from "@/components/AppMenu";
 import WalletButton from "@/components/WalletButton";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useT } from "@/lib/i18n";
@@ -68,7 +67,6 @@ export default function Header() {
   const { t } = useT();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,32 +87,23 @@ export default function Header() {
         <div className="relative border-b border-border/40 bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
           <div className="max-w-5xl mx-auto px-3 h-14 flex items-center justify-between gap-2">
 
-            {/* Left: Logo + brand name + balance (replaces "JEUX" subtitle) */}
-            <Link to="/" className="flex items-center gap-2.5 group" aria-label="Lalao MADA">
+            {/* Left: Logo + brand name — clean, fully visible */}
+            <Link to="/" className="flex items-center gap-2.5 group min-w-0" aria-label="Lalao MADA">
               <Logo />
-              <div className="flex flex-col leading-none">
-                <span className="font-black text-lg tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
-                  Lalao MADA
-                </span>
-                {/* Balance replaces the old "JEUX" subtitle */}
-                <div className="mt-0.5">
-                  <WalletButton compact />
-                </div>
-              </div>
+              <span className="font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
+                Lalao MADA
+              </span>
             </Link>
 
-            {/* Right controls: hamburger + language + bell + avatar */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Hamburger menu */}
-              <button
-                onClick={() => setMenuOpen(true)}
-                className="p-2 rounded-xl hover:bg-accent/80 transition-colors md:hidden"
-                aria-label={t("home")}
-              >
-                <Menu className="w-5 h-5" />
-              </button>
+            {/* Right controls: wallet + language + bell + avatar */}
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Wallet — moved here from under the brand name */}
+              <WalletButton />
 
-              <LanguageSwitcher />
+              {/* Language — hidden on very small screens to save space */}
+              <div className="hidden sm:block">
+                <LanguageSwitcher />
+              </div>
 
               <NotificationsBell />
 
@@ -227,7 +216,6 @@ export default function Header() {
         </div>
       </header>
 
-      <AppMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 }
