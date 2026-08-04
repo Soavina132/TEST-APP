@@ -27,7 +27,6 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
 import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
 import { Route as AuthenticatedTutosRouteImport } from './routes/_authenticated/tutos'
-import { Route as ApiAiChatRouteImport } from './routes/api/ai-chat'
 import { Route as ApiLinkPreviewRouteImport } from './routes/api/link-preview'
 import { Route as ApiTranslateRouteImport } from './routes/api/translate'
 import { Route as AuthenticatedChessIdRouteImport } from './routes/_authenticated/chess.$id'
@@ -135,11 +134,6 @@ const AuthenticatedTutosRoute = AuthenticatedTutosRouteImport.update({
   path: '/tutos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const ApiAiChatRoute = ApiAiChatRouteImport.update({
-  id: '/api/ai-chat',
-  path: '/api/ai-chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiLinkPreviewRoute = ApiLinkPreviewRouteImport.update({
   id: '/api/link-preview',
   path: '/api/link-preview',
@@ -237,7 +231,6 @@ export interface FileRoutesByFullPath {
   '/rankings': typeof AuthenticatedRankingsRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
-  '/api/ai-chat': typeof ApiAiChatRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
   '/api/translate': typeof ApiTranslateRoute
   '/chess/$id': typeof AuthenticatedChessIdRoute
@@ -271,7 +264,6 @@ export interface FileRoutesByTo {
   '/rankings': typeof AuthenticatedRankingsRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
-  '/api/ai-chat': typeof ApiAiChatRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
   '/api/translate': typeof ApiTranslateRoute
   '/chess/$id': typeof AuthenticatedChessIdRoute
@@ -308,7 +300,6 @@ export interface FileRoutesById {
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
   '/_authenticated/tournaments': typeof AuthenticatedTournamentsRoute
   '/_authenticated/tutos': typeof AuthenticatedTutosRoute
-  '/api/ai-chat': typeof ApiAiChatRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
   '/api/translate': typeof ApiTranslateRoute
   '/_authenticated/chess/$id': typeof AuthenticatedChessIdRoute
@@ -345,7 +336,6 @@ export interface FileRouteTypes {
     | '/rankings'
     | '/tournaments'
     | '/tutos'
-    | '/api/ai-chat'
     | '/api/link-preview'
     | '/api/translate'
     | '/chess/$id'
@@ -379,7 +369,6 @@ export interface FileRouteTypes {
     | '/rankings'
     | '/tournaments'
     | '/tutos'
-    | '/api/ai-chat'
     | '/api/link-preview'
     | '/api/translate'
     | '/chess/$id'
@@ -415,7 +404,6 @@ export interface FileRouteTypes {
     | '/_authenticated/rankings'
     | '/_authenticated/tournaments'
     | '/_authenticated/tutos'
-    | '/api/ai-chat'
     | '/api/link-preview'
     | '/api/translate'
     | '/_authenticated/chess/$id'
@@ -438,7 +426,6 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   JeuxPublicsRoute: typeof JeuxPublicsRoute
   LoginRoute: typeof LoginRoute
-  ApiAiChatRoute: typeof ApiAiChatRoute
   ApiLinkPreviewRoute: typeof ApiLinkPreviewRoute
   ApiTranslateRoute: typeof ApiTranslateRoute
 }
@@ -570,13 +557,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/tutos'
       preLoaderRoute: typeof AuthenticatedTutosRouteImport
       parentRoute: typeof AuthenticatedRoute
-    }
-    '/api/ai-chat': {
-      id: '/api/ai-chat'
-      path: '/api/ai-chat'
-      fullPath: '/api/ai-chat'
-      preLoaderRoute: typeof ApiAiChatRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/api/link-preview': {
       id: '/api/link-preview'
@@ -764,7 +744,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   JeuxPublicsRoute: JeuxPublicsRoute,
   LoginRoute: LoginRoute,
-  ApiAiChatRoute: ApiAiChatRoute,
   ApiLinkPreviewRoute: ApiLinkPreviewRoute,
   ApiTranslateRoute: ApiTranslateRoute,
 }

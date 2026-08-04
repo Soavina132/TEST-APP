@@ -67,7 +67,7 @@ function AdminPage() {
         "chat_rooms","chat_members","chat_messages","chat_mutes","chat_reactions","chat_presence",
         "bug_reports","support_messages","money_offers","password_reset_requests",
         "achievements","player_achievements","game_spectators",
-        "game_configs","app_settings","assistant_messages",
+        "game_configs","app_settings",
         "user_roles","admin_user_messages",
       ];
 
@@ -1397,23 +1397,14 @@ function DailyBonusSettings() {
 }
 
 function SettingsForm() {
-  const [s, setS] = useState<any>(null); const [aiEnabled, setAiEnabled] = useState(true); const [aiLoading, setAiLoading] = useState(false);
-  const [aiContext, setAiContext] = useState(""); const [aiCtxSaving, setAiCtxSaving] = useState(false);
-  const fe = useFormErrors();
+  const [s, setS] = useState<any>(null);     const fe = useFormErrors();
   useEffect(() => {
     supabase.from("app_settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => {
-      if (data) { setS(data); setAiEnabled((data as any).ai_assistant_enabled !== false); setAiContext((data as any).ai_assistant_context || ""); }
+      if (data) { setS(data); }
     });
   }, []);
   if (!s) return null;
-  const saveAiContext = async () => {
-    setAiCtxSaving(true);
-    await saveWithToast(
-      () => supabase.from("app_settings").update({ ai_assistant_context: aiContext } as any).eq("id", 1),
-      { label: "Contexte IA" },
-    );
-    setAiCtxSaving(false);
-  };
+
   const save = async () => {
     if (fe.hasErrors) { toast.error("⚠️ Corrige les champs en erreur", { description: fe.firstError || "Un ou plusieurs champs sont invalides." }); return; }
     await saveWithToast(
@@ -1431,16 +1422,7 @@ function SettingsForm() {
       { label: "Paramètres généraux" },
     );
   };
-  const toggleAi = async () => {
-    setAiLoading(true);
-    const newVal = !aiEnabled;
-    const ok = await saveWithToast(
-      () => supabase.from("app_settings").update({ ai_assistant_enabled: newVal } as any).eq("id", 1),
-      { label: newVal ? "Assistant IA activé" : "Assistant IA désactivé" },
-    );
-    setAiLoading(false);
-    if (ok) setAiEnabled(newVal);
-  };
+
   const F = ({ k, label, type = "text", hint, min, max, validate }: any) => (
     <ValidatedField
       variant="pill"
@@ -1457,33 +1439,6 @@ function SettingsForm() {
   );
   return (
     <div className="space-y-4">
-      <Card>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="font-bold text-sm">🤖 Assistant IA</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Afficher / masquer l'assistant pour tous les joueurs</div>
-          </div>
-          <button onClick={toggleAi} disabled={aiLoading}
-            className={`relative w-14 h-7 rounded-full transition-colors duration-200 focus:outline-none ${aiEnabled ? "bg-primary" : "bg-muted"} disabled:opacity-50`}>
-            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform duration-200 ${aiEnabled ? "translate-x-7" : "translate-x-0"}`} />
-          </button>
-        </div>
-        <div className={`text-xs font-semibold ${aiEnabled ? "text-emerald-600" : "text-destructive"}`}>{aiEnabled ? "✅ Assistant actif" : "❌ Assistant désactivé"}</div>
-        <div className="mt-4 pt-4 border-t border-border/60">
-          <div className="font-semibold text-sm mb-1">🧠 Informations pour l'IA</div>
-          <div className="text-[11px] text-muted-foreground mb-2">
-            Ajoute ici des précisions que l'IA doit connaître pour répondre aux joueurs (frais, règles, contacts, horaires…). L'IA les utilisera comme source de vérité, sans les recopier mot pour mot.
-            <br/>Exemple : « Frais de retrait : entre 2% et 10% selon le montant et l'opérateur. »
-          </div>
-          <textarea value={aiContext} onChange={e => setAiContext(e.target.value)} rows={8}
-            placeholder="Une info par ligne, ex:&#10;- Frais de retrait : 2 à 10% selon le cas&#10;- Dépôt minimum : 1000 Ar&#10;- Contact support : 034 00 000 00"
-            className="w-full px-4 py-3 rounded-2xl bg-card border border-border outline-none text-xs" />
-          <button onClick={saveAiContext} disabled={aiCtxSaving}
-            className="mt-2 w-full py-2.5 rounded-full text-white font-bold text-sm disabled:opacity-50" style={{ background: "var(--gradient-primary)" }}>
-            {aiCtxSaving ? "Enregistrement…" : "💾 Enregistrer les informations IA"}
-          </button>
-        </div>
-      </Card>
       {/* Programme de parrainage : géré dans l'onglet Config → 🤝 Parrainage */}
       {/* ── Daily Bonus ── */}
       <Card>
