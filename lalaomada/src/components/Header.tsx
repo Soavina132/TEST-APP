@@ -91,14 +91,9 @@ export default function Header() {
             {/* Logo + brand */}
             <Link to="/" className="flex items-center gap-2.5 group" aria-label="Lalao MADA">
               <Logo />
-              <div className="flex flex-col leading-none">
-                <span className="font-black text-base tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent">
-                  Lalao MADA
-                </span>
-                <span className="text-[9px] text-muted-foreground font-medium tracking-widest uppercase">
-                  Jeux
-                </span>
-              </div>
+              <span className="font-black text-base tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
+                Lalao MADA
+              </span>
             </Link>
 
             {/* Right controls — clean: wallet + bell + avatar */}

@@ -402,7 +402,7 @@ export default function WalletButton() {
   const ref = useRef<HTMLDivElement>(null);
 
   const settings = useAppSettings();
-  const balance = profile ? Math.round(profile.balance_ar).toLocaleString("fr-FR") : "0";
+  const balance = profile ? Math.round(profile.balance_ar).toString() : "0";
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -423,7 +423,7 @@ export default function WalletButton() {
           aria-label="Solde — Déposer / Retirer"
         >
           {/* Balance text */}
-          <span className="text-xs font-bold tabular-nums text-foreground">{balance} Ar</span>
+          <span className="text-xs font-bold tabular-nums text-foreground">{balance}ar</span>
 
           {/* Plus button */}
           <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -437,7 +437,7 @@ export default function WalletButton() {
               <div className="flex items-center gap-1.5">
                 <Wallet className="w-3.5 h-3.5 text-primary" />
                 <span className="text-xs text-muted-foreground">Solde</span>
-                <span className="ml-auto text-sm font-bold tabular-nums">{balance} Ar</span>
+                <span className="ml-auto text-sm font-bold tabular-nums">{balance}ar</span>
               </div>
             </div>
             <button
