@@ -206,9 +206,9 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    // Humanized delay: 2-5s before rolling, 2-6s before moving after roll
-    const min = state.must_move ? 2000 : 2000;
-    const max = state.must_move ? 6000 : 5000;
+    // Humanized delay: 1.5-3.5s before rolling, 2-4.5s to see dice before moving
+    const min = state.must_move ? 2000 : 1500;
+    const max = state.must_move ? 4500 : 3500;
     const delay = min + Math.random() * (max - min);
     const t = setTimeout(async () => {
       try { await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any); } catch {}
