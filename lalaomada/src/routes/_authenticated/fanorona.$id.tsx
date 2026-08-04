@@ -385,9 +385,13 @@ function FanoronaPage() {
   // waiting for a re-trigger that never comes.
   const moveCount = game?.state?.move_count ?? 0;
   const botChainFrom = game?.state?.chain_from ?? null;
+  // Use refs for parts/me so the effect doesn't re-fire (and clear its own timeout)
+  // when setParts arrives in a different React tick than setGame.
+  const partsRef = useRef(parts);
+  partsRef.current = parts;
   useEffect(() => {
-    if (!game || game.status !== "playing" || !me) return;
-    const botPart = parts.find(p => p.is_bot);
+    if (!game || game.status !== "playing") return;
+    const botPart = partsRef.current.find(p => p.is_bot);
     if (!botPart) return;
     if (game.current_turn !== botPart.slot) return;
     const triggerKey = `${game.current_turn}:${moveCount}:${botChainFrom}`;
@@ -398,9 +402,9 @@ function FanoronaPage() {
         const { error } = await supabase.rpc("fanorona_bot_play" as any, { _game_id: id } as any);
         if (error) console.error("fanorona_bot_play error", error);
       } catch (e) { console.error("bot play failed", e); }
-    }, 500 + Math.random() * 600);
+    }, 800 + Math.random() * 700);
     return () => clearTimeout(timer);
-  }, [game?.status, game?.current_turn, moveCount, botChainFrom, me, parts, id]);
+  }, [game?.status, game?.current_turn, moveCount, botChainFrom, id]);
 
   // ── EARLY RETURNS AFTER ALL HOOKS ──
   if (!loaded) return <div className="p-6 text-center text-muted-foreground">Chargement…</div>;
