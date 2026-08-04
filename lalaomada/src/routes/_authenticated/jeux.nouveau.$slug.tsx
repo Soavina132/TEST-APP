@@ -118,7 +118,8 @@ function Lobby() {
   // Ludo : déplacement automatique d'un pion jouable quand le timer expire
   // (uniquement si le dé a déjà été lancé).
   const [ludoAutoMove, setLudoAutoMove] = useState(true);
-  const [matchType, setMatchType] = useState<"bot" | "friends">("friends");
+  const [matchType, setMatchType] = useState<"solo" | "groupe">("solo");
+  const [opponentMode, setOpponentMode] = useState<"bot" | "friends">("friends");
   const [drawMode, setDrawMode] = useState<"with" | "without">("with");
   const [firstTileRule, setFirstTileRule] = useState<"libre" | "under6">("libre");
   const [targetScore, setTargetScore] = useState(100);
@@ -243,7 +244,7 @@ function Lobby() {
     setBusy(true);
     try {
       // vs AMIES → visibilité choisie (public : visible dans "Parties ouvertes" / privé : code)
-      if (matchType === "friends") {
+      if (opponentMode === "friends") {
         await createNewFree(visibility === "private");
         return;
       }
@@ -326,7 +327,7 @@ function Lobby() {
       let id: string | null = null;
       if (slug === "ludo") {
         const fn = priv ? "create_private_game" : "find_or_create_game";
-        const args: any = priv ? { _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe" } : { _max_players: maxP, _stake: 0 };
+        const args: any = priv ? { _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "solo" ? "solo" : "groupe" } : { _max_players: maxP, _stake: 0 };
         const { data, error } = await supabase.rpc(fn as any, args);
         if (error) throw error; id = extractGameId(data);
         await applyLudoAutoMove(id);
@@ -364,7 +365,7 @@ function Lobby() {
     let id: string | null = null;
     if (slug === "ludo") {
       const fn = priv ? "create_private_game" : "find_or_create_game";
-      const args: any = priv ? { _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe" } : { _max_players: maxP, _stake: stake };
+      const args: any = priv ? { _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "solo" ? "solo" : "groupe" } : { _max_players: maxP, _stake: stake };
       const { data, error } = await supabase.rpc(fn as any, args);
       if (error) throw error; id = extractGameId(data);
       await applyLudoAutoMove(id);
@@ -402,7 +403,7 @@ function Lobby() {
     if (!checkGuards(stake)) return;
     setBusy(true);
     try {
-      if (matchType === "bot" && slug === "ludo") {
+      if (opponentMode === "bot" && slug === "ludo") {
         // Mode Solo Ludo avec mise : créer une partie privée avec bots
         const { data, error } = await supabase.rpc("create_private_game" as any, {
           _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: "solo",
@@ -501,7 +502,7 @@ function Lobby() {
           <TabBtn label="Code" active={tab === "code"} onClick={() => setTab("code")} icon={<span className="text-sm leading-none">🔑</span>} />
           <TabBtn label="Mes" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
         </div>
-        {((tab === "public" && matchType === "friends") || (tab === "private" && matchType === "friends")) && (
+        {((tab === "public" && opponentMode === "friends") || (tab === "private" && opponentMode === "friends")) && (
           <div className="grid grid-cols-2 gap-1.5 shrink-0" role="tablist" aria-label="Visibilité">
             <button onClick={() => setVisibility("public")} aria-pressed={visibility === "public"}
               className={`px-2 py-1.5 rounded-lg font-semibold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-[0.97] border ${
@@ -528,10 +529,8 @@ function Lobby() {
         {tab === "public" && supportsPublicJoin && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              {slug === "ludo"
-                ? <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
-                : <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent")} />
-              }
+              <SummaryRow icon="🎯" label="Mode" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -548,7 +547,7 @@ function Lobby() {
               {slug === "fanorona" && (
                 <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
               )}
-              {slug === "chess" && matchType === "bot" && (
+              {slug === "chess" && opponentMode === "bot" && (
                 <>
                   <SummaryRow icon="⭐" label="Difficulté" value={({ very_easy:"⭐ 600", easy:"⭐⭐ 900", medium:"⭐⭐⭐ 1200", hard:"⭐⭐⭐⭐ 1700", expert:"⭐⭐⭐⭐⭐ 2200" } as any)[chessBotDifficulty]} onClick={() => setSheet("chess_diff")} />
                   <SummaryRow icon={chessBotColor === "white" ? "⚪" : "⚫"} label="Couleur" value={chessBotColor === "white" ? "Blancs" : "Noirs"} onClick={() => setSheet("chess_color")} />
@@ -565,7 +564,7 @@ function Lobby() {
                 <>
                   <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Aléatoire", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
                   <SummaryRow icon="📜" label="Mode de jeu" value={ramiGameMode === "naturel" ? "Naturel" : "Bordel"} onClick={() => setSheet("rami_mode")} />
-                  {matchType === "bot" && (
+                  {opponentMode === "bot" && (
                     <SummaryRow icon="⭐" label="Niveau des bots" value={({ easy:"⭐ Facile", medium:"⭐⭐ Moyen", hard:"⭐⭐⭐ Difficile" } as any)[ramiBotDifficulty]} onClick={() => setSheet("rami_diff")} />
                   )}
                 </>
@@ -576,7 +575,7 @@ function Lobby() {
               )}
             </div>
 
-            {matchType === "friends" && visibility === "private" && (
+            {opponentMode === "friends" && visibility === "private" && (
               <div className="rounded-xl bg-primary/8 border border-primary/20 px-3 py-2 text-[11px] text-primary/90 flex items-center gap-2">
                 <KeyRound className="w-3.5 h-3.5 shrink-0" />
                 <span>Un code d'invitation à 6 caractères sera généré.</span>
@@ -585,7 +584,7 @@ function Lobby() {
             <button onClick={joinPublicOrCreate} disabled={busy}
               className="w-full py-3.5 rounded-full text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/40 active:scale-[0.98] transition-transform sticky bottom-2"
               style={{ background: "var(--gradient-primary)" }}>
-              {matchType === "friends"
+              {opponentMode === "friends"
                 ? (visibility === "public"
                     ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Créer la partie"}</>)
                     : (<><KeyRound className="w-4 h-4" /> {busy ? "…" : "Créer et inviter"}</>))
@@ -599,10 +598,8 @@ function Lobby() {
         {tab === "private" && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              {slug === "ludo"
-                ? <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
-                : <SummaryRow icon="🎯" label="Adversaire" value={matchType === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent")} />
-              }
+              <SummaryRow icon="🎯" label="Mode" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+              <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
               {showMaxP && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -658,14 +655,14 @@ function Lobby() {
             <button onClick={createPrivate} disabled={busy || (slug === "domino" && mode === "points" && targetScore < 1)}
               className="w-full py-3.5 rounded-full text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/40 active:scale-[0.98] transition-transform sticky bottom-2"
               style={{ background: "var(--gradient-primary)" }}>
-              {matchType === "bot" && slug === "ludo"
+              {opponentMode === "bot" && slug === "ludo"
                 ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Commencer la partie"}</>)
                 : visibility === "public"
                   ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Créer la partie"}</>)
                   : (<><Lock className="w-4 h-4" /> {busy ? "…" : "Créer la partie privée"}</>)}
             </button>
 
-            {visibility === "private" && (slug !== "ludo" || matchType === "friends") && (
+            {visibility === "private" && (slug !== "ludo" || opponentMode === "friends") && (
               <div className="text-[11px] text-muted-foreground text-center">Un code à 6 caractères sera généré pour inviter tes amis.</div>
             )}
           </section>
@@ -750,8 +747,11 @@ function Lobby() {
       </div>
 
 
-      <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Adversaire">
-        <ModeBlock options={slug === "ludo" ? [{ v: "bot", l: "🤖 Solo" }, { v: "friends", l: "👥 Groupe" }] : [{ v: "bot", l: "🤖 vs Bot" }, { v: "friends", l: "👥 vs Amis" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
+      <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Mode de jeu">
+        <ModeBlock options={[{ v: "solo", l: "🤖 Solo" }, { v: "groupe", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); closeSheet(); }} />
+      </BottomSheet>
+      <BottomSheet open={sheet === "opponent_mode"} onClose={closeSheet} title="Adversaire">
+        <ModeBlock options={[{ v: "bot", l: "🤖 vs Bot" }, { v: "friends", l: "👥 vs Amis" }]} value={opponentMode} onChange={(v) => { setOpponentMode(v as any); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "players"} onClose={closeSheet} title="Nombre de joueurs">
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${meta.maxOpts.length}, minmax(0,1fr))` }}>
