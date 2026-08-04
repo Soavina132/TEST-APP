@@ -11,12 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
 
       - name: Install & Build
-        run: |
-          bun install
-          bun run build
+        run: pnpm install --no-frozen-lockfile && pnpm run build
         env:
           VITE_SUPABASE_URL: https://gifwfjgciwbsottztzoc.supabase.co
           VITE_SUPABASE_PROJECT_ID: gifwfjgciwbsottztzoc
