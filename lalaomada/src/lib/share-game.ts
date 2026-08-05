@@ -6,7 +6,6 @@ const GROUP_NAME_FOR_SLUG: Record<string, string> = {
   chess: "Groupe Échec",
   fanorona: "Groupe Fanorona",
   rami: "Groupe Rami",
-  petanque: "Groupe Pétanque",
 };
 
 export const GAME_SHARE_PREFIX = "[[game-share:";

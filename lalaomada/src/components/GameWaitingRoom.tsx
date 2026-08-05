@@ -10,7 +10,6 @@ import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import ludoCover from "@/assets/games/ludo.asset.json";
 import pokerCover from "@/assets/games/poker.asset.json";
 import ramiCover from "@/assets/games/rami.asset.json";
-import petanqueCover from "@/assets/games/petanque.asset.json";
 
 type Participant = {
   id?: string;
@@ -22,7 +21,7 @@ type Participant = {
   avatar_url?: string;
 };
 
-type GameSlug = "chess" | "domino" | "fanorona" | "ludo" | "poker" | "rami" | "petanque";
+type GameSlug = "chess" | "domino" | "fanorona" | "ludo" | "poker" | "rami";
 
 const COVERS: Record<GameSlug, { url: string; emoji: string; title: string }> = {
   chess:    { url: chessCover.url,    emoji: "♟️", title: "Échecs" },
@@ -31,7 +30,6 @@ const COVERS: Record<GameSlug, { url: string; emoji: string; title: string }> = 
   ludo:     { url: ludoCover.url,     emoji: "🎲", title: "Ludo" },
   poker:    { url: pokerCover.url,    emoji: "🂡",  title: "Poker" },
   rami:     { url: ramiCover.url,     emoji: "🃏", title: "Rami" },
-  petanque: { url: petanqueCover.url, emoji: "🟤", title: "Pétanque" },
 };
 
 export default function GameWaitingRoom({

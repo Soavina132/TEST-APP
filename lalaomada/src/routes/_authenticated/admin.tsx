@@ -2510,7 +2510,6 @@ function AppConfigForm() {
     { slug: "chess",    label: "Échecs"   },
     { slug: "rami",     label: "Rami"     },
     { slug: "poker",    label: "Poker"    },
-    { slug: "petanque", label: "Pétanque" },
   ];
   const disabledGames: string[] = Array.isArray(s.games_disabled) ? s.games_disabled : [];
 

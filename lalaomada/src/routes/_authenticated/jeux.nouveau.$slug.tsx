@@ -11,12 +11,11 @@ import ramiCover from "@/assets/games/rami.asset.json";
 import chessCover from "@/assets/games/chess.asset.json";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import pokerCover from "@/assets/games/poker.asset.json";
-import petanqueCover from "@/assets/games/petanque.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
 
 const COVER_BY_SLUG: Record<string, string> = {
   ludo: ludoCover.url, domino: dominoCover.url, fanorona: fanoronaCover.url,
-  chess: chessCover.url, rami: ramiCover.url, poker: pokerCover.url, petanque: petanqueCover.url,
+  chess: chessCover.url, rami: ramiCover.url, poker: pokerCover.url,
 };
 
 export const Route = createFileRoute("/_authenticated/jeux/nouveau/$slug")({
@@ -29,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/jeux/nouveau/$slug")({
   }),
 });
 
-type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker" | "petanque";
+type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
 const STAKES = [100, 500, 1000, 2000, 5000];
 
 const COVER_PLACEHOLDER: Record<string, string> = {
@@ -69,7 +68,7 @@ function CoverImage({ src, alt, slug, dims }: { src: string; alt: string; slug: 
 
 const COVER_DIMS: Record<string, { w: number; h: number }> = {
   ludo: { w: 1080, h: 1064 }, domino: { w: 1024, h: 1024 }, fanorona: { w: 1024, h: 1024 },
-  chess: { w: 1024, h: 1024 }, rami: { w: 1024, h: 1024 }, petanque: { w: 1024, h: 1024 },
+  chess: { w: 1024, h: 1024 }, rami: { w: 1024, h: 1024 },
 };
 const META: Record<Slug, { label: string; cover: string; maxOpts: number[] }> = {
   ludo: { label: "Ludo", cover: ludoCover.url, maxOpts: [2, 3, 4] },
@@ -78,17 +77,16 @@ const META: Record<Slug, { label: string; cover: string; maxOpts: number[] }> = 
   chess: { label: "Échecs", cover: chessCover.url, maxOpts: [2] },
   rami: { label: "Rami", cover: ramiCover.url, maxOpts: [2, 3, 4] },
   poker: { label: "Poker", cover: pokerCover.url, maxOpts: [2, 3, 4, 5, 6, 7, 8, 9] },
-  petanque: { label: "Pétanque", cover: petanqueCover.url, maxOpts: [2] },
 };
 
 const ROUTE: Record<Slug, any> = {
-  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id", chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id", petanque: "/petanque/$id",
+  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id", chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id",
 };
 const GAME_TABLE: Record<Slug, string> = {
-  ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games", chess: "chess_games", rami: "rami_games", poker: "poker_games", petanque: "petanque_games",
+  ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games", chess: "chess_games", rami: "rami_games", poker: "poker_games",
 };
 const PART_TABLE: Record<Slug, string | null> = {
-  ludo: "ludo_participants", domino: "domino_participants", fanorona: "fanorona_participants", chess: null, rami: "rami_participants", poker: "poker_players", petanque: "petanque_participants",
+  ludo: "ludo_participants", domino: "domino_participants", fanorona: "fanorona_participants", chess: null, rami: "rami_participants", poker: "poker_players",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -304,14 +302,10 @@ function Lobby() {
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
-      } else if (slug === "petanque") {
-        const { data, error } = await supabase.rpc("petanque_create" as any, { p_stake: 0, p_public: false } as any);
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
-        const { error: berr } = await supabase.rpc("petanque_add_bot" as any, { _game_id: id } as any);
         if (berr) throw berr;
-        await supabase.rpc("petanque_set_ready" as any, { _game_id: id, _ready: true } as any);
       } else if (slug === "rami") {
         const { data, error } = await supabase.rpc("rami_start_solo_bot" as any, {
           _max_players: maxP, _difficulty: ramiBotDifficulty,
@@ -368,8 +362,6 @@ function Lobby() {
       } else if (slug === "poker") {
         const { data, error } = await supabase.rpc("poker_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
         if (error) throw error; id = extractGameId(data);
-      } else if (slug === "petanque") {
-        const { data, error } = await supabase.rpc("petanque_create" as any, { p_stake: 0, p_public: !priv } as any);
         if (error) throw error; id = extractGameId(data);
       }
       if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
@@ -416,8 +408,6 @@ function Lobby() {
     } else if (slug === "poker") {
       const { data, error } = await supabase.rpc("poker_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
       if (error) throw error; id = extractGameId(data);
-    } else if (slug === "petanque") {
-      const { data, error } = await supabase.rpc("petanque_create" as any, { p_stake: stake, p_public: !priv } as any);
       if (error) throw error; id = extractGameId(data);
     }
     if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
@@ -463,8 +453,6 @@ function Lobby() {
       } else if (slug === "poker") {
         const { error } = await supabase.rpc("poker_join" as any, { _game_id: gameId } as any);
         if (error) throw error;
-      } else if (slug === "petanque") {
-        const { error } = await supabase.rpc("petanque_join" as any, { _game_id: gameId } as any);
         if (error) throw error;
       }
       refreshProfile(); goTo(gameId);
@@ -479,7 +467,7 @@ function Lobby() {
         slug === "domino" ? "domino_join_code" :
         slug === "fanorona" ? "fanorona_join_code" :
         slug === "chess" ? "chess_join_friends" : slug === "poker" ? "poker_join_code" :
-        slug === "petanque" ? "petanque_join_code" : "rami_join_code";
+        "rami_join_code";
       const { data, error } = await supabase.rpc(fn as any, { _code: code.trim().toUpperCase() } as any);
       if (error) throw error;
       refreshProfile(); goTo(data);

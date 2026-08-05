@@ -12,30 +12,23 @@ import fanoronaImg from "@/assets/covers/fanorona-cover.jpg";
 import chessImg from "@/assets/covers/chess-cover.jpg";
 import ramiImg from "@/assets/covers/rami-cover.jpg";
 import pokerImg from "@/assets/covers/poker-cover.jpg";
-import petanqueCoverJson from "@/assets/games/petanque.asset.json";
-const petanqueImg = petanqueCoverJson.url;
 
 export const Route = createFileRoute("/_authenticated/jeux/")({
   component: JeuxPage,
   head: () => ({
     meta: [
       { title: "Les jeux — Lalao MADA" },
-      { name: "description", content: "Rejoignez ou créez une partie de vos jeux favoris." },
-    ],
+      { name: "description", content: "Rejoignez ou créez une partie de vos jeux favoris." }],
     links: [
       { rel: "preload", as: "image", href: ludoImg, fetchpriority: "high" },
       { rel: "preload", as: "image", href: dominoImg, fetchpriority: "high" },
       { rel: "preload", as: "image", href: fanoronaImg },
       { rel: "preload", as: "image", href: chessImg },
       { rel: "preload", as: "image", href: ramiImg },
-      { rel: "preload", as: "image", href: pokerImg },
-      { rel: "preload", as: "image", href: petanqueImg },
-    ],
-  }),
-});
+      { rel: "preload", as: "image", href: pokerImg }]})});
 
 
-type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker" | "petanque";
+type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Covers — vraies images photoréalistes stylées
@@ -46,9 +39,7 @@ const COVER_IMAGES: Record<Slug, string> = {
   fanorona: fanoronaImg,
   chess: chessImg,
   rami: ramiImg,
-  poker: pokerImg,
-  petanque: petanqueImg,
-};
+  poker: pokerImg};
 
 function GameCover({ slug, label }: { slug: Slug; label: string }) {
   return (
@@ -73,9 +64,7 @@ const COVER_COMPONENTS: Record<Slug, () => React.ReactElement> = {
   fanorona: () => <GameCover slug="fanorona" label="Fanorona" />,
   chess:    () => <GameCover slug="chess" label="Échecs" />,
   rami:     () => <GameCover slug="rami" label="Rami" />,
-  poker:    () => <GameCover slug="poker" label="Poker" />,
-  petanque: () => <GameCover slug="petanque" label="Pétanque" />,
-};
+  poker:    () => <GameCover slug="poker" label="Poker" />};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Définition des jeux
@@ -87,33 +76,26 @@ const GAMES: GameDef[] = [
   { slug: "fanorona", label: "Fanorona", desc: "2 joueurs",   emoji: "⚫" },
   { slug: "chess",    label: "Échecs",   desc: "2 joueurs",   emoji: "♟️" },
   { slug: "rami",     label: "Rami",     desc: "2-4 joueurs", emoji: "🃏" },
-  { slug: "poker",    label: "Poker",    desc: "2-9 joueurs", emoji: "🂡" },
-  { slug: "petanque", label: "Pétanque", desc: "1v1 · 13 pts", emoji: "🟤" },
-];
+  { slug: "poker",    label: "Poker",    desc: "2-9 joueurs", emoji: "🂡" }];
 
-const ALL_DISPLAYED_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker", "petanque"];
-const DIRECT_JOIN_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker", "petanque"];
+const ALL_DISPLAYED_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker"];
+const DIRECT_JOIN_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker"];
 
 const GAME_TABLE: Record<Slug, string> = {
   ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games",
-  chess: "chess_games", rami: "rami_games", poker: "poker_games", petanque: "petanque_games",
-};
+  chess: "chess_games", rami: "rami_games", poker: "poker_games"};
 const HOST_COL: Record<Slug, string> = {
   ludo: "host_id", domino: "host_id", fanorona: "host_id",
-  chess: "host_id", rami: "created_by", poker: "created_by", petanque: "creator_id",
-};
+  chess: "host_id", rami: "created_by", poker: "created_by"};
 const ROUTE: Record<Slug, string> = {
   ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id",
-  chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id", petanque: "/petanque/$id",
-};
+  chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id"};
 const JOIN_CODE_RPC: Record<Slug, string> = {
   ludo: "join_game_by_code", domino: "domino_join_code", fanorona: "fanorona_join_code",
-  chess: "chess_join_code", rami: "rami_join_code", poker: "poker_join_code", petanque: "petanque_join_code",
-};
+  chess: "chess_join_code", rami: "rami_join_code", poker: "poker_join_code"};
 const JOIN_RPC: Record<string, string> = {
   ludo: "join_game", domino: "domino_join", fanorona: "fanorona_join",
-  chess: "chess_join", rami: "rami_join", poker: "poker_join", petanque: "petanque_join",
-};
+  chess: "chess_join", rami: "rami_join", poker: "poker_join"};
 
 type OpenGame = {
   id: string; slug: Slug; stake: number; pot: number;
@@ -237,9 +219,8 @@ function JeuxPage() {
     const PARTS_TABLE: Record<Slug, string | null> = {
       ludo: "ludo_participants", domino: "domino_participants",
       fanorona: "fanorona_participants", rami: "rami_participants",
-      chess: null, poker: "poker_players", petanque: "petanque_participants",
-    };
-    const FIXED_MAX: Partial<Record<Slug, number>> = { chess: 2, fanorona: 2, petanque: 2 };
+      chess: null, poker: "poker_players"};
+    const FIXED_MAX: Partial<Record<Slug, number>> = { chess: 2, fanorona: 2 };
     const results = await Promise.all(
       active.map(async (slug) => {
         const extraCols: string[] = [HOST_COL[slug]];
@@ -274,8 +255,7 @@ function JeuxPage() {
           players_count: counts[i],
           host_id: g[HOST_COL[slug]] || null,
           target_score: slug === "domino" ? (g.target_score ?? null) : null,
-          draw_mode: slug === "domino" ? (g.state?.draw_mode ?? "with") : null,
-        }));
+          draw_mode: slug === "domino" ? (g.state?.draw_mode ?? "with") : null}));
       })
     );
     const flat: OpenGame[] = results
@@ -376,9 +356,7 @@ function JeuxPage() {
       .map(s => ({
         slug: s,
         label: GAMES.find(g => g.slug === s)?.label ?? s,
-        count: openGames.filter(g => g.slug === s).length,
-      })),
-  ];
+        count: openGames.filter(g => g.slug === s).length}))];
 
   return (
     <main className="max-w-3xl mx-auto px-3 pt-2 pb-20 md:pb-4 flex flex-col gap-3 md:h-[calc(100vh-3.5rem)] md:overflow-hidden">

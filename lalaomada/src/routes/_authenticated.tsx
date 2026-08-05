@@ -104,7 +104,7 @@ function AuthLayout() {
   const loc = useLocation();
   const path = loc.pathname;
   const waiting = useWaitingRoomActive();
-  const inGameRoute = /^\/(chess|domino|fanorona|rami|poker|petanque|game)\//.test(path);
+  const inGameRoute = /^\/(chess|domino|fanorona|rami|poker|game)\//.test(path);
   const inGame = inGameRoute && !waiting;
   const inChat = path === "/chat" || path.startsWith("/discussion/");
 
