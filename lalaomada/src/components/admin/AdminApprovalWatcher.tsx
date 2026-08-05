@@ -29,17 +29,17 @@ export default function AdminApprovalWatcher() {
 
     // Load any existing pending request (not authored by me)
     const load = async () => {
-      const { data } = await supabase
-        .from("admin_login_approvals")
+      const { data } = await (supabase
+        .from("admin_login_approvals" as any)
         .select("*")
         .eq("status", "pending")
         .gt("expires_at", new Date().toISOString())
         .neq("requesting_user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(1);
+        .limit(1) as any);
       if (data && data[0]) {
         setPending(data[0] as any);
-        loadRequesterName(data[0].requesting_user_id);
+        loadRequesterName((data[0] as any).requesting_user_id);
       }
     };
     load();
@@ -74,7 +74,7 @@ export default function AdminApprovalWatcher() {
     if (!pending) return;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("admin_respond_login_approval", {
+      const { error } = await supabase.rpc("admin_respond_login_approval" as any, {
         _request_id: pending.id, _decision: decision,
       });
       if (error) throw error;

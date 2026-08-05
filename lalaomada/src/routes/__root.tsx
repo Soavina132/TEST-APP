@@ -157,7 +157,7 @@ function RouteSkeletonOverlay() {
     select: (s) => ({
       isLoading: s.status === "pending",
       pathname:
-        s.pendingMatches?.[s.pendingMatches.length - 1]?.pathname ??
+        (s as any).pendingMatches?.[((s as any).pendingMatches as any[]).length - 1]?.pathname ??
         s.location.pathname,
     }),
   });

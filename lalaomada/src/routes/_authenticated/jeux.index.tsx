@@ -443,7 +443,7 @@ function JeuxPage() {
             )}
           </div>
           <button
-            onClick={loadOpenGames}
+            onClick={() => loadOpenGames()}
             disabled={loadingGames}
             title="Rafraîchir"
             className="p-1.5 rounded-full hover:bg-accent transition-colors disabled:opacity-50"

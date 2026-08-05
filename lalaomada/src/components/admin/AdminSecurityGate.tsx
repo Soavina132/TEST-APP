@@ -22,7 +22,13 @@ export default function AdminSecurityGate({ children }: { children: ReactNode })
   useEffect(() => {
     if (!isAdmin || loading) return;
     (async () => {
-      const { data } = await supabase.rpc("admin_verify_pin" as any, { _pin: "" } as any).catch(() => ({ data: null }));
+      let data: any = null;
+      try {
+        const res = await supabase.rpc("admin_verify_pin" as any, { _pin: "" } as any);
+        data = res.data;
+      } catch {
+        data = null;
+      }
       if (data?.reason === "no_pin_set") {
         // Premier accès: pas de PIN → accès direct (l'admin devrait en définir un)
         setNeedsPin(false);

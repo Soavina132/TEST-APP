@@ -488,7 +488,7 @@ function FinancialIntegrityCard() {
   const fmt = (n: any) => Number(n || 0).toLocaleString("fr-FR") + " Ar";
 
   const loadKpi = async () => {
-    const { data, error } = await supabase.rpc("admin_finance_kpi");
+    const { data, error } = await supabase.rpc("admin_finance_kpi" as any);
     if (error) return toast.error(error.message);
     setKpi(data);
   };
@@ -496,7 +496,7 @@ function FinancialIntegrityCard() {
 
   const runAudit = async () => {
     setBusy(true);
-    const { data, error } = await supabase.rpc("admin_reconcile_balances");
+    const { data, error } = await supabase.rpc("admin_reconcile_balances" as any);
     setBusy(false);
     if (error) return toast.error(error.message);
     setReport((data as any[]) || []);
@@ -506,7 +506,7 @@ function FinancialIntegrityCard() {
   const runAlign = async () => {
     if (!confirm("Aligner automatiquement tous les soldes sur l'historique ? Une transaction 'admin_adjust' traçable sera créée pour chaque correction.")) return;
     setBusy(true);
-    const { data, error } = await supabase.rpc("admin_align_balances");
+    const { data, error } = await supabase.rpc("admin_align_balances" as any);
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success(`✅ ${(data as any[])?.length || 0} solde(s) aligné(s)`);
@@ -545,7 +545,7 @@ function FinancialIntegrityCard() {
         </button>
         <button disabled={busy} onClick={async () => {
           setBusy(true);
-          const { data, error } = await supabase.rpc("admin_audit_unlogged_changes", { _hours: 24 });
+          const { data, error } = await supabase.rpc("admin_audit_unlogged_changes" as any, { _hours: 24 });
           setBusy(false);
           if (error) return toast.error(error.message);
           const rows = (data as any[]) || [];
@@ -593,7 +593,7 @@ function HouseIncomePanel() {
 
   const load = async () => {
     const since = new Date(Date.now() - days * 86400_000).toISOString();
-    const { data, error } = await supabase.rpc("admin_house_income", { _since: since });
+    const { data, error } = await supabase.rpc("admin_house_income" as any, { _since: since });
     if (error) return toast.error(error.message);
     setRows((data as any[]) || []);
   };
@@ -1168,7 +1168,7 @@ function AdminPinSetup() {
   const [hasPin, setHasPin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    supabase.rpc("admin_verify_pin" as any, { _pin: "" } as any).then(({ data }: any) => {
+    (supabase.rpc("admin_verify_pin" as any, { _pin: "" } as any) as any).then(({ data }: any) => {
       setHasPin(data?.reason !== "no_pin_set");
     }).catch(() => setHasPin(null));
   }, []);

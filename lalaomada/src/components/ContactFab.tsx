@@ -111,7 +111,7 @@ export default function ContactFab() {
                 const target = isFb ? facebookTargets(c.tuto_url!) : { webUrl: c.tuto_url! };
                 return (
                   <a
-                    href={target.appUrl || target.webUrl}
+                    href={(target as any).appUrl || target.webUrl}
                     target="_top"
                     rel="noopener noreferrer"
                     onClick={(e) => {
@@ -129,7 +129,7 @@ export default function ContactFab() {
                 const target = isFb ? facebookTargets(c.update_url!) : { webUrl: c.update_url! };
                 return (
                   <a
-                    href={target.appUrl || target.webUrl}
+                    href={(target as any).appUrl || target.webUrl}
                     target="_top"
                     rel="noopener noreferrer"
                     onClick={(e) => {

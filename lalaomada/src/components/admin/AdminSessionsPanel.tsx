@@ -23,7 +23,7 @@ export default function AdminSessionsPanel() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("admin_list_all_active_sessions");
+    const { data, error } = await supabase.rpc("admin_list_all_active_sessions" as any);
     if (!error) setSessions((data as any) || []);
     setLoading(false);
   }, []);
@@ -49,9 +49,9 @@ export default function AdminSessionsPanel() {
 
   async function revokeAllOthers() {
     if (!confirm("Déconnecter toutes les AUTRES sessions de mon compte ?")) return;
-    const { data, error } = await supabase.rpc("admin_revoke_all_other_sessions");
+    const { data, error } = await supabase.rpc("admin_revoke_all_other_sessions" as any);
     if (error) return toast.error(error.message);
-    toast.success(`${data ?? 0} session(s) révoquée(s)`);
+    toast.success(`${(data as any) ?? 0} session(s) révoquée(s)`);
     load();
   }
 

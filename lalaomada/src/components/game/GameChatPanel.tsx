@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageCircle, ChevronDown, X, Bell, BellOff, Wifi } from "lucide-react";
 import { useT } from "@/lib/i18n";
-import ChatRoom from "./ChatRoom";
+import ChatRoom from "@/components/chat/ChatRoom";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 

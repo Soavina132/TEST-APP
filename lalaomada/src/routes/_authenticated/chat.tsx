@@ -241,7 +241,7 @@ function ChatHub() {
       .eq("unique_code", addDmCode.trim().toUpperCase())
       .maybeSingle();
     if (!target) { toast.error(t("code_not_found")); return; }
-    await startDmWith(target);
+    await startDmWith(target as any);
     setAddDmCode("");
   };
 

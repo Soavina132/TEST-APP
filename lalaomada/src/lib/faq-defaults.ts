@@ -1,4 +1,4 @@
-import { referralShortAnswer } from "./referral-rules";
+import { referralShortAnswer } from "@/lib/auth/referral-rules";
 import type { CmsFaqContent } from "@/hooks/use-cms-content";
 
 /**

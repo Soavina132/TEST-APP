@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageCircle, X } from "lucide-react";
 import { useT } from "@/lib/i18n";
-import ChatRoom from "./ChatRoom";
+import ChatRoom from "@/components/chat/ChatRoom";
 
 // Maps a game slug to the OFFICIAL general group room name.
 // Used ONLY for game-lobby chat (the Resaka/lounge page), never for in-game chat.

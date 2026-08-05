@@ -196,7 +196,7 @@ export default function JeuxPublicsPage() {
 
   function handlePlay(slug: string) {
     if (user) {
-      navigate({ to: "/jeux/$slug" as any, params: { slug } });
+      navigate({ to: "/jeux/$slug" as any, params: { slug } as any });
     } else {
       navigate({ to: "/login" });
     }
@@ -204,7 +204,7 @@ export default function JeuxPublicsPage() {
 
   function handleBotPlay(slug: string) {
     if (user) {
-      navigate({ to: "/jeux/$slug" as any, params: { slug } });
+      navigate({ to: "/jeux/$slug" as any, params: { slug } as any });
     } else {
       navigate({ to: "/login" });
     }

@@ -145,7 +145,7 @@ export function openExternal({ webUrl, appUrl, androidIntent, androidIntents = [
   }, 1200);
 }
 
-export function whatsappTargets(phone: string) {
+export function whatsappTargets(phone: string): { webUrl: string; appUrl: string; androidIntent: string; marketUrl: string } {
   const number = phone.replace(/\D/g, "");
   const marketUrl = "market://details?id=com.whatsapp";
   return {
@@ -156,7 +156,7 @@ export function whatsappTargets(phone: string) {
   };
 }
 
-export function facebookTargets(url: string) {
+export function facebookTargets(url: string): { webUrl: string; appUrl: string; nativeUrls: string[]; preferIntent: boolean; disableAndroidCascade: boolean } {
   const normalizedUrl = /^https?:\/\//i.test(url)
     ? url.trim()
     : `https://www.facebook.com/${url.trim().replace(/^@/, "")}`;

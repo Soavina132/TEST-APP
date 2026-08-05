@@ -283,7 +283,7 @@ function ProfilePage() {
   return (
     <main className="max-w-2xl mx-auto w-full px-3 pt-1 pb-1 h-[calc(100dvh-12rem)] flex flex-col gap-2 overflow-hidden">
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
-      {showDeleteDialog && <DeleteAccountDialog onClose={() => setShowDeleteDialog(false)} />}
+      {showDeleteDialog && <DeleteAccountDialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} />}
       <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* History dialogs */}

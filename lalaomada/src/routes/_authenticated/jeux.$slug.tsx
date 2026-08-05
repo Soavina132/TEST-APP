@@ -264,7 +264,7 @@ function Lobby() {
         const botsNeeded = Math.max(0, maxP - 1);
         for (let i = 0; i < botsNeeded; i++) {
           const { error: berr } = await supabase.rpc("player_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-          if (berr) throw berr;
+          if (error) throw error;
         }
         // Auto-ready pour démarrer immédiatement (bypass salle d'attente)
         const { error: readyErr } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
@@ -286,7 +286,7 @@ function Lobby() {
         const botsNeeded = Math.max(0, maxP - 1);
         for (let i = 0; i < botsNeeded; i++) {
           const { error: berr } = await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-          if (berr) throw berr;
+          if (error) throw error;
         }
         // Auto-ready pour démarrer immédiatement (bypass salle d'attente)
         await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
@@ -308,7 +308,7 @@ function Lobby() {
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
-        if (berr) throw berr;
+        if (error) throw error;
       } else if (slug === "rami") {
         const { data, error } = await supabase.rpc("rami_start_solo_bot" as any, {
           _max_players: maxP, _difficulty: ramiBotDifficulty,
@@ -433,7 +433,7 @@ function Lobby() {
         const botsNeeded = Math.max(0, maxP - 1);
         for (let i = 0; i < botsNeeded; i++) {
           const { error: berr } = await supabase.rpc("player_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-          if (berr) throw berr;
+          if (error) throw error;
         }
         const { error: readyErr2 } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
         if (readyErr2) toast.error(readyErr2.message);

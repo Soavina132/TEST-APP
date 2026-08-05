@@ -102,7 +102,7 @@ function GamePage() {
 
   const quit = async () => {
     const { error } = await supabase.rpc("ludo_quit" as any, { _game_id: id } as any);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success(t("left_game"));
     refreshProfile();
     navigate({ to: "/jeux" });
@@ -170,9 +170,9 @@ function GamePage() {
           isParticipant={isParticipant}
           createdAt={game.created_at}
           onQuit={quit}
-          onToggleReady={async (ready) => {
+          onToggleReady={async (ready): Promise<void> => {
             const { error } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: ready } as any);
-            if (error) toast.error(error.message);
+            if (error) { void toast.error(error.message); }
           }}
           matchType={game.match_type === "groupe" ? "groupe" : "solo"}
           onJoinTeam={async (team) => {

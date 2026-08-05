@@ -11,7 +11,7 @@ import { toast } from "sonner";
  *   if (!ok) return; // stop the flow on failure
  */
 export async function saveWithToast<T extends { error: { message: string } | null }>(
-  run: () => Promise<T>,
+  run: () => Promise<T> | PromiseLike<T>,
   opts: { label: string; onSuccess?: (r: T) => void } = { label: "Modifications" },
 ): Promise<boolean> {
   const id = toast.loading(`💾 Enregistrement — ${opts.label}…`);

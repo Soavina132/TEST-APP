@@ -47,7 +47,7 @@ function TutosPage() {
   const [terms, setTerms] = useState("");
   const [tutoUrl, setTutoUrl] = useState<string>("");
   useEffect(() => {
-    supabase.from("app_settings").select("tutorials,terms_text,tuto_url").eq("id", 1).maybeSingle().then(({ data }) => {
+    (supabase.from("app_settings" as any).select("tutorials,terms_text,tuto_url" as any) as any).maybeSingle().then(({ data }: any) => {
       setTutos((data?.tutorials as any[]) || []);
       setTerms((data?.terms_text as string) || "");
       setTutoUrl(((data as any)?.tuto_url as string) || "");
@@ -61,7 +61,7 @@ function TutosPage() {
         const target = isFb ? facebookTargets(tutoUrl) : { webUrl: tutoUrl };
         return (
           <a
-            href={target.appUrl || target.webUrl}
+            href={(target as any).appUrl || target.webUrl}
             target="_top"
             rel="noopener noreferrer"
             onClick={(e) => {

@@ -29,7 +29,7 @@ function PublicProfile() {
         .maybeSingle();
       setProf(data);
       const { data: s } = await supabase
-        .from("player_game_stats")
+        .from("player_game_stats" as any)
         .select("games_played,wins")
         .eq("user_id", id);
       if (s?.length) {

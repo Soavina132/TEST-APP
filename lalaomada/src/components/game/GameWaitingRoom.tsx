@@ -20,6 +20,7 @@ type Participant = {
   slot?: number | null;
   ready?: boolean;
   avatar_url?: string;
+  team?: number | null;
 };
 
 type GameSlug = "chess" | "domino" | "fanorona" | "ludo" | "poker" | "rami";
