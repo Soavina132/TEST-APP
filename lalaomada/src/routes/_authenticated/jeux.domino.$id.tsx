@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
-import { LogOut, Copy, Plus, Pause } from "lucide-react";
+import { LogOut, Copy, Plus, Pause, Ban } from "lucide-react";
 import GameChatDrawer from "@/components/game/GameChatDrawer";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
@@ -374,7 +374,7 @@ function DominoPage() {
     try {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
-      if (!opts?.silent) playPass();
+      playPass();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -662,7 +662,12 @@ function DominoPage() {
 
       {/* Hand + actions */}
       {me && game.status === "playing" && !isRoundTransition && (
-        <div className={`space-y-1.5 shrink-0 ${noMove ? "rounded-xl border-2 border-red-500 p-1.5 shadow-[0_0_16px_rgba(239,68,68,0.6)] animate-pulse" : ""}`}>
+        <div className={`space-y-1.5 shrink-0 relative ${noMove ? "rounded-xl border-2 border-red-500 p-1.5 shadow-[0_0_16px_rgba(239,68,68,0.6)] animate-pulse" : ""}`}>
+          {noMove && (
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold shadow-lg flex items-center gap-1 whitespace-nowrap">
+              <Ban className="w-3 h-3" /> PAS DE COUP
+            </div>
+          )}
           <div className="flex items-end gap-2 pb-1 px-0">
             {/* Your profile (avatar + name + score + timer) anchored to the bottom-left of your hand */}
             <div className="shrink-0">

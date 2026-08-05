@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ban } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export type Tile = [number, number];
@@ -440,7 +440,12 @@ export default function DominoTable({
       <div className="relative px-3 pt-2 pb-2"
         style={{ background: "linear-gradient(180deg,#071634 0%,#0b214b 100%)" }}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2">
-          <div className={`flex items-start justify-start ${noMoveSlot != null && opponents[0] && opponents[0].slot === noMoveSlot ? "rounded-lg border-2 border-red-500 p-1 shadow-[0_0_14px_rgba(239,68,68,0.6)] animate-pulse" : ""}`}>
+          <div className={`flex items-start justify-start relative ${noMoveSlot != null && opponents[0] && opponents[0].slot === noMoveSlot ? "rounded-lg border-2 border-red-500 p-1 shadow-[0_0_14px_rgba(239,68,68,0.6)] animate-pulse" : ""}`}>
+            {noMoveSlot != null && opponents[0] && opponents[0].slot === noMoveSlot && (
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-30 px-2 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-bold shadow-lg flex items-center gap-0.5 whitespace-nowrap">
+                <Ban className="w-2.5 h-2.5" /> PAS DE COUP
+              </div>
+            )}
             {opponents.length >= 2 ? (
               <PlayerHeader seat={opponents[0]} side="left" size="lg" />
             ) : <div />}
@@ -452,7 +457,12 @@ export default function DominoTable({
                 style={{ border: "2px solid #c0392b" }}>CO</div>
             </div>
           ) : <div />}
-          <div className={`flex items-start justify-end ${(() => { const ops = opponents.length >= 2 ? opponents.slice(1, 2) : opponents.slice(0, 1); return ops.length > 0 && noMoveSlot != null && ops[0].slot === noMoveSlot ? "rounded-lg border-2 border-red-500 p-1 shadow-[0_0_14px_rgba(239,68,68,0.6)] animate-pulse" : ""; })()}`}>
+          <div className={`flex items-start justify-end relative ${(() => { const ops = opponents.length >= 2 ? opponents.slice(1, 2) : opponents.slice(0, 1); return ops.length > 0 && noMoveSlot != null && ops[0].slot === noMoveSlot ? "rounded-lg border-2 border-red-500 p-1 shadow-[0_0_14px_rgba(239,68,68,0.6)] animate-pulse" : ""; })()}`}>
+            {(() => { const ops = opponents.length >= 2 ? opponents.slice(1, 2) : opponents.slice(0, 1); return ops.length > 0 && noMoveSlot != null && ops[0].slot === noMoveSlot ? (
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-30 px-2 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-bold shadow-lg flex items-center gap-0.5 whitespace-nowrap">
+                <Ban className="w-2.5 h-2.5" /> PAS DE COUP
+              </div>
+            ) : null; })()}
             {(opponents.length >= 2 ? opponents.slice(1, 2) : opponents.slice(0, 1)).map(op => (
               <PlayerHeader key={op.user_id} seat={op} side="right" size="lg" />
             ))}
