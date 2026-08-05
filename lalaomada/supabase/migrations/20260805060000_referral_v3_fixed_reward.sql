@@ -190,6 +190,7 @@ DECLARE
   v_reward    numeric;
   v_verified  boolean;
   v_referred_by uuid;
+  v_should_activate boolean;
 BEGIN
   -- Get the user's referrer
   SELECT referred_by, phone_verified INTO v_referred_by, v_verified

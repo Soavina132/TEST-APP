@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import {
   Copy, Trophy, Users, Coins, Gift, ChevronDown,
-  Share2, MessageCircle, Phone, Phone as PhoneIcon,
-  CheckCircle2, Clock, XCircle, Gamepad2,
+  Share2, MessageCircle, Phone,
+  CheckCircle2, Clock, Gamepad2, Sparkles,
 } from "lucide-react";
 import {
   REWARD_PER_ACTIVE_AR,
@@ -17,7 +17,6 @@ import {
   REFERRAL_TIERS,
   referralConditions,
   referralMetaDescription,
-  referralHowItWorks,
 } from "@/lib/referral-rules";
 
 export const Route = createFileRoute("/_authenticated/parrainage")({
@@ -32,19 +31,19 @@ export const Route = createFileRoute("/_authenticated/parrainage")({
 
 type Tab = "filleuls" | "gains" | "classement";
 
-// ── Status helpers ──────────────────────────────────────────────────────────
+// ── Status badge for a referral ─────────────────────────────────────────────
 function referralStatusBadge(r: any): { label: string; color: string; icon: React.ReactNode } {
   if (r.status === "rewarded")
-    return { label: "Actif", color: "text-emerald-600", icon: <CheckCircle2 className="w-3 h-3" /> };
+    return { label: "Actif ✅", color: "text-emerald-600", icon: <CheckCircle2 className="w-3 h-3" /> };
   if (!r.phone_verified)
-    return { label: "Téléphone à vérifier", color: "text-amber-500", icon: <PhoneIcon className="w-3 h-3" /> };
+    return { label: "Téléphone à vérifier", color: "text-amber-500", icon: <Phone className="w-3 h-3" /> };
   if (!r.deposit_validated)
     return { label: "Dépôt en attente", color: "text-orange-500", icon: <Clock className="w-3 h-3" /> };
   const matches = r.matches_completed || 0;
   return { label: `${matches}/${MIN_MATCHES} matchs`, color: "text-blue-500", icon: <Gamepad2 className="w-3 h-3" /> };
 }
 
-// ── Coin animation component ────────────────────────────────────────────────
+// ── Coin rain animation ──────────────────────────────────────────────────────
 function CoinRain({ trigger }: { trigger: boolean }) {
   if (!trigger) return null;
   return (
@@ -72,8 +71,8 @@ function CoinRain({ trigger }: { trigger: boolean }) {
   );
 }
 
-// ── Tier progress card ──────────────────────────────────────────────────────
-function TierCard({ activeCount }: { activeCount: number }) {
+// ── Tier reward card — displayed prominently ────────────────────────────────
+function TierRewardCard({ activeCount }: { activeCount: number }) {
   const currentTier = [...REFERRAL_TIERS].reverse().find(t => activeCount >= t.count);
   const nextTier = REFERRAL_TIERS.find(t => activeCount < t.count);
   const progress = nextTier
@@ -81,21 +80,20 @@ function TierCard({ activeCount }: { activeCount: number }) {
     : 100;
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-primary/15 via-card to-amber-500/10 border border-border/60 p-3 space-y-3">
+    <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 via-card to-primary/10 border border-border/60 p-3 space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{currentTier?.icon || "🎯"}</span>
           <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Niveau actuel</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Niveau actuel</div>
             <div className="font-extrabold text-sm">{currentTier?.label || "Nouveau"}</div>
           </div>
         </div>
-        {nextTier && (
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground">Prochain palier</div>
-            <div className="font-bold text-sm">{nextTier.icon} {nextTier.count} filleuls</div>
-          </div>
-        )}
+        <div className="text-right">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Récompense par filleul</div>
+          <div className="font-extrabold text-sm text-emerald-600">{REWARD_PER_ACTIVE_AR} Ar</div>
+        </div>
       </div>
 
       {/* Progress bar */}
@@ -109,18 +107,29 @@ function TierCard({ activeCount }: { activeCount: number }) {
         </div>
       </div>
 
-      {/* Tier grid */}
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* Tier list — PROMINENT: "5 filleuls = 500 Ar" */}
+      <div className="space-y-1.5">
         {REFERRAL_TIERS.map(t => {
           const reached = activeCount >= t.count;
           return (
             <div
               key={t.count}
-              className={`rounded-xl p-2 text-center transition-all ${reached ? "bg-primary/15 border border-primary/30" : "bg-secondary/40 border border-border/30"}`}
+              className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-all ${
+                reached
+                  ? "bg-primary/15 border border-primary/30"
+                  : "bg-secondary/40 border border-border/20"
+              }`}
             >
-              <div className="text-lg leading-none">{t.icon}</div>
-              <div className="text-[10px] font-bold mt-1">{t.count}</div>
-              <div className="text-[9px] text-muted-foreground">{t.reward.toLocaleString("fr-FR")} Ar</div>
+              <span className="text-xl shrink-0">{t.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm">
+                  {t.count} filleuls {reached && <CheckCircle2 className="inline w-3.5 h-3.5 text-emerald-500 ml-1" />}
+                </div>
+                <div className="text-[10px] text-muted-foreground">{t.label}</div>
+              </div>
+              <div className={`font-extrabold text-sm shrink-0 ${reached ? "text-emerald-600" : "text-muted-foreground"}`}>
+                = {t.reward.toLocaleString("fr-FR")} Ar
+              </div>
             </div>
           );
         })}
@@ -152,18 +161,25 @@ export default function ParrainagePage() {
   const [referralEnabled, setReferralEnabled] = useState<boolean | null>(null);
   const [showCoinRain, setShowCoinRain] = useState(false);
   const [prevEarned, setPrevEarned] = useState(0);
+  const [downloadUrl, setDownloadUrl] = useState<string>("");
 
+  // Fetch app settings (referral_enabled + download_url)
   useEffect(() => {
-    supabase.from("app_settings").select("referral_enabled, download_url").eq("id", 1).maybeSingle().then(({ data: cfg }) => {
-      setReferralEnabled(cfg ? (cfg as any).referral_enabled !== false : true);
-    });
+    supabase
+      .from("app_settings")
+      .select("referral_enabled, download_url")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data: cfg }) => {
+        setReferralEnabled(cfg ? (cfg as any).referral_enabled !== false : true);
+        setDownloadUrl(((cfg as any)?.download_url || "").trim());
+      });
   }, []);
 
   const refCode = profile?.referral_code || "";
   const shareLink = typeof window !== "undefined"
     ? `${window.location.origin}/login?ref=${refCode}`
     : "";
-  const downloadUrl = data?.download_url || "";
 
   const copyCode = () => {
     copyText(refCode).then(ok => toast[ok ? "success" : "error"](ok ? "Code copié !" : "Impossible de copier"));
@@ -193,8 +209,14 @@ export default function ParrainagePage() {
     window.open(`sms:?body=${msg}`, "_blank");
   };
 
+  // Fetch dashboard data
   const refresh = () => {
-    supabase.rpc("get_referral_dashboard" as any).then(({ data: d }: any) => {
+    supabase.rpc("get_referral_dashboard" as any).then(({ data: d, error }: any) => {
+      if (error) {
+        console.error("get_referral_dashboard error:", error);
+        setLoading(false);
+        return;
+      }
       if (d) {
         const newEarned = Number(d.total_earned || 0);
         if (newEarned > prevEarned && prevEarned > 0) {
@@ -236,7 +258,6 @@ export default function ParrainagePage() {
   }, [tab]);
 
   const stats = data?.stats || {};
-  const settings = data?.settings || {};
   const referrals: any[] = data?.referrals || [];
   const events: any[] = data?.events || [];
   const totalEarned = Number(data?.total_earned || stats.total_earned_ar || 0);
@@ -355,9 +376,9 @@ export default function ParrainagePage() {
         </div>
       </div>
 
-      {/* ── Tier progress ── */}
+      {/* ── Tier rewards — PROMINENT ── */}
       <div className="shrink-0">
-        <TierCard activeCount={activeCount} />
+        <TierRewardCard activeCount={activeCount} />
       </div>
 
       {/* ── Tabs ── */}
@@ -366,7 +387,9 @@ export default function ParrainagePage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold transition-all ${tab === t.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              tab === t.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
+            }`}
           >
             <span>{t.icon}</span>{t.label}
           </button>
@@ -380,9 +403,12 @@ export default function ParrainagePage() {
           referrals.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-3 py-6">
               <div className="text-4xl opacity-50">👥</div>
-              <div className="text-sm text-muted-foreground">Aucun filleul pour l'instant.</div>
-              <button onClick={copyCode} className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold text-xs">
-                Copier mon code
+              <div className="text-sm text-muted-foreground">Aucun filleul pour l'instant</div>
+              <div className="text-[11px] text-muted-foreground max-w-[220px] text-center">
+                Partagez votre lien de parrainage avec vos amis. Dès qu'ils s'inscrivent avec votre code, ils apparaîtront ici.
+              </div>
+              <button onClick={copyLink} className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold text-xs">
+                Copier mon lien
               </button>
             </div>
           ) : referrals.map((r: any) => {
@@ -416,14 +442,14 @@ export default function ParrainagePage() {
           events.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-2 py-6 text-xs text-muted-foreground">
               <div className="text-4xl opacity-50">💰</div>
-              Aucune récompense reçue pour l'instant.
-              <p className="text-[10px] max-w-[200px]">
-                Vos gains apparaîtront ici dès qu'un filleul devient actif.
+              <div className="font-semibold">Aucune récompense reçue</div>
+              <p className="text-[10px] max-w-[220px] text-center">
+                Vous gagnez {REWARD_PER_ACTIVE_AR} Ar dès qu'un filleul vérifie son téléphone, dépose {MIN_DEPOSIT_AR} Ar et joue {MIN_MATCHES} matchs à {MIN_STAKE_AR} Ar minimum.
               </p>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between py-2 px-1 mb-1 rounded-xl bg-emerald-500/10">
+              <div className="flex items-center justify-between py-2 px-3 mb-1 rounded-xl bg-emerald-500/10">
                 <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Total gagné</span>
                 <span className="text-lg font-extrabold text-emerald-600">
                   {Math.round(totalEarned).toLocaleString("fr-FR")} Ar
@@ -452,7 +478,10 @@ export default function ParrainagePage() {
           leaderboard.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-2 py-6 text-xs text-muted-foreground">
               <div className="text-4xl opacity-50">🏆</div>
-              Soyez le premier au classement !
+              <div className="font-semibold">Classement vide</div>
+              <p className="text-[10px] max-w-[200px] text-center">
+                Soyez le premier à parrainer des amis et à grimper au classement !
+              </p>
             </div>
           ) : leaderboard.map((lb: any) => {
             const isMe = lb.referrer_id === user?.id;
@@ -482,6 +511,7 @@ export default function ParrainagePage() {
       {/* ── How it works (collapsible) ── */}
       <details className="shrink-0 rounded-2xl bg-secondary/50 px-3 py-2 group">
         <summary className="list-none flex items-center gap-2 cursor-pointer">
+          <Sparkles className="w-4 h-4 shrink-0 text-primary" />
           <p className="flex-1 text-[11px] leading-snug text-muted-foreground">
             <b className="text-foreground">{REWARD_PER_ACTIVE_AR} Ar</b> par filleul actif : téléphone vérifié +
             dépôt ≥ <b className="text-foreground">{MIN_DEPOSIT_AR} Ar</b> +
@@ -489,23 +519,10 @@ export default function ParrainagePage() {
           </p>
           <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
         </summary>
-        <div className="mt-2 space-y-1.5">
-          {/* How it works steps */}
-          <div className="grid grid-cols-3 gap-1.5 mb-2">
-            {referralHowItWorks().map(step => (
-              <div key={step.step} className="rounded-xl bg-card p-2 text-center">
-                <div className="text-lg">{step.icon}</div>
-                <div className="text-[10px] font-bold mt-0.5">{step.label}</div>
-                <div className="text-[9px] text-muted-foreground leading-tight">{step.desc}</div>
-              </div>
-            ))}
-          </div>
-          {/* Conditions */}
-          <div className="space-y-1 text-[10px] leading-snug text-muted-foreground border-t border-border/40 pt-2">
-            {referralConditions().map((c, i) => (
-              <p key={i}>• {c}</p>
-            ))}
-          </div>
+        <div className="mt-2 space-y-1 text-[10px] leading-snug text-muted-foreground border-t border-border/40 pt-2">
+          {referralConditions().map((c, i) => (
+            <p key={i}>• {c}</p>
+          ))}
         </div>
       </details>
     </main>
