@@ -219,7 +219,7 @@ function ProfilePage() {
               </button>
             </div>
 
-            {/* Right column: name, id, badge, meta */}
+            {/* Middle column: name, contact, id, meta */}
             <div className="flex-1 min-w-0 text-left">
               {/* Name */}
               {editingName ? (
@@ -240,21 +240,24 @@ function ProfilePage() {
               )}
 
               <div className="mt-1 flex items-center flex-wrap gap-x-2 gap-y-1">
-                {/* Badge */}
-                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r ${badge.color} text-white text-[11px] font-bold shadow-sm`}>
-                  <span>{badge.icon}</span>
-                  <span>{badge.label}</span>
-                  {myRank && <span className="opacity-80">· #{myRank}</span>}
-                </div>
-
-                {/* Player ID */}
-                {profile.unique_code && (
-                  <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
-                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-mono hover:text-foreground transition-colors">
-                    ID: {profile.unique_code} <Copy className="w-2.5 h-2.5" strokeWidth={1.5} />
-                  </button>
+                {/* Email ou numéro */}
+                {(p.phone || profile.email) && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium truncate max-w-full">
+                    {p.phone
+                      ? <Phone className="w-2.5 h-2.5 shrink-0" strokeWidth={2} />
+                      : <Mail className="w-2.5 h-2.5 shrink-0" strokeWidth={2} />}
+                    <span className="truncate">{p.phone || profile.email}</span>
+                  </span>
                 )}
               </div>
+
+              {/* Player ID */}
+              {profile.unique_code && (
+                <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground font-mono hover:text-foreground transition-colors">
+                  ID: {profile.unique_code} <Copy className="w-2.5 h-2.5" strokeWidth={1.5} />
+                </button>
+              )}
 
               {/* Verification + member */}
               <div className="mt-1 flex items-center gap-2 text-[10.5px] text-muted-foreground">
@@ -262,6 +265,17 @@ function ProfilePage() {
                 <span>Membre depuis {memberDays}j</span>
                 {streak > 0 && <span className="inline-flex items-center gap-0.5 text-amber-500"><Flame className="w-2.5 h-2.5" /> {streak}j</span>}
               </div>
+            </div>
+
+            {/* Right: solde (sans boutons) */}
+            <div className="shrink-0 text-right pl-2">
+              <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground font-semibold">
+                <Coins className="w-3 h-3 text-primary" /> Solde
+              </div>
+              <div className="text-lg font-black text-primary tabular-nums leading-tight">
+                {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
+              </div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Ariary</div>
             </div>
           </div>
         </div>
