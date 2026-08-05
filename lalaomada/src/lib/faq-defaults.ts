@@ -5,6 +5,9 @@ import type { CmsFaqContent } from "@/hooks/use-cms-content";
  * FAQ par défaut. Utilisée comme fallback si `cms_content.faq` est vide.
  * Le marqueur `__REFERRAL_SHORT__` (dans le contenu servi par la base)
  * est remplacé au rendu par le texte partagé avec la page Parrainage.
+ *
+ * Mise à jour : 5 août 2026 — reflète la nouvelle interface profil
+ * (4 sections horizontales, menu grille 4×2, dialog Paramètres, etc.)
  */
 export const DEFAULT_FAQ: CmsFaqContent = {
   categories: [
@@ -14,7 +17,7 @@ export const DEFAULT_FAQ: CmsFaqContent = {
       items: [
         {
           q: "Comment déposer de l'argent ?",
-          a: "Allez dans « Mon profil » → « Dépôts ». Entrez le montant, choisissez votre opérateur Mobile Money (MVola, Orange Money, Airtel Money), puis envoyez le transfert au numéro admin affiché. Votre solde est crédité après validation manuelle par l'admin (généralement quelques minutes).",
+          a: "Touchez le bouton solde « + » en haut de l'écran (à côté de votre solde), puis « Dépôt ». Entrez le montant, choisissez votre opérateur Mobile Money (MVola, Orange Money, Airtel Money), puis envoyez le transfert au numéro admin affiché. Votre solde est crédité après validation manuelle par l'admin.",
         },
         {
           q: "Combien de temps prend la validation d'un dépôt ?",
@@ -22,7 +25,11 @@ export const DEFAULT_FAQ: CmsFaqContent = {
         },
         {
           q: "Comment retirer mes gains ?",
-          a: "Allez dans « Mon profil » → « Retraits ». Entrez le montant, votre numéro Mobile Money, et validez. L'admin traite les demandes manuellement ; le solde est débité dès l'acceptation et le transfert envoyé à votre numéro.",
+          a: "Touchez le bouton solde « + » en haut de l'écran, puis « Retrait ». Entrez le montant et votre numéro Mobile Money. L'admin traite les demandes manuellement ; le solde est débité dès l'acceptation et le transfert envoyé à votre numéro.",
+        },
+        {
+          q: "Où voir l'historique de mes dépôts et retraits ?",
+          a: "Allez sur votre profil → touchez « Dépôts » ou « Retraits » dans la grille du menu. Une fenêtre s'ouvre avec la liste de vos dernières transactions.",
         },
         {
           q: "Y a-t-il un montant minimum pour déposer ou retirer ?",
@@ -34,7 +41,7 @@ export const DEFAULT_FAQ: CmsFaqContent = {
         },
         {
           q: "Mon dépôt n'est pas validé, que faire ?",
-          a: "Vérifiez d'abord que vous avez bien envoyé le transfert au bon numéro admin. Si tout est correct, contactez le support via le chat en indiquant le montant, l'heure du transfert et la référence Mobile Money. Un admin vérifiera et créditera votre solde.",
+          a: "Vérifiez d'abord que vous avez bien envoyé le transfert au bon numéro admin affiché dans le formulaire de dépôt. Si tout est correct, contactez le support via le chat en indiquant le montant, l'heure du transfert et la référence Mobile Money. Un admin vérifiera et créditera votre solde.",
         },
       ],
     },
@@ -53,7 +60,7 @@ export const DEFAULT_FAQ: CmsFaqContent = {
         },
         {
           q: "Comment rejoindre une partie ?",
-          a: "Allez dans « Jeux », choisissez un jeu, puis parcourez la liste des parties ouvertes. Touchez une partie pour la rejoindre si elle a de la place et que vous avez suffisamment de solde pour la mise.",
+          a: "Allez dans « Jeux », choisissez un jeu, puis parcourez la liste des parties ouvertes dans le lobby. Touchez une partie pour la rejoindre si elle a de la place et que vous avez suffisamment de solde pour la mise.",
         },
         {
           q: "Que se passe-t-il si je quitte une partie en cours ?",
@@ -67,6 +74,10 @@ export const DEFAULT_FAQ: CmsFaqContent = {
           q: "Comment fonctionnent les tournois ?",
           a: "Les tournois sont organisés par l'admin. Consultez la section « Tournois » pour voir les tournois à venir et en cours. Les inscriptions peuvent être limitées selon le nombre de participants et le niveau.",
         },
+        {
+          q: "Où voir les parties en direct ?",
+          a: "Allez dans la section « Direct » (Live) pour voir les parties en cours. Vous pouvez suivre les matchs des autres joueurs en temps réel.",
+        },
       ],
     },
 
@@ -79,8 +90,12 @@ export const DEFAULT_FAQ: CmsFaqContent = {
           a: "__REFERRAL_SHORT__",
         },
         {
+          q: "Comment fonctionne la page profil ?",
+          a: "Votre profil est organisé en 4 sections : 1) En-tête avec votre avatar, pseudo, badge et solde. 2) Statistiques (parties, victoires, défaites, taux de victoire, rang). 3) Jeux favoris et succès. 4) Menu d'actions rapides (dépôts, retraits, parties, parrainage, sécurité, aide, paramètres, téléphone) avec déconnexion et suppression en bas.",
+        },
+        {
           q: "Comment changer mon pseudo ?",
-          a: "Allez sur votre profil, touchez votre pseudo en haut de la page. Vous pouvez le modifier et valider. Le pseudo doit être unique.",
+          a: "Sur votre profil, touchez votre pseudo en haut de la page. Vous pouvez le modifier et valider en touchant « OK ». Le pseudo doit être unique.",
         },
         {
           q: "Comment changer ma photo de profil ?",
@@ -88,19 +103,23 @@ export const DEFAULT_FAQ: CmsFaqContent = {
         },
         {
           q: "Comment vérifier mon numéro de téléphone ?",
-          a: "La vérification se fait lors de l'inscription par code OTP (6 chiffres envoyés par SMS). Si vous n'avez pas vérifié votre numéro, le statut « Non vérifié » s'affiche sur votre profil.",
+          a: "La vérification se fait lors de l'inscription par code OTP (6 chiffres envoyés par SMS). Si vous n'avez pas vérifié votre numéro, le statut « Non vérifié » s'affiche sur votre profil. Touchez le bouton « Téléphone » dans le menu pour voir le statut.",
         },
         {
           q: "Comment supprimer mon compte ?",
-          a: "Allez sur votre profil → « Sécurité » → « Supprimer ». La suppression est définitive : vous perdez votre solde, votre historique et vos statistiques. Cette action est irréversible.",
+          a: "Sur votre profil, touchez « Sécurité » dans le menu (ou « Supprimer » en bas de la page). La suppression est définitive : vous perdez votre solde, votre historique et vos statistiques. Cette action est irréversible.",
         },
         {
           q: "Que signifient les badges (Bronze, Or, Diamant…) ?",
-          a: "Les badges représentent votre niveau de joueur. Ils sont basés sur votre niveau (déterminé par vos parties et victoires). Bronze (niveau 1), Argent (2), Or (3), Diamant (4), Platine (5+).",
+          a: "Les badges représentent votre niveau de joueur. Ils sont basés sur votre niveau (déterminé par vos parties et victoires). Bronze (niveau 1), Argent (2), Or (3), Diamant (4), Platine (5+). Le badge est affiché en bandeau coloré en haut de votre profil.",
         },
         {
           q: "C'est quoi la série quotidienne (streak) ?",
-          a: "La série quotidienne (flame 🔥) compte le nombre de jours consécutifs où vous êtes actif sur l'app. Jouez au moins une partie par jour pour maintenir votre série !",
+          a: "La série quotidienne (flame 🔥) compte le nombre de jours consécutifs où vous êtes actif sur l'app. Jouez au moins une partie par jour pour maintenir votre série ! Elle est affichée à côté de votre badge sur le profil.",
+        },
+        {
+          q: "Que montre la stat « Rang » ?",
+          a: "Votre rang est votre position dans le classement global, basé sur le nombre de victoires. Si vous n'êtes pas encore classé, « — » s'affiche. Le rang se met à jour automatiquement.",
         },
       ],
     },
@@ -115,18 +134,22 @@ export const DEFAULT_FAQ: CmsFaqContent = {
         },
         {
           q: "Comment débloquer des succès ?",
-          a: "Les succès se débloquent automatiquement : 🏎️ 1er dépôt (effectuer un premier dépôt), 🔥 10 victoires (remporter 10 matchs), 👑 100 parties (jouer 100 matchs), ⭐ Parrain (parrainer un ami actif). D'autres succès seront ajoutés.",
+          a: "Les succès se débloquent automatiquement : 🏆 1er dépôt (effectuer un premier dépôt), 🔥 10 victoires (remporter 10 matchs), 👑 100 parties (jouer 100 matchs), ⭐ Parrain (parrainer un ami actif). D'autres succès seront ajoutés. Les succès sont affichés sur votre profil.",
         },
         {
           q: "Où voir mes statistiques de jeu ?",
-          a: "Sur votre profil, la section « Stats » affiche votre nombre de parties, victoires, défaites, taux de victoire et votre rang. La section « Jeux favoris » montre combien de parties vous avez joué pour chaque jeu.",
+          a: "Sur votre profil, la 2e section « Stats » affiche votre nombre de parties, victoires, défaites, taux de victoire et votre rang. La section « Jeux favoris » montre combien de parties vous avez joué pour chaque jeu (Ludo, Domino, Fanorona, Rami, Échecs).",
+        },
+        {
+          q: "Où voir mon historique de parties ?",
+          a: "Sur votre profil, touchez « Parties » dans le menu. Une fenêtre s'ouvre avec vos dernières transactions de jeu (mises, gains, remboursements).",
         },
       ],
     },
 
     /* ─────────────────────────────────────────── */
     {
-      category: "🔒 Sécurité & Rèles",
+      category: "🔒 Sécurité & Règles",
       items: [
         {
           q: "Mes données sont-elles en sécurité ?",
@@ -165,7 +188,7 @@ export const DEFAULT_FAQ: CmsFaqContent = {
         },
         {
           q: "Comment signaler un bug ?",
-          a: "Utilisez le bouton « Signaler un bug » (icône insecte 🐛) disponible dans l'app. Décrivez le problème avec le maximum de détails pour aider notre équipe à le corriger rapidement.",
+          a: "Utilisez le bouton « Signaler un bug » (icône insecte) disponible dans l'app. Décrivez le problème avec le maximum de détails pour aider notre équipe à le corriger rapidement.",
         },
         {
           q: "Où trouver les tutoriels ?",
@@ -173,11 +196,15 @@ export const DEFAULT_FAQ: CmsFaqContent = {
         },
         {
           q: "Comment changer la langue de l'application ?",
-          a: "Allez sur votre profil → « Paramètres ». Vous pouvez choisir entre Français 🇫🇷, Malagasy 🇲🇬 et English 🇬🇧.",
+          a: "Allez sur votre profil → touchez « Paramètres » dans le menu. Une fenêtre s'ouvre avec le sélecteur de langue : Français 🇫🇷, Malagasy 🇲🇬, English 🇬🇧.",
         },
         {
           q: "Comment changer le thème (clair/sombre) ?",
-          a: "Allez sur votre profil → « Paramètres ». Touchez le toggle pour passer du mode clair au mode sombre et inversement.",
+          a: "Allez sur votre profil → touchez « Paramètres » dans le menu. Une fenêtre s'ouvre avec un toggle pour passer du mode clair au mode sombre et inversement.",
+        },
+        {
+          q: "Où voir le numéro de l'admin ?",
+          a: "Touchez le bouton de contact flottant en bas à droite de l'écran. Le numéro admin s'y trouve s'il a été configuré. Vous pouvez aussi l'appeler directement depuis la page d'aide.",
         },
       ],
     },
