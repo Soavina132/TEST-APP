@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
-import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus } from "lucide-react";
+import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock } from "lucide-react";
 import GameConfigsSection from "@/components/admin/GameConfigsSection";
 import GameTimersQuick from "@/components/admin/GameTimersQuick";
 import { ValidatedField, useFormErrors } from "@/components/admin/ValidatedField";
@@ -348,6 +348,7 @@ function AdminPage() {
               <ReferralAdmin />
             </AdminSection>
             <AdminSection id="config-advanced" title="💰 Finance, IA & mentions légales" description="Bonus, opérateurs mobile money, IA, textes d'aide, CGU" accent="amber" icon={<Sliders className="w-4 h-4" />}>
+              <AdminPinSetup />
               <SettingsForm />
             </AdminSection>
           </div>
@@ -1155,6 +1156,80 @@ function PauseControl() {
       <input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Message affiché aux joueurs (ex: Maintenance en cours, retour dans 30 min)"
         className="w-full px-4 py-2.5 rounded-full bg-card border border-border outline-none text-sm" />
     </Card>
+  );
+}
+
+// =================== ADMIN PIN ===================
+
+function AdminPinSetup() {
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    supabase.rpc("admin_verify_pin" as any, { _pin: "" } as any).then(({ data }: any) => {
+      setHasPin(data?.reason !== "no_pin_set");
+    }).catch(() => setHasPin(null));
+  }, []);
+
+  const save = async () => {
+    if (newPin.length < 4) return toast.error("PIN trop court (min 4 caractères)");
+    if (newPin !== confirmPin) return toast.error("Les PIN ne correspondent pas");
+    if (!/^[A-Za-z0-9]+$/.test(newPin)) return toast.error("Alphanumérique uniquement");
+    setSaving(true);
+    const { error } = await supabase.rpc("admin_set_pin" as any, { _pin: newPin } as any);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("PIN admin défini ✅");
+    setHasPin(true);
+    setNewPin("");
+    setConfirmPin("");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Lock className="w-4 h-4 text-primary" />
+        <div className="text-sm font-semibold">PIN de sécurité admin</div>
+      </div>
+      <div className={`text-xs font-semibold ${hasPin ? "text-emerald-600" : "text-amber-600"}`}>
+        {hasPin ? "✅ PIN configuré" : "⚠️ Aucun PIN défini — l'accès admin est non protégé"}
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Nouveau PIN (min 4 caractères alphanumériques)</label>
+          <input
+            type="password"
+            inputMode="numeric"
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value)}
+            maxLength={12}
+            placeholder="••••"
+            className="w-full px-4 py-2.5 rounded-xl bg-secondary outline-none text-sm tracking-widest"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Confirmer le PIN</label>
+          <input
+            type="password"
+            inputMode="numeric"
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value)}
+            maxLength={12}
+            placeholder="••••"
+            className="w-full px-4 py-2.5 rounded-xl bg-secondary outline-none text-sm tracking-widest"
+          />
+        </div>
+        <button
+          onClick={save}
+          disabled={saving || newPin.length < 4}
+          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50"
+        >
+          {saving ? "Enregistrement…" : hasPin ? "🔒 Changer le PIN" : "🔑 Définir mon PIN"}
+        </button>
+      </div>
+    </div>
   );
 }
 
