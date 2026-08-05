@@ -281,48 +281,6 @@ function ProfilePage() {
         </div>
       </section>
 
-      {/* ═══ SECTION 2: Solde et actions ═══ */}
-      <section>
-        <div className="rounded-3xl border border-white/8 bg-gradient-to-br from-primary/10 via-card to-violet-500/5 p-5 shadow-sm space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {/* Main balance */}
-            <div className="rounded-2xl bg-card/80 p-4 space-y-1">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                <Coins className="w-3.5 h-3.5 text-primary" /> Solde principal
-              </div>
-              <div className="text-2xl font-black text-primary tabular-nums">
-                {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
-              </div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ariary</div>
-            </div>
-            {/* Bonus */}
-            <div className="rounded-2xl bg-card/80 p-4 space-y-1">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                <Gift className="w-3.5 h-3.5 text-fuchsia-500" /> Bonus
-              </div>
-              <div className="text-2xl font-black text-fuchsia-500 tabular-nums">
-                {Math.round(bonusTotal).toLocaleString("fr-FR")}
-              </div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ariary</div>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => navigate({ to: "/lobby", search: {} })}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition-transform shadow-sm">
-              <ArrowDownLeft className="w-4 h-4" /> Déposer
-            </button>
-            <button
-              onClick={() => navigate({ to: "/lobby", search: {} })}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary text-foreground font-bold text-sm active:scale-95 transition-transform border border-border shadow-sm">
-              <ArrowUpRight className="w-4 h-4" /> Retirer
-            </button>
-          </div>
-        </div>
-      </section>
-
       {/* ═══ SECTION 3: Statistiques & Succès ═══ */}
       <section className="space-y-3">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Statistiques</h2>
