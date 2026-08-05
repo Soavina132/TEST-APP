@@ -6,12 +6,10 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Camera, Copy, Coins, ShieldCheck, ShieldAlert, LogOut, Trash2,
-  Phone, Trophy, Gamepad2, User, Star, Flame,
-  TrendingUp, Award, BarChart3, Lock, ChevronRight,
-  HelpCircle, Bug, Send, MessageSquare, Bot,
-  Bell, CheckCheck, ArrowDownLeft, ArrowUpRight, Gift,
-  Mail, Settings, FileText, Shield, Sparkles,
+  Camera, Copy, Coins, ShieldCheck, LogOut, Trash2,
+  Phone, Trophy, Gamepad2, User, Flame,
+  ArrowDownLeft, ArrowUpRight, Gift,
+  Mail, Settings, HelpCircle, Shield, ChevronRight,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
@@ -27,11 +25,11 @@ export const Route = createFileRoute("/_authenticated/profile")({
 /* ── Helpers ── */
 
 const BADGES = [
-  { min: 0,  label: "Bronze",  color: "from-amber-700 to-amber-500",     ring: "ring-amber-600/40",    text: "text-amber-600",     icon: "🥉" },
-  { min: 2,  label: "Argent",  color: "from-slate-400 to-slate-300",     ring: "ring-slate-400/40",    text: "text-slate-400",     icon: "🥈" },
-  { min: 3,  label: "Or",      color: "from-yellow-500 to-amber-400",    ring: "ring-yellow-500/40",   text: "text-yellow-500",   icon: "🥇" },
-  { min: 4,  label: "Diamant", color: "from-cyan-400 to-blue-500",       ring: "ring-cyan-400/40",     text: "text-cyan-400",     icon: "💎" },
-  { min: 5,  label: "Platine",color: "from-violet-500 to-fuchsia-500",   ring: "ring-violet-500/40",   text: "text-violet-500",   icon: "👑" },
+  { min: 0,  label: "Bronze",  color: "from-amber-700 to-amber-500",     icon: "🥉" },
+  { min: 2,  label: "Argent",  color: "from-slate-400 to-slate-300",     icon: "🥈" },
+  { min: 3,  label: "Or",      color: "from-yellow-500 to-amber-400",    icon: "🥇" },
+  { min: 4,  label: "Diamant", color: "from-cyan-400 to-blue-500",       icon: "💎" },
+  { min: 5,  label: "Platine", color: "from-violet-500 to-fuchsia-500",   icon: "👑" },
 ];
 
 function getBadge(level: number) {
@@ -40,16 +38,19 @@ function getBadge(level: number) {
   return b;
 }
 
-function preferredGame(gs: Record<string, { played: number; wins: number }>) {
-  const map: Record<string, string> = { ludo: "Ludo", domino: "Domino", fanorona: "Fanorona", rami: "Rami", chess: "Échecs" };
-  const icons: Record<string, string> = { ludo: "🎲", domino: "🁣", fanorona: "♟", rami: "🃏", chess: "♜" };
-  let best = "—"; let bestIcon = ""; let max = 0;
-  for (const [k, v] of Object.entries(gs)) { if (v.played > max) { max = v.played; best = map[k] || k; bestIcon = icons[k] || ""; } }
-  return best === "—" ? "—" : `${bestIcon} ${best}`;
-}
-
 function labelType(type: string, t: (k: string) => string) {
   return ({ deposit: t("tx_deposit"), withdraw: t("tx_withdraw"), stake: t("tx_stake"), win: t("tx_win"), bonus: t("tx_bonus"), referral: t("tx_referral"), admin_adjust: t("tx_admin_adjust"), refund: t("tx_refund") } as any)[type] || type;
+}
+
+/* ── Mini stat tile ── */
+function MiniStat({ label, value, icon, color }: { label: string; value: string | number; icon: string; color?: string }) {
+  return (
+    <div className="rounded-xl bg-secondary/50 px-2 py-1.5 text-center">
+      <div className="text-sm">{icon}</div>
+      <div className={`text-sm font-extrabold leading-none ${color || "text-foreground"}`}>{value}</div>
+      <div className="text-[8px] text-muted-foreground uppercase tracking-wide leading-tight mt-0.5">{label}</div>
+    </div>
+  );
 }
 
 /* ── Page ── */
@@ -62,37 +63,26 @@ function ProfilePage() {
   const [editingName, setEditingName] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [tx, setTx] = useState<any[]>([]);
-  const [deps, setDeps] = useState<any[]>([]);
-  const [withs, setWiths] = useState<any[]>([]);
   const [adminPhone, setAdminPhone] = useState("");
-  const [referralEnabled, setReferralEnabled] = useState(true);
   const [playerStats, setPlayerStats] = useState<any>(null);
   const [gameStats, setGameStats] = useState<Record<string, { played: number; wins: number }>>({});
-  const [biggestWin, setBiggestWin] = useState(0);
   const [myRank, setMyRank] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [achievements, setAchievements] = useState<any[]>([]);
-  const [bonusTotal, setBonusTotal] = useState(0);
   const [showHistory, setShowHistory] = useState<"none" | "deposits" | "withdrawals" | "games">("none");
+  const [deps, setDeps] = useState<any[]>([]);
+  const [withs, setWiths] = useState<any[]>([]);
 
   useEffect(() => { setPseudo(profile?.pseudo || ""); }, [profile?.pseudo]);
 
   useEffect(() => {
     if (!user) return;
     const uid = user.id;
-    supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(100).then(({ data }) => setTx(data || []));
-    supabase.from("deposits").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50).then(({ data }) => setDeps(data || []));
-    supabase.from("withdrawals").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50).then(({ data }) => setWiths(data || []));
-    (supabase.from("app_settings" as any) as any).select("admin_phone, referral_enabled").eq("id", 1).maybeSingle().then(({ data }: any) => {
-      setAdminPhone((data?.admin_phone as string) || "");
-      setReferralEnabled((data as any)?.referral_enabled !== false);
-    });
+    supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50).then(({ data }) => setTx(data || []));
+    supabase.from("deposits").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setDeps(data || []));
+    supabase.from("withdrawals").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setWiths(data || []));
     supabase.from("v_player_stats" as any).select("*").eq("id", uid).maybeSingle().then(({ data }: any) => { if (data) setPlayerStats(data); });
-    supabase.from("transactions").select("amount").eq("user_id", uid).eq("type", "win").order("amount", { ascending: false }).limit(1).then(({ data }: any) => { if (data && data[0]) setBiggestWin(Number(data[0].amount)); });
-    supabase.from("transactions").select("amount").eq("user_id", uid).eq("type", "bonus").then(({ data }: any) => {
-      if (data) setBonusTotal(data.reduce((s: number, r: any) => s + Number(r.amount), 0));
-    });
 
     const fetchGameStats = async () => {
       const stats: Record<string, { played: number; wins: number }> = {
@@ -168,133 +158,110 @@ function ProfilePage() {
   const memberDays = Math.floor((Date.now() - new Date((profile as any).created_at || Date.now()).getTime()) / 86400000);
   const badge = getBadge(level);
 
-  // Achievement display
   const ACHIEVEMENT_ICONS: Record<string, { icon: string; label: string }> = {
-    first_deposit: { icon: "🏆", label: "Premier dépôt" },
-    win_streak_10: { icon: "🔥", label: "10 victoires d'affilée" },
-    games_100:     { icon: "👑", label: "100 parties jouées" },
-    referral:      { icon: "⭐", label: "Parrain confirmé" },
+    first_deposit: { icon: "🏆", label: "1er dépôt" },
+    win_streak_10: { icon: "🔥", label: "10 victoires" },
+    games_100:     { icon: "👑", label: "100 parties" },
+    referral:      { icon: "⭐", label: "Parrain" },
   };
   const ACHIEVEMENT_SLOTS = Object.keys(ACHIEVEMENT_ICONS);
-  const unlockedKeys = new Set(achievements.map((a: any) => a.key));
-  const lockedCount = Math.max(0, ACHIEVEMENT_SLOTS.length - achievements.length);
 
   const MENU_ITEMS = [
-    { icon: User,      label: "Modifier le profil",    action: () => fileRef.current?.click(), color: "text-blue-500" },
-    { icon: Shield,    label: "Sécurité du compte",     action: () => setShowDeleteDialog(true), color: "text-emerald-500" },
-    { icon: Phone,     label: p.phone_verified ? "Numéro vérifié" : "Vérifier mon numéro", action: () => navigate({ to: "/profile", search: {} }), color: "text-violet-500" },
-    { icon: Mail,      label: "E-mail",                 action: () => toast.info(profile.email || "Non défini"), color: "text-amber-500" },
-    { icon: ArrowDownLeft, label: "Historique des dépôts", action: () => setShowHistory(showHistory === "deposits" ? "none" : "deposits"), color: "text-emerald-500" },
-    { icon: ArrowUpRight,  label: "Historique des retraits", action: () => setShowHistory(showHistory === "withdrawals" ? "none" : "withdrawals"), color: "text-rose-500" },
-    { icon: Gamepad2,  label: "Historique des parties", action: () => setShowHistory(showHistory === "games" ? "none" : "games"), color: "text-primary" },
-    { icon: Gift,     label: "Parrainage & récompenses", action: () => navigate({ to: "/parrainage", search: {} }), color: "text-fuchsia-500" },
-    { icon: HelpCircle, label: "Centre d'aide",        action: () => navigate({ to: "/faq", search: {} }), color: "text-blue-400" },
-    { icon: Settings,   label: "Paramètres",            action: () => toast.info("Bientôt disponible"), color: "text-muted-foreground" },
+    { icon: ArrowDownLeft, label: "Dépôts",    action: () => setShowHistory(showHistory === "deposits" ? "none" : "deposits"), color: "text-emerald-500" },
+    { icon: ArrowUpRight,  label: "Retraits",   action: () => setShowHistory(showHistory === "withdrawals" ? "none" : "withdrawals"), color: "text-rose-500" },
+    { icon: Gamepad2,      label: "Parties",    action: () => setShowHistory(showHistory === "games" ? "none" : "games"), color: "text-primary" },
+    { icon: Gift,          label: "Parrainage", action: () => navigate({ to: "/parrainage", search: {} }), color: "text-fuchsia-500" },
+    { icon: Shield,        label: "Sécurité",    action: () => setShowDeleteDialog(true), color: "text-emerald-500" },
+    { icon: HelpCircle,    label: "Aide",       action: () => navigate({ to: "/faq", search: {} }), color: "text-blue-400" },
+    { icon: Settings,      label: "Paramètres",  action: () => toast.info("Bientôt disponible"), color: "text-muted-foreground" },
+    { icon: Phone,         label: p.phone_verified ? "Numéro vérifié" : "Vérifier numéro", action: () => navigate({ to: "/profile", search: {} }), color: "text-violet-500" },
   ];
 
   return (
-    <main className="max-w-2xl mx-auto px-3 py-4 space-y-5 pb-24">
+    <main className="max-w-2xl mx-auto w-full px-3 pt-1 pb-1 h-[calc(100dvh-12rem)] flex flex-col gap-2 overflow-hidden">
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
+      {showDeleteDialog && <DeleteAccountDialog onClose={() => setShowDeleteDialog(false)} />}
 
-      {/* ═══ SECTION 1: Informations du joueur ═══ */}
-      <section className="space-y-2">
-        <div className="rounded-2xl border border-white/8 bg-card p-3.5 shadow-sm relative overflow-hidden">
-          {/* Badge gradient strip */}
-          <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${badge.color}`} />
-
-          <div className="flex items-center gap-3 pt-1">
-            {/* Avatar */}
-            <div className="relative shrink-0">
-              <div className={`w-14 h-14 rounded-full p-[2.5px] bg-gradient-to-br ${badge.color}`}>
-                <div className="w-full h-full rounded-full bg-card flex items-center justify-center text-lg font-black overflow-hidden ring-2 ring-card">
-                  {profile.avatar_url
-                    ? <img src={profile.avatar_url} alt={`Avatar de ${profile.pseudo}`} className="w-full h-full object-cover rounded-full" />
-                    : <span className="text-primary">{initials}</span>}
-                </div>
+      {/* ── Header: avatar + info + solde ── */}
+      <div className="rounded-2xl border border-border/60 bg-card p-2.5 shadow-sm relative overflow-hidden shrink-0">
+        <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${badge.color}`} />
+        <div className="flex items-center gap-2.5 pt-0.5">
+          {/* Avatar */}
+          <div className="relative shrink-0">
+            <div className={`w-12 h-12 rounded-full p-[2px] bg-gradient-to-br ${badge.color}`}>
+              <div className="w-full h-full rounded-full bg-card flex items-center justify-center text-base font-black overflow-hidden ring-2 ring-card">
+                {profile.avatar_url
+                  ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
+                  : <span className="text-primary">{initials}</span>}
               </div>
-              <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                aria-label="Changer la photo"
-                className="absolute -bottom-0.5 -right-0.5 p-1 rounded-full bg-primary text-primary-foreground ring-2 ring-card active:scale-90 transition-transform">
-                <Camera className="w-3 h-3" strokeWidth={2} />
-              </button>
             </div>
+            <button onClick={() => fileRef.current?.click()} disabled={uploading}
+              className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-primary text-primary-foreground ring-1 ring-card active:scale-90 transition-transform">
+              <Camera className="w-2.5 h-2.5" strokeWidth={2.5} />
+            </button>
+          </div>
 
-            {/* Middle column: name, contact, id, meta */}
-            <div className="flex-1 min-w-0 text-left">
-              {/* Name */}
-              {editingName ? (
-                <div className="flex gap-1.5 max-w-xs">
-                  <input
-                    value={pseudo}
-                    onChange={e => setPseudo(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && savePseudo()}
-                    autoFocus
-                    className="flex-1 px-3 py-1.5 rounded-full bg-secondary border border-border outline-none text-sm font-bold"
-                  />
-                  <button onClick={savePseudo} className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold">OK</button>
-                </div>
-              ) : (
-                <button onClick={() => setEditingName(true)} className="font-black text-base leading-tight hover:text-primary transition-colors truncate block">
-                  {profile.pseudo}
-                </button>
-              )}
-
-              <div className="mt-1 flex items-center flex-wrap gap-x-2 gap-y-1">
-                {/* Email ou numéro */}
-                {(p.phone || profile.email) && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium truncate max-w-full">
-                    {p.phone
-                      ? <Phone className="w-2.5 h-2.5 shrink-0" strokeWidth={2} />
-                      : <Mail className="w-2.5 h-2.5 shrink-0" strokeWidth={2} />}
-                    <span className="truncate">{p.phone || profile.email}</span>
-                  </span>
-                )}
+          {/* Name + meta */}
+          <div className="flex-1 min-w-0">
+            {editingName ? (
+              <div className="flex gap-1">
+                <input value={pseudo} onChange={e => setPseudo(e.target.value)} onKeyDown={e => e.key === "Enter" && savePseudo()} autoFocus
+                  className="flex-1 px-2 py-1 rounded-lg bg-secondary border border-border outline-none text-sm font-bold" />
+                <button onClick={savePseudo} className="px-2 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
               </div>
-
-              {/* Player ID */}
+            ) : (
+              <button onClick={() => setEditingName(true)} className="font-black text-sm leading-tight hover:text-primary transition-colors truncate block">
+                {profile.pseudo}
+              </button>
+            )}
+            <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
+              {p.phone && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground truncate max-w-[120px]">
+                  <Phone className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{p.phone}</span>
+                </span>
+              )}
               {profile.unique_code && (
                 <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
-                  className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground font-mono hover:text-foreground transition-colors">
-                  ID: {profile.unique_code} <Copy className="w-2.5 h-2.5" strokeWidth={1.5} />
+                  className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground font-mono hover:text-foreground">
+                  ID: {profile.unique_code} <Copy className="w-2.5 h-2.5" />
                 </button>
               )}
-
-              {/* Verification + member */}
-              <div className="mt-1 flex items-center gap-2 text-[10.5px] text-muted-foreground">
-                {p.phone_verified && <span className="inline-flex items-center gap-0.5 text-emerald-500"><ShieldCheck className="w-2.5 h-2.5" /> Vérifié</span>}
-                <span>Membre depuis {memberDays}j</span>
-                {streak > 0 && <span className="inline-flex items-center gap-0.5 text-amber-500"><Flame className="w-2.5 h-2.5" /> {streak}j</span>}
-              </div>
             </div>
-
-            {/* Right: solde (sans boutons) */}
-            <div className="shrink-0 text-right pl-2">
-              <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground font-semibold">
-                <Coins className="w-3 h-3 text-primary" /> Solde
-              </div>
-              <div className="text-lg font-black text-primary tabular-nums leading-tight">
-                {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
-              </div>
-              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Ariary</div>
+            <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
+              {p.phone_verified && <span className="inline-flex items-center gap-0.5 text-emerald-500"><ShieldCheck className="w-2.5 h-2.5" /> Vérifié</span>}
+              <span>{memberDays}j</span>
+              {streak > 0 && <span className="inline-flex items-center gap-0.5 text-amber-500"><Flame className="w-2.5 h-2.5" /> {streak}j</span>}
+              <span className="text-muted-foreground">{badge.icon} {badge.label}</span>
             </div>
           </div>
-        </div>
-      </section>
-      <section className="space-y-3">
-        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Statistiques</h2>
 
-        {/* Stat cards grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <StatTile label="Parties jouées" value={totalGames} icon="🎮" />
-          <StatTile label="Victoires" value={totalWins} icon="🏆" color="text-emerald-500" />
-          <StatTile label="Défaites" value={totalLosses} icon="📉" color="text-destructive" />
-          <StatTile label="Taux de victoire" value={`${winRate}%`} icon="📊" color={winRate >= 50 ? "text-emerald-500" : "text-amber-500"} />
+          {/* Solde */}
+          <div className="shrink-0 text-right pl-1">
+            <div className="flex items-center justify-end gap-0.5 text-[9px] text-muted-foreground font-semibold">
+              <Coins className="w-2.5 h-2.5 text-primary" /> Solde
+            </div>
+            <div className="text-base font-black text-primary tabular-nums leading-tight">
+              {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
+            </div>
+            <div className="text-[8px] text-muted-foreground uppercase">Ariary</div>
+          </div>
         </div>
+      </div>
 
+      {/* ── Stats: 4 mini tiles ── */}
+      <div className="grid grid-cols-4 gap-1.5 shrink-0">
+        <MiniStat label="Parties" value={totalGames} icon="🎮" />
+        <MiniStat label="Victoires" value={totalWins} icon="🏆" color="text-emerald-500" />
+        <MiniStat label="Défaites" value={totalLosses} icon="📉" color="text-destructive" />
+        <MiniStat label="Win rate" value={`${winRate}%`} icon="📊" color={winRate >= 50 ? "text-emerald-500" : "text-amber-500"} />
+      </div>
+
+      {/* ── Games + Achievements: one compact row each ── */}
+      <div className="grid grid-cols-2 gap-2 shrink-0">
         {/* Favorite games */}
-        <div className="rounded-2xl border border-white/8 bg-card p-4 space-y-3 shadow-sm">
-          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Jeux favoris</div>
-          <div className="flex flex-wrap gap-2">
+        <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Jeux favoris</div>
+          <div className="flex flex-wrap gap-1">
             {[
               { k: "ludo", icon: "🎲", name: "Ludo" },
               { k: "domino", icon: "🁣", name: "Domino" },
@@ -302,149 +269,110 @@ function ProfilePage() {
               { k: "rami", icon: "🃏", name: "Rami" },
               { k: "chess", icon: "♜", name: "Échecs" },
             ].map(g => {
-              const s = gameStats[g.k];
-              const played = s?.played || 0;
+              const played = gameStats[g.k]?.played || 0;
               return (
-                <div key={g.k} className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 ${played > 0 ? "bg-primary/10 text-primary border border-primary/20" : "bg-secondary/50 text-muted-foreground border border-white/5"}`}>
-                  <span>{g.icon}</span> {g.name}
-                  {played > 0 && <span className="text-[10px] opacity-70">({played})</span>}
-                </div>
+                <span key={g.k} className={`px-1.5 py-0.5 rounded-lg text-[10px] font-semibold ${played > 0 ? "bg-primary/10 text-primary" : "bg-secondary/40 text-muted-foreground/60"}`}>
+                  {g.icon} {played > 0 ? played : "—"}
+                </span>
               );
             })}
           </div>
         </div>
 
         {/* Achievements */}
-        <div className="rounded-2xl border border-white/8 bg-card p-4 space-y-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-              <Trophy className="w-3.5 h-3.5 text-amber-500" /> Succès
-            </div>
-            <span className="text-[10px] text-muted-foreground tabular-nums">{achievements.length}/{ACHIEVEMENT_SLOTS.length}</span>
+        <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+            Succès {achievements.length}/{ACHIEVEMENT_SLOTS.length}
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="flex gap-1.5">
             {ACHIEVEMENT_SLOTS.map(key => {
               const info = ACHIEVEMENT_ICONS[key];
               const unlocked = achievements.find((a: any) => a.key === key);
               return (
-                <div key={key} className={`flex flex-col items-center gap-1 p-2 rounded-xl text-center ${unlocked ? "bg-amber-500/10 border border-amber-500/25" : "bg-secondary/30 border border-dashed border-white/8 opacity-40"}`}>
-                  <span className={`text-xl ${unlocked ? "" : "grayscale"}`}>{info.icon}</span>
-                  <span className="text-[9px] font-semibold leading-tight text-center">{info.label}</span>
+                <div key={key} className="flex flex-col items-center gap-0.5 flex-1">
+                  <span className={`text-base ${unlocked ? "" : "grayscale opacity-30"}`}>{info.icon}</span>
+                  <span className="text-[7px] font-semibold text-center leading-tight text-muted-foreground">{info.label}</span>
                 </div>
               );
             })}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ═══ SECTION 4: Paramètres & Historique ═══ */}
-      <section className="space-y-3">
-        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Paramètres & Historique</h2>
+      {/* ── Menu: 2-column grid ── */}
+      <div className="grid grid-cols-2 gap-1.5 shrink-0">
+        {MENU_ITEMS.map((item, i) => (
+          <button key={i} onClick={item.action}
+            className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-card border border-border/40 hover:bg-accent/30 transition-colors">
+            <div className={`w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center shrink-0 ${item.color}`}>
+              <item.icon className="w-3.5 h-3.5" strokeWidth={2} />
+            </div>
+            <span className="flex-1 text-left text-xs font-semibold truncate">{item.label}</span>
+            <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+          </button>
+        ))}
+      </div>
 
-        <div className="rounded-2xl border border-white/8 bg-card shadow-sm overflow-hidden divide-y divide-border/30">
-          {MENU_ITEMS.map((item, i) => (
-            <button key={i} onClick={item.action}
-              className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent/40 transition-colors group">
-              <div className={`w-9 h-9 rounded-xl bg-secondary/60 flex items-center justify-center shrink-0 ${item.color}`}>
-                <item.icon className="w-4 h-4" strokeWidth={2} />
-              </div>
-              <span className="flex-1 text-left text-sm font-semibold">{item.label}</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
-            </button>
-          ))}
-        </div>
-
-        {/* Inline history panels */}
+      {/* ── Scrollable zone: history panels + logout ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
         {showHistory === "deposits" && (
-          <HistoryPanel title="Historique des dépôts" items={deps} type="deposit" />
+          <div className="rounded-xl border border-border/40 bg-card p-2 space-y-1">
+            <div className="text-[10px] font-bold uppercase text-muted-foreground">Dépôts</div>
+            {deps.length === 0 ? <div className="text-[10px] text-muted-foreground py-2 text-center">Aucun dépôt</div> :
+              deps.slice(0, 5).map(d => (
+                <div key={d.id} className="flex items-center justify-between text-[11px] py-1 border-b border-border/20 last:border-0">
+                  <span>{new Date(d.created_at).toLocaleDateString("fr-FR")}</span>
+                  <span className={`font-bold ${d.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>+{Math.round(Number(d.amount)).toLocaleString("fr-FR")} Ar</span>
+                </div>
+              ))
+            }
+          </div>
         )}
         {showHistory === "withdrawals" && (
-          <HistoryPanel title="Historique des retraits" items={withs} type="withdrawal" />
+          <div className="rounded-xl border border-border/40 bg-card p-2 space-y-1">
+            <div className="text-[10px] font-bold uppercase text-muted-foreground">Retraits</div>
+            {withs.length === 0 ? <div className="text-[10px] text-muted-foreground py-2 text-center">Aucun retrait</div> :
+              withs.slice(0, 5).map(w => (
+                <div key={w.id} className="flex items-center justify-between text-[11px] py-1 border-b border-border/20 last:border-0">
+                  <span>{new Date(w.created_at).toLocaleDateString("fr-FR")}</span>
+                  <span className={`font-bold ${w.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>-{Math.round(Number(w.amount)).toLocaleString("fr-FR")} Ar</span>
+                </div>
+              ))
+            }
+          </div>
         )}
         {showHistory === "games" && (
-          <HistoryPanel title="Historique des parties" items={tx.filter(t => t.type === "stake" || t.type === "win" || t.type === "refund")} type="game" t={t} />
+          <div className="rounded-xl border border-border/40 bg-card p-2 space-y-1">
+            <div className="text-[10px] font-bold uppercase text-muted-foreground">Parties récentes</div>
+            {tx.filter(t => ["stake", "win", "refund"].includes(t.type)).length === 0 ? <div className="text-[10px] text-muted-foreground py-2 text-center">Aucune partie</div> :
+              tx.filter(t => ["stake", "win", "refund"].includes(t.type)).slice(0, 5).map(tr => (
+                <div key={tr.id} className="flex items-center justify-between text-[11px] py-1 border-b border-border/20 last:border-0">
+                  <span className="flex items-center gap-1">
+                    {tr.type === "win" ? "🏆" : tr.type === "stake" ? "🎮" : "↩️"} {labelType(tr.type, t)}
+                  </span>
+                  <span className={`font-bold ${Number(tr.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                    {Number(tr.amount) >= 0 ? "+" : ""}{Math.round(Number(tr.amount)).toLocaleString("fr-FR")} Ar
+                  </span>
+                </div>
+              ))
+            }
+          </div>
         )}
 
-        {/* Logout */}
-        <div className="rounded-2xl border border-white/8 bg-card shadow-sm overflow-hidden divide-y divide-border/30">
+        {/* Logout + delete */}
+        <div className="grid grid-cols-2 gap-1.5">
           <button onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
-            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-destructive/5 transition-colors group">
-            <div className="w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0 text-destructive">
-              <LogOut className="w-4 h-4" strokeWidth={2} />
-            </div>
-            <span className="flex-1 text-left text-sm font-semibold text-destructive">Déconnexion</span>
-            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-destructive/10 text-destructive text-xs font-semibold active:scale-95 transition-transform">
+            <LogOut className="w-3.5 h-3.5" /> Déconnexion
           </button>
           <button onClick={() => setShowDeleteDialog(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-destructive/5 transition-colors group">
-            <div className="w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0 text-destructive">
-              <Trash2 className="w-4 h-4" strokeWidth={2} />
-            </div>
-            <span className="flex-1 text-left text-sm font-semibold text-destructive">Supprimer mon compte</span>
-            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-destructive/5 text-destructive/80 text-xs font-semibold active:scale-95 transition-transform">
+            <Trash2 className="w-3.5 h-3.5" /> Supprimer
           </button>
         </div>
-      </section>
+      </div>
 
-      {/* ═══ Footer ═══ */}
-      <footer className="space-y-2 pt-2 pb-4 text-center">
-        <div className="text-[10px] text-muted-foreground">Lalao MADA v1.0.0</div>
-        <div className="flex items-center justify-center gap-4 text-[10px]">
-          <span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">Conditions d'utilisation</span>
-          <span className="text-muted-foreground/30">·</span>
-          <span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">Politique de confidentialité</span>
-        </div>
-      </footer>
-
-      <DeleteAccountDialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} />
+      {showDeleteDialog && <DeleteAccountDialog onClose={() => setShowDeleteDialog(false)} />}
     </main>
-  );
-}
-
-/* ── Sub-components ── */
-
-function StatTile({ label, value, icon, color = "text-foreground" }: { label: string; value: string | number; icon: string; color?: string }) {
-  return (
-    <div className="rounded-2xl border border-white/8 bg-card p-4 space-y-1 shadow-sm">
-      <div className="text-lg">{icon}</div>
-      <div className={`text-xl font-black ${color} tabular-nums leading-none`}>{value}</div>
-      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
-    </div>
-  );
-}
-
-function HistoryPanel({ title, items, type, t }: { title: string; items: any[]; type: string; t?: (k: string) => string }) {
-  return (
-    <div className="rounded-2xl border border-white/8 bg-card p-4 shadow-sm space-y-2">
-      <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</div>
-      {items.length === 0 ? (
-        <div className="text-center text-muted-foreground text-sm py-4">Aucun historique</div>
-      ) : items.slice(0, 15).map((item, i) => (
-        <div key={item.id || i} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-          <div className="min-w-0">
-            <div className="text-xs font-semibold truncate">
-              {type === "deposit" && `${item.method} · ${item.reference || ""}`}
-              {type === "withdrawal" && `${item.method} · ${item.user_phone || ""}`}
-              {type === "game" && (t ? labelType(item.type, t) : item.type)}
-            </div>
-            <div className="text-[10px] text-muted-foreground">{new Date(item.created_at).toLocaleString("fr-FR")}</div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {item.status && (
-              <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
-                item.status === "approved" ? "bg-emerald-100 text-emerald-700" :
-                item.status === "rejected" ? "bg-rose-100 text-rose-700" :
-                "bg-amber-100 text-amber-700"
-              }`}>
-                {item.status === "approved" ? "Validé" : item.status === "rejected" ? "Rejeté" : "En attente"}
-              </span>
-            )}
-            <div className={`text-xs font-bold ${Number(item.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-              {Number(item.amount) >= 0 ? "+" : ""}{Math.round(Number(item.amount)).toLocaleString("fr-FR")} Ar
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }
