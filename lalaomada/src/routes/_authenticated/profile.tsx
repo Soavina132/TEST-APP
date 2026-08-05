@@ -1,18 +1,22 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
-import { useT } from "@/lib/i18n";
+import { useT, Lang } from "@/lib/i18n";
+import { useTheme } from "@/hooks/use-theme";
 import { copyText } from "@/lib/clipboard";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Camera, Copy, Coins, ShieldCheck, LogOut, Trash2,
-  Phone, Trophy, Gamepad2, Flame,
+  Phone, Gamepad2, Flame, Moon, Sun, Languages,
   ArrowDownLeft, ArrowUpRight, Gift,
-  Settings, HelpCircle, Shield, ChevronRight, Medal,
+  HelpCircle, Shield, ChevronRight, Settings,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -45,11 +49,116 @@ function labelType(type: string, t: (k: string) => string) {
 /* ── Mini stat tile ── */
 function MiniStat({ label, value, icon, color }: { label: string; value: string | number; icon: string; color?: string }) {
   return (
-    <div className="rounded-xl bg-secondary/50 px-2 py-1.5 text-center">
+    <div className="rounded-xl bg-secondary/50 px-1 py-1.5 text-center flex-1">
       <div className="text-sm">{icon}</div>
       <div className={`text-sm font-extrabold leading-none ${color || "text-foreground"}`}>{value}</div>
       <div className="text-[8px] text-muted-foreground uppercase tracking-wide leading-tight mt-0.5">{label}</div>
     </div>
+  );
+}
+
+/* ── Menu icon button ── */
+function MenuButton({ icon: Icon, label, action, color }: {
+  icon: any; label: string; action: () => void; color: string;
+}) {
+  return (
+    <button onClick={action}
+      className="flex flex-col items-center gap-1 px-1 py-2 rounded-xl bg-card border border-border/40 hover:bg-accent/30 active:scale-95 transition-all">
+      <div className={`w-8 h-8 rounded-lg bg-secondary/60 flex items-center justify-center ${color}`}>
+        <Icon className="w-4 h-4" strokeWidth={2} />
+      </div>
+      <span className="text-[9px] font-semibold text-center leading-tight">{label}</span>
+    </button>
+  );
+}
+
+/* ── Settings Dialog ── */
+function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { theme, toggle } = useTheme();
+  const { lang, setLang } = useT();
+  const isDark = theme === "dark";
+  const LANGS: { code: Lang; label: string; flag: string }[] = [
+    { code: "fr", label: "Français", flag: "🇫🇷" },
+    { code: "mg", label: "Malagasy", flag: "🇲🇬" },
+    { code: "en", label: "English", flag: "🇬🇧" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-center">Paramètres</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 pt-2">
+          {/* Theme toggle */}
+          <button onClick={toggle}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-card border border-border/40 hover:bg-accent/40 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600" : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600"}`}>
+                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </div>
+              <div className="text-left">
+                <div className="font-semibold text-sm">{isDark ? "Mode sombre" : "Mode clair"}</div>
+                <div className="text-xs text-muted-foreground">{isDark ? "Tap pour clair" : "Tap pour sombre"}</div>
+              </div>
+            </div>
+            <div className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${isDark ? "bg-primary" : "bg-muted"}`}>
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isDark ? "translate-x-6" : "translate-x-0"}`} />
+            </div>
+          </button>
+
+          {/* Language selector */}
+          <div className="p-3.5 rounded-2xl bg-card border border-border/40">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-secondary/60 text-primary">
+                <Languages className="w-5 h-5" />
+              </div>
+              <div className="font-semibold text-sm">Langue</div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {LANGS.map(l => (
+                <button key={l.code} onClick={() => {
+                  setLang(l.code);
+                  if (l.code !== lang) {
+                    setTimeout(() => { try { window.location.reload(); } catch { /* ignore */ } }, 50);
+                  }
+                }}
+                  className={`flex flex-col items-center gap-1 py-2 rounded-xl border transition-colors ${lang === l.code ? "border-primary bg-primary/10" : "border-border/40 hover:bg-accent/30"}`}>
+                  <span className="text-xl">{l.flag}</span>
+                  <span className="text-[10px] font-semibold">{l.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── History Dialog ── */
+function HistoryDialog({ open, onClose, title, items, emptyMsg, renderItem }: {
+  open: boolean; onClose: () => void; title: string;
+  items: any[]; emptyMsg: string;
+  renderItem: (item: any) => React.ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-center">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="pt-2 max-h-[50vh] overflow-y-auto">
+          {items.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-6 text-center">{emptyMsg}</div>
+          ) : (
+            <div className="space-y-1">
+              {items.map(renderItem)}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -69,6 +178,7 @@ function ProfilePage() {
   const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState<"none" | "deposits" | "withdrawals" | "games">("none");
   const [deps, setDeps] = useState<any[]>([]);
@@ -169,22 +279,45 @@ function ProfilePage() {
   };
   const ACHIEVEMENT_SLOTS = Object.keys(ACHIEVEMENT_ICONS);
 
-  const MENU_ITEMS = [
-    { icon: ArrowDownLeft, label: "Dépôts",    action: () => setShowHistory(showHistory === "deposits" ? "none" : "deposits"), color: "text-emerald-500" },
-    { icon: ArrowUpRight,  label: "Retraits",   action: () => setShowHistory(showHistory === "withdrawals" ? "none" : "withdrawals"), color: "text-rose-500" },
-    { icon: Gamepad2,      label: "Parties",    action: () => setShowHistory(showHistory === "games" ? "none" : "games"), color: "text-primary" },
-    { icon: Gift,          label: "Parrainage", action: () => navigate({ to: "/parrainage", search: {} }), color: "text-fuchsia-500" },
-    { icon: Shield,        label: "Sécurité",    action: () => setShowDeleteDialog(true), color: "text-emerald-500" },
-    { icon: HelpCircle,    label: "Aide",       action: () => navigate({ to: "/faq", search: {} }), color: "text-blue-400" },
-    { icon: Settings,      label: "Paramètres",  action: () => toast.info("Bientôt disponible"), color: "text-muted-foreground" },
-  ];
+  const gameTx = tx.filter(tr => ["stake", "win", "refund"].includes(tr.type)).slice(0, 10);
 
   return (
     <main className="max-w-2xl mx-auto w-full px-3 pt-1 pb-1 h-[calc(100dvh-12rem)] flex flex-col gap-2 overflow-hidden">
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
       {showDeleteDialog && <DeleteAccountDialog onClose={() => setShowDeleteDialog(false)} />}
+      <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
 
-      {/* ── Header: avatar + info + solde ── */}
+      {/* History dialogs */}
+      <HistoryDialog open={showHistory === "deposits"} onClose={() => setShowHistory("none")}
+        title="Dépôts" items={deps} emptyMsg="Aucun dépôt"
+        renderItem={d => (
+          <div key={d.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
+            <span className="text-muted-foreground">{new Date(d.created_at).toLocaleDateString("fr-FR")}</span>
+            <span className={`font-bold ${d.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>+{Math.round(Number(d.amount)).toLocaleString("fr-FR")} Ar</span>
+          </div>
+        )} />
+      <HistoryDialog open={showHistory === "withdrawals"} onClose={() => setShowHistory("none")}
+        title="Retraits" items={withs} emptyMsg="Aucun retrait"
+        renderItem={w => (
+          <div key={w.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
+            <span className="text-muted-foreground">{new Date(w.created_at).toLocaleDateString("fr-FR")}</span>
+            <span className={`font-bold ${w.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>-{Math.round(Number(w.amount)).toLocaleString("fr-FR")} Ar</span>
+          </div>
+        )} />
+      <HistoryDialog open={showHistory === "games"} onClose={() => setShowHistory("none")}
+        title="Parties récentes" items={gameTx} emptyMsg="Aucune partie"
+        renderItem={tr => (
+          <div key={tr.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
+            <span className="flex items-center gap-1.5">
+              {tr.type === "win" ? "🏆" : tr.type === "stake" ? "🎮" : "↩️"} {labelType(tr.type, t)}
+            </span>
+            <span className={`font-bold ${Number(tr.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+              {Number(tr.amount) >= 0 ? "+" : ""}{Math.round(Number(tr.amount)).toLocaleString("fr-FR")} Ar
+            </span>
+          </div>
+        )} />
+
+      {/* ════ SECTION 1: Header ════ */}
       <div className="rounded-2xl border border-border/60 bg-card p-2.5 shadow-sm relative overflow-hidden shrink-0">
         <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${badge.color}`} />
         <div className="flex items-center gap-2.5 pt-0.5">
@@ -250,8 +383,8 @@ function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Stats: 5 mini tiles ── */}
-      <div className="grid grid-cols-5 gap-1.5 shrink-0">
+      {/* ════ SECTION 2: Stats (5 tiles) ════ */}
+      <div className="flex gap-1.5 shrink-0">
         <MiniStat label="Parties" value={totalGames} icon="🎮" />
         <MiniStat label="Victoires" value={totalWins} icon="🏆" color="text-emerald-500" />
         <MiniStat label="Défaites" value={totalLosses} icon="📉" color="text-destructive" />
@@ -259,7 +392,7 @@ function ProfilePage() {
         <MiniStat label="Rang" value={rankLoaded ? (myRank ?? "—") : "…"} icon="🥇" color={myRank && myRank <= 10 ? "text-amber-500" : "text-foreground"} />
       </div>
 
-      {/* ── Games + Achievements: one compact row each ── */}
+      {/* ════ SECTION 3: Jeux & Succès ════ */}
       <div className="grid grid-cols-2 gap-2 shrink-0">
         {/* Favorite games */}
         <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2">
@@ -302,83 +435,36 @@ function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Menu: 2-column grid ── */}
-      <div className="grid grid-cols-2 gap-1.5 shrink-0">
-        {MENU_ITEMS.map((item, i) => (
-          <button key={i} onClick={item.action}
-            className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-card border border-border/40 hover:bg-accent/30 transition-colors">
-            <div className={`w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center shrink-0 ${item.color}`}>
-              <item.icon className="w-3.5 h-3.5" strokeWidth={2} />
-            </div>
-            <span className="flex-1 text-left text-xs font-semibold truncate">{item.label}</span>
-            <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
-          </button>
-        ))}
-        {/* Phone verification status (non-clickable info) */}
-        <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-card border border-border/40">
-          <div className={`w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center shrink-0 ${p.phone_verified ? "text-emerald-500" : "text-muted-foreground"}`}>
-            <Phone className="w-3.5 h-3.5" strokeWidth={2} />
-          </div>
-          <span className="flex-1 text-left text-xs font-semibold truncate">
-            {p.phone_verified ? "Numéro vérifié" : (p.phone ? "Non vérifié" : "Aucun numéro")}
-          </span>
+      {/* ════ SECTION 4: Menu + Actions ════ */}
+      <div className="flex-1 min-h-0 flex flex-col gap-2">
+        {/* Menu grid 4x2 */}
+        <div className="grid grid-cols-4 gap-1.5">
+          <MenuButton icon={ArrowDownLeft} label="Dépôts" color="text-emerald-500"
+            action={() => setShowHistory(showHistory === "deposits" ? "none" : "deposits")} />
+          <MenuButton icon={ArrowUpRight} label="Retraits" color="text-rose-500"
+            action={() => setShowHistory(showHistory === "withdrawals" ? "none" : "withdrawals")} />
+          <MenuButton icon={Gamepad2} label="Parties" color="text-primary"
+            action={() => setShowHistory(showHistory === "games" ? "none" : "games")} />
+          <MenuButton icon={Gift} label="Parrainage" color="text-fuchsia-500"
+            action={() => navigate({ to: "/parrainage", search: {} })} />
+          <MenuButton icon={Shield} label="Sécurité" color="text-emerald-500"
+            action={() => setShowDeleteDialog(true)} />
+          <MenuButton icon={HelpCircle} label="Aide" color="text-blue-400"
+            action={() => navigate({ to: "/faq", search: {} })} />
+          <MenuButton icon={Settings} label="Paramètres" color="text-muted-foreground"
+            action={() => setShowSettings(true)} />
+          <MenuButton icon={Phone} label={p.phone_verified ? "Vérifié" : "Téléphone"} color={p.phone_verified ? "text-emerald-500" : "text-muted-foreground"}
+            action={() => toast.info(p.phone_verified ? "Numéro vérifié ✓" : p.phone ? "Numéro non vérifié" : "Aucun numéro")} />
         </div>
-      </div>
-
-      {/* ── Scrollable zone: history panels + logout ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
-        {showHistory === "deposits" && (
-          <div className="rounded-xl border border-border/40 bg-card p-2 space-y-1">
-            <div className="text-[10px] font-bold uppercase text-muted-foreground">Dépôts</div>
-            {deps.length === 0 ? <div className="text-[10px] text-muted-foreground py-2 text-center">Aucun dépôt</div> :
-              deps.slice(0, 5).map(d => (
-                <div key={d.id} className="flex items-center justify-between text-[11px] py-1 border-b border-border/20 last:border-0">
-                  <span>{new Date(d.created_at).toLocaleDateString("fr-FR")}</span>
-                  <span className={`font-bold ${d.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>+{Math.round(Number(d.amount)).toLocaleString("fr-FR")} Ar</span>
-                </div>
-              ))
-            }
-          </div>
-        )}
-        {showHistory === "withdrawals" && (
-          <div className="rounded-xl border border-border/40 bg-card p-2 space-y-1">
-            <div className="text-[10px] font-bold uppercase text-muted-foreground">Retraits</div>
-            {withs.length === 0 ? <div className="text-[10px] text-muted-foreground py-2 text-center">Aucun retrait</div> :
-              withs.slice(0, 5).map(w => (
-                <div key={w.id} className="flex items-center justify-between text-[11px] py-1 border-b border-border/20 last:border-0">
-                  <span>{new Date(w.created_at).toLocaleDateString("fr-FR")}</span>
-                  <span className={`font-bold ${w.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>-{Math.round(Number(w.amount)).toLocaleString("fr-FR")} Ar</span>
-                </div>
-              ))
-            }
-          </div>
-        )}
-        {showHistory === "games" && (
-          <div className="rounded-xl border border-border/40 bg-card p-2 space-y-1">
-            <div className="text-[10px] font-bold uppercase text-muted-foreground">Parties récentes</div>
-            {tx.filter(t => ["stake", "win", "refund"].includes(t.type)).length === 0 ? <div className="text-[10px] text-muted-foreground py-2 text-center">Aucune partie</div> :
-              tx.filter(t => ["stake", "win", "refund"].includes(t.type)).slice(0, 5).map(tr => (
-                <div key={tr.id} className="flex items-center justify-between text-[11px] py-1 border-b border-border/20 last:border-0">
-                  <span className="flex items-center gap-1">
-                    {tr.type === "win" ? "🏆" : tr.type === "stake" ? "🎮" : "↩️"} {labelType(tr.type, t)}
-                  </span>
-                  <span className={`font-bold ${Number(tr.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                    {Number(tr.amount) >= 0 ? "+" : ""}{Math.round(Number(tr.amount)).toLocaleString("fr-FR")} Ar
-                  </span>
-                </div>
-              ))
-            }
-          </div>
-        )}
 
         {/* Logout + delete */}
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="mt-auto grid grid-cols-2 gap-1.5">
           <button onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-destructive/10 text-destructive text-xs font-semibold active:scale-95 transition-transform">
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/10 text-destructive text-xs font-semibold active:scale-95 transition-transform">
             <LogOut className="w-3.5 h-3.5" /> Déconnexion
           </button>
           <button onClick={() => setShowDeleteDialog(true)}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-destructive/5 text-destructive/80 text-xs font-semibold active:scale-95 transition-transform">
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/5 text-destructive/80 text-xs font-semibold active:scale-95 transition-transform">
             <Trash2 className="w-3.5 h-3.5" /> Supprimer
           </button>
         </div>
