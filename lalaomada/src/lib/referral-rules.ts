@@ -1,132 +1,123 @@
 /**
- * Source unique de vérité pour les règles du programme de parrainage.
+ * Source unique de vérité pour les règles du programme de parrainage V3.
  *
- * Toute page ou composant qui parle du programme (Parrainage, FAQ, méta SEO,
- * emails, notifications) DOIT consommer ce module. Aucun chiffre ni texte
- * de règle ne doit être codé en dur ailleurs — sinon les incohérences
- * reviennent dès qu'un admin change les réglages.
+ * Modèle à récompense fixe : 100 Ar par filleul actif.
+ * Un filleul est actif quand :
+ *   - Son téléphone est vérifié (OTP)
+ *   - Il a effectué un dépôt ≥ 500 Ar
+ *   - Il a joué ≥ 10 matchs avec une mise ≥ 200 Ar
+ *   - Les matchs annulés ou suspects ne comptent pas
  *
- * Les valeurs par défaut (DEFAULT_*) ne servent qu'en tout dernier recours,
- * quand `app_settings` n'a pas encore renvoyé de valeur. Les vraies valeurs
- * viennent toujours de la base via `get_referral_dashboard`
- * (`settings.stake_commission_pct`, `settings.referral_stake_max`).
+ * Paliers d'affichage :
+ *   5 filleuls  = 500 Ar
+ *  10 filleuls  = 1 000 Ar
+ *  20 filleuls  = 2 000 Ar
+ *  50 filleuls  = 5 000 Ar
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Modèle typé
+// Constantes
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Pourcentage de commission (0–100), toujours un nombre fini positif. */
-export type CommissionPct = number;
-/** Nombre maximum de parties payantes du filleul qui rémunèrent le parrain. */
-export type MaxStakes = number;
+export const REWARD_PER_ACTIVE_AR = 100;
+export const MIN_DEPOSIT_AR = 500;
+export const MIN_MATCHES = 10;
+export const MIN_STAKE_AR = 200;
 
-export type ReferralRules = Readonly<{
-  /** Ex: 5 pour 5 %. */
-  commissionPct: CommissionPct;
-  /** Ex: 10 pour les 10 premières parties payantes. */
-  maxStakes: MaxStakes;
-}>;
+export const REFERRAL_TIERS = [
+  { count: 5,  reward: 500,  label: "Bronze",   icon: "🥉" },
+  { count: 10, reward: 1000, label: "Argent",   icon: "🥈" },
+  { count: 20, reward: 2000, label: "Or",       icon: "🥇" },
+  { count: 50, reward: 5000, label: "Diamant",  icon: "💎" },
+] as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Textes
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const REFERRAL_HERO_SUBTITLE_TEMPLATE =
+  "{reward} Ar pour chaque filleul actif. Invitez vos amis et gagnez ensemble !";
+
+export const REFERRAL_META_DESCRIPTION_TEMPLATE =
+  "Invitez vos amis sur Lalao MADA : {reward} Ar pour chaque filleul actif (téléphone vérifié, dépôt ≥ {min_deposit} Ar, 10 matchs avec mise ≥ {min_stake} Ar).";
+
+export function referralHeroSubtitle(): string {
+  return REFERRAL_HERO_SUBTITLE_TEMPLATE.replace("{reward}", String(REWARD_PER_ACTIVE_AR));
+}
+
+export function referralMetaDescription(): string {
+  return REFERRAL_META_DESCRIPTION_TEMPLATE
+    .replace("{reward}", String(REWARD_PER_ACTIVE_AR))
+    .replace("{min_deposit}", String(MIN_DEPOSIT_AR))
+    .replace("{min_stake}", String(MIN_STAKE_AR));
+}
+
+export function referralConditions(): readonly string[] {
+  return [
+    `Le filleul doit vérifier son numéro de téléphone par OTP.`,
+    `Le filleul doit effectuer un dépôt minimum de ${MIN_DEPOSIT_AR} Ar.`,
+    `Le filleul doit jouer au moins ${MIN_MATCHES} matchs avec une mise réelle (minimum ${MIN_STAKE_AR} Ar par match).`,
+    `Les matchs annulés ou suspects ne sont pas comptabilisés.`,
+    `La récompense de ${REWARD_PER_ACTIVE_AR} Ar est crédité automatiquement dès que toutes les conditions sont remplies.`,
+    `Un numéro de téléphone ne peut être lié qu'à un seul compte.`,
+    `L'auto-parrainage est strictement interdit.`,
+    `Toute tentative de fraude entraîne la suspension immédiate des récompenses.`,
+    `Lalao MADA se réserve le droit de modifier ou suspendre ce programme à tout moment.`,
+  ];
+}
 
 export type ReferralHowItWorksStep = Readonly<{
   step: string;
   icon: string;
-  /** Peut contenir les jetons `{pct}` et `{max}`. */
   label: string;
-  /** Peut contenir les jetons `{pct}` et `{max}`. */
   desc: string;
 }>;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Constantes de secours
-// ─────────────────────────────────────────────────────────────────────────────
+export function referralHowItWorks(): readonly ReferralHowItWorksStep[] {
+  return [
+    { step: "1", icon: "📲", label: "Partagez votre lien", desc: "Envoyez le lien de l'app et votre code de parrainage à vos amis" },
+    { step: "2", icon: "✍️", label: "L'ami s'inscrit", desc: "Il utilise votre code lors de son inscription" },
+    { step: "3", icon: "📱", label: "Il vérifie son téléphone", desc: "Il confirme son numéro par OTP" },
+    { step: "4", icon: "💵", label: "Il dépose ≥ 500 Ar", desc: "Il effectue un premier dépôt d'au moins 500 Ar" },
+    { step: "5", icon: "🎮", label: "Il joue 10 matchs", desc: "Il joue 10 matchs avec une mise d'au moins 200 Ar" },
+    { step: "6", icon: "💰", label: "Vous gagnez 100 Ar", desc: "Vous recevez 100 Ar automatiquement sur votre solde" },
+  ];
+}
 
-export const DEFAULT_COMMISSION_PCT: CommissionPct = 5;
-export const DEFAULT_MAX_STAKES: MaxStakes = 10;
+export function referralShortAnswer(): string {
+  return (
+    `Partagez le lien de l'application et votre code depuis la page 'Parrainage'. ` +
+    `Vous recevez ${REWARD_PER_ACTIVE_AR} Ar dès que votre filleul a vérifié son téléphone, ` +
+    `effectué un dépôt ≥ ${MIN_DEPOSIT_AR} Ar et joué ${MIN_MATCHES} matchs avec une mise ≥ ${MIN_STAKE_AR} Ar.`
+  );
+}
+
+// ── Legacy compat (still imported by some pages) ────────────────────────────
+export const DEFAULT_COMMISSION_PCT = 0;
+export const DEFAULT_MAX_STAKES = MIN_MATCHES;
+
+export type CommissionPct = number;
+export type MaxStakes = number;
+
+export type ReferralRules = Readonly<{
+  commissionPct: CommissionPct;
+  maxStakes: MaxStakes;
+}>;
 
 export const DEFAULT_REFERRAL_RULES: ReferralRules = Object.freeze({
   commissionPct: DEFAULT_COMMISSION_PCT,
   maxStakes: DEFAULT_MAX_STAKES,
 });
 
-/** Gabarits texte partagés — utilisent les jetons `{pct}` et `{max}`. */
-export const REFERRAL_HERO_SUBTITLE_TEMPLATE =
-  "25 Ar au 1er dépôt de votre filleul, puis {pct}% de chaque mise sur ses {max} premières parties payantes.";
-
-export const REFERRAL_META_DESCRIPTION_TEMPLATE =
-  "Invitez vos amis : 25 Ar au premier dépôt puis {pct}% de leurs mises sur {max} parties payantes.";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Utilitaires
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Normalise un input partiel en règles complètes (défauts appliqués). */
 export function resolveReferralRules(input?: Partial<ReferralRules> | null): ReferralRules {
-  const pct = Number(input?.commissionPct);
-  const max = Number(input?.maxStakes);
-  return {
-    commissionPct: Number.isFinite(pct) && pct >= 0 ? pct : DEFAULT_COMMISSION_PCT,
-    maxStakes: Number.isFinite(max) && max >= 0 ? Math.floor(max) : DEFAULT_MAX_STAKES,
-  };
+  return DEFAULT_REFERRAL_RULES;
 }
 
-/** Remplace `{pct}` / `{max}` dans une chaîne. */
-export function fillReferralTokens(template: string, rules?: Partial<ReferralRules>): string {
-  const { commissionPct, maxStakes } = resolveReferralRules(rules);
+export function fillReferralTokens(template: string, _rules?: Partial<ReferralRules>): string {
   return template
-    .replace(/\{pct\}/g, String(commissionPct))
-    .replace(/\{max\}/g, String(maxStakes));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Textes générés
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Sous-titre affiché en tête de la page Parrainage. */
-export function referralHeroSubtitle(rules?: Partial<ReferralRules>): string {
-  return fillReferralTokens(REFERRAL_HERO_SUBTITLE_TEMPLATE, rules);
-}
-
-/** Meta description SEO (< 160 caractères). */
-export function referralMetaDescription(rules?: Partial<ReferralRules>): string {
-  return fillReferralTokens(REFERRAL_META_DESCRIPTION_TEMPLATE, rules);
-}
-
-/** Résumé court, utilisé dans la FAQ. */
-export function referralShortAnswer(rules?: Partial<ReferralRules>): string {
-  const { commissionPct, maxStakes } = resolveReferralRules(rules);
-  return (
-    `Partagez le lien de l'application et votre code depuis la page 'Parrainage'. ` +
-    `Vous recevez 25 Ar au premier dépôt validé de votre filleul, puis ${commissionPct}% de chaque mise ` +
-    `sur ses ${maxStakes} premières parties payantes.`
-  );
-}
-
-/** Puces des conditions officielles, utilisées sur la page Parrainage. */
-export function referralConditions(rules?: Partial<ReferralRules>): readonly string[] {
-  const { commissionPct, maxStakes } = resolveReferralRules(rules);
-  return [
-    "25 Ar crédités au parrain lors du premier dépôt validé du filleul.",
-    `Vous recevez ${commissionPct}% de la mise de votre filleul sur chacune de ses ${maxStakes} premières parties payantes.`,
-    "Les parties gratuites ne comptent pas.",
-    "Les commissions sont créditées automatiquement sur votre solde.",
-    "Toute tentative de fraude (auto-parrainage, faux comptes) entraîne la suspension immédiate des récompenses.",
-    "Lalao MADA se réserve le droit de modifier ou suspendre ce programme à tout moment.",
-  ];
-}
-
-/** Étapes « Comment ça marche ». */
-export function referralHowItWorks(rules?: Partial<ReferralRules>): readonly ReferralHowItWorksStep[] {
-  const { commissionPct, maxStakes } = resolveReferralRules(rules);
-  return [
-    { step: "1", icon: "📲", label: "Partagez le lien de l'app", desc: "Envoyez le lien de téléchargement et votre code de parrainage" },
-    { step: "2", icon: "✍️", label: "L'ami s'inscrit", desc: "Il utilise votre code lors de son inscription" },
-    { step: "3", icon: "💵", label: "Il fait son 1er dépôt", desc: "Vous recevez 25 Ar dès que son premier dépôt est validé" },
-    {
-      step: "4",
-      icon: "💰",
-      label: "Il joue avec une mise",
-      desc: `${commissionPct}% de sa mise crédités automatiquement, sur ses ${maxStakes} premières parties payantes`,
-    },
-  ];
+    .replace(/\{reward\}/g, String(REWARD_PER_ACTIVE_AR))
+    .replace(/\{min_deposit\}/g, String(MIN_DEPOSIT_AR))
+    .replace(/\{min_stake\}/g, String(MIN_STAKE_AR))
+    .replace(/\{pct\}/g, "0")
+    .replace(/\{max\}/g, String(MIN_MATCHES));
 }
