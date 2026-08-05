@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { ChevronDown, ChevronUp, HelpCircle, MessageSquare, Phone } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp, HelpCircle, MessageSquare, Phone, Headphones, BookOpen } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useT } from "@/lib/i18n";
 import { useCmsContent } from "@/hooks/use-cms-content";
 import { DEFAULT_FAQ, resolveFaqAnswer } from "@/lib/faq-defaults";
+import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/faq")({
   component: FaqPage,
@@ -35,8 +37,19 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 export default function FaqPage() {
   const { t } = useT();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [adminPhone, setAdminPhone] = useState<string | null>(null);
   const { data: faq } = useCmsContent("faq", DEFAULT_FAQ);
+
+  useEffect(() => {
+    supabase.from("settings" as any)
+      .select("admin_phone")
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.admin_phone) setAdminPhone(data.admin_phone);
+      });
+  }, []);
 
   const items = (faq?.categories ?? []).map(cat => ({
     ...cat,
@@ -101,15 +114,22 @@ export default function FaqPage() {
         <div className="text-sm text-muted-foreground">
           Notre équipe est disponible pour vous aider directement.
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <a href="/chat"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm">
-            <MessageSquare className="w-4 h-4" /> Contacter le support
-          </a>
-          <a href="/profile"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary font-bold text-sm">
-            <Phone className="w-4 h-4" /> Voir le numéro admin
-          </a>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => navigate({ to: "/chat", search: {} })}
+            className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition-transform">
+            <MessageSquare className="w-4 h-4" /> Support chat
+          </button>
+          {adminPhone ? (
+            <a href={`tel:${adminPhone}`}
+              className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary font-bold text-sm">
+              <Phone className="w-4 h-4" /> Appeler l'admin
+            </a>
+          ) : (
+            <button onClick={() => navigate({ to: "/tutos", search: {} })}
+              className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary font-bold text-sm">
+              <BookOpen className="w-4 h-4" /> Tutoriels
+            </button>
+          )}
         </div>
       </div>
     </main>
