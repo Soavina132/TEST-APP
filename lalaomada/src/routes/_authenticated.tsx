@@ -32,9 +32,11 @@ function AuthLayout() {
   const loc = useLocation();
   const path = loc.pathname;
   const waiting = useWaitingRoomActive();
-  const inGameRoute = /^\/(chess|domino|fanorona|rami|poker|game)\//.test(path);
+  // Match both legacy routes (/domino/xxx) and actual game routes (/jeux/domino/xxx)
+  const inGameRoute = /^\/(jeux\/)?(chess|domino|fanorona|rami|poker|ludo|game)\//.test(path);
   const inGame = inGameRoute && !waiting;
   const inChat = path === "/chat" || path.startsWith("/discussion/");
+  const isHome = path === "/lobby" || path === "/";
 
   if (loading) return <AppSplash />;
   if (!user) return <Navigate to="/login" />;
@@ -53,14 +55,14 @@ function AuthLayout() {
       <PauseBanner />
       <Header />
       {!inGame && <OnlineStatusBar />}
-      <DesktopNav />
-      <div className="md:ml-56">
+      {!inGame && <DesktopNav />}
+      <div className={inGame ? "" : "md:ml-56"}>
         <Outlet />
       </div>
       {!inGame && <BottomNav />}
       <TermsModal />
       <AnnouncementsModal />
-      {!inGame && !inChat && <ContactFab />}
+      {isHome && <ContactFab />}
       {!inGame && !inChat && <ShareAppCta />}
       
     </>
