@@ -568,6 +568,11 @@ function LobbyPage() {
         ))}
       </div>
 
+      {/* Informations du jour */}
+      <h2 className="font-extrabold text-sm flex items-center gap-1.5">
+        <Zap className="w-4 h-4 text-primary shrink-0" /> Informations du jour
+      </h2>
+
       {/* Bannières promo */}
       <BannerCarousel />
 
