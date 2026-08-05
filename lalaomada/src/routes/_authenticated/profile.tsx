@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useT } from "@/lib/i18n";
 import { copyText } from "@/lib/clipboard";
@@ -7,9 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Camera, Copy, Coins, ShieldCheck, LogOut, Trash2,
-  Phone, Trophy, Gamepad2, User, Flame,
+  Phone, Trophy, Gamepad2, Flame,
   ArrowDownLeft, ArrowUpRight, Gift,
-  Mail, Settings, HelpCircle, Shield, ChevronRight,
+  Settings, HelpCircle, Shield, ChevronRight, Medal,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
@@ -63,10 +63,10 @@ function ProfilePage() {
   const [editingName, setEditingName] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [tx, setTx] = useState<any[]>([]);
-  const [adminPhone, setAdminPhone] = useState("");
   const [playerStats, setPlayerStats] = useState<any>(null);
   const [gameStats, setGameStats] = useState<Record<string, { played: number; wins: number }>>({});
   const [myRank, setMyRank] = useState<number | null>(null);
+  const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [achievements, setAchievements] = useState<any[]>([]);
@@ -79,6 +79,8 @@ function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     const uid = user.id;
+    const currentPseudo = profile?.pseudo;
+
     supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50).then(({ data }) => setTx(data || []));
     supabase.from("deposits").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setDeps(data || []));
     supabase.from("withdrawals").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setWiths(data || []));
@@ -114,12 +116,13 @@ function ProfilePage() {
     fetchGameStats();
 
     supabase.rpc("leaderboard_winners" as any, { _limit: 200 } as any).then(({ data }: any) => {
+      setRankLoaded(true);
       if (!data) return;
-      const idx = (data as any[]).findIndex((r: any) => r.id === uid || r.name === profile?.pseudo);
+      const idx = (data as any[]).findIndex((r: any) => r.id === uid || (currentPseudo && r.name === currentPseudo));
       if (idx >= 0) setMyRank((data[idx] as any).rank);
     });
     supabase.rpc("get_player_achievements" as any, { _uid: uid } as any).then(({ data }: any) => setAchievements(data || []));
-  }, [user?.id]);
+  }, [user?.id, profile?.pseudo]);
 
   const savePseudo = async () => {
     if (!pseudo.trim() || pseudo === profile?.pseudo) { setEditingName(false); return; }
@@ -174,7 +177,6 @@ function ProfilePage() {
     { icon: Shield,        label: "Sécurité",    action: () => setShowDeleteDialog(true), color: "text-emerald-500" },
     { icon: HelpCircle,    label: "Aide",       action: () => navigate({ to: "/faq", search: {} }), color: "text-blue-400" },
     { icon: Settings,      label: "Paramètres",  action: () => toast.info("Bientôt disponible"), color: "text-muted-foreground" },
-    { icon: Phone,         label: p.phone_verified ? "Numéro vérifié" : "Vérifier numéro", action: () => navigate({ to: "/profile", search: {} }), color: "text-violet-500" },
   ];
 
   return (
@@ -248,12 +250,13 @@ function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Stats: 4 mini tiles ── */}
-      <div className="grid grid-cols-4 gap-1.5 shrink-0">
+      {/* ── Stats: 5 mini tiles ── */}
+      <div className="grid grid-cols-5 gap-1.5 shrink-0">
         <MiniStat label="Parties" value={totalGames} icon="🎮" />
         <MiniStat label="Victoires" value={totalWins} icon="🏆" color="text-emerald-500" />
         <MiniStat label="Défaites" value={totalLosses} icon="📉" color="text-destructive" />
         <MiniStat label="Win rate" value={`${winRate}%`} icon="📊" color={winRate >= 50 ? "text-emerald-500" : "text-amber-500"} />
+        <MiniStat label="Rang" value={rankLoaded ? (myRank ?? "—") : "…"} icon="🥇" color={myRank && myRank <= 10 ? "text-amber-500" : "text-foreground"} />
       </div>
 
       {/* ── Games + Achievements: one compact row each ── */}
@@ -311,6 +314,15 @@ function ProfilePage() {
             <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
           </button>
         ))}
+        {/* Phone verification status (non-clickable info) */}
+        <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-card border border-border/40">
+          <div className={`w-7 h-7 rounded-lg bg-secondary/60 flex items-center justify-center shrink-0 ${p.phone_verified ? "text-emerald-500" : "text-muted-foreground"}`}>
+            <Phone className="w-3.5 h-3.5" strokeWidth={2} />
+          </div>
+          <span className="flex-1 text-left text-xs font-semibold truncate">
+            {p.phone_verified ? "Numéro vérifié" : (p.phone ? "Non vérifié" : "Aucun numéro")}
+          </span>
+        </div>
       </div>
 
       {/* ── Scrollable zone: history panels + logout ── */}
@@ -371,8 +383,6 @@ function ProfilePage() {
           </button>
         </div>
       </div>
-
-      {showDeleteDialog && <DeleteAccountDialog onClose={() => setShowDeleteDialog(false)} />}
     </main>
   );
 }
