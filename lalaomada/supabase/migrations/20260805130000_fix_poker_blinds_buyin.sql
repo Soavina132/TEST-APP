@@ -161,8 +161,9 @@ $function$;
 GRANT EXECUTE ON FUNCTION public.poker_join_code(text) TO authenticated, anon;
 
 -- Step 5: Update _poker_deal_hand to use stored blinds from game row
+-- Only change: blinds come from g.small_blind/g.big_blind instead of calculated
 CREATE OR REPLACE FUNCTION public._poker_deal_hand(_gid uuid) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $function$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE
   g public.poker_games%ROWTYPE;
   st jsonb; deck int[]; pos int := 0;
@@ -188,77 +189,78 @@ BEGIN
 
   -- Get active players ordered by seat
   UPDATE public.poker_players SET bet_round=0, hole_cards='{}', last_action=NULL, hand_result=NULL, status='playing'
-    WHERE game_id=_gid AND status NOT IN ('out','waiting','finished');
+  WHERE game_id=_gid AND status NOT IN ('out','finished');
 
-  SELECT jsonb_agg(to_jsonb(p.*) ORDER BY seat) INTO active_players
-  FROM public.poker_players p
-  WHERE p.game_id=_gid AND p.status='playing';
-
-  n_active := jsonb_array_length(active_players);
-  IF n_active < 2 THEN RETURN; END IF;
-
-  -- Dealer button rotates
+  -- Compute dealer position (rotate each hand)
   dealer_seat := COALESCE((st->>'dealer_seat')::int, -1);
-  LOOP
-    dealer_seat := dealer_seat + 1;
-    IF dealer_seat > 100 THEN EXIT; END IF;
-    FOR i IN 0..n_active-1 LOOP
-      p := active_players[i];
-      IF (p->>'seat')::int = dealer_seat THEN
-        EXIT;
-      END IF;
-    END LOOP;
-    EXIT WHEN FOUND;
-  END LOOP;
+  SELECT seat INTO dealer_seat FROM public.poker_players
+  WHERE game_id=_gid AND status='playing' AND seat > dealer_seat
+  ORDER BY seat ASC LIMIT 1;
+  IF dealer_seat IS NULL THEN
+    SELECT MIN(seat) INTO dealer_seat FROM public.poker_players WHERE game_id=_gid AND status='playing';
+  END IF;
 
-  -- Find SB and BB seats
-  sb_seat := dealer_seat + 1;
-  bb_seat := dealer_seat + 2;
-  first_seat := dealer_seat + 3;
+  -- Get active seats in order after dealer
+  DECLARE seats int[];
+  BEGIN
+    SELECT array_agg(seat ORDER BY seat) INTO seats FROM public.poker_players WHERE game_id=_gid AND status='playing';
+    n_active := array_length(seats, 1);
+    -- Find SB and BB positions (next after dealer)
+    DECLARE dealer_idx int := array_position(seats, dealer_seat);
+    BEGIN
+      IF n_active = 2 THEN -- heads-up: dealer posts SB
+        sb_seat := dealer_seat;
+        bb_seat := seats[((dealer_idx) % n_active) + 1];
+        first_seat := sb_seat; -- dealer acts first preflop in HU
+      ELSE
+        sb_seat := seats[((dealer_idx) % n_active) + 1];
+        bb_seat := seats[((dealer_idx + 1) % n_active) + 1];
+        first_seat := seats[((dealer_idx + 2) % n_active) + 1];
+      END IF;
+    END;
+  END;
 
   -- Post blinds
-  UPDATE public.poker_players SET chips=chips-cfg_sb, bet_round=cfg_sb, total_bet=total_bet+cfg_sb
-    WHERE game_id=_gid AND seat=sb_seat;
-  UPDATE public.poker_players SET chips=chips-cfg_bb, bet_round=cfg_bb, total_bet=total_bet+cfg_bb
-    WHERE game_id=_gid AND seat=bb_seat;
+  UPDATE public.poker_players SET chips=chips-cfg_sb, bet_round=cfg_sb, total_bet=total_bet+cfg_sb WHERE game_id=_gid AND seat=sb_seat;
+  UPDATE public.poker_players SET chips=chips-cfg_bb, bet_round=cfg_bb, total_bet=total_bet+cfg_bb WHERE game_id=_gid AND seat=bb_seat;
 
-  -- Deal 2 cards to each player
-  FOR i IN 0..n_active-1 LOOP
-    p := active_players[i];
-    seat := (p->>'seat')::int;
-    PERFORM dblink_exec('UPDATE poker_players SET hole_cards=ARRAY['||deck[pos+1]||','||deck[pos+2]||'] WHERE game_id='||quote_literal(_gid::text)||' AND seat='||seat);
-    pos := pos + 2;
-  END LOOP;
+  -- Deal 2 hole cards per player
+  DECLARE deal_pos int := 1; all_seats int[];
+  BEGIN
+    SELECT array_agg(seat ORDER BY seat) INTO all_seats FROM public.poker_players WHERE game_id=_gid AND status='playing';
+    FOR i IN 1..2 LOOP
+      FOREACH seat IN ARRAY all_seats LOOP
+        UPDATE public.poker_players SET hole_cards=hole_cards||deck[deal_pos] WHERE game_id=_gid AND seat=seat;
+        deal_pos := deal_pos + 1;
+      END LOOP;
+    END LOOP;
+    -- Remove dealt cards from deck
+    deck := deck[deal_pos:];
+  END;
 
-  -- Set game state
+  -- Build new state
   new_state := jsonb_build_object(
     'hand_number', hand_n,
-    'phase', 'preflop',
     'dealer_seat', dealer_seat,
     'sb_seat', sb_seat,
     'bb_seat', bb_seat,
-    'current_bet', cfg_bb,
     'small_blind', cfg_sb,
     'big_blind', cfg_bb,
-    'turn_deadline', to_char(now() AT TIME ZONE 'UTC' + interval '30 seconds','YYYY-MM-DD"T"HH24:MI:SS"Z"')
+    'current_bet', cfg_bb,
+    'last_raise', cfg_bb,
+    'deck', to_jsonb(deck),
+    'pot', 0
   );
 
-  st := st || new_state;
-
-  -- Find first to act (after BB)
-  DECLARE first_seat_int int; BEGIN
-    FOR i IN 0..n_active-1 LOOP
-      p := active_players[i];
-      IF (p->>'seat')::int = first_seat THEN
-        first_seat_int := (p->>'seat')::int;
-        EXIT;
-      END IF;
-    END LOOP;
-    st := jsonb_set(st, '{current_seat}', to_jsonb(first_seat_int));
-  END;
-
-  UPDATE public.poker_games SET state=st, phase='preflop', hand_number=hand_n, current_player=(
-    SELECT user_id FROM public.poker_players WHERE game_id=_gid AND seat=(st->>'current_seat')::int
-  ) WHERE id=_gid;
+  UPDATE public.poker_games SET
+    state = new_state,
+    phase = 'preflop',
+    hand_number = hand_n,
+    community_cards = '{}',
+    current_player = (SELECT user_id FROM public.poker_players WHERE game_id=_gid AND seat=first_seat),
+    pot = cfg_sb + cfg_bb,
+    turn_deadline = now() + interval '30 seconds',
+    updated_at = now()
+  WHERE id = _gid;
 END;
-$function$;
+$$;
