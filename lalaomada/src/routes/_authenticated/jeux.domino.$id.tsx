@@ -512,7 +512,7 @@ function DominoPage() {
   };
 
   return (
-    <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1" style={{ height: "calc(100dvh - 56px)", background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
+    <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1 h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       <div className="rounded-md bg-card/70 border border-white/8 px-2 py-1 flex items-center gap-2 shrink-0 text-xs">
         <span className="font-bold text-sm">🁣</span>

@@ -1498,7 +1498,7 @@ function RamiPage() {
 
   return (
     <main
-      className="max-w-3xl mx-auto px-3 py-2 space-y-2 pb-3 rounded-xl"
+      className="max-w-3xl mx-auto px-3 py-2 space-y-2 h-full overflow-hidden overscroll-none rounded-xl"
       style={{
         backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.35)), url(${FELT_URL})`,
         backgroundSize: "cover",

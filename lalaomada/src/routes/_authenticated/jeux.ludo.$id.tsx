@@ -222,7 +222,7 @@ function GamePage() {
     }).filter(p => p.remaining > 0);
 
   return (
-    <main className="max-w-5xl mx-auto px-3 py-3">
+    <main className="max-w-5xl mx-auto px-3 py-3 h-full overflow-hidden overscroll-none">
       <h1 className="sr-only">Partie de Ludo en cours</h1>
       <div className="rounded-full bg-card px-3 py-1.5 mb-2 shadow-[var(--shadow-soft)] flex items-center justify-between gap-2">
         <div className="flex items-baseline gap-1.5 min-w-0">

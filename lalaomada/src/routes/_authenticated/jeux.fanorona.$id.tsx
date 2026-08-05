@@ -466,7 +466,7 @@ function FanoronaPage() {
   const cy = (r: number) => r * CELL_PX;
 
   return (
-    <main className="max-w-3xl mx-auto px-2 py-2 space-y-1.5 pb-4" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
+    <main className="max-w-3xl mx-auto px-2 py-2 space-y-1.5 h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       <GameInstructionsBanner slug="fanorona" />
 

@@ -599,7 +599,7 @@ function ChessPage() {
 
 
   return (
-    <div className="h-[100dvh] overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950">
+    <div className="h-full overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950 overscroll-none">
       {/* Top bar */}
       <div className="px-2 pt-1">
         <div className="rounded-md bg-card/70 border border-white/8 px-2 py-1 flex items-center gap-2 text-xs">
