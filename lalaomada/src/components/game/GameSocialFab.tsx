@@ -6,7 +6,7 @@ import { MessageCircle, X } from "lucide-react";
 import ChatRoom from "@/components/chat/ChatRoom";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GameSocialFab — single floating button for emoji reactions + in-game chat.
+// GameSocialFab — single DRAGGABLE floating button for emoji reactions + chat.
 // Replaces the old separate QuickReactions + GameChatDrawer combo.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -22,6 +22,8 @@ const REACTIONS = [
 ] as const;
 
 const REACTION_LIFETIME_MS = 3000;
+const BTN_SIZE = 44; // w-11 h-11 = 44px
+const EDGE_MARGIN = 4;
 
 type FloatingReaction = { id: number; emoji: string; x: number; sender: string };
 type RecentReaction = { id: number; emoji: string; sender: string };
@@ -48,6 +50,90 @@ export default function GameSocialFab({
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reactionChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // ── Draggable position (persisted per game) ──
+  const posKey = `fabpos:${gameSlug}:${gameId}`;
+  const getDefaultPos = () => {
+    const saved = localStorage.getItem(posKey);
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
+    }
+    // Default: top-right, below nav bar
+    return { x: window.innerWidth - BTN_SIZE - 12, y: 64 };
+  };
+  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ mx: number; my: number; bx: number; by: number; moved: boolean } | null>(null);
+
+  // Initialise position after mount (client-side)
+  useEffect(() => {
+    setPos(getDefaultPos());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clamp position within viewport on resize
+  useEffect(() => {
+    const onResize = () => {
+      setPos((p) => ({
+        x: Math.min(p.x, window.innerWidth - BTN_SIZE - EDGE_MARGIN),
+        y: Math.min(p.y, window.innerHeight - BTN_SIZE - EDGE_MARGIN),
+      }));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // ── Pointer drag handlers (works for mouse + touch) ──
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    // Only start drag on the FAB button itself, not the emoji bar
+    dragStart.current = {
+      mx: e.clientX,
+      my: e.clientY,
+      bx: pos.x,
+      by: pos.y,
+      moved: false,
+    };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  }, [pos.x, pos.y]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    const ds = dragStart.current;
+    if (!ds) return;
+    const dx = e.clientX - ds.mx;
+    const dy = e.clientY - ds.my;
+    if (!ds.moved && Math.abs(dx) + Math.abs(dy) > 6) {
+      ds.moved = true;
+      setDragging(true);
+      setShowBar(false); // close bar while dragging
+    }
+    if (!ds.moved) return;
+    const nx = Math.max(EDGE_MARGIN, Math.min(ds.bx + dx, window.innerWidth - BTN_SIZE - EDGE_MARGIN));
+    const ny = Math.max(EDGE_MARGIN, Math.min(ds.by + dy, window.innerHeight - BTN_SIZE - EDGE_MARGIN));
+    setPos({ x: nx, y: ny });
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    const ds = dragStart.current;
+    dragStart.current = null;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    if (ds && !ds.moved) {
+      // It was a tap, not a drag → toggle the bar
+      setShowBar((s) => {
+        if (!s) {
+          if (hideTimer.current) clearTimeout(hideTimer.current);
+          hideTimer.current = setTimeout(() => setShowBar(false), 5000);
+        }
+        return !s;
+      });
+    } else {
+      // Save position after drag
+      setPos((p) => {
+        localStorage.setItem(posKey, JSON.stringify(p));
+        return p;
+      });
+    }
+    setDragging(false);
+  }, [posKey]);
 
   // ── Chat room setup ──
   useEffect(() => {
@@ -131,12 +217,6 @@ export default function GameSocialFab({
     [profile?.id, profile?.pseudo, pushReaction],
   );
 
-  const openBar = useCallback(() => {
-    setShowBar(true);
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setShowBar(false), 5000);
-  }, []);
-
   const keepBarOpen = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setShowBar(false), 5000);
@@ -148,6 +228,10 @@ export default function GameSocialFab({
     setChatOpen(true);
     setShowBar(false);
   }, [seenKey]);
+
+  // The emoji bar opens to the left of the button if button is on right half,
+  // or to the right if button is on left half.
+  const barOnLeft = pos.x > window.innerWidth / 2;
 
   return (
     <>
@@ -172,7 +256,7 @@ export default function GameSocialFab({
       </div>
 
       {/* Recent reactions log */}
-      {recentReactions.length > 0 && !showBar && (
+      {recentReactions.length > 0 && !showBar && !dragging && (
         <div className="fixed z-40 flex flex-col gap-1 items-center pointer-events-none left-1/2 -translate-x-1/2 bottom-20">
           {recentReactions.slice(0, 3).map((r, i) => (
             <div
@@ -187,14 +271,20 @@ export default function GameSocialFab({
         </div>
       )}
 
-      {/* Unified FAB — top-right of the game area, away from game controls */}
+      {/* Draggable FAB + emoji bar */}
       <div
-        className="fixed z-40 flex flex-col items-end gap-2 right-3 top-16"
+        className="fixed z-50 flex flex-col gap-2"
+        style={{
+          left: pos.x,
+          top: pos.y,
+          alignItems: barOnLeft ? "flex-end" : "flex-start",
+        }}
         onMouseEnter={keepBarOpen}
       >
+        {/* Emoji bar — appears above or below the button depending on position */}
         {showBar && (
           <div
-            className="flex items-center gap-1 bg-card rounded-2xl shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in"
+            className={`flex items-center gap-1 bg-card rounded-2xl shadow-xl border border-border/60 px-2 py-1.5 animate-pop-in ${pos.y < 180 ? "order-2" : "order-1"}`}
             onMouseEnter={keepBarOpen}
           >
             {REACTIONS.map((r) => (
@@ -223,12 +313,16 @@ export default function GameSocialFab({
           </div>
         )}
 
+        {/* The draggable button itself */}
         <button
-          onClick={() => (showBar ? setShowBar(false) : openBar())}
-          className="relative w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 hover:bg-accent transition-colors active:scale-90"
-          aria-label="Réactions et discussion"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          className={`relative w-11 h-11 flex items-center justify-center rounded-full bg-card shadow-lg border border-border/60 transition-colors active:scale-90 select-none ${dragging ? "cursor-grabbing opacity-80" : "cursor-grab hover:bg-accent"}`}
+          style={{ touchAction: "none" }}
+          aria-label="Réactions et discussion — glisser pour déplacer"
         >
-          <span className="text-2xl">😀</span>
+          <span className="text-2xl pointer-events-none">😀</span>
           {unread > 0 && (
             <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-background">
               {unread > 99 ? "99+" : unread}
@@ -243,7 +337,9 @@ export default function GameSocialFab({
           <div className="bg-card w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl max-h-[90dvh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-2 border-b border-border/60 shrink-0">
               <div className="font-bold">Discussion de la partie</div>
-              <button onClick={() => setChatOpen(false)} className="p-2 rounded-full hover:bg-accent"><X className="w-4 h-4" /></button>
+              <button onClick={() => setChatOpen(false)} className="p-1 rounded-lg hover:bg-accent">
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <div className="flex-1 overflow-hidden">
               {roomId ? (
