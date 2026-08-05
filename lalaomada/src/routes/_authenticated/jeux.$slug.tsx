@@ -12,6 +12,8 @@ import chessCover from "@/assets/games/chess.asset.json";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import pokerCover from "@/assets/games/poker.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
+import HelpPopover from "@/components/HelpPopover";
+import { getLobbyHelp } from "@/lib/game-help-content";
 
 const COVER_BY_SLUG: Record<string, string> = {
   ludo: ludoCover.url, domino: dominoCover.url, fanorona: fanoronaCover.url,
@@ -107,6 +109,7 @@ function Lobby() {
   const navigate = useNavigate();
 
   const [tab, setTab] = useState<Tab>("public");
+  const lobbyHelp = getLobbyHelp(slug, tab);
   const [publicGames, setPublicGames] = useState<any[]>([]);
   const [mine, setMine] = useState<{ ongoing: any[]; finished: any[] }>({ ongoing: [], finished: [] });
   const [mineTab, setMineTab] = useState<"ongoing" | "finished">("ongoing");
@@ -504,6 +507,7 @@ function Lobby() {
           <div className="inline-block text-[9px] uppercase tracking-[0.18em] font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10 ring-1 ring-primary/20">Créer une partie</div>
           <div className="font-extrabold text-lg leading-tight truncate mt-0.5 text-foreground">{meta.label}</div>
         </div>
+        <HelpPopover trigger="Aide" title={lobbyHelp.title} html={lobbyHelp.html} variant="button" />
       </div>
 
 
