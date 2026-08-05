@@ -13,6 +13,7 @@ import {
 import { serverNow } from "@/lib/server-time";
 import MesPartiesSheet from "@/components/MesPartiesSheet";
 import MoneyOffersSection from "@/components/MoneyOffersSection";
+import BannerCarousel from "@/components/BannerCarousel";
 import { useMyOngoingCount } from "@/hooks/use-my-ongoing-count";
 import { useLiveAvailable } from "@/hooks/use-live-available";
 import { Radio } from "lucide-react";
@@ -548,6 +549,9 @@ function LobbyPage() {
         </div>
       </div>
 
+
+      {/* Bannières promo */}
+      <BannerCarousel />
 
       {/* Raccourcis */}
       <div className="grid grid-cols-4 gap-2">

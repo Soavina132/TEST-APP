@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
-import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck } from "lucide-react";
+import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus } from "lucide-react";
 import GameConfigsSection from "@/components/admin/GameConfigsSection";
 import GameTimersQuick from "@/components/admin/GameTimersQuick";
 import { ValidatedField, useFormErrors } from "@/components/admin/ValidatedField";
@@ -318,6 +318,9 @@ function AdminPage() {
               <AnnouncementsAdmin />
               <OffersAdmin />
             </AdminSection>
+            <AdminSection id="content-banners" title="🎨 Bannières d'accueil" description="Carousel promo sur la page d'accueil" accent="violet" icon={<ImagePlus className="w-4 h-4" />} defaultOpen>
+              <BannersAdmin />
+            </AdminSection>
             <AdminSection id="content-help" title="📚 Aide & tutoriels" description="Contenu pédagogique et CMS" accent="sky" icon={<Info className="w-4 h-4" />}>
               <TutorialsAdmin />
               <CmsEditor />
@@ -377,6 +380,7 @@ const SEARCH_INDEX: AdminSearchEntry[] = [
   // Contenu
   { id: "content-pause", tab: "contenu", tabLabel: "Contenu", title: "🛑 Contrôle global", description: "Mettre l'app en pause", keywords: "pause maintenance stop app fermer" },
   { id: "content-comm", tab: "contenu", tabLabel: "Contenu", title: "📣 Communication", description: "Annonces, offres, messages", keywords: "annonce offre message notification broadcast push" },
+  { id: "content-banners", tab: "contenu", tabLabel: "Contenu", title: "🎨 Bannières d'accueil", description: "Carousel promo", keywords: "banniere carousel promo image accueil slider" },
   { id: "content-help", tab: "contenu", tabLabel: "Contenu", title: "📚 Aide & tutoriels", description: "CMS, FAQ, conditions", keywords: "tutoriel aide help faq cgu conditions cms markdown texte" },
   { id: "content-communities", tab: "contenu", tabLabel: "Contenu", title: "🌍 Communautés", description: "Réseaux et liens externes", keywords: "reseau social communaute facebook whatsapp telegram lien" },
   // Config
@@ -2710,3 +2714,140 @@ function PersonaAdmin() {
   );
 }
 
+// ─── BANNERS ADMIN ──────────────────────────────────────────
+function BannersAdmin() {
+  const [items, setItems] = useState<any[]>([]);
+  const [f, setF] = useState({ title: "", subtitle: "", image_url: "", button_text: "", button_link: "", bg_gradient: "from-primary to-orange-600", starts_at: "", ends_at: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const load = () => (supabase.from("banners" as any) as any).select("*").order("sort_order", { ascending: true }).then(({ data }: any) => setItems(data || []));
+  useEffect(() => { load(); }, []);
+
+  const GRADIENTS = [
+    "from-amber-500 to-orange-600",
+    "from-emerald-500 to-teal-600",
+    "from-rose-500 to-pink-600",
+    "from-violet-500 to-indigo-600",
+    "from-blue-500 to-cyan-600",
+    "from-primary to-orange-600",
+  ];
+
+  const save = async () => {
+    if (!f.title.trim()) return toast.error("Titre requis");
+    const { error } = await supabase.rpc("admin_banner_upsert" as any, {
+      _id: editingId,
+      _title: f.title,
+      _subtitle: f.subtitle || null,
+      _image_url: f.image_url || null,
+      _button_text: f.button_text || null,
+      _button_link: f.button_link || null,
+      _bg_gradient: f.bg_gradient || null,
+      _starts_at: f.starts_at ? new Date(f.starts_at).toISOString() : null,
+      _ends_at: f.ends_at ? new Date(f.ends_at).toISOString() : null,
+      _active: true,
+      _sort_order: 0,
+    } as any);
+    if (error) return toast.error(error.message);
+    toast.success(editingId ? "Bannière modifiée" : "Bannière créée");
+    setF({ title: "", subtitle: "", image_url: "", button_text: "", button_link: "", bg_gradient: "from-primary to-orange-600", starts_at: "", ends_at: "" });
+    setEditingId(null);
+    load();
+  };
+
+  const edit = (b: any) => {
+    setEditingId(b.id);
+    setF({
+      title: b.title || "",
+      subtitle: b.subtitle || "",
+      image_url: b.image_url || "",
+      button_text: b.button_text || "",
+      button_link: b.button_link || "",
+      bg_gradient: b.bg_gradient || "from-primary to-orange-600",
+      starts_at: b.starts_at ? new Date(b.starts_at).toISOString().slice(0, 16) : "",
+      ends_at: b.ends_at ? new Date(b.ends_at).toISOString().slice(0, 16) : "",
+    });
+  };
+
+  const del = async (id: string) => {
+    if (!confirm("Supprimer cette bannière ?")) return;
+    await supabase.rpc("admin_banner_delete" as any, { _id: id } as any);
+    toast.success("Bannière supprimée");
+    load();
+  };
+
+  const toggle = async (b: any, active: boolean) => {
+    await supabase.rpc("admin_banner_upsert" as any, {
+      _id: b.id, _title: b.title, _subtitle: b.subtitle, _image_url: b.image_url,
+      _button_text: b.button_text, _button_link: b.button_link, _bg_gradient: b.bg_gradient,
+      _starts_at: b.starts_at, _ends_at: b.ends_at, _active: active, _sort_order: b.sort_order,
+    } as any);
+    load();
+  };
+
+  return (
+    <div className="rounded-3xl bg-card p-5 shadow-sm space-y-3">
+      <div className="font-bold flex items-center gap-2"><ImagePlus className="w-4 h-4" /> Gestion des bannières</div>
+      <div className="text-xs text-muted-foreground">Bannières affichées dans le carousel de la page d'accueil, juste après le solde.</div>
+
+      {/* Form */}
+      <div className="rounded-2xl bg-secondary p-3 space-y-2">
+        <div className="text-sm font-bold">{editingId ? "✏️ Modifier" : "➕ Nouvelle bannière"}</div>
+        <input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Titre (ex: 🏆 TOURNOI LUDO)" className="w-full px-3 py-2 rounded-xl bg-card text-sm outline-none" />
+        <textarea value={f.subtitle} onChange={e => setF({ ...f, subtitle: e.target.value })} placeholder="Sous-titre (ex: Commence demain à 20h)" rows={2} className="w-full px-3 py-2 rounded-xl bg-card text-sm outline-none" />
+        <div className="grid grid-cols-2 gap-2">
+          <input value={f.image_url} onChange={e => setF({ ...f, image_url: e.target.value })} placeholder="URL image (optionnel)" className="px-3 py-2 rounded-xl bg-card text-sm outline-none" />
+          <div className="flex flex-wrap gap-1">
+            {GRADIENTS.map(g => (
+              <button key={g} type="button" onClick={() => setF({ ...f, bg_gradient: g })}
+                className={`w-7 h-7 rounded-lg bg-gradient-to-br ${g} ${f.bg_gradient === g ? "ring-2 ring-foreground ring-offset-1" : ""}`} />
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input value={f.button_text} onChange={e => setF({ ...f, button_text: e.target.value })} placeholder="Texte bouton (ex: Participer)" className="px-3 py-2 rounded-xl bg-card text-sm outline-none" />
+          <input value={f.button_link} onChange={e => setF({ ...f, button_link: e.target.value })} placeholder="Lien (ex: /tournaments)" className="px-3 py-2 rounded-xl bg-card text-sm outline-none" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-muted-foreground">Début (optionnel)</label>
+            <input type="datetime-local" value={f.starts_at} onChange={e => setF({ ...f, starts_at: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-card text-sm outline-none" />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground">Fin (optionnel)</label>
+            <input type="datetime-local" value={f.ends_at} onChange={e => setF({ ...f, ends_at: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-card text-sm outline-none" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {editingId && (
+            <button onClick={() => { setEditingId(null); setF({ title: "", subtitle: "", image_url: "", button_text: "", button_link: "", bg_gradient: "from-primary to-orange-600", starts_at: "", ends_at: "" }); }}
+              className="flex-1 py-2 rounded-full bg-secondary font-bold text-sm">Annuler</button>
+          )}
+          <button onClick={save} className="flex-[2] py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-1">
+            <Plus className="w-4 h-4" /> {editingId ? "Enregistrer" : "Créer bannière"}
+          </button>
+        </div>
+      </div>
+
+      {/* List */}
+      {items.map((b: any) => (
+        <div key={b.id} className="border-t border-border/60 pt-2 flex items-center gap-2">
+          <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${b.bg_gradient || "from-primary to-orange-600"} shrink-0`} />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm truncate">{b.title}</div>
+            <div className="text-xs text-muted-foreground truncate">{b.subtitle}</div>
+            <div className="text-[10px] text-muted-foreground">
+              {b.button_text && <span>Bouton: {b.button_text} → {b.button_link}</span>}
+              {b.starts_at && <span className="ml-2">Début: {new Date(b.starts_at).toLocaleDateString("fr-FR")}</span>}
+              {b.ends_at && <span className="ml-2">Fin: {new Date(b.ends_at).toLocaleDateString("fr-FR")}</span>}
+            </div>
+          </div>
+          <label className="text-xs flex items-center gap-1">
+            <input type="checkbox" checked={b.active} onChange={e => toggle(b, e.target.checked)} /> Actif
+          </label>
+          <button onClick={() => edit(b)} className="p-1.5 text-primary"><Save className="w-4 h-4" /></button>
+          <button onClick={() => del(b.id)} className="p-1.5 text-destructive"><Trash2 className="w-4 h-4" /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
