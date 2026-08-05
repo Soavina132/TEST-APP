@@ -401,9 +401,6 @@ function JeuxPage() {
                       <span className="text-white text-[8px] font-bold tabular-nums leading-none">{onlineCounts[g.slug] ?? 0}</span>
                     </div>
                   )}
-                  <div className="absolute bottom-0 left-0 right-0 px-1 pb-[6%]">
-                    <div className="font-bold text-white text-[10px] leading-tight truncate text-center">{g.label}</div>
-                  </div>
                 </button>
               </div>
             );
@@ -436,10 +433,11 @@ function JeuxPage() {
         </div>
 
         <div className="flex items-center justify-between gap-2 flex-shrink-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-sm">Parties ouvertes</span>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="font-extrabold text-[15px] tracking-tight bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">Parties ouvertes</span>
             {openGames.length > 0 && (
-              <span className="bg-primary/10 text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              <span className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                 {openGames.length}
               </span>
             )}
