@@ -41,11 +41,11 @@ function LivePage() {
 
   const routeFor = (g: any): { to: any; params: any; search?: any } => {
     const gt = (g.game_type || "ludo") as string;
-    if (gt === "domino")   return { to: "/domino/$id",   params: { id: g.id } };
-    if (gt === "chess")    return { to: "/chess/$id",    params: { id: g.id } };
-    if (gt === "fanorona") return { to: "/fanorona/$id", params: { id: g.id } };
-    if (gt === "rami")     return { to: "/rami/$id",     params: { id: g.id } };
-    return { to: "/game/$id", params: { id: g.id }, search: { spectate: 1 } as any };
+    if (gt === "domino")   return { to: "/jeux/domino/$id",   params: { id: g.id } };
+    if (gt === "chess")    return { to: "/jeux/chess/$id",    params: { id: g.id } };
+    if (gt === "fanorona") return { to: "/jeux/fanorona/$id", params: { id: g.id } };
+    if (gt === "rami")     return { to: "/jeux/rami/$id",     params: { id: g.id } };
+    return { to: "/jeux/ludo/$id", params: { id: g.id }, search: { spectate: 1 } as any };
   };
 
   const labelFor = (gt?: string) => {

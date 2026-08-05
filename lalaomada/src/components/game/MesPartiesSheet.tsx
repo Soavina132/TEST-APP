@@ -18,12 +18,12 @@ type MyGame = {
 };
 
 const ROUTE: Record<string, string> = {
-  ludo:     "/game/$id",
-  chess:    "/chess/$id",
-  domino:   "/domino/$id",
-  fanorona: "/fanorona/$id",
-  rami:     "/rami/$id",
-  poker:    "/poker/$id",
+  ludo:     "/jeux/ludo/$id",
+  chess:    "/jeux/chess/$id",
+  domino:   "/jeux/domino/$id",
+  fanorona: "/jeux/fanorona/$id",
+  rami:     "/jeux/rami/$id",
+  poker:    "/jeux/poker/$id",
 };
 
 const EMOJI: Record<string, string> = {

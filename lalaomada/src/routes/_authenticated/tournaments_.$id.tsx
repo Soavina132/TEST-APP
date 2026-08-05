@@ -165,7 +165,7 @@ function TournamentDetail() {
         {/* Action principale */}
         {myMatch ? (
           <Link
-            to={t.game_slug === "ludo" ? "/game/$id" : "/domino/$id"}
+            to={t.game_slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"}
             params={{ id: myMatch.game_id }}
             className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 animate-pulse"
           >
@@ -356,7 +356,7 @@ function MatchesView({ matches, byId, me, slug }: { matches: any[]; byId: Record
                 </div>
               )}
               {m.status === "running" && m.game_id && me && m.entrant_ids.includes(me.id) && (
-                <Link to={slug === "ludo" ? "/game/$id" : "/domino/$id"} params={{ id: m.game_id }}
+                <Link to={slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"} params={{ id: m.game_id }}
                   className="mt-2 block w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold text-center">
                   Rejoindre
                 </Link>

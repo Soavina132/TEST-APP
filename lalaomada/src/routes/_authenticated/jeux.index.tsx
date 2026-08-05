@@ -88,8 +88,8 @@ const HOST_COL: Record<Slug, string> = {
   ludo: "host_id", domino: "host_id", fanorona: "host_id",
   chess: "host_id", rami: "created_by", poker: "created_by"};
 const ROUTE: Record<Slug, string> = {
-  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id",
-  chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id"};
+  ludo: "/jeux/ludo/$id", domino: "/jeux/domino/$id", fanorona: "/jeux/fanorona/$id",
+  chess: "/jeux/chess/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id"};
 const JOIN_CODE_RPC: Record<Slug, string> = {
   ludo: "join_game_by_code", domino: "domino_join_code", fanorona: "fanorona_join_code",
   chess: "chess_join_code", rami: "rami_join_code", poker: "poker_join_code"};
@@ -390,7 +390,7 @@ function JeuxPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => status === "active" && navigate({ to: "/jeux/nouveau/$slug", params: { slug: g.slug } })}
+                  onClick={() => status === "active" && navigate({ to: "/jeux/$slug", params: { slug: g.slug } })}
                   className={`relative w-full aspect-square rounded-[22%] overflow-hidden group transition-all shadow border border-white/8 ${status === "active" ? "active:scale-[0.93] cursor-pointer" : "cursor-not-allowed opacity-70"}`}
                 >
                   <div className="absolute inset-0"><CoverArt /></div>

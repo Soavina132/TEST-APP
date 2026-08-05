@@ -39,7 +39,13 @@ import { Route as AuthenticatedJoueurIdRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPokerIdRouteImport } from './routes/_authenticated/poker.$id'
 import { Route as AuthenticatedRamiIdRouteImport } from './routes/_authenticated/rami.$id'
 import { Route as AuthenticatedTournamentsIdRouteImport } from './routes/_authenticated/tournaments_.$id'
+import { Route as AuthenticatedJeuxChessIdRouteImport } from './routes/_authenticated/jeux.chess.$id'
+import { Route as AuthenticatedJeuxDominoIdRouteImport } from './routes/_authenticated/jeux.domino.$id'
+import { Route as AuthenticatedJeuxFanoronaIdRouteImport } from './routes/_authenticated/jeux.fanorona.$id'
+import { Route as AuthenticatedJeuxLudoIdRouteImport } from './routes/_authenticated/jeux.ludo.$id'
 import { Route as AuthenticatedJeuxNouveauSlugRouteImport } from './routes/_authenticated/jeux.nouveau.$slug'
+import { Route as AuthenticatedJeuxPokerIdRouteImport } from './routes/_authenticated/jeux.poker.$id'
+import { Route as AuthenticatedJeuxRamiIdRouteImport } from './routes/_authenticated/jeux.rami.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -194,12 +200,46 @@ const AuthenticatedTournamentsIdRoute =
     path: '/tournaments/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedJeuxChessIdRoute =
+  AuthenticatedJeuxChessIdRouteImport.update({
+    id: '/chess/$id',
+    path: '/chess/$id',
+    getParentRoute: () => AuthenticatedJeuxRoute,
+  } as any)
+const AuthenticatedJeuxDominoIdRoute =
+  AuthenticatedJeuxDominoIdRouteImport.update({
+    id: '/domino/$id',
+    path: '/domino/$id',
+    getParentRoute: () => AuthenticatedJeuxRoute,
+  } as any)
+const AuthenticatedJeuxFanoronaIdRoute =
+  AuthenticatedJeuxFanoronaIdRouteImport.update({
+    id: '/fanorona/$id',
+    path: '/fanorona/$id',
+    getParentRoute: () => AuthenticatedJeuxRoute,
+  } as any)
+const AuthenticatedJeuxLudoIdRoute = AuthenticatedJeuxLudoIdRouteImport.update({
+  id: '/ludo/$id',
+  path: '/ludo/$id',
+  getParentRoute: () => AuthenticatedJeuxRoute,
+} as any)
 const AuthenticatedJeuxNouveauSlugRoute =
   AuthenticatedJeuxNouveauSlugRouteImport.update({
     id: '/nouveau/$slug',
     path: '/nouveau/$slug',
     getParentRoute: () => AuthenticatedJeuxRoute,
   } as any)
+const AuthenticatedJeuxPokerIdRoute =
+  AuthenticatedJeuxPokerIdRouteImport.update({
+    id: '/poker/$id',
+    path: '/poker/$id',
+    getParentRoute: () => AuthenticatedJeuxRoute,
+  } as any)
+const AuthenticatedJeuxRamiIdRoute = AuthenticatedJeuxRamiIdRouteImport.update({
+  id: '/rami/$id',
+  path: '/rami/$id',
+  getParentRoute: () => AuthenticatedJeuxRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -231,7 +271,13 @@ export interface FileRoutesByFullPath {
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux/': typeof AuthenticatedJeuxIndexRoute
+  '/jeux/chess/$id': typeof AuthenticatedJeuxChessIdRoute
+  '/jeux/domino/$id': typeof AuthenticatedJeuxDominoIdRoute
+  '/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
+  '/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
+  '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
+  '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -262,7 +308,13 @@ export interface FileRoutesByTo {
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux': typeof AuthenticatedJeuxIndexRoute
+  '/jeux/chess/$id': typeof AuthenticatedJeuxChessIdRoute
+  '/jeux/domino/$id': typeof AuthenticatedJeuxDominoIdRoute
+  '/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
+  '/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
+  '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
+  '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -296,7 +348,13 @@ export interface FileRoutesById {
   '/_authenticated/rami/$id': typeof AuthenticatedRamiIdRoute
   '/_authenticated/tournaments_/$id': typeof AuthenticatedTournamentsIdRoute
   '/_authenticated/jeux/': typeof AuthenticatedJeuxIndexRoute
+  '/_authenticated/jeux/chess/$id': typeof AuthenticatedJeuxChessIdRoute
+  '/_authenticated/jeux/domino/$id': typeof AuthenticatedJeuxDominoIdRoute
+  '/_authenticated/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
+  '/_authenticated/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/_authenticated/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
+  '/_authenticated/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
+  '/_authenticated/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -330,7 +388,13 @@ export interface FileRouteTypes {
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux/'
+    | '/jeux/chess/$id'
+    | '/jeux/domino/$id'
+    | '/jeux/fanorona/$id'
+    | '/jeux/ludo/$id'
     | '/jeux/nouveau/$slug'
+    | '/jeux/poker/$id'
+    | '/jeux/rami/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -361,7 +425,13 @@ export interface FileRouteTypes {
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux'
+    | '/jeux/chess/$id'
+    | '/jeux/domino/$id'
+    | '/jeux/fanorona/$id'
+    | '/jeux/ludo/$id'
     | '/jeux/nouveau/$slug'
+    | '/jeux/poker/$id'
+    | '/jeux/rami/$id'
   id:
     | '__root__'
     | '/'
@@ -394,7 +464,13 @@ export interface FileRouteTypes {
     | '/_authenticated/rami/$id'
     | '/_authenticated/tournaments_/$id'
     | '/_authenticated/jeux/'
+    | '/_authenticated/jeux/chess/$id'
+    | '/_authenticated/jeux/domino/$id'
+    | '/_authenticated/jeux/fanorona/$id'
+    | '/_authenticated/jeux/ludo/$id'
     | '/_authenticated/jeux/nouveau/$slug'
+    | '/_authenticated/jeux/poker/$id'
+    | '/_authenticated/jeux/rami/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -618,11 +694,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTournamentsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/jeux/chess/$id': {
+      id: '/_authenticated/jeux/chess/$id'
+      path: '/chess/$id'
+      fullPath: '/jeux/chess/$id'
+      preLoaderRoute: typeof AuthenticatedJeuxChessIdRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
+    '/_authenticated/jeux/domino/$id': {
+      id: '/_authenticated/jeux/domino/$id'
+      path: '/domino/$id'
+      fullPath: '/jeux/domino/$id'
+      preLoaderRoute: typeof AuthenticatedJeuxDominoIdRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
+    '/_authenticated/jeux/fanorona/$id': {
+      id: '/_authenticated/jeux/fanorona/$id'
+      path: '/fanorona/$id'
+      fullPath: '/jeux/fanorona/$id'
+      preLoaderRoute: typeof AuthenticatedJeuxFanoronaIdRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
+    '/_authenticated/jeux/ludo/$id': {
+      id: '/_authenticated/jeux/ludo/$id'
+      path: '/ludo/$id'
+      fullPath: '/jeux/ludo/$id'
+      preLoaderRoute: typeof AuthenticatedJeuxLudoIdRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
     '/_authenticated/jeux/nouveau/$slug': {
       id: '/_authenticated/jeux/nouveau/$slug'
       path: '/nouveau/$slug'
       fullPath: '/jeux/nouveau/$slug'
       preLoaderRoute: typeof AuthenticatedJeuxNouveauSlugRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
+    '/_authenticated/jeux/poker/$id': {
+      id: '/_authenticated/jeux/poker/$id'
+      path: '/poker/$id'
+      fullPath: '/jeux/poker/$id'
+      preLoaderRoute: typeof AuthenticatedJeuxPokerIdRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
+    '/_authenticated/jeux/rami/$id': {
+      id: '/_authenticated/jeux/rami/$id'
+      path: '/rami/$id'
+      fullPath: '/jeux/rami/$id'
+      preLoaderRoute: typeof AuthenticatedJeuxRamiIdRouteImport
       parentRoute: typeof AuthenticatedJeuxRoute
     }
   }
@@ -631,13 +749,25 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedJeuxRouteChildren {
   AuthenticatedJeuxSlugRoute: typeof AuthenticatedJeuxSlugRoute
   AuthenticatedJeuxIndexRoute: typeof AuthenticatedJeuxIndexRoute
+  AuthenticatedJeuxChessIdRoute: typeof AuthenticatedJeuxChessIdRoute
+  AuthenticatedJeuxDominoIdRoute: typeof AuthenticatedJeuxDominoIdRoute
+  AuthenticatedJeuxFanoronaIdRoute: typeof AuthenticatedJeuxFanoronaIdRoute
+  AuthenticatedJeuxLudoIdRoute: typeof AuthenticatedJeuxLudoIdRoute
   AuthenticatedJeuxNouveauSlugRoute: typeof AuthenticatedJeuxNouveauSlugRoute
+  AuthenticatedJeuxPokerIdRoute: typeof AuthenticatedJeuxPokerIdRoute
+  AuthenticatedJeuxRamiIdRoute: typeof AuthenticatedJeuxRamiIdRoute
 }
 
 const AuthenticatedJeuxRouteChildren: AuthenticatedJeuxRouteChildren = {
   AuthenticatedJeuxSlugRoute: AuthenticatedJeuxSlugRoute,
   AuthenticatedJeuxIndexRoute: AuthenticatedJeuxIndexRoute,
+  AuthenticatedJeuxChessIdRoute: AuthenticatedJeuxChessIdRoute,
+  AuthenticatedJeuxDominoIdRoute: AuthenticatedJeuxDominoIdRoute,
+  AuthenticatedJeuxFanoronaIdRoute: AuthenticatedJeuxFanoronaIdRoute,
+  AuthenticatedJeuxLudoIdRoute: AuthenticatedJeuxLudoIdRoute,
   AuthenticatedJeuxNouveauSlugRoute: AuthenticatedJeuxNouveauSlugRoute,
+  AuthenticatedJeuxPokerIdRoute: AuthenticatedJeuxPokerIdRoute,
+  AuthenticatedJeuxRamiIdRoute: AuthenticatedJeuxRamiIdRoute,
 }
 
 const AuthenticatedJeuxRouteWithChildren =
@@ -708,13 +838,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

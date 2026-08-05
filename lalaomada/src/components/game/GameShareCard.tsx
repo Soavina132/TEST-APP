@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 
 const ROUTE: Record<string, string> = {
-  ludo: "/game/$id",
-  domino: "/domino/$id",
-  chess: "/chess/$id",
-  fanorona: "/fanorona/$id",
-  rami: "/rami/$id",
+  ludo: "/jeux/ludo/$id",
+  domino: "/jeux/domino/$id",
+  chess: "/jeux/chess/$id",
+  fanorona: "/jeux/fanorona/$id",
+  rami: "/jeux/rami/$id",
 };
 const TABLE: Record<string, string> = {
   ludo: "ludo_games",

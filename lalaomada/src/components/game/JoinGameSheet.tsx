@@ -28,8 +28,8 @@ const GAME_TABLE: Record<Slug, string> = {
   chess: "chess_games", rami: "rami_games", poker: "poker_games",
 };
 const ROUTE: Record<Slug, string> = {
-  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id",
-  chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id",
+  ludo: "/jeux/ludo/$id", domino: "/jeux/domino/$id", fanorona: "/jeux/fanorona/$id",
+  chess: "/jeux/chess/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id",
 };
 const JOIN_CODE_RPC: Record<Slug, string> = {
   ludo: "join_game_by_code", domino: "domino_join_code", fanorona: "fanorona_join_code",
