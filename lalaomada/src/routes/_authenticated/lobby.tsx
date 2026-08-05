@@ -634,7 +634,7 @@ function LobbyPage() {
       <section>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 mb-2">
           <h2 className="font-extrabold text-sm flex items-center gap-1.5 min-w-0 truncate">
-            <Zap className="w-4 h-4 text-primary shrink-0" /> Parties en cours
+            <Zap className="w-4 h-4 text-primary shrink-0" /> Informations du jour
             {games.length > 0 && (
               <span className="ml-1 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-black grid place-items-center">
                 {games.length}
