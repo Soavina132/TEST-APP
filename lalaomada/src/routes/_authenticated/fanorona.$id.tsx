@@ -5,20 +5,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { useGameConnection } from "@/hooks/use-game-connection";
-import { GameReconnectOverlay } from "@/components/GameReconnectOverlay";
+import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Copy, Timer, RotateCw, SkipForward } from "lucide-react";
-import GameChatDrawer from "@/components/GameChatDrawer";
-import GamePauseControl from "@/components/GamePauseControl";
-import GameInstructionsBanner from "@/components/GameInstructionsBanner";
-import GameEndScreen from "@/components/GameEndScreen";
-import GameWaitingRoom from "@/components/GameWaitingRoom";
-import GameBoardSkin from "@/components/GameBoardSkin";
-import { useGameConfig } from "@/hooks/use-game-config";
-import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
+import GameChatDrawer from "@/components/game/GameChatDrawer";
+import GamePauseControl from "@/components/game/GamePauseControl";
+import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
+import GameEndScreen from "@/components/game/GameEndScreen";
+import GameWaitingRoom from "@/components/game/GameWaitingRoom";
+import GameBoardSkin from "@/components/game/GameBoardSkin";
+import { useGameConfig } from "@/hooks/game/use-game-config";
+import { useGlobalGameTimer } from "@/hooks/game/use-global-game-timer";
 import { useConfirm } from "@/components/ConfirmDialog";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
-import { playFanoronaMove, playFanoronaCapture, playFanoronaWin, playFanoronaLose, unlockAudio } from "@/lib/fanorona-sounds";
+import { playFanoronaMove, playFanoronaCapture, playFanoronaWin, playFanoronaLose, unlockAudio } from "@/lib/sounds/fanorona-sounds";
 
 export const Route = createFileRoute("/_authenticated/fanorona/$id")({
   component: FanoronaPage,

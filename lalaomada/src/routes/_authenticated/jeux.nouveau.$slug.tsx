@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Users, Coins, KeyRound, Lock, PlayCircle, Folder, Trophy, RotateCw, Target } from "lucide-react";
-import AdminRenameDialog from "@/components/AdminRenameDialog";
+import AdminRenameDialog from "@/components/admin/AdminRenameDialog";
 import ludoCover from "@/assets/games/ludo.asset.json";
 import dominoCover from "@/assets/games/domino.asset.json";
 import ramiCover from "@/assets/games/rami.asset.json";

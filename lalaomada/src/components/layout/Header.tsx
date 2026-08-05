@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Zap } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import WalletButton from "@/components/WalletButton";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { useT } from "@/lib/i18n";
 
 function RouteLoadingBar() {

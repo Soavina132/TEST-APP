@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { serverNow } from "@/lib/server-time";
-import { DominoTile, Tile } from "@/components/DominoTable";
+import { DominoTile, Tile } from "@/components/game/DominoTable";
 
 type LastRound = {
   winner_uid: string | null;

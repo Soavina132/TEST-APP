@@ -11,7 +11,7 @@ import {
   Wallet, TrendingUp, Shield,
 } from "lucide-react";
 import { serverNow } from "@/lib/server-time";
-import MesPartiesSheet from "@/components/MesPartiesSheet";
+import MesPartiesSheet from "@/components/game/MesPartiesSheet";
 import MoneyOffersSection from "@/components/MoneyOffersSection";
 import BannerCarousel from "@/components/BannerCarousel";
 import { useMyOngoingCount } from "@/hooks/use-my-ongoing-count";

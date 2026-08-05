@@ -1,19 +1,19 @@
 import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
-import Header from "@/components/Header";
-import PauseBanner from "@/components/PauseBanner";
-import BottomNav from "@/components/BottomNav";
+import Header from "@/components/layout/Header";
+import PauseBanner from "@/components/game/PauseBanner";
+import BottomNav from "@/components/layout/BottomNav";
 import TermsModal from "@/components/TermsModal";
-import FloatingBackButton from "@/components/BackButton";
+import FloatingBackButton from "@/components/layout/BackButton";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import ContactFab from "@/components/ContactFab";
 import ShareAppCta from "@/components/ShareAppCta";
 import OnlineStatusBar from "@/components/OnlineStatusBar";
-import DesktopNav from "@/components/DesktopNav";
+import DesktopNav from "@/components/layout/DesktopNav";
 import { useLocation } from "@tanstack/react-router";
 import { useT } from "@/lib/i18n";
 import { useWaitingRoomActive } from "@/lib/game-ui-state";
-import { PageLoader } from "@/components/PageLoader";
+import { PageLoader } from "@/components/layout/PageLoader";
 // AdminApprovalWatcher supprimé — sécurité admin désactivée
 
 

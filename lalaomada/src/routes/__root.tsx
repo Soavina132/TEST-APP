@@ -17,7 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { I18nProvider } from "@/lib/i18n";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import AutoTranslator from "@/components/AutoTranslator";
-import { PageLoader, useDelayedPending } from "@/components/PageLoader";
+import { PageLoader, useDelayedPending } from "@/components/layout/PageLoader";
 
 function NotFoundComponent() {
   return (

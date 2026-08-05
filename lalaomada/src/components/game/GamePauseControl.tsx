@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Pause, Play, UserX, Vote } from "lucide-react";
-import { useGamePause } from "@/hooks/use-game-pause";
+import { useGamePause } from "@/hooks/game/use-game-pause";
 
 type Props = {
   slug: string;

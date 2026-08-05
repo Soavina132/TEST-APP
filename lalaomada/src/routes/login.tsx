@@ -7,8 +7,8 @@ import {
   Mail, Lock, User, Gift, Eye, EyeOff, KeyRound, X, Loader2, CheckCircle2,
   Sparkles, Phone, MessageCircle, ChevronDown, ChevronUp, HelpCircle,
 } from "lucide-react";
-import { Logo } from "@/components/Header";
-import { COVER_COMPONENTS, GAME_DEFS } from "@/components/GameCovers";
+import { Logo } from "@/components/layout/Header";
+import { COVER_COMPONENTS, GAME_DEFS } from "@/components/game/GameCovers";
 import DOMPurify from "dompurify";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;

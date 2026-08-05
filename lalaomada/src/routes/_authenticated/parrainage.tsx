@@ -17,7 +17,7 @@ import {
   REFERRAL_TIERS,
   referralConditions,
   referralMetaDescription,
-} from "@/lib/referral-rules";
+} from "@/lib/auth/referral-rules";
 
 export const Route = createFileRoute("/_authenticated/parrainage")({
   component: ParrainagePage,

@@ -7,7 +7,7 @@ import {
   playWin,
   playLose,
   unlockAudio,
-} from "@/lib/game-sounds";
+} from "@/lib/sounds/game-sounds";
 
 /**
  * Watches domino game state and plays sound effects on key events:

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LinkPreviewCard, LinkifyWithPreview } from "@/components/LinkPreview";
+import { LinkPreviewCard, LinkifyWithPreview } from "@/components/chat/LinkPreview";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, FileText, PlayCircle } from "lucide-react";

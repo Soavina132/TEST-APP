@@ -5,22 +5,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { useGameConnection } from "@/hooks/use-game-connection";
-import { GameReconnectOverlay } from "@/components/GameReconnectOverlay";
+import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Copy, Plus, Pause } from "lucide-react";
-import GameChatDrawer from "@/components/GameChatDrawer";
-import GamePauseControl from "@/components/GamePauseControl";
-import GameInstructionsBanner from "@/components/GameInstructionsBanner";
-import GameEndScreen from "@/components/GameEndScreen";
-import GameWaitingRoom from "@/components/GameWaitingRoom";
-import DominoRoundBreak from "@/components/DominoRoundBreak";
-import DominoTable, { DominoTile, PlayerHeader } from "@/components/DominoTable";
-import { useGameConfig } from "@/hooks/use-game-config";
+import GameChatDrawer from "@/components/game/GameChatDrawer";
+import GamePauseControl from "@/components/game/GamePauseControl";
+import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
+import GameEndScreen from "@/components/game/GameEndScreen";
+import GameWaitingRoom from "@/components/game/GameWaitingRoom";
+import DominoRoundBreak from "@/components/game/DominoRoundBreak";
+import DominoTable, { DominoTile, PlayerHeader } from "@/components/game/DominoTable";
+import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
-import TurnBanner from "@/components/TurnBanner";
-import { useDominoSounds } from "@/hooks/use-domino-sounds";
-import { playClack, playDraw, playPass } from "@/lib/game-sounds";
-import QuickReactions from "@/components/QuickReactions";
+import TurnBanner from "@/components/game/TurnBanner";
+import { useDominoSounds } from "@/hooks/game/use-domino-sounds";
+import { playClack, playDraw, playPass } from "@/lib/sounds/game-sounds";
+import QuickReactions from "@/components/game/QuickReactions";
 
 
 export const Route = createFileRoute("/_authenticated/domino/$id")({

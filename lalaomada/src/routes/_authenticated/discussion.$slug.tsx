@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import ChatRoom from "@/components/ChatRoom";
+import ChatRoom from "@/components/chat/ChatRoom";
 import { ArrowLeft, Users, X } from "lucide-react";
 import ludoCover from "@/assets/games/ludo.asset.json";
 import dominoCover from "@/assets/games/domino.asset.json";

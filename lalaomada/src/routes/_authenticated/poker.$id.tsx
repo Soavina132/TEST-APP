@@ -5,13 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { useGameConnection } from "@/hooks/use-game-connection";
-import { GameReconnectOverlay } from "@/components/GameReconnectOverlay";
+import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { ArrowLeft, Copy, Check, Timer, Plus } from "lucide-react";
-import GameChatDrawer from "@/components/GameChatDrawer";
-import GamePauseControl from "@/components/GamePauseControl";
-import GameEndScreen from "@/components/GameEndScreen";
-import GameWaitingRoom from "@/components/GameWaitingRoom";
+import GameChatDrawer from "@/components/game/GameChatDrawer";
+import GamePauseControl from "@/components/game/GamePauseControl";
+import GameEndScreen from "@/components/game/GameEndScreen";
+import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/poker/$id")({

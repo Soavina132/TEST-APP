@@ -11,8 +11,8 @@ import {
 import { useT } from "@/lib/i18n";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ConfirmDialog";
-import GameShareCard from "@/components/GameShareCard";
-import { LinkPreviewCard } from "@/components/LinkPreview";
+import GameShareCard from "@/components/game/GameShareCard";
+import { LinkPreviewCard } from "@/components/chat/LinkPreview";
 import { parseGameShare } from "@/lib/share-game";
 import { compressImageToWebp } from "@/lib/image-compress";
 

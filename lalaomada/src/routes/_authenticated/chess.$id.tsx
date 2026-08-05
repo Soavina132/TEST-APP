@@ -9,13 +9,13 @@ import { copyText } from "@/lib/clipboard";
 import { Button } from "@/components/ui/button";
 import { ChessBoard } from "@/components/chess/ChessBoard";
 import { PlayerBar } from "@/components/chess/PlayerBar";
-import GameEndScreen from "@/components/GameEndScreen";
-import GameWaitingRoom from "@/components/GameWaitingRoom";
+import GameEndScreen from "@/components/game/GameEndScreen";
+import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { serverNow } from "@/lib/server-time";
-import { useGlobalGameTimer } from "@/hooks/use-global-game-timer";
-import GamePauseControl from "@/components/GamePauseControl";
-import { playChessMove, playChessCapture, playChessCastle, playChessCheck, playChessEnd, unlockAudio } from "@/lib/game-sounds";
+import { useGlobalGameTimer } from "@/hooks/game/use-global-game-timer";
+import GamePauseControl from "@/components/game/GamePauseControl";
+import { playChessMove, playChessCapture, playChessCastle, playChessCheck, playChessEnd, unlockAudio } from "@/lib/sounds/game-sounds";
 
 export const Route = createFileRoute("/_authenticated/chess/$id")({
   component: ChessPage,

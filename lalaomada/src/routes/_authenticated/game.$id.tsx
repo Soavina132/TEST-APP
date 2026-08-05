@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { copyText } from "@/lib/clipboard";
-import RealtimeLudoBoard from "@/components/RealtimeLudoBoard";
-import GamePauseControl from "@/components/GamePauseControl";
+import RealtimeLudoBoard from "@/components/game/RealtimeLudoBoard";
+import GamePauseControl from "@/components/game/GamePauseControl";
 import { toast } from "sonner";
 import { LogOut, Eye, Plus, Pause } from "lucide-react";
 import { useT } from "@/lib/i18n";
-import GameEndScreen from "@/components/GameEndScreen";
-import GameWaitingRoom from "@/components/GameWaitingRoom";
-import QuickReactions from "@/components/QuickReactions";
+import GameEndScreen from "@/components/game/GameEndScreen";
+import GameWaitingRoom from "@/components/game/GameWaitingRoom";
+import QuickReactions from "@/components/game/QuickReactions";
 
 export const Route = createFileRoute("/_authenticated/game/$id")({
   component: GamePage,

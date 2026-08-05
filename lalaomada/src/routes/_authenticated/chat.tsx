@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import ChatRoom from "@/components/ChatRoom";
+import ChatRoom from "@/components/chat/ChatRoom";
 import { MessageSquare, Users, UserPlus, Crown, Lock, ChevronRight, X } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { toast } from "sonner";
