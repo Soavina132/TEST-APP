@@ -32,18 +32,37 @@ function GamePage() {
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [now, setNowTick] = useState(serverNow());
 
+  const [loadError, setLoadError] = useState(false);
+  const [loadRetried, setLoadRetried] = useState(0);
+
   const load = async () => {
-    const { data: g } = await supabase.from("ludo_games").select("*").eq("id", id).maybeSingle();
-    const { data: p } = await supabase.from("ludo_participants").select("*").eq("game_id", id).order("slot");
-    setGame(g); setParts(p || []);
-    if (g?.status === "finished") refreshProfile();
+    try {
+      const { data: g, error: e1 } = await supabase.from("ludo_games").select("*").eq("id", id).maybeSingle();
+      if (e1 && !g) { console.warn("[game] load error:", e1); setLoadError(true); return; }
+      const { data: p, error: e2 } = await supabase.from("ludo_participants").select("*").eq("game_id", id).order("slot");
+      if (e2 && !p) { console.warn("[game] parts error:", e2); }
+      setGame(g); setParts(p || []);
+      setLoadError(false);
+      if (g?.status === "finished") refreshProfile();
+    } catch (err) {
+      console.error("[game] load exception:", err);
+      setLoadError(true);
+    }
   };
 
-  // Initial load — fetch game data immediately
+  // Initial load — fetch game data immediately, and retry when auth is ready
   useEffect(() => {
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, loadRetried]);
+
+  // Retry load when profile becomes available (auth session restored)
+  useEffect(() => {
+    if (profile?.id && (!game || loadError)) {
+      load();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
   // Realtime subscription — only after auth session is restored
   // Waiting for profile?.id ensures the Supabase client has a valid auth token,
@@ -51,8 +70,8 @@ function GamePage() {
   useEffect(() => {
     if (!profile?.id) return; // auth not ready yet — skip subscription
     const ch = supabase.channel("game-" + id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games", filter: `id=eq.${id}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_participants", filter: `game_id=eq.${id}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games", filter: `id=eq.${id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_participants", filter: `game_id=eq.${id}` }, () => load())
       .subscribe((status: string) => {
         if (status === "SUBSCRIBED") { /* connected */ }
         else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -104,7 +123,20 @@ function GamePage() {
     else toast.success(t("bot_added"));
   };
 
-  if (!game) return <main className="p-8 text-center text-muted-foreground">{t("loading")}</main>;
+  if (!game) {
+    if (loadError) {
+      return (
+        <main className="p-8 text-center space-y-4">
+          <p className="text-muted-foreground">{t("loading")}</p>
+          <button onClick={() => { setLoadError(false); setLoadRetried(r => r + 1); }}
+            className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold">
+            Réessayer
+          </button>
+        </main>
+      );
+    }
+    return <main className="p-8 text-center text-muted-foreground">{t("loading")}</main>;
+  }
 
   if (game.status === "open") {
     return (
