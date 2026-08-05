@@ -550,9 +550,6 @@ function LobbyPage() {
       </div>
 
 
-      {/* Bannières promo */}
-      <BannerCarousel />
-
       {/* Raccourcis */}
       <div className="grid grid-cols-4 gap-2">
         {[
@@ -570,6 +567,9 @@ function LobbyPage() {
           </Link>
         ))}
       </div>
+
+      {/* Bannières promo */}
+      <BannerCarousel />
 
       {/* Tournois ouverts */}
       {tournaments.length > 0 && (
