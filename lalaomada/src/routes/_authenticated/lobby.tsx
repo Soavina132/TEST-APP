@@ -630,7 +630,8 @@ function LobbyPage() {
         </section>
       )}
 
-      {/* Parties en cours */}
+      {/* Informations du jour (masqué si rien à afficher) */}
+      {(games.length > 0 || liveAvailable > 0) && (
       <section>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 mb-2">
           <h2 className="font-extrabold text-sm flex items-center gap-1.5 min-w-0 truncate">
@@ -764,6 +765,7 @@ function LobbyPage() {
           </ul>
         )}
       </section>
+      )}
 
 
       {/* Offres */}
