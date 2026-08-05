@@ -317,7 +317,6 @@ function AdminPage() {
             <AdminSection id="content-comm" title="📣 Communication" description="Annonces, offres, messages" accent="amber" icon={<Send className="w-4 h-4" />}>
               <AnnouncementsAdmin />
               <OffersAdmin />
-              <MessagesSection />
             </AdminSection>
             <AdminSection id="content-help" title="📚 Aide & tutoriels" description="Contenu pédagogique et CMS" accent="sky" icon={<Info className="w-4 h-4" />}>
               <TutorialsAdmin />
@@ -1128,19 +1127,6 @@ function TournamentsSection() {
   return <TournamentAdminPanel />;
 }
 
-// =================== MESSAGES ===================
-
-function MessagesSection() {
-  return (
-    <div className="space-y-4">
-      <PauseControl />
-      <BroadcastsPanel />
-      <SupportPanel />
-      <DirectMessagePanel />
-    </div>
-  );
-}
-
 function PauseControl() {
   const [s, setS] = useState<any>(null); const [msg, setMsg] = useState("");
   const load = async () => { const { data } = await supabase.from("app_settings").select("*").eq("id", 1).maybeSingle(); setS(data); setMsg(data?.pause_message || ""); };
@@ -1164,124 +1150,6 @@ function PauseControl() {
       </div>
       <input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Message affiché aux joueurs (ex: Maintenance en cours, retour dans 30 min)"
         className="w-full px-4 py-2.5 rounded-full bg-card border border-border outline-none text-sm" />
-    </Card>
-  );
-}
-
-function BroadcastsPanel() {
-  const [items, setItems] = useState<any[]>([]); const [msg, setMsg] = useState("");
-  const load = async () => { const { data } = await supabase.from("admin_broadcasts" as any).select("*").order("created_at", { ascending: false }).limit(20); setItems((data as any[]) || []); };
-  useEffect(() => { load(); }, []);
-  const send = async () => {
-    if (!msg.trim()) return;
-    const { error } = await supabase.rpc("admin_broadcast_send" as any, { _message: msg } as any);
-    if (error) return toast.error(error.message);
-    setMsg(""); toast.success("📢 Annonce envoyée à tous"); load();
-  };
-  const del = async (id: string) => {
-    const { error } = await supabase.rpc("admin_broadcast_delete" as any, { _id: id } as any);
-    if (error) return toast.error(error.message);
-    toast.success("Supprimé"); load();
-  };
-  return (
-    <Card>
-      <div className="font-bold text-sm uppercase text-muted-foreground">📢 Notification à tous</div>
-      <div className="flex gap-2">
-        <input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Message envoyé à tous les joueurs…"
-          className="flex-1 px-4 py-2 rounded-full bg-card border border-border outline-none" />
-        <button onClick={send} className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold flex items-center gap-1"><Send className="w-4 h-4" /></button>
-      </div>
-      {items.map(b => (
-        <div key={b.id} className={`flex items-center justify-between border-t border-border/60 pt-2 ${b.deleted_at ? "opacity-40 line-through" : ""}`}>
-          <div className="flex-1"><div className="text-sm">{b.message}</div><div className="text-[10px] text-muted-foreground">{new Date(b.created_at).toLocaleString("fr-FR")}</div></div>
-          {!b.deleted_at && <button onClick={() => del(b.id)} className="p-1.5 rounded-full hover:bg-destructive hover:text-white"><Trash2 className="w-4 h-4" /></button>}
-        </div>
-      ))}
-    </Card>
-  );
-}
-
-function SupportPanel() {
-  const [items, setItems] = useState<any[]>([]);
-  const load = async () => { const { data } = await supabase.from("support_messages").select("*, profiles(pseudo)").order("created_at", { ascending: false }).limit(50); setItems(data || []); };
-  useEffect(() => { load(); }, []);
-  const reply = async (id: string) => {
-    const r = prompt("Votre réponse pour cet utilisateur:"); if (!r) return;
-    const { error } = await supabase.rpc("admin_reply_support", { _id: id, _reply: r });
-    if (error) return toast.error(error.message);
-    toast.success("Réponse envoyée"); load();
-  };
-  return (
-    <Card>
-      <div className="font-bold text-sm uppercase text-muted-foreground">📬 Messages support reçus</div>
-      {items.length === 0 ? <div className="text-center text-muted-foreground py-3 text-sm">Aucun message</div> :
-        items.map(m => (
-          <div key={m.id} className="border-t border-border/60 pt-3">
-            <div className="font-bold text-sm">{(m as any).profiles?.pseudo || "—"}</div>
-            <div className="text-sm">{m.message}</div>
-            {m.reply ? <div className="text-sm text-emerald-700 mt-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-2">↳ {m.reply}</div>
-              : <button onClick={() => reply(m.id)} className="mt-1 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs">Répondre</button>}
-          </div>
-        ))}
-    </Card>
-  );
-}
-
-function DirectMessagePanel() {
-  const [users, setUsers] = useState<any[]>([]); const [target, setTarget] = useState<any>(null);
-  const [msg, setMsg] = useState(""); const [thread, setThread] = useState<any[]>([]); const [q, setQ] = useState("");
-  const search = async () => {
-    const { data } = await supabase.rpc("admin_list_users" as any);
-    setUsers(((data as any[]) || []).filter((u: any) => u.pseudo?.toLowerCase().includes(q.toLowerCase()) || u.email?.toLowerCase().includes(q.toLowerCase())).slice(0, 10));
-  };
-  const open = async (u: any) => {
-    setTarget(u);
-    const { data } = await supabase.from("admin_user_messages" as any).select("*").eq("user_id", u.id).order("created_at");
-    setThread((data as any[]) || []);
-  };
-  const send = async () => {
-    if (!msg.trim() || !target) return;
-    const { error } = await supabase.rpc("admin_dm_send" as any, { _user_id: target.id, _message: msg } as any);
-    if (error) return toast.error(error.message);
-    setMsg(""); toast.success("Message envoyé"); open(target);
-  };
-  return (
-    <Card>
-      <div className="font-bold text-sm uppercase text-muted-foreground">💬 Message privé → joueur</div>
-      {!target ? (
-        <>
-          <div className="flex gap-2">
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="pseudo ou email"
-              className="flex-1 px-4 py-2 rounded-full bg-card border border-border outline-none" />
-            <button onClick={search} className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold">Chercher</button>
-          </div>
-          {users.map(u => (
-            <button key={u.id} onClick={() => open(u)} className="w-full text-left px-3 py-2 rounded-xl hover:bg-accent">
-              <div className="font-semibold">{u.pseudo}</div>
-              <div className="text-xs text-muted-foreground">{u.email}</div>
-            </button>
-          ))}
-        </>
-      ) : (
-        <>
-          <button onClick={() => setTarget(null)} className="text-xs underline">← retour</button>
-          <div className="font-bold">{target.pseudo}</div>
-          <div className="space-y-1 max-h-60 overflow-y-auto">
-            {thread.map((t: any) => (
-              <div key={t.id} className={`p-2 rounded-xl text-sm ${t.from_admin ? "bg-primary/10 ml-8" : "bg-secondary mr-8"}`}>
-                <div>{t.message}</div>
-                <div className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString("fr-FR")}</div>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Votre message…"
-              onKeyDown={e => { if (e.key === "Enter") send(); }}
-              className="flex-1 px-4 py-2 rounded-full bg-card border border-border outline-none" />
-            <button onClick={send} className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold flex items-center gap-1"><Send className="w-4 h-4" /></button>
-          </div>
-        </>
-      )}
     </Card>
   );
 }

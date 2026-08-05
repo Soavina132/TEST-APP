@@ -15,7 +15,6 @@ import { Route as JeuxPublicsRouteImport } from './routes/jeux-publics'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdminBugReportsRouteImport } from './routes/_authenticated/admin-bug-reports'
-import { Route as AuthenticatedAdminExtraRouteImport } from './routes/_authenticated/admin-extra'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedFaqRouteImport } from './routes/_authenticated/faq'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
@@ -72,11 +71,6 @@ const AuthenticatedAdminBugReportsRoute =
     path: '/admin-bug-reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminExtraRoute = AuthenticatedAdminExtraRouteImport.update({
-  id: '/admin-extra',
-  path: '/admin-extra',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -213,7 +207,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
-  '/admin-extra': typeof AuthenticatedAdminExtraRoute
   '/chat': typeof AuthenticatedChatRoute
   '/faq': typeof AuthenticatedFaqRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -246,7 +239,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
-  '/admin-extra': typeof AuthenticatedAdminExtraRoute
   '/chat': typeof AuthenticatedChatRoute
   '/faq': typeof AuthenticatedFaqRoute
   '/history': typeof AuthenticatedHistoryRoute
@@ -280,7 +272,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
-  '/_authenticated/admin-extra': typeof AuthenticatedAdminExtraRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/faq': typeof AuthenticatedFaqRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
@@ -315,7 +306,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/admin-bug-reports'
-    | '/admin-extra'
     | '/chat'
     | '/faq'
     | '/history'
@@ -348,7 +338,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/admin-bug-reports'
-    | '/admin-extra'
     | '/chat'
     | '/faq'
     | '/history'
@@ -381,7 +370,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/admin-bug-reports'
-    | '/_authenticated/admin-extra'
     | '/_authenticated/chat'
     | '/_authenticated/faq'
     | '/_authenticated/history'
@@ -460,13 +448,6 @@ declare module '@tanstack/react-router' {
       path: '/admin-bug-reports'
       fullPath: '/admin-bug-reports'
       preLoaderRoute: typeof AuthenticatedAdminBugReportsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/admin-extra': {
-      id: '/_authenticated/admin-extra'
-      path: '/admin-extra'
-      fullPath: '/admin-extra'
-      preLoaderRoute: typeof AuthenticatedAdminExtraRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/chat': {
@@ -665,7 +646,6 @@ const AuthenticatedJeuxRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAdminBugReportsRoute: typeof AuthenticatedAdminBugReportsRoute
-  AuthenticatedAdminExtraRoute: typeof AuthenticatedAdminExtraRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedFaqRoute: typeof AuthenticatedFaqRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
@@ -691,7 +671,6 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAdminBugReportsRoute: AuthenticatedAdminBugReportsRoute,
-  AuthenticatedAdminExtraRoute: AuthenticatedAdminExtraRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedFaqRoute: AuthenticatedFaqRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
