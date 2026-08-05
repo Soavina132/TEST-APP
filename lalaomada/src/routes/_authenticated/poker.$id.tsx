@@ -243,11 +243,11 @@ function PokerPage() {
 
   // Auto-navigate cancelled
   useEffect(() => {
-    if (game?.status === "cancelled") {
-      toast.info("Partie annulée — mise remboursée");
-      setTimeout(() => navigate({ to: "/jeux/$slug", params: { slug: "poker" }, search: {} }), 1500);
-    }
-  }, [game?.status]);
+    if (game?.status !== "cancelled") return;
+    toast.info("Partie annulée — mise remboursée");
+    const t = setTimeout(() => navigate({ to: "/jeux/$slug", params: { slug: "poker" }, search: {} }), 1500);
+    return () => clearTimeout(t);
+  }, [game?.status, navigate]);
 
   if (!game) return <div className="p-8 text-center text-muted-foreground">Chargement…</div>;
 

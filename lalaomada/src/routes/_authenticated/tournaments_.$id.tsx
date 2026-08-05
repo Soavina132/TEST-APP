@@ -1,5 +1,6 @@
 import { createFileRoute, useParams, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { serverNow } from "@/lib/server-time";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -221,7 +222,7 @@ function useCountdown(target?: string | null) {
   const [left, setLeft] = useState(0);
   useEffect(() => {
     if (!target) { setLeft(0); return; }
-    const tick = () => setLeft(Math.max(0, Math.round((new Date(target).getTime() - Date.now()) / 1000)));
+    const tick = () => setLeft(Math.max(0, Math.round((new Date(target).getTime() - serverNow()) / 1000)));
     tick();
     const iv = setInterval(tick, 1000);
     return () => clearInterval(iv);

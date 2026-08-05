@@ -1,3 +1,4 @@
+import { serverNow } from "@/lib/server-time";
 import { LogOut, Copy, Check, X, Share2, Lock, Timer, Users, Coins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { setWaitingRoomActive } from "@/lib/game-ui-state";
@@ -69,9 +70,9 @@ export default function GameWaitingRoom({
 }) {
   const [copied, setCopied] = useState(false);
   const [avatars, setAvatars] = useState<Record<string, { pseudo?: string; avatar_url?: string }>>({});
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   const [timeoutMin, setTimeoutMin] = useState(6);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setNow(serverNow()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { setWaitingRoomActive(true); return () => setWaitingRoomActive(false); }, []);
   useEffect(() => {
     supabase.from("app_settings").select("game_invite_timeout_minutes").eq("id", 1).maybeSingle()

@@ -1,3 +1,4 @@
+import { serverNow } from "@/lib/server-time";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -97,7 +98,7 @@ interface Props {
 export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType }: Props) {
   const [boardSize, setBoardSize] = useState(600);
   const [busy, setBusy] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(serverNow());
   const [rollingFace, setRollingFace] = useState<number | null>(null);
   const [displayedPawns, setDisplayedPawns] = useState<GameState["pawns"]>(state.pawns);
   const [animating, setAnimating] = useState(false);
@@ -191,7 +192,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   }, []);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 500);
+    const t = setInterval(() => setNow(serverNow()), 500);
     return () => clearInterval(t);
   }, []);
 

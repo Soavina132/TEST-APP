@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { serverNow } from "@/lib/server-time";
 import { DominoTile, Tile } from "@/components/DominoTable";
 
 type LastRound = {
@@ -35,11 +36,11 @@ export default function DominoRoundBreak({
   const endedRound = Number(
     lastRound?.round ?? (typeof roundNumber === "number" ? roundNumber : 1),
   ) || 1;
-  const initialRemaining = Math.max(0, Math.round((new Date(breakUntil).getTime() - Date.now()) / 1000));
+  const initialRemaining = Math.max(0, Math.round((new Date(breakUntil).getTime() - serverNow()) / 1000));
   const [remaining, setRemaining] = useState(initialRemaining);
   useEffect(() => {
     const tick = () => {
-      const ms = new Date(breakUntil).getTime() - Date.now();
+      const ms = new Date(breakUntil).getTime() - serverNow();
       setRemaining(Math.max(0, Math.round(ms / 1000)));
     };
     tick();
