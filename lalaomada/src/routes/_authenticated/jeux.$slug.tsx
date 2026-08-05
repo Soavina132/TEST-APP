@@ -308,7 +308,6 @@ function Lobby() {
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
-        if (error) throw error;
       } else if (slug === "rami") {
         const { data, error } = await supabase.rpc("rami_start_solo_bot" as any, {
           _max_players: maxP, _difficulty: ramiBotDifficulty,
@@ -365,7 +364,6 @@ function Lobby() {
       } else if (slug === "poker") {
         const { data, error } = await supabase.rpc("poker_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
         if (error) throw error; id = extractGameId(data);
-        if (error) throw error; id = extractGameId(data);
       }
       if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
     } finally { void savedStake; }
@@ -411,7 +409,6 @@ function Lobby() {
     } else if (slug === "poker") {
       const { data, error } = await supabase.rpc("poker_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
       if (error) throw error; id = extractGameId(data);
-      if (error) throw error; id = extractGameId(data);
     }
     if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
   };
@@ -455,7 +452,6 @@ function Lobby() {
         if (error) throw error;
       } else if (slug === "poker") {
         const { error } = await supabase.rpc("poker_join" as any, { _game_id: gameId } as any);
-        if (error) throw error;
         if (error) throw error;
       }
       refreshProfile(); goTo(gameId);
