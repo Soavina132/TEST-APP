@@ -64,6 +64,8 @@ export default function TournamentAdminPanel() {
     qualifiers_per_pool: 2,
     max_concurrent: 8,
     lobby_minutes: 5,
+    break_minutes: 3,
+    batch_gap_minutes: 0,
     description: "",
   });
   const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
@@ -94,6 +96,8 @@ export default function TournamentAdminPanel() {
       _description: f.description || null,
       _registration_closes_at: null,
       _starts_at: null,
+      _break_seconds: f.break_minutes * 60,
+      _batch_gap_seconds: f.batch_gap_minutes * 60,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -216,12 +220,6 @@ export default function TournamentAdminPanel() {
                         }}
                         className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold text-destructive">✕ Annuler</button>
                     )}
-                    <button disabled={busy}
-                      onClick={async () => {
-                        if (!(await confirm({ title: "Supprimer définitivement ?", description: "Le tournoi et ses matchs seront effacés.", destructive: true }))) return;
-                        run("admin_tournament_delete", { _tid: t.id }, "Tournoi supprimé");
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold text-destructive">🗑</button>
                   </div>
                 </div>
               );
@@ -360,7 +358,7 @@ export default function TournamentAdminPanel() {
 
           <div className="grid grid-cols-2 gap-2">
             <Num label="Joueurs max" value={f.max_players} onChange={(v) => set("max_players", v)} min={2} max={256} />
-            <Num label="Matchs simultanés" value={f.max_concurrent} onChange={(v) => set("max_concurrent", v)} min={1} max={64} />
+            <Num label="Matchs simultanés" value={f.max_concurrent} onChange={(v) => set("max_concurrent", v)} min={1} max={8} />
             <Num label="Frais d'inscription (Ar)" value={f.entry_fee_ar} onChange={(v) => set("entry_fee_ar", v)} min={0} />
             <Num label="Cagnotte offerte (Ar)" value={f.admin_prize_pool_ar} onChange={(v) => set("admin_prize_pool_ar", v)} min={0} />
             <Num label="Salle d'attente (min)" value={f.lobby_minutes} onChange={(v) => set("lobby_minutes", v)} min={1} max={60} />
@@ -372,6 +370,20 @@ export default function TournamentAdminPanel() {
                 <option value={3}>3 vainqueurs (50/30/20)</option>
               </select>
             </Field>
+          </div>
+
+          {/* ── Timing & lots ── */}
+          <div className="rounded-2xl bg-secondary/30 p-3 space-y-2">
+            <div className="text-[11px] font-bold text-muted-foreground uppercase">Timing des phases</div>
+            <div className="grid grid-cols-2 gap-2">
+              <Num label="Pause entre phases (min)" value={f.break_minutes} onChange={(v) => set("break_minutes", v)} min={0} max={60} />
+              <Num label="Délai entre lots de matchs (min)" value={f.batch_gap_minutes} onChange={(v) => set("batch_gap_minutes", v)} min={0} max={60} />
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              {f.batch_gap_minutes > 0
+                ? `Les ${f.max_concurrent} matchs simultanés max sont lancés par lots. Entre chaque lot, le moteur attend ${f.batch_gap_minutes} min avant de lancer le suivant.`
+                : "Délai entre lots = 0 → lancement au fil de l'eau (dès qu'une place se libère). Mettez > 0 pour lancer par lots espacés."}
+            </p>
           </div>
 
           <button onClick={create} disabled={busy}

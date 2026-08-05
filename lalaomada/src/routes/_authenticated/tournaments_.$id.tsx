@@ -29,6 +29,22 @@ const GAMES: Record<string, { emoji: string; label: string }> = {
   domino: { emoji: "🁣", label: "Domino" },
 };
 
+/** Label lisible pour un round de phase finale, basé sur le nombre de matchs. */
+function roundLabel(matchCount: number, phase: string): string {
+  if (phase === "third_place") return "🥉 Petite finale (3e place)";
+  if (phase === "pool") return "Phase de poules";
+  const map: Record<number, string> = {
+    64: "64ème de finale",
+    32: "32ème de finale",
+    16: "16ème de finale",
+    8: "8ème de finale",
+    4: "Quart de finale",
+    2: "Demi-finale",
+    1: "Finale",
+  };
+  return map[matchCount] ?? `Tour ${matchCount} matchs`;
+}
+
 type State = {
   tournament: any;
   entrants: any[];
@@ -241,14 +257,12 @@ function PhaseBanner({ t, matches, entrants }: { t: any; matches: any[]; entrant
   const done = round.filter((m) => m.status === "finished").length;
   const live = round.filter((m) => m.status === "running").length;
   const isThird = round.some((m) => m.phase === "third_place");
-  const isFinal = round.length === 1 && !isThird;
+  const matchCount = round.length;
+  const firstPhase = round[0]?.phase ?? "final";
+
   const title = t.stage === "pools"
     ? "Phase de poules"
-    : isThird
-      ? "🥉 Petite finale"
-      : isFinal
-        ? "🏆 Finale"
-        : `Phase ${t.current_round}${t.total_rounds ? ` / ${t.total_rounds}` : ""}`;
+    : roundLabel(matchCount, firstPhase);
 
   return (
     <div className="rounded-2xl bg-secondary/60 p-3 space-y-1.5">
@@ -261,7 +275,7 @@ function PhaseBanner({ t, matches, entrants }: { t: any; matches: any[]; entrant
       {round.length > 0 && (
         <div className="text-xs text-muted-foreground">
           {round.length} match{round.length > 1 ? "s" : ""} · {done} terminé{done > 1 ? "s" : ""} · {live} en cours
-          <span className="opacity-70"> (8 simultanés max)</span>
+          <span className="opacity-70"> ({t.max_concurrent_matches ?? 8} simultanés max)</span>
         </div>
       )}
       {left > 0 && (
@@ -334,38 +348,46 @@ function MatchesView({ matches, byId, me, slug }: { matches: any[]; byId: Record
   const rounds = Array.from(new Set(matches.map((m) => m.round))).sort((a, b) => a - b);
   return (
     <div className="space-y-4">
-      {rounds.map((r) => (
-        <div key={r} className="space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase">
-            {matches.some((m) => m.round === r && m.phase === "pool") ? "Phase de poules" : `Tour ${r}`}
-          </h3>
-          {matches.filter((m) => m.round === r).map((m) => (
-            <div key={m.id} className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm min-w-0">
-                  <Swords className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span className="truncate">
-                    {m.entrant_ids.map((e: string) => byId[e]?.display_name ?? "?").join("  vs  ")}
-                  </span>
+      {rounds.map((r) => {
+        const roundMatches = matches.filter((m) => m.round === r);
+        const isPool = roundMatches.some((m) => m.phase === "pool");
+        const isThird = roundMatches.some((m) => m.phase === "third_place");
+        const firstPhase = roundMatches[0]?.phase ?? "final";
+        const label = isPool
+          ? "Phase de poules"
+          : roundLabel(roundMatches.length, firstPhase);
+
+        return (
+          <div key={r} className="space-y-2">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase">{label}</h3>
+            {roundMatches.map((m) => (
+              <div key={m.id} className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm min-w-0">
+                    <Swords className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="truncate">
+                      {m.entrant_ids.map((e: string) => byId[e]?.display_name ?? "?").join("  vs  ")}
+                    </span>
+                  </div>
+                  <MatchPill m={m} />
                 </div>
-                <MatchPill m={m} />
+                {m.status === "finished" && m.winner_entrant_id && (
+                  <div className="text-xs font-semibold text-emerald-600 mt-1 flex items-center gap-1">
+                    <Crown className="w-3.5 h-3.5" /> {byId[m.winner_entrant_id]?.display_name}
+                  </div>
+                )}
+                {m.status === "running" && m.game_id && me && m.entrant_ids.includes(me.id) && (
+                  <Link to={slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"} params={{ id: m.game_id }}
+                    className="mt-2 block w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold text-center">
+                    Rejoindre
+                  </Link>
+                )}
+                {m.phase === "third_place" && <div className="text-[10px] font-bold text-amber-600 mt-1">🥉 Petite finale (3e place)</div>}
               </div>
-              {m.status === "finished" && m.winner_entrant_id && (
-                <div className="text-xs font-semibold text-emerald-600 mt-1 flex items-center gap-1">
-                  <Crown className="w-3.5 h-3.5" /> {byId[m.winner_entrant_id]?.display_name}
-                </div>
-              )}
-              {m.status === "running" && m.game_id && me && m.entrant_ids.includes(me.id) && (
-                <Link to={slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"} params={{ id: m.game_id }}
-                  className="mt-2 block w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold text-center">
-                  Rejoindre
-                </Link>
-              )}
-              {m.phase === "third_place" && <div className="text-[10px] font-bold text-amber-600 mt-1">🥉 Petite finale</div>}
-            </div>
-          ))}
-        </div>
-      ))}
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -430,22 +452,23 @@ function PlayersView({ entrants }: { entrants: any[] }) {
 
 function RewardsView({ t, net, byId }: { t: any; net: number; byId: Record<string, any> }) {
   const pcts = [t.prize_1_pct, t.prize_2_pct, t.prize_3_pct].slice(0, t.winners_count);
-  const icons = [<Crown key="1" className="w-4 h-4 text-amber-500" />, <Medal key="2" className="w-4 h-4 text-slate-400" />, <Medal key="3" className="w-4 h-4 text-orange-500" />];
+  const icons = [<Crown key="1" className="w-4 h-4 text-amber-500" />, <Medal key="2" className="w-4 h-4 text-slate-400" />, <Medal key="3" className="w-4 h-4 text-amber-700" />];
   return (
-    <div className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)] space-y-2">
-      <div className="text-sm font-bold">Cagnotte : {net.toLocaleString("fr-FR")} Ar</div>
-      {pcts.map((p: number, i: number) => (
-        <div key={i} className="flex items-center gap-2 text-sm">
-          {icons[i]}
-          <span className="flex-1">{i + 1}{i === 0 ? "er" : "e"} place</span>
-          <span className="font-bold">{Math.round(net * Number(p) / 100).toLocaleString("fr-FR")} Ar</span>
-        </div>
-      ))}
-      {t.champion_entrant_id && (
-        <div className="mt-2 rounded-2xl bg-amber-100 dark:bg-amber-950/40 p-3 text-center text-sm font-bold text-amber-700 dark:text-amber-300">
-          🏆 Champion : {byId[t.champion_entrant_id]?.display_name ?? "—"}
-        </div>
-      )}
+    <div className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)] space-y-3">
+      <div className="text-center">
+        <div className="text-2xl font-extrabold text-amber-600">{net.toLocaleString("fr-FR")} Ar</div>
+        <div className="text-xs text-muted-foreground">Cagnotte totale nette</div>
+      </div>
+      <div className="space-y-2">
+        {pcts.map((pct, i) => (
+          <div key={i} className="flex items-center gap-2 rounded-2xl bg-secondary/60 px-3 py-2">
+            <span className="shrink-0">{icons[i]}</span>
+            <span className="flex-1 text-sm font-bold">{i + 1}{i === 0 ? "er" : "e"} place</span>
+            <span className="text-sm font-bold text-amber-600">{Math.round(net * pct / 100).toLocaleString("fr-FR")} Ar</span>
+            <span className="text-xs text-muted-foreground">{pct}%</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
