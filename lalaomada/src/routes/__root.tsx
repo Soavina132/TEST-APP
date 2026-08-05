@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { I18nProvider } from "@/lib/i18n";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import AutoTranslator from "@/components/AutoTranslator";
+import { PageLoader, useDelayedPending } from "@/components/PageLoader";
 
 function NotFoundComponent() {
   return (
@@ -149,79 +150,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Branded loading screen — animated dice + shimmer
-// ═══════════════════════════════════════════════════════════════════════════
-
-function BrandedLoader() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-6 px-4" style={{ minHeight: "60vh" }}>
-      {/* Animated dice */}
-      <div className="relative flex items-center justify-center">
-        <div
-          className="text-5xl"
-          style={{
-            animation: "lm-bounce 1.2s ease-in-out infinite",
-          }}
-        >
-          🎲
-        </div>
-        <div
-          className="absolute text-5xl"
-          style={{
-            animation: "lm-bounce 1.2s ease-in-out infinite 0.3s",
-            opacity: 0.4,
-          }}
-        >
-          🎲
-        </div>
-      </div>
-
-      {/* Brand name with shimmer */}
-      <div className="relative overflow-hidden">
-        <p
-          className="text-lg font-bold tracking-wide"
-          style={{
-            background: "linear-gradient(90deg, #f97316, #fb923c, #f97316)",
-            backgroundSize: "200% auto",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            animation: "lm-shimmer 1.5s linear infinite",
-          }}
-        >
-          Lalao MADA
-        </p>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1 w-32 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary"
-          style={{
-            animation: "lm-progress 1.2s ease-in-out infinite",
-          }}
-        />
-      </div>
-
-      {/* Inline keyframes */}
-      <style>{`
-        @keyframes lm-bounce {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-12px) rotate(180deg); }
-        }
-        @keyframes lm-shimmer {
-          0% { background-position: 200% center; }
-          100% { background-position: -200% center; }
-        }
-        @keyframes lm-progress {
-          0% { transform: translateX(-100%); width: 30%; }
-          50% { transform: translateX(100%); width: 80%; }
-          100% { transform: translateX(200%); width: 30%; }
-        }
-      `}</style>
-    </div>
-  );
-}
+// BrandedLoader is now powered by PageLoader — see @/components/PageLoader
 
 function RouteSkeletonOverlay() {
   const { isLoading, pathname } = useRouterState({
@@ -232,12 +161,7 @@ function RouteSkeletonOverlay() {
         s.location.pathname,
     }),
   });
-  const [show, setShow] = React.useState(false);
-  React.useEffect(() => {
-    if (!isLoading) { setShow(false); return; }
-    const t = setTimeout(() => setShow(true), 200);
-    return () => clearTimeout(t);
-  }, [isLoading, pathname]);
+  const show = useDelayedPending(isLoading, 200);
   if (!isLoading || !show) return null;
   return (
     <div
@@ -246,7 +170,7 @@ function RouteSkeletonOverlay() {
       style={{ top: 56 }}
     >
       <div className="h-full w-full overflow-hidden bg-background">
-        <BrandedLoader />
+        <PageLoader variant="overlay" />
       </div>
     </div>
   );

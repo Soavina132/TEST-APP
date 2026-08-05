@@ -220,3 +220,225 @@
   50%      { transform: translateY(-14%) scale(1.12); box-shadow: 0 0 0 6px rgba(255,255,255,0), 0 10px 16px rgba(0,0,0,0.55); }
 }
 .ludo-playable { animation: ludo-playable-bounce 0.85s cubic-bezier(.5,.05,.5,.95) infinite; transform-origin: 50% 60%; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lalao MADA — Page Loader animations
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Ludo Mark (4-dot dice) ────────────────────────────────────────────────── */
+.lm-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 200px;
+}
+.lm-mark__inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 14%;
+  border-radius: 22%;
+  background: var(--card);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  animation: lm-flip 1.4s cubic-bezier(0.5, 0.05, 0.5, 0.95) infinite;
+  transform-style: preserve-3d;
+}
+.lm-dot {
+  border-radius: 50%;
+  display: block;
+}
+.lm-dot--red {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
+  animation: lm-dot-pulse 1.4s ease-in-out infinite;
+}
+.lm-dot--green {
+  background: linear-gradient(135deg, #4ade80, #16a34a);
+  box-shadow: 0 1px 4px rgba(74, 222, 128, 0.4);
+  animation: lm-dot-pulse 1.4s ease-in-out 0.35s infinite;
+}
+.lm-dot--blue {
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  box-shadow: 0 1px 4px rgba(96, 165, 250, 0.4);
+  animation: lm-dot-pulse 1.4s ease-in-out 0.7s infinite;
+}
+.lm-dot--yellow {
+  background: linear-gradient(135deg, #facc15, #f59e0b);
+  box-shadow: 0 1px 4px rgba(250, 204, 21, 0.4);
+  animation: lm-dot-pulse 1.4s ease-in-out 1.05s infinite;
+}
+.lm-mark__glow {
+  position: absolute;
+  width: 110%;
+  height: 110%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.25), transparent 65%);
+  filter: blur(16px);
+  z-index: -1;
+  animation: lm-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes lm-flip {
+  0%   { transform: rotateY(0deg) rotateZ(0deg); }
+  25%  { transform: rotateY(180deg) rotateZ(90deg); }
+  50%  { transform: rotateY(360deg) rotateZ(180deg); }
+  75%  { transform: rotateY(540deg) rotateZ(270deg); }
+  100% { transform: rotateY(720deg) rotateZ(360deg); }
+}
+@keyframes lm-dot-pulse {
+  0%, 80%, 100% { transform: scale(1); opacity: 1; }
+  40%           { transform: scale(0.65); opacity: 0.6; }
+}
+@keyframes lm-glow-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.9; transform: scale(1.15); }
+}
+
+/* ── Brand Text ────────────────────────────────────────────────────────────── */
+.lm-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.lm-brand__title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  background: linear-gradient(90deg, #f97316, #fb923c, #fbbf24, #fb923c, #f97316);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: lm-text-shimmer 2.5s linear infinite;
+}
+.lm-brand__sub {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+@keyframes lm-text-shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* ── Progress Bar ──────────────────────────────────────────────────────────── */
+.lm-bar {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--muted);
+  overflow: hidden;
+  position: relative;
+}
+.lm-bar__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f97316, #fbbf24, #f97316);
+  animation: lm-bar-slide 1.3s ease-in-out infinite;
+}
+
+@keyframes lm-bar-slide {
+  0%   { transform: translateX(-100%); width: 30%; }
+  50%  { transform: translateX(150%); width: 70%; }
+  100% { transform: translateX(350%); width: 30%; }
+}
+
+/* ── Splash variant (full screen — auth loading) ───────────────────────────── */
+.lm-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  z-index: 50;
+  overflow: hidden;
+}
+.lm-splash__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  animation: lm-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  z-index: 1;
+}
+.lm-splash__dots {
+  display: flex;
+  gap: 6px;
+}
+.lm-splash__dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f97316;
+  animation: lm-dot-bounce 1s ease-in-out infinite;
+}
+.lm-splash__dots span:nth-child(2) { animation-delay: 0.15s; }
+.lm-splash__dots span:nth-child(3) { animation-delay: 0.3s; }
+.lm-splash__shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(249, 115, 22, 0.04) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: lm-sheen 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes lm-dot-bounce {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1; transform: translateY(-5px); }
+}
+@keyframes lm-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes lm-sheen {
+  0%, 100% { background-position: 200% 0; }
+  50%      { background-position: -200% 0; }
+}
+
+/* ── Overlay variant (route transitions) ───────────────────────────────────── */
+.lm-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  min-height: 60vh;
+  padding: 16px;
+}
+.lm-overlay__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: lm-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Inline variant (small, for cards / sections) ───────────────────────────── */
+.lm-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
