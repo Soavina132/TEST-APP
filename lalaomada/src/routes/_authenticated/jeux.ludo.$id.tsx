@@ -11,7 +11,7 @@ import { LogOut, Eye, Plus, Pause } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
-import QuickReactions from "@/components/game/QuickReactions";
+import GameSocialFab from "@/components/game/GameSocialFab";
 
 export const Route = createFileRoute("/_authenticated/jeux/ludo/$id")({
   component: GamePage,
@@ -277,7 +277,7 @@ function GamePage() {
         matchType={game.match_type}
       />
 
-      <QuickReactions gameId={id} gameSlug="ludo" participants={parts} />
+      <GameSocialFab gameId={id} gameSlug="ludo" participants={parts} />
       {confirmQuit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setConfirmQuit(false)}>
           <div className="bg-card rounded-3xl p-6 max-w-md w-full space-y-4" onClick={e => e.stopPropagation()}>

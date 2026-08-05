@@ -8,7 +8,7 @@ import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { ArrowLeft, Copy, Check, Timer, Plus } from "lucide-react";
-import GameChatDrawer from "@/components/game/GameChatDrawer";
+import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
@@ -416,7 +416,7 @@ function PokerPage() {
               {copied ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>} {game.room_code}
             </button>
           )}
-          <GameChatDrawer gameId={id}/>
+          <GameSocialFab gameId={id} gameSlug="poker" participants={enriched} />
         </div>
       </div>
 

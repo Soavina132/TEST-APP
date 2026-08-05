@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight } from "lucide-react";
-import GameChatDrawer from "@/components/game/GameChatDrawer";
+import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
@@ -1467,7 +1467,7 @@ function RamiPage() {
             <Plus className="w-4 h-4" /> Ajouter un bot
           </button>
         )}
-        <GameChatDrawer gameId={id} />
+        <GameSocialFab gameId={id} gameSlug="rami" participants={parts} />
       </main>
     );
   }
@@ -2187,7 +2187,7 @@ function RamiPage() {
         isPlayer={isPlayer}
         myUserId={profile?.id ?? null}
       />
-      <GameChatDrawer gameId={id} />
+      <GameSocialFab gameId={id} gameSlug="rami" participants={parts} />
 
       {/* Drag ghost — real card following the finger */}
       {dnd.drag && (() => {

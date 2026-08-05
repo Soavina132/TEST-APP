@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { ArrowLeft, Flag, Handshake, Copy, RotateCw, LogOut, Plus } from "lucide-react";
 import { copyText } from "@/lib/clipboard";
+import GameSocialFab from "@/components/game/GameSocialFab";
 import { Button } from "@/components/ui/button";
 import { ChessBoard } from "@/components/chess/ChessBoard";
 import { PlayerBar } from "@/components/chess/PlayerBar";
@@ -812,6 +813,7 @@ function ChessPage() {
             ) : undefined}
           />
         );
+      <GameSocialFab gameId={id} gameSlug="chess" participants={[{ user_id: game?.white_id, display_name: game?.white_is_bot ? (game?.bot_name ?? "Bot") : (profiles[game?.white_id ?? ""]?.pseudo ?? "Blancs"), slot: 0 }, { user_id: game?.black_id, display_name: game?.black_is_bot ? (game?.bot_name ?? "Bot") : (profiles[game?.black_id ?? ""]?.pseudo ?? "Noirs"), slot: 1 }].filter(p => p.user_id)} />
       })()}
     </div>
   );

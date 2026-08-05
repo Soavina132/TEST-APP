@@ -8,7 +8,7 @@ import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Copy, Timer, RotateCw, SkipForward } from "lucide-react";
-import GameChatDrawer from "@/components/game/GameChatDrawer";
+import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
@@ -672,7 +672,7 @@ function FanoronaPage() {
 
       <GamePauseControl slug="fanorona" gameId={id} game={game} remaining={Math.ceil((me?.color === "white" ? wTime : bTime) / 1000)} totalSeconds={cfg.turn_timer_seconds}
         isMyTurn={!!isMyTurn} isPlayer={isPlayer} myUserId={profile?.id ?? null} />
-      <GameChatDrawer gameId={id} />
+      <GameSocialFab gameId={id} gameSlug="fanorona" participants={parts} />
     </main>
   );
 }

@@ -8,7 +8,7 @@ import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Copy, Plus, Pause, Ban } from "lucide-react";
-import GameChatDrawer from "@/components/game/GameChatDrawer";
+import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
@@ -20,7 +20,6 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import TurnBanner from "@/components/game/TurnBanner";
 import { useDominoSounds } from "@/hooks/game/use-domino-sounds";
 import { playClack, playDraw, playPass } from "@/lib/sounds/game-sounds";
-import QuickReactions from "@/components/game/QuickReactions";
 
 
 export const Route = createFileRoute("/_authenticated/jeux/domino/$id")({
@@ -485,7 +484,7 @@ function DominoPage() {
           </button>
         )}
 
-        <GameChatDrawer gameId={id} />
+        <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
       </main>
     );
   }
@@ -737,8 +736,8 @@ function DominoPage() {
         myUserId={profile?.id ?? null}
         simplePause={parts.some((p: any) => p.is_bot)}
       />
-      <QuickReactions gameId={id} gameSlug="domino" participants={parts} position="bottom-right-high" />
-      <GameChatDrawer gameId={id} />
+      
+      <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
     </main>
   );
 }
