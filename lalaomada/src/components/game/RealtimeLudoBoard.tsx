@@ -549,7 +549,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           {isSpectator ? "Mode spectateur" :
             status !== "playing" ? "En attente du démarrage…" :
             currentPart && (currentPart.is_bot ? `${nameOf(currentPart)} joue…` :
-            isMyTurn ? (state.must_move ? `Tu as fait ${state.dice}, choisis un pion` : "À toi de lancer le dé") :
+            isMyTurn ? (state.must_move ? (movablePawnIdxs.size > 0 ? `Tu as fait ${state.dice}, choisis un pion` : `Tu as fait ${state.dice} — aucun coup possible, passage…`) : "À toi de lancer le dé") :
             `Tour de ${nameOf(currentPart)}`)}
         </div>
         {status === "playing" && (
