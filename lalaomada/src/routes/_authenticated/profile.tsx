@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Camera, Copy, Coins, ShieldCheck, LogOut, Trash2,
-  Phone, Gamepad2, Flame, Moon, Sun, Languages,
+  Phone, Gamepad2, Moon, Sun, Languages,
   ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings,
 } from "lucide-react";
@@ -265,7 +265,6 @@ function ProfilePage() {
   const totalWins = ps.total_wins ?? 0;
   const totalGames = ps.total_games ?? 0;
   const level = ps.player_level ?? 1;
-  const streak = ps.daily_streak ?? 0;
   const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
   const totalLosses = totalGames - totalWins;
   const memberDays = Math.floor((Date.now() - new Date((profile as any).created_at || Date.now()).getTime()) / 86400000);
@@ -365,7 +364,6 @@ function ProfilePage() {
             <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
               {p.phone_verified && <span className="inline-flex items-center gap-0.5 text-emerald-500"><ShieldCheck className="w-2.5 h-2.5" /> Vérifié</span>}
               <span>{memberDays}j</span>
-              {streak > 0 && <span className="inline-flex items-center gap-0.5 text-amber-500"><Flame className="w-2.5 h-2.5" /> {streak}j</span>}
               <span className="text-muted-foreground">{badge.icon} {badge.label}</span>
             </div>
           </div>

@@ -155,7 +155,7 @@ function AdminPage() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,pseudo,email,phone,phone_number,balance_ar,player_level,total_games,total_wins,is_banned,banned,status,suspended_until,suspension_reason,warning_count,is_premium,referral_code,referral_unlocked,referred_by,daily_streak,unique_code,created_at,first_deposit_at,first_deposit_amount,first_game_at,terms_accepted_at,phone_verified")
+        .select("id,pseudo,email,phone,phone_number,balance_ar,player_level,total_games,total_wins,is_banned,banned,status,suspended_until,suspension_reason,warning_count,is_premium,referral_code,referral_unlocked,referred_by,unique_code,created_at,first_deposit_at,first_deposit_amount,first_game_at,terms_accepted_at,phone_verified")
         .order("created_at", { ascending: false });
       if (error) throw error;
       const rows = data ?? [];
@@ -1160,114 +1160,6 @@ function PauseControl() {
 
 // =================== SETTINGS ===================
 
-function DailyBonusSettings() {
-  const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [amount, setAmount] = useState(500);
-  const [streakBonus, setStreakBonus] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    supabase.from("app_settings").select("daily_bonus_enabled,daily_bonus_amount_ar,daily_bonus_streak_bonus").eq("id", 1).maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setEnabled((data as any).daily_bonus_enabled !== false);
-          setAmount((data as any).daily_bonus_amount_ar ?? 500);
-          setStreakBonus((data as any).daily_bonus_streak_bonus !== false);
-        }
-      });
-  }, []);
-
-  const save = async () => {
-    setSaving(true);
-    const { error } = await supabase.rpc("admin_set_daily_bonus" as any, {
-      _enabled: enabled, _amount_ar: amount, _streak_bonus: streakBonus,
-    } as any);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success(enabled ? "✅ Bonus quotidien activé" : "❌ Bonus quotidien désactivé");
-  };
-
-  if (enabled === null) return <div className="text-xs text-muted-foreground">Chargement…</div>;
-
-  return (
-    <div className="space-y-4">
-      {/* Enable toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold">Activer le bonus quotidien</div>
-          <div className="text-xs text-muted-foreground">Les joueurs pourront réclamer un bonus chaque jour</div>
-        </div>
-        <button onClick={() => setEnabled(!enabled)}
-          className={`relative w-14 h-7 rounded-full transition-colors duration-200 focus:outline-none ${enabled ? "bg-primary" : "bg-muted"}`}>
-          <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? "translate-x-7" : "translate-x-0"}`} />
-        </button>
-      </div>
-      <div className={`text-xs font-semibold ${enabled ? "text-emerald-600" : "text-destructive"}`}>
-        {enabled ? "✅ Bonus actif" : "❌ Bonus désactivé"}
-      </div>
-
-      {enabled && (
-        <>
-          {/* Amount */}
-          <div>
-            <div className="text-sm font-semibold mb-1">Montant du bonus quotidien (Ar)</div>
-            <div className="text-xs text-muted-foreground mb-2">Montant de base versé chaque jour (×2 après 7 jours, ×3 après 14 jours si série activée)</div>
-            <div className="flex items-center gap-2">
-              <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} min={0} step={100}
-                className="flex-1 px-4 py-2.5 rounded-full bg-card border border-border outline-none text-sm" />
-              <span className="text-sm font-semibold text-muted-foreground">Ar / jour</span>
-            </div>
-            <div className="flex gap-1.5 mt-2 flex-wrap">
-              {[200, 500, 1000, 2000, 5000].map(v => (
-                <button key={v} onClick={() => setAmount(v)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${amount === v ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-accent"}`}>
-                  {v.toLocaleString("fr-MG")} Ar
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Streak bonus toggle */}
-          <div className="flex items-center justify-between gap-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl p-3">
-            <div>
-              <div className="text-sm font-semibold">🔥 Bonus de série</div>
-              <div className="text-xs text-muted-foreground">×2 après 7 jours consécutifs, ×3 après 14 jours</div>
-            </div>
-            <button onClick={() => setStreakBonus(!streakBonus)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${streakBonus ? "bg-amber-500" : "bg-muted"}`}>
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${streakBonus ? "translate-x-6" : "translate-x-0"}`} />
-            </button>
-          </div>
-
-          {/* Preview */}
-          <div className="rounded-2xl border border-border/60 p-3 space-y-1.5 text-xs">
-            <div className="font-bold text-muted-foreground uppercase text-[10px]">Aperçu des bonus</div>
-            {[
-              { label: "Jour 1–2", mult: 1, streak: false },
-              { label: "Jour 3–6", mult: 1, streak: false },
-              { label: "Jour 7–13", mult: 2, streak: true },
-              { label: "Jour 14+", mult: 3, streak: true },
-            ].map(row => (
-              <div key={row.label} className="flex items-center justify-between">
-                <span className="text-muted-foreground">{row.label}</span>
-                <span className={`font-bold ${row.streak && streakBonus ? "text-amber-600" : ""}`}>
-                  {(row.streak && streakBonus ? amount * row.mult : amount).toLocaleString("fr-MG")} Ar
-                  {row.streak && streakBonus && <span className="text-[10px] ml-1 opacity-70">×{row.mult}</span>}
-                </span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      <button onClick={save} disabled={saving}
-        className="w-full py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50">
-        {saving ? "Enregistrement…" : "💾 Enregistrer les paramètres du bonus"}
-      </button>
-    </div>
-  );
-}
-
 function SettingsForm() {
   const [s, setS] = useState<any>(null);     const fe = useFormErrors();
   useEffect(() => {
@@ -1312,11 +1204,6 @@ function SettingsForm() {
   return (
     <div className="space-y-4">
       {/* Programme de parrainage : géré dans l'onglet Config → 🤝 Parrainage */}
-      {/* ── Daily Bonus ── */}
-      <Card>
-        <div className="font-bold text-sm mb-3 flex items-center gap-2">🎁 Bonus quotidien</div>
-        <DailyBonusSettings />
-      </Card>
       <Card>
         {/* ── Numéros par opérateur ── */}
         <div className="space-y-2">

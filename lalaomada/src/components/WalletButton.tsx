@@ -106,6 +106,8 @@ function DepotModal({
     const amt = Number(amount);
     if (!amt || amt < minDeposit) return toast.error(`Minimum : ${fmtAr(minDeposit)}`);
     if (!reference.trim()) return toast.error("Code de référence requis");
+    if (reference.trim().length < 6) return toast.error("Code de référence trop court (min 6 caractères)");
+    if (!/^[A-Za-z0-9]+$/.test(reference.trim())) return toast.error("Référence invalide: alphanumérique uniquement");
     setBusy(true);
     try {
       const { error } = await (supabase.from("deposits") as any).insert({
