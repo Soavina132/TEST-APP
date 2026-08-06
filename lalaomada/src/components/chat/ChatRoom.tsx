@@ -49,14 +49,16 @@ function playPing() {
 
 const AUDIO_MIME_CANDIDATES = [
   "audio/webm;codecs=opus",
+  "audio/webm",
   "audio/ogg;codecs=opus",
   "audio/mp4;codecs=mp4a.40.2",
   "audio/mp4",
-  "audio/webm",
+  "audio/mpeg",
+  "audio/aac",
 ];
 
 const getAudioExt = (mime: string) =>
-  mime.includes("mp4") ? "m4a" : mime.includes("ogg") ? "ogg" : "webm";
+  mime.includes("mp4") ? "m4a" : mime.includes("ogg") ? "ogg" : mime.includes("mpeg") ? "mp3" : mime.includes("aac") ? "aac" : "webm";
 const baseMime = (mime?: string) =>
   (mime || "").split(";")[0] || "application/octet-stream";
 
@@ -576,7 +578,7 @@ export default function ChatRoom({
   // ── File upload ───────────────────────────────────────────────────────────────
   const uploadFile = async (rawFile: File): Promise<boolean> => {
     if (!user) return false;
-    const f = rawFile.type.startsWith("image/") ? await compressImageToWebp(rawFile, { maxDim: 1600 }) : rawFile;
+    const f = rawFile.type.startsWith("image/") ? await compressImageToWebp(rawFile, { maxDim: 1280, maxSizeKB: 200 }) : rawFile;
     const ext = f.name.split(".").pop() || "bin";
     const path = `${user.id}/${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from("chat").upload(path, f, {
@@ -639,7 +641,14 @@ export default function ChatRoom({
         toast.error(t("mic_unavailable")); return;
       }
       cancelVoice();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request audio with echo cancellation for cleaner recordings
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       recStreamRef.current = stream;
       const mime = AUDIO_MIME_CANDIDATES.find(m => MediaRecorder.isTypeSupported(m)) || "";
       const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
@@ -668,7 +677,20 @@ export default function ChatRoom({
       setRecElapsed(0);
       if (recTimerRef.current) window.clearInterval(recTimerRef.current);
       recTimerRef.current = window.setInterval(() => setRecElapsed(s => s + 1), 1000);
-    } catch { toast.error(t("mic_unavailable")); }
+    } catch (err: any) {
+      // Stop any partial stream
+      if (recStreamRef.current) {
+        recStreamRef.current.getTracks().forEach(t => t.stop());
+        recStreamRef.current = null;
+      }
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        toast.error("Microphone access denied. Please allow microphone permission.");
+      } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+        toast.error("No microphone found on this device.");
+      } else {
+        toast.error(t("mic_unavailable"));
+      }
+    }
   };
 
   const stopRecord = () => {

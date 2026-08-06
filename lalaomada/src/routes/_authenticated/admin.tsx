@@ -2058,7 +2058,7 @@ function Communities() {
     await supabase.rpc("admin_delete_community" as any, { _room_id: r.id } as any); load();
   };
   const upload = async (r: any, rawFile: File) => {
-    const f = await compressImageToWebp(rawFile, { maxDim: 800 });
+    const f = await compressImageToWebp(rawFile, { maxDim: 800, maxSizeKB: 200 });
     const path = `community/${r.id}.${f.name.split(".").pop()}`;
     const { error } = await supabase.storage.from("chat").upload(path, f, { upsert: true, contentType: f.type });
     if (error) return toast.error(error.message);
@@ -2381,7 +2381,7 @@ function PersonaAdmin() {
   const uploadAvatar = async (file: File) => {
     setUploading(true);
     const { compressImageToWebp } = await import("@/lib/image-compress");
-    const f = await compressImageToWebp(file, { maxDim: 400 });
+    const f = await compressImageToWebp(file, { maxDim: 400, maxSizeKB: 200 });
     const path = `alias_${Date.now()}.webp`;
     const { error } = await supabase.storage.from("avatars").upload(path, f, { upsert: true, contentType: "image/webp" });
     if (error) { toast.error("Erreur upload : " + error.message); setUploading(false); return; }

@@ -244,7 +244,7 @@ function ProfilePage() {
   const upload = async (rawFile: File) => {
     if (!user || !rawFile) return;
     setUploading(true);
-    const f = await compressImageToWebp(rawFile, { maxDim: 512 });
+    const f = await compressImageToWebp(rawFile, { maxDim: 512, maxSizeKB: 200 });
     const ext = f.name.split(".").pop();
     const path = `${user.id}/avatar.${ext}`;
     const { error: upErr } = await supabase.storage.from("avatars").upload(path, f, { upsert: true, contentType: f.type });
