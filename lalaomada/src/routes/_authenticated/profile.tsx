@@ -72,69 +72,6 @@ function MenuButton({ icon: Icon, label, action, color }: {
   );
 }
 
-/* ── Settings Dialog ── */
-function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { theme, toggle } = useTheme();
-  const { lang, setLang } = useT();
-  const isDark = theme === "dark";
-  const LANGS: { code: Lang; label: string; flag: string }[] = [
-    { code: "fr", label: "Français", flag: "🇫🇷" },
-    { code: "mg", label: "Malagasy", flag: "🇲🇬" },
-    { code: "en", label: "English", flag: "🇬🇧" },
-  ];
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-center">Paramètres</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 pt-2">
-          {/* Theme toggle */}
-          <button onClick={toggle}
-            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-card border border-border/40 hover:bg-accent/40 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600" : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600"}`}>
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </div>
-              <div className="text-left">
-                <div className="font-semibold text-sm">{isDark ? "Mode sombre" : "Mode clair"}</div>
-                <div className="text-xs text-muted-foreground">{isDark ? "Tap pour clair" : "Tap pour sombre"}</div>
-              </div>
-            </div>
-            <div className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${isDark ? "bg-primary" : "bg-muted"}`}>
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isDark ? "translate-x-6" : "translate-x-0"}`} />
-            </div>
-          </button>
-
-          {/* Language selector */}
-          <div className="p-3.5 rounded-2xl bg-card border border-border/40">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-secondary/60 text-primary">
-                <Languages className="w-5 h-5" />
-              </div>
-              <div className="font-semibold text-sm">Langue</div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {LANGS.map(l => (
-                <button key={l.code} onClick={() => {
-                  setLang(l.code);
-                  if (l.code !== lang) {
-                    setTimeout(() => { try { window.location.reload(); } catch { /* ignore */ } }, 50);
-                  }
-                }}
-                  className={`flex flex-col items-center gap-1 py-2 rounded-xl border transition-colors ${lang === l.code ? "border-primary bg-primary/10" : "border-border/40 hover:bg-accent/30"}`}>
-                  <span className="text-xl">{l.flag}</span>
-                  <span className="text-[10px] font-semibold">{l.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /* ── History Dialog ── */
 function HistoryDialog({ open, onClose, title, items, emptyMsg, renderItem }: {
@@ -178,8 +115,7 @@ function ProfilePage() {
   const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [achievements, setAchievements] = useState<any[]>([]);
+    const [achievements, setAchievements] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState<"none" | "deposits" | "withdrawals" | "games">("none");
   const [deps, setDeps] = useState<any[]>([]);
   const [withs, setWiths] = useState<any[]>([]);
@@ -284,8 +220,7 @@ function ProfilePage() {
     <main className="max-w-2xl mx-auto w-full px-3 pt-1 pb-1 h-[calc(100dvh-12rem)] flex flex-col gap-2 overflow-hidden">
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
       {showDeleteDialog && <DeleteAccountDialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} />}
-      <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
-
+      
       {/* History dialogs */}
       <HistoryDialog open={showHistory === "deposits"} onClose={() => setShowHistory("none")}
         title="Dépôts" items={deps} emptyMsg="Aucun dépôt"
@@ -446,11 +381,11 @@ function ProfilePage() {
           <MenuButton icon={Gift} label="Parrainage" color="text-fuchsia-500"
             action={() => navigate({ to: "/parrainage", search: {} })} />
           <MenuButton icon={Shield} label="Sécurité" color="text-emerald-500"
-            action={() => setShowDeleteDialog(true)} />
+            action={() => navigate({ to: "/parametres", search: {} })} />
           <MenuButton icon={HelpCircle} label="Aide" color="text-blue-400"
             action={() => navigate({ to: "/faq", search: {} })} />
           <MenuButton icon={Settings} label="Paramètres" color="text-muted-foreground"
-            action={() => setShowSettings(true)} />
+            action={() => navigate({ to: "/parametres", search: {} })} />
           <MenuButton icon={Phone} label={p.phone_verified ? "Vérifié" : "Téléphone"} color={p.phone_verified ? "text-emerald-500" : "text-muted-foreground"}
             action={() => toast.info(p.phone_verified ? "Numéro vérifié ✓" : p.phone ? "Numéro non vérifié" : "Aucun numéro")} />
         </div>

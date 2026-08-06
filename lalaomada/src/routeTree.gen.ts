@@ -21,6 +21,7 @@ import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedJeuxRouteImport } from './routes/_authenticated/jeux'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedLobbyRouteImport } from './routes/_authenticated/lobby'
+import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
 import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
@@ -105,6 +106,11 @@ const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
 const AuthenticatedLobbyRoute = AuthenticatedLobbyRouteImport.update({
   id: '/lobby',
   path: '/lobby',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedParametresRoute = AuthenticatedParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedParrainageRoute = AuthenticatedParrainageRouteImport.update({
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/jeux': typeof AuthenticatedJeuxRouteWithChildren
   '/live': typeof AuthenticatedLiveRoute
   '/lobby': typeof AuthenticatedLobbyRoute
+  '/parametres': typeof AuthenticatedParametresRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
@@ -290,6 +297,7 @@ export interface FileRoutesByTo {
   '/history': typeof AuthenticatedHistoryRoute
   '/live': typeof AuthenticatedLiveRoute
   '/lobby': typeof AuthenticatedLobbyRoute
+  '/parametres': typeof AuthenticatedParametresRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
@@ -330,6 +338,7 @@ export interface FileRoutesById {
   '/_authenticated/jeux': typeof AuthenticatedJeuxRouteWithChildren
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/lobby': typeof AuthenticatedLobbyRoute
+  '/_authenticated/parametres': typeof AuthenticatedParametresRoute
   '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | '/jeux'
     | '/live'
     | '/lobby'
+    | '/parametres'
     | '/parrainage'
     | '/profile'
     | '/rankings'
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/live'
     | '/lobby'
+    | '/parametres'
     | '/parrainage'
     | '/profile'
     | '/rankings'
@@ -446,6 +457,7 @@ export interface FileRouteTypes {
     | '/_authenticated/jeux'
     | '/_authenticated/live'
     | '/_authenticated/lobby'
+    | '/_authenticated/parametres'
     | '/_authenticated/parrainage'
     | '/_authenticated/profile'
     | '/_authenticated/rankings'
@@ -566,6 +578,13 @@ declare module '@tanstack/react-router' {
       path: '/lobby'
       fullPath: '/lobby'
       preLoaderRoute: typeof AuthenticatedLobbyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/parametres': {
+      id: '/_authenticated/parametres'
+      path: '/parametres'
+      fullPath: '/parametres'
+      preLoaderRoute: typeof AuthenticatedParametresRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/parrainage': {
@@ -782,6 +801,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedJeuxRoute: typeof AuthenticatedJeuxRouteWithChildren
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLobbyRoute: typeof AuthenticatedLobbyRoute
+  AuthenticatedParametresRoute: typeof AuthenticatedParametresRoute
   AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
@@ -807,6 +827,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedJeuxRoute: AuthenticatedJeuxRouteWithChildren,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLobbyRoute: AuthenticatedLobbyRoute,
+  AuthenticatedParametresRoute: AuthenticatedParametresRoute,
   AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
