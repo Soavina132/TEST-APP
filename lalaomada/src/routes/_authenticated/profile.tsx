@@ -251,76 +251,99 @@ function ProfilePage() {
           </div>
         )} />
 
-      {/* ════ SECTION 1: Header ════ */}
-      <div className="rounded-2xl border border-border/60 bg-card p-2.5 shadow-sm relative overflow-hidden shrink-0">
-        <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${badge.color}`} />
-        <div className="flex items-center gap-2.5 pt-0.5">
-          {/* Avatar */}
-          <div className="relative shrink-0">
-            <div className={`w-12 h-12 rounded-full p-[2px] bg-gradient-to-br ${badge.color}`}>
-              <div className="w-full h-full rounded-full bg-card flex items-center justify-center text-base font-black overflow-hidden ring-2 ring-card">
-                {profile.avatar_url
-                  ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
-                  : <span className="text-primary">{initials}</span>}
-              </div>
-            </div>
-            <button onClick={() => fileRef.current?.click()} disabled={uploading}
-              className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-primary text-primary-foreground ring-1 ring-card active:scale-90 transition-transform">
-              <Camera className="w-2.5 h-2.5" strokeWidth={2.5} />
-            </button>
-          </div>
+      {/* ════ SECTION 1: Profile Header — Modern Card ════ */}
+      <div className="relative rounded-3xl overflow-hidden shrink-0 shadow-lg"
+        style={{ background: "linear-gradient(135deg, var(--card) 0%, var(--secondary) 100%)" }}>
 
-          {/* Name + meta */}
-          <div className="flex-1 min-w-0">
-            {editingName ? (
-              <div className="flex gap-1">
-                <input value={pseudo} onChange={e => setPseudo(e.target.value)} onKeyDown={e => e.key === "Enter" && savePseudo()} autoFocus
-                  className="flex-1 px-2 py-1 rounded-lg bg-secondary border border-border outline-none text-sm font-bold" />
-                <button onClick={savePseudo} className="px-2 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
+        {/* Decorative top banner with gradient */}
+        <div className={`h-16 bg-gradient-to-br ${badge.color} relative overflow-hidden`}>
+          <div className="absolute inset-0 opacity-20"
+            style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 30%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+          {/* Badge label */}
+          <div className="absolute top-2 right-3 flex items-center gap-1 text-white/90 text-[10px] font-bold uppercase tracking-wider">
+            {badge.icon} {badge.label}
+          </div>
+        </div>
+
+        {/* Avatar overlapping the banner */}
+        <div className="px-4 -mt-8 pb-3">
+          <div className="flex items-end gap-3">
+            <div className="relative shrink-0">
+              <div className={`w-16 h-16 rounded-2xl p-[3px] bg-gradient-to-br ${badge.color} shadow-lg`}>
+                <div className="w-full h-full rounded-xl bg-card flex items-center justify-center text-xl font-black overflow-hidden ring-1 ring-card">
+                  {profile.avatar_url
+                    ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover rounded-xl" />
+                    : <span className="text-primary">{initials}</span>}
+                </div>
               </div>
-            ) : (
-              <button onClick={() => setEditingName(true)} className="font-black text-sm leading-tight hover:text-primary transition-colors truncate block">
-                {profile.pseudo}
+              <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                className="absolute -bottom-1 -right-1 p-1 rounded-full bg-primary text-primary-foreground ring-2 ring-card active:scale-90 transition-transform shadow-md">
+                <Camera className="w-3 h-3" strokeWidth={2.5} />
               </button>
-            )}
-            <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
-              {p.phone && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground truncate max-w-[120px]">
-                  <Phone className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{p.phone}</span>
-                </span>
-              )}
-              {profile.email && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground truncate max-w-[120px]">
-                  <Mail className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{profile.email}</span>
-                </span>
-              )}
-              {profile.unique_code && (
-                <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
-                  className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground font-mono hover:text-foreground">
-                  ID: {profile.unique_code} <Copy className="w-2.5 h-2.5" />
+            </div>
+
+            <div className="flex-1 min-w-0 pb-1">
+              {editingName ? (
+                <div className="flex gap-1">
+                  <input value={pseudo} onChange={e => setPseudo(e.target.value)} onKeyDown={e => e.key === "Enter" && savePseudo()} autoFocus
+                    className="flex-1 px-2 py-1 rounded-lg bg-card border border-border outline-none text-sm font-bold" />
+                  <button onClick={savePseudo} className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
+                </div>
+              ) : (
+                <button onClick={() => setEditingName(true)} className="font-black text-lg leading-tight hover:text-primary transition-colors truncate block">
+                  {profile.pseudo}
                 </button>
               )}
-            </div>
-            <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
-              {p.phone_verified ? (
-                <span className="inline-flex items-center gap-0.5 text-emerald-500"><ShieldCheck className="w-2.5 h-2.5" /> Vérifié</span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 text-amber-500"><ShieldAlert className="w-2.5 h-2.5" /> Non vérifié</span>
-              )}
-              <span>{memberDays}j</span>
-              <span className="text-muted-foreground">{badge.icon} {badge.label}</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {p.phone_verified ? (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-500">
+                    <ShieldCheck className="w-3 h-3" /> Vérifié
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-500">
+                    <ShieldAlert className="w-3 h-3" /> Non vérifié
+                  </span>
+                )}
+                <span className="text-[10px] text-muted-foreground">· {memberDays}j</span>
+                {profile.unique_code && (
+                  <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
+                    className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground font-mono hover:text-foreground transition-colors">
+                    {profile.unique_code} <Copy className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Solde */}
-          <div className="shrink-0 text-right pl-1">
-            <div className="flex items-center justify-end gap-0.5 text-[9px] text-muted-foreground font-semibold">
-              <Coins className="w-2.5 h-2.5 text-primary" /> Solde
+          {/* Contact info row */}
+          <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+            {profile.email && (
+              <span className="inline-flex items-center gap-1 truncate">
+                <Mail className="w-3 h-3 shrink-0 text-primary/60" /> <span className="truncate">{profile.email}</span>
+              </span>
+            )}
+            {p.phone && (
+              <span className="inline-flex items-center gap-1 truncate">
+                <Phone className="w-3 h-3 shrink-0 text-primary/60" /> <span className="truncate">{p.phone}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Balance card */}
+          <div className="mt-3 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 px-4 py-2.5 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
+                <Coins className="w-3 h-3 text-primary" /> Solde
+              </div>
+              <div className="text-2xl font-black text-primary tabular-nums leading-tight mt-0.5">
+                {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
+                <span className="text-xs font-bold text-muted-foreground ml-1">Ar</span>
+              </div>
             </div>
-            <div className="text-base font-black text-primary tabular-nums leading-tight">
-              {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
+            <div className="text-right">
+              <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Niveau</div>
+              <div className="text-2xl font-black leading-tight mt-0.5">{level}</div>
             </div>
-            <div className="text-[8px] text-muted-foreground uppercase">Ariary</div>
           </div>
         </div>
       </div>

@@ -103,10 +103,10 @@ interface Props {
 
 // Power tile icons for Mode Moderne
 const POWER_TILE_META: Record<string, { icon: string; label: string; bg: string; border: string }> = {
-  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(59,130,246,0.85)", border: "#3b82f6" },
-  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(34,197,94,0.85)",  border: "#22c55e" },
-  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(245,158,11,0.85)", border: "#f59e0b" },
-  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(168,85,247,0.85)", border: "#a855f7" },
+  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(15,23,42,0.88)",  border: "#0ea5e9" },   // sky-500 (not blue pawn)
+  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(15,23,42,0.88)",  border: "#f97316" },   // orange-500 (not green/yellow pawn)
+  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(15,23,42,0.88)",  border: "#ec4899" },   // pink-500 (not red pawn)
+  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(15,23,42,0.88)",  border: "#e2e8f0" },   // slate-200 (silver, no pawn conflict)
 };
 
 // CSS animations for power tile effects
@@ -398,10 +398,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     sfx.powerTile(tileType);
     // Visual flash overlay
     const flashColors: Record<string, string> = {
-      boost: "#3b82f6",
-      shield: "#22c55e",
-      double_roll: "#f59e0b",
-      lucky_star: "#a855f7",
+      boost: "#0ea5e9",
+      shield: "#f97316",
+      double_roll: "#ec4899",
+      lucky_star: "#e2e8f0",
     };
     setPowerFlash({ type: tileType, color: flashColors[tileType] || "#a855f7", key });
     setTimeout(() => setPowerFlash(null), 1500);
@@ -708,6 +708,31 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       >
         {soundOn ? "🔊" : "🔇"}
       </button>
+
+      {/* Forfeit banner */}
+      {(() => {
+        const myPart = participants.find(p => p.user_id === myUserId);
+        if (myPart?.forfeited && status !== "finished") {
+          return (
+            <div className="w-full rounded-2xl bg-destructive/10 border-2 border-destructive/30 p-4 text-center">
+              <div className="text-2xl mb-1">🏳️</div>
+              <div className="font-bold text-destructive text-sm">Vous avez abandonné</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Vous ne pouvez plus jouer dans cette partie. Vous pouvez regarder la suite en spectateur.
+              </div>
+            </div>
+          );
+        }
+        const anyForfeited = participants.filter(p => p.forfeited);
+        if (anyForfeited.length > 0 && status === "playing") {
+          return (
+            <div className="w-full rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-center text-[11px] text-amber-600 dark:text-amber-400">
+              {anyForfeited.map(p => nameOf(p)).join(", ")} {anyForfeited.length > 1 ? "ont abandonné" : "a abandonné"}
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* Bottom HUD */}
       <div className="flex flex-col items-center gap-1.5">
