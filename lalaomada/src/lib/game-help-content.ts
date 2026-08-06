@@ -21,6 +21,11 @@ const GAME_SPECIFIC_TIPS: Record<GameSlug, string[]> = {
   ludo: [
     "<strong>Équipe</strong> : joue seul (Solo) ou en équipe de 2 contre 2 (Groupe).",
     "<strong>Déplacement auto</strong> : avance automatiquement ton pion quand un seul coup est possible.",
+    "<strong>Mode Moderne</strong> : ajoute des cases spéciales (🚀 Boost, 🛡️ Bouclier, ⚡ Deuxième lancer, ⭐ Étoile Chance) placées aléatoirement. Elles changent de position après activation.",
+    "<strong>Boost</strong> : avance automatiquement de 1 à 6 cases supplémentaires.",
+    "<strong>Bouclier</strong> : protège de la capture jusqu'à ton prochain tour.",
+    "<strong>Deuxième lancer</strong> : deux lancers de dé au prochain tour.",
+    "<strong>Étoile Chance</strong> : récompense aléatoire (boost, bouclier, double lancer, relance, ou sortie gratuite de pion).",
   ],
   domino: [
     "<strong>Format</strong> : « Par points » (le premier à atteindre le score cible gagne) ou « Victoire directe » (le premier à vider sa main gagne).",

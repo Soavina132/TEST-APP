@@ -78,6 +78,10 @@ interface GameState {
   turn_started_at: string;
   last_event?: string;
   no_move_display?: { slot: number; dice: number; until: string };
+  power_tiles?: { type: string; cell: number }[];
+  shields?: Record<string, number[]>;
+  double_roll_pending?: number | null;
+  power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; at: string };
 }
 
 interface Props {
@@ -94,6 +98,15 @@ interface Props {
   afkPauseFor?: string | null;
   matchType?: string;
 }
+
+
+// Power tile icons for Mode Moderne
+const POWER_TILE_META: Record<string, { icon: string; label: string; bg: string; border: string }> = {
+  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(59,130,246,0.85)", border: "#3b82f6" },
+  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(34,197,94,0.85)",  border: "#22c55e" },
+  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(245,158,11,0.85)", border: "#f59e0b" },
+  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(168,85,247,0.85)", border: "#a855f7" },
+};
 
 export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType }: Props) {
   const [boardSize, setBoardSize] = useState(600);
@@ -337,6 +350,31 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const displayDice = noMoveDisplay ? noMoveDisplay.dice : state.dice;
   const displayPart = partsBySlot.get(displaySlot) || currentPart;
 
+  // Power event toast (Mode Moderne)
+  const lastPowerEventRef = useRef<string>("");
+  useEffect(() => {
+    const pe = state.power_event;
+    if (!pe || !pe.at) return;
+    const key = `${pe.type}-${pe.at}-${pe.slot}`;
+    if (lastPowerEventRef.current === key) return;
+    lastPowerEventRef.current = key;
+    const part = partsBySlot.get(pe.slot);
+    const who = part ? nameOf(part) : "Joueur";
+    if (pe.type === "boost") {
+      toast.info(`🚀 ${who} : Boost ! Avance de ${pe.dice} cases`);
+    } else if (pe.type === "shield") {
+      toast.info(`🛡️ ${who} : Bouclier activé !`);
+    } else if (pe.type === "double_roll") {
+      toast.info(`⚡ ${who} : Deuxième lancer au prochain tour !`);
+    } else if (pe.type === "lucky_star") {
+      const rewardLabels: Record<string, string> = {
+        boost: "🚀 Boost", shield: "🛡️ Bouclier", double_roll: "⚡ 2e Lancer",
+        reroll: "🎲 Relance", free_pawn: "🚪 Pion sorti",
+      };
+      toast.info(`⭐ ${who} : Étoile Chance — ${rewardLabels[pe.reward || ""] || pe.reward}`);
+    }
+  }, [state.power_event]);
+
 
 
   // Auto-move: if only one pawn can move, play it immediately (no artificial delay).
@@ -493,6 +531,34 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
         {/* Center triangles */}
         <CenterTriangles cellPx={cellPx} />
+
+        {/* Power tiles (Mode Moderne) */}
+        {state.power_tiles && state.power_tiles.length > 0 && (
+          <>
+            {state.power_tiles.map((tile, ti) => {
+              const [row, col] = PATH[tile.cell];
+              const meta = POWER_TILE_META[tile.type] || POWER_TILE_META.lucky_star;
+              return (
+                <div key={`pt-${ti}`} className="absolute flex items-center justify-center rounded-lg"
+                  style={{
+                    left: col * cellPx + cellPx * 0.08,
+                    top: row * cellPx + cellPx * 0.08,
+                    width: cellPx * 0.84,
+                    height: cellPx * 0.84,
+                    background: meta.bg,
+                    border: `2px solid ${meta.border}`,
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)",
+                    zIndex: 10,
+                    fontSize: cellPx * 0.42,
+                    lineHeight: 1,
+                    pointerEvents: "none",
+                  }}>
+                  {meta.icon}
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {/* Yard inner white rect + 4 dots per quadrant */}
         {quadrants.map(q => {
