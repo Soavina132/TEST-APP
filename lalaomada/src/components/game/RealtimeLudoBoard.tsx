@@ -142,6 +142,18 @@ const POWER_TILE_STYLES = `
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
 }
+@keyframes bottomSheetIn {
+  0% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes overlayIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes timerRing {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: var(--ring-offset); }
+}
 `;
 
 export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType }: Props) {
@@ -154,6 +166,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [afkMax, setAfkMax] = useState<{t1:number;t2:number;secs:number}>({ t1: 2, t2: 2, secs: 30 });
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const [powerFlash, setPowerFlash] = useState<{ type: string; color: string; key: string } | null>(null);
+  const [showPowerGuide, setShowPowerGuide] = useState(false);
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const lastBotKey = useRef<string>("");
   const lastPassKey = useRef<string>("");
@@ -810,13 +823,24 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         </div>
       )}
 
-      {/* Sound toggle */}
-      <button
-        onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }}
-        className="absolute top-2 right-2 z-30 w-8 h-8 rounded-full bg-card/80 backdrop-blur border border-border/40 flex items-center justify-center active:scale-90 transition"
-      >
-        {soundOn ? "🔊" : "🔇"}
-      </button>
+      {/* Sound toggle + Power guide */}
+      <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5">
+        {state.power_tiles && state.power_tiles.length > 0 && (
+          <button
+            onClick={() => setShowPowerGuide(true)}
+            className="w-8 h-8 rounded-full bg-card/80 backdrop-blur border border-border/40 flex items-center justify-center active:scale-90 transition text-sm"
+            title="Guide des pouvoirs"
+          >
+            ⭐
+          </button>
+        )}
+        <button
+          onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }}
+          className="w-8 h-8 rounded-full bg-card/80 backdrop-blur border border-border/40 flex items-center justify-center active:scale-90 transition"
+        >
+          {soundOn ? "🔊" : "🔇"}
+        </button>
+      </div>
 
       {/* Forfeit banner */}
       {(() => {
@@ -852,14 +876,34 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             isMyTurn ? (state.must_move ? "" : "À toi de lancer le dé") :
             `Tour de ${nameOf(currentPart)}`)}
         </div>
-        {status === "playing" && (
-          <div className={`text-sm font-bold ${remaining <= 5 ? "text-destructive animate-pulse" : "text-muted-foreground"}`}>
-            ⏱ {remaining}s
-            {currentPart && !currentPart.is_bot && (
-              <> · T1 {currentPart.afk_t1 ?? 0}/{afkMax.t1} · T2 {currentPart.afk_t2 ?? 0}/{afkMax.t2}</>
-            )}
-          </div>
-        )}
+        {status === "playing" && (() => {
+          const pct = afkMax.secs > 0 ? remaining / afkMax.secs : 0;
+          const timerColor = remaining <= 5 ? "text-destructive" : remaining <= 10 ? "text-amber-500" : "text-emerald-500";
+          const showAfk = currentPart && !currentPart.is_bot && ((currentPart.afk_t1 ?? 0) > 0 || (currentPart.afk_t2 ?? 0) > 0);
+          return (
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-1 text-sm font-bold ${timerColor} ${remaining <= 5 ? "animate-pulse" : ""}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" className={remaining <= 5 ? "animate-pulse" : ""}>
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.2" />
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2"
+                    strokeDasharray={`${2 * Math.PI * 9}`}
+                    strokeDashoffset={`${2 * Math.PI * 9 * (1 - pct)}`}
+                    strokeLinecap="round"
+                    transform="rotate(-90 12 12)"
+                    style={{ transition: "stroke-dashoffset 0.5s ease" }}
+                  />
+                </svg>
+                {remaining}s
+              </div>
+              {showAfk && (
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  {currentPart!.afk_t1! > 0 && <span className={`px-1.5 py-0.5 rounded-full ${currentPart!.afk_t1! >= afkMax.t1 ? "bg-amber-500/20 text-amber-600 font-semibold" : "bg-muted"}`}>T1 {currentPart!.afk_t1}/{afkMax.t1}</span>}
+                  {currentPart!.afk_t2! > 0 && <span className={`px-1.5 py-0.5 rounded-full ${currentPart!.afk_t2! >= afkMax.t2 ? "bg-amber-500/20 text-amber-600 font-semibold" : "bg-muted"}`}>T2 {currentPart!.afk_t2}/{afkMax.t2}</span>}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {isAdmin && status === "playing" && currentPart && (
           <div className="rounded-lg bg-amber-100 border border-amber-300 px-2 py-1 flex flex-wrap items-center gap-1 text-[10px]">
             <span className="font-bold text-amber-900">🎲 Dé de {currentPart.display_name} :</span>
@@ -883,6 +927,9 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         )}
 
       </div>
+      {/* Power guide modal */}
+      {showPowerGuide && <PowerGuideModal onClose={() => setShowPowerGuide(false)} />}
+
       <GamePauseControl
         slug="ludo"
         gameId={gameId}
@@ -1007,7 +1054,7 @@ function DiceFace({ value }: { value: number }) {
   );
 }
 
-// ═══ Power Choice Dialog (Mode Moderne v2) ═══════════════════════════
+// ═══ Power Choice Dialog — Compact Bottom Sheet (Mode Moderne v3) ═══════
 function PowerChoiceDialog({
   pending,
   onChoose,
@@ -1019,32 +1066,43 @@ function PowerChoiceDialog({
 }) {
   if (pending.tile_type === "boost") {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-        <div className="bg-card text-card-foreground rounded-2xl p-6 max-w-xs w-full text-center shadow-2xl border border-border">
-          <div className="text-5xl mb-3">🚀</div>
-          <h3 className="font-bold text-lg mb-2">Boost</h3>
-          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-            Avance automatiquement de <strong>1 à 6 cases</strong> supplémentaires.
-            <br />Attention : peut te mener sur une case dangereuse !
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => onChoose("activate")}
-              disabled={disabled}
-              className="flex-1 rounded-lg bg-primary text-primary-foreground py-2.5 font-semibold text-sm hover:bg-primary/90 active:scale-95 transition disabled:opacity-50"
-            >
-              Activer
-            </button>
-            <button
-              onClick={() => onChoose("skip")}
-              disabled={disabled}
-              className="flex-1 rounded-lg bg-secondary text-secondary-foreground py-2.5 font-semibold text-sm hover:bg-secondary/80 active:scale-95 transition disabled:opacity-50"
-            >
-              Passer
-            </button>
+      <>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" style={{ animation: "overlayIn 0.2s ease-out" }} />
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-3 pb-4"
+          style={{ animation: "bottomSheetIn 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
+          <div className="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border w-full max-w-xs overflow-hidden">
+            {/* Header strip */}
+            <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-border/50">
+              <span className="text-2xl">🚀</span>
+              <div>
+                <h3 className="font-bold text-sm">Boost</h3>
+                <p className="text-[11px] text-muted-foreground">Avance de 1 à 6 cases supplémentaires</p>
+              </div>
+            </div>
+            {/* Warning */}
+            <p className="px-4 py-2 text-[11px] text-muted-foreground/80">
+              ⚠ Peut te mener sur une case dangereuse. Si le total dépasse 56, le pion ne bouge pas.
+            </p>
+            {/* Buttons */}
+            <div className="flex gap-2 p-3">
+              <button
+                onClick={() => onChoose("activate")}
+                disabled={disabled}
+                className="flex-1 rounded-xl bg-primary text-primary-foreground py-2 font-semibold text-sm hover:bg-primary/90 active:scale-95 transition disabled:opacity-50"
+              >
+                Activer
+              </button>
+              <button
+                onClick={() => onChoose("skip")}
+                disabled={disabled}
+                className="flex-1 rounded-xl bg-secondary text-secondary-foreground py-2 font-semibold text-sm hover:bg-secondary/80 active:scale-95 transition disabled:opacity-50"
+              >
+                Passer
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -1058,34 +1116,102 @@ function PowerChoiceDialog({
       reroll:     { icon: "🎲", label: "Re-lancer",    desc: "Relance le dé" },
     };
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-        <div className="bg-card text-card-foreground rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
-          <div className="text-5xl mb-3 text-center">⭐</div>
-          <h3 className="font-bold text-lg mb-2 text-center">Étoile Chance</h3>
-          <p className="text-sm text-muted-foreground mb-4 text-center">Choisis ta récompense :</p>
-          <div className="grid gap-2">
-            {options.map((opt, i) => {
-              const meta = optionMeta[opt] || { icon: "❓", label: opt, desc: "" };
-              return (
-                <button
-                  key={i}
-                  onClick={() => onChoose(opt)}
-                  disabled={disabled}
-                  className="flex items-center gap-3 rounded-lg bg-secondary hover:bg-accent text-secondary-foreground p-3 text-left transition active:scale-95 disabled:opacity-50"
-                >
-                  <span className="text-2xl">{meta.icon}</span>
-                  <div>
-                    <div className="font-semibold text-sm">{meta.label}</div>
-                    <div className="text-xs text-muted-foreground">{meta.desc}</div>
-                  </div>
-                </button>
-              );
-            })}
+      <>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" style={{ animation: "overlayIn 0.2s ease-out" }} />
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-3 pb-4"
+          style={{ animation: "bottomSheetIn 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
+          <div className="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border w-full max-w-sm overflow-hidden">
+            {/* Header strip */}
+            <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-border/50">
+              <span className="text-2xl">⭐</span>
+              <div>
+                <h3 className="font-bold text-sm">Étoile Chance</h3>
+                <p className="text-[11px] text-muted-foreground">Choisis ta récompense</p>
+              </div>
+            </div>
+            {/* Options */}
+            <div className="p-2 gap-1">
+              {options.map((opt, i) => {
+                const meta = optionMeta[opt] || { icon: "❓", label: opt, desc: "" };
+                return (
+                  <button
+                    key={i}
+                    onClick={() => onChoose(opt)}
+                    disabled={disabled}
+                    className="w-full flex items-center gap-3 rounded-xl bg-secondary/60 hover:bg-accent text-secondary-foreground px-3 py-2.5 text-left transition active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <span className="text-xl">{meta.icon}</span>
+                    <div className="flex-1">
+                      <div className="font-semibold text-sm">{meta.label}</div>
+                      <div className="text-[11px] text-muted-foreground">{meta.desc}</div>
+                    </div>
+                    <span className="text-muted-foreground/40 text-sm">›</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return null;
+}
+
+// ═══ Power Guide Modal — Compact reference for all power tiles ════════
+function PowerGuideModal({ onClose }: { onClose: () => void }) {
+  const powers = [
+    { icon: "🚀", label: "Boost", color: "#0ea5e9",
+      desc: "Avance automatiquement de 1 à 6 cases supplémentaires. Peut capturer. Dépassement 56 = gaspillé.",
+      action: "Dialog: Activer / Passer" },
+    { icon: "🛡️", label: "Bouclier", color: "#f97316",
+      desc: "Tous tes pions sont protégés contre la capture. Expire à ton prochain tour.",
+      action: "Automatique" },
+    { icon: "⚡", label: "Double Lancer", color: "#ec4899",
+      desc: "Lancer de dé supplémentaire. Si no-move, tu obtiens encore un lancer. Consommé au move.",
+      action: "Automatique" },
+    { icon: "⭐", label: "Étoile Chance", color: "#e2e8f0",
+      desc: "Choisis 1 récompense parmi 3 options aléatoires: Boost, Bouclier, Double Lancer, Pion gratuit, Re-lancer.",
+      action: "Dialog: 3 options" },
+  ];
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} style={{ animation: "overlayIn 0.2s ease-out" }} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-3 pb-4"
+        style={{ animation: "bottomSheetIn 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
+        <div className="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border w-full max-w-sm overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⭐</span>
+              <h3 className="font-bold text-sm">Guide des Pouvoirs</h3>
+            </div>
+            <button onClick={onClose} className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-muted-foreground active:scale-90 transition text-sm">✕</button>
+          </div>
+          {/* Power list */}
+          <div className="p-2 gap-1">
+            {powers.map((p, i) => (
+              <div key={i} className="flex items-start gap-3 rounded-xl px-3 py-2.5">
+                <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-lg" style={{ background: `${p.color}20`, border: `1px solid ${p.color}40` }}>
+                  {p.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{p.label}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{p.action}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{p.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Footer note */}
+          <div className="px-4 py-2 border-t border-border/50 text-center text-[10px] text-muted-foreground">
+            6 tuiles sur le plateau · Cooldown 3 tours après activation · Toujours rejoue
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
