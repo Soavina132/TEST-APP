@@ -400,7 +400,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           ? (participants.map(pp => pp.color) as Color[])
           : (["red","green","blue","yellow"] as Color[]);
         return (
-          <div className={`grid w-full max-w-xs gap-2 justify-items-center ${twoMode ? "grid-cols-2 grid-rows-1" : "grid-cols-2 grid-rows-2"}`}>
+          <div className={`grid w-full max-w-xs gap-1.5 justify-items-center ${twoMode ? "grid-cols-2 grid-rows-1" : "grid-cols-2 grid-rows-2"}`}>
             {slotColors.map((slotColor) => {
               const p = participants.find(pp => pp.color === slotColor);
               if (!p) return <div key={slotColor} />;
@@ -408,36 +408,24 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
               const pawnArr = state.pawns?.[String(p.slot)] || [];
               const finishedCount = pawnArr.filter(pw => pw?.s === "finished").length;
               const totalPawns = pawnArr.length || 4;
+              const afkTitle = !p.is_bot ? `T1 ${p.afk_t1 ?? 0}/${afkMax.t1} · T2 ${p.afk_t2 ?? 0}/${afkMax.t2} — ${finishedCount}/${totalPawns} pions arrivés` : `${finishedCount}/${totalPawns} pions arrivés`;
               return (
-                <div key={p.id}
-                  className={`flex w-full items-center gap-2 rounded-xl bg-card px-3 py-1.5 shadow ring-2 transition ${
+                <div key={p.id} title={afkTitle}
+                  className={`flex w-full items-center gap-1.5 rounded-lg bg-card px-2 py-1 shadow ring-2 transition ${
                     isCurrent ? `${COLOR_META[p.color].ring} scale-105` : "ring-transparent opacity-70"
                   } ${p.forfeited ? "line-through opacity-40" : ""}`}>
                   <div className="relative shrink-0">
-                    <div className={`h-5 w-5 rounded-full ${COLOR_META[p.color].bg} ${isCurrent ? "animate-pulse" : ""}`} />
-                    <span
-                      title={`${finishedCount}/${totalPawns} pions arrivés`}
-                      className={`absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-emerald-500 px-1 text-[9px] font-bold leading-none text-white shadow`}
-                    >
+                    <div className={`h-4 w-4 rounded-full ${COLOR_META[p.color].bg} ${isCurrent ? "animate-pulse" : ""}`} />
+                    <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-emerald-500 px-0.5 text-[8px] font-bold leading-none text-white shadow">
                       {finishedCount}
                     </span>
                   </div>
-                  <div className="flex min-w-0 flex-col leading-tight">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`truncate text-sm font-semibold ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
-                      {matchType === "groupe" && p.team && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${p.team === 1 ? "bg-red-500/15 text-red-600" : "bg-blue-500/15 text-blue-600"}`}>
-                          {p.team === 1 ? "🔴 G1" : "🔵 G2"}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-medium text-emerald-600">🏁 {finishedCount}/{totalPawns}</span>
-                    {!p.is_bot && (
-                      <span className="text-[10px] text-muted-foreground">
-                        T1 {p.afk_t1 ?? 0}/{afkMax.t1} · T2 {p.afk_t2 ?? 0}/{afkMax.t2}
-                      </span>
-                    )}
-                  </div>
+                  <span className={`truncate text-xs font-semibold leading-none ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
+                  {matchType === "groupe" && p.team && (
+                    <span className={`shrink-0 text-[8px] leading-none ${p.team === 1 ? "text-red-600" : "text-blue-600"}`}>
+                      {p.team === 1 ? "🔴" : "🔵"}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -561,13 +549,13 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           </div>
         )}
         {isAdmin && status === "playing" && currentPart && (
-          <div className="rounded-2xl bg-amber-100 border border-amber-300 px-3 py-2 flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-bold text-amber-900">🎲 Admin — forcer le dé de {currentPart.display_name} :</span>
+          <div className="rounded-lg bg-amber-100 border border-amber-300 px-2 py-1 flex flex-wrap items-center gap-1 text-[10px]">
+            <span className="font-bold text-amber-900">🎲 Dé de {currentPart.display_name} :</span>
             {[1,2,3,4,5,6].map(n => (
               <button key={n} onClick={async () => {
                 const { error } = await supabase.rpc("super_player_set_dice" as any, { _game_id: gameId, _slot: state.turn_slot, _value: n } as any);
                 if (error) toast.error(error.message); else toast.success(`Prochain dé: ${n}`);
-              }} className="w-7 h-7 rounded-lg bg-white font-bold hover:bg-amber-200">{n}</button>
+              }} className="w-5 h-5 rounded bg-white text-[11px] font-bold leading-none hover:bg-amber-200">{n}</button>
             ))}
           </div>
         )}
