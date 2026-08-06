@@ -32,7 +32,7 @@ const BADGES = [
   { min: 0,  label: "Bronze",  color: "from-amber-700 to-amber-500",     icon: "🥉" },
   { min: 2,  label: "Argent",  color: "from-slate-400 to-slate-300",     icon: "🥈" },
   { min: 3,  label: "Or",      color: "from-yellow-500 to-amber-400",    icon: "🥇" },
-  { min: 4,  label: "Diamant", color: "from-cyan-400 to-blue-500",       icon: "💎" },
+  { min: 4,  label: "Diamant", color: "from-orange-500 to-amber-500 dark:from-neutral-900 dark:to-black", icon: "💎" },
   { min: 5,  label: "Platine", color: "from-violet-500 to-fuchsia-500",   icon: "👑" },
 ];
 
@@ -217,7 +217,7 @@ function ProfilePage() {
   const gameTx = tx.filter(tr => ["stake", "win", "refund"].includes(tr.type)).slice(0, 10);
 
   return (
-    <main className="max-w-2xl mx-auto w-full px-3 pt-1 pb-1 h-[calc(100dvh-12rem)] flex flex-col gap-2 overflow-hidden">
+    <main className="max-w-2xl mx-auto w-full px-3 pt-1 pb-24 flex flex-col gap-2">
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
       {showDeleteDialog && <DeleteAccountDialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} />}
       
@@ -401,7 +401,7 @@ function ProfilePage() {
       </div>
 
       {/* ════ SECTION 4: Menu + Actions ════ */}
-      <div className="flex-1 min-h-0 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         {/* Menu grid 4x2 */}
         <div className="grid grid-cols-4 gap-1.5">
           <MenuButton icon={ArrowDownLeft} label="Dépôts" color="text-emerald-500"
@@ -414,7 +414,7 @@ function ProfilePage() {
             action={() => navigate({ to: "/parrainage", search: {} })} />
           <MenuButton icon={Shield} label="Sécurité" color="text-emerald-500"
             action={() => navigate({ to: "/parametres", search: {} })} />
-          <MenuButton icon={HelpCircle} label="Aide" color="text-blue-400"
+          <MenuButton icon={HelpCircle} label="Aide" color="text-orange-500 dark:text-neutral-300"
             action={() => navigate({ to: "/faq", search: {} })} />
           <MenuButton icon={Settings} label="Paramètres" color="text-muted-foreground"
             action={() => navigate({ to: "/parametres", search: {} })} />
@@ -429,7 +429,7 @@ function ProfilePage() {
         </div>
 
         {/* Logout + delete */}
-        <div className="mt-auto grid grid-cols-2 gap-1.5">
+        <div className="mt-1 grid grid-cols-2 gap-1.5">
           <button onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/10 text-destructive text-xs font-semibold active:scale-95 transition-transform">
             <LogOut className="w-3.5 h-3.5" /> Déconnexion
