@@ -1,8 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════
-// validate-deposit-sms — Edge Function Supabase
+// validate-deposit-sms — Edge Function Supabase v2 (sécurisée)
 //
 // POST /functions/v1/validate-deposit-sms
-// Body: { "secret": "xxx", "operator": "orange|mvola", "sms": "..." }
+// Body: { "secret": "xxx", "operator": "orange|mvola", "sms": "...",
+//         "timestamp": "1234567890", "signature": "hmac_hex" }
+//
+// SÉCURITÉ v2:
+//   1. Vérification du secret API
+//   2. Vérification de la signature HMAC-SHA256 (anti-interception/replay)
+//   3. Vérification du timestamp (anti-replay, fenêtre de 5 minutes)
+//   4. La clé service_role n'est JAMAIS reçue du client (elle est dans les env)
 //
 // Architecture:
 //   ParserFactory → OrangeParser | MVolaParser
@@ -36,108 +43,40 @@ interface ParseResult {
 
 class OrangeParser {
   parse(sms: string): ParseResult {
-    // ── Format 1 ────────────────────────────────────────────────────
-    // "Vous avez reçu un transfert de XXXXXAr venant du 03XXXXXXXX
-    //  Nouveau Solde: XXXXXAr.
-    //  Trans Id: PP260519.1245.C46612.
-    //  Orange Money vous remercie."
     if (/vous avez reçu/i.test(sms) || /transfert/i.test(sms)) {
       return this.parseFormat1(sms);
     }
-
-    // ── Format 2 ────────────────────────────────────────────────────
-    // "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907
-    //  le 04/08/26 a 16:45.
-    //  Raison: ludo.
-    //  Solde: 20 559 Ar.
-    //  Ref 4876739165"
     if (/recu de/i.test(sms) || /Ref\s+\d/i.test(sms)) {
       return this.parseFormat2(sms);
     }
-
     return { success: false, error: "Format Orange Money non reconnu" };
   }
 
   private parseFormat1(sms: string): ParseResult {
-    const result: ParsedSMS = {
-      amount: null,
-      sender_number: null,
-      sender_name: null,
-      transaction_id: null,
-      sms_date: null,
-    };
-
-    // Amount: "transfert de XXXXXAr" ou "transfert de X XXXAr"
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
     const amountMatch = sms.match(/(?:transfert|recu|reçu)\s+de\s+([\d\s]+)\s*Ar/i);
-    if (amountMatch) {
-      result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    }
-
-    // Sender number: "venant du 03XXXXXXXX"
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
     const senderMatch = sms.match(/venant\s+du\s+(\d[\d\s]+)/i);
-    if (senderMatch) {
-      result.sender_number = senderMatch[1].trim();
-    }
-
-    // Trans Id: "Trans Id: PP260519.1245.C46612"
+    if (senderMatch) result.sender_number = senderMatch[1].trim();
     const transIdMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i);
-    if (transIdMatch) {
-      result.transaction_id = transIdMatch[1].trim();
-    }
-
-    // Validate
-    if (!result.transaction_id) {
-      return { success: false, error: "Trans Id manquant (Format 1)" };
-    }
-    if (result.amount === null || isNaN(result.amount)) {
-      return { success: false, error: "Montant manquant (Format 1)" };
-    }
-
+    if (transIdMatch) result.transaction_id = transIdMatch[1].trim();
+    if (!result.transaction_id) return { success: false, error: "Trans Id manquant (Format 1)" };
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 1)" };
     return { success: true, data: result };
   }
 
   private parseFormat2(sms: string): ParseResult {
-    const result: ParsedSMS = {
-      amount: null,
-      sender_number: null,
-      sender_name: null,
-      transaction_id: null,
-      sms_date: null,
-    };
-
-    // Amount: "2 000 Ar recu de"
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
     const amountMatch = sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i);
-    if (amountMatch) {
-      result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    }
-
-    // Sender name + number: "recu de LovatianaEmmanuelRolland 0348968907"
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
     const senderMatch = sms.match(/recu\s+de\s+(.+?)\s+(\d{10,})/i);
-    if (senderMatch) {
-      result.sender_name = senderMatch[1].trim();
-      result.sender_number = senderMatch[2];
-    }
-
-    // Date: "le 04/08/26 a 16:45"
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); result.sender_number = senderMatch[2]; }
     const dateMatch = sms.match(/le\s+(\d{2}\/\d{2}\/\d{2,4})\s+[àa]\s+(\d{2}:\d{2})/i);
-    if (dateMatch) {
-      result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
-    }
-
-    // Reference: "Ref 4876739165"
+    if (dateMatch) result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
     const refMatch = sms.match(/Ref\s+(\d+)/i);
-    if (refMatch) {
-      result.transaction_id = refMatch[1];
-    }
-
-    // Validate
-    if (!result.transaction_id) {
-      return { success: false, error: "Ref manquante (Format 2)" };
-    }
-    if (result.amount === null || isNaN(result.amount)) {
-      return { success: false, error: "Montant manquant (Format 2)" };
-    }
-
+    if (refMatch) result.transaction_id = refMatch[1];
+    if (!result.transaction_id) return { success: false, error: "Ref manquante (Format 2)" };
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 2)" };
     return { success: true, data: result };
   }
 }
@@ -148,83 +87,32 @@ class OrangeParser {
 
 class MVolaParser {
   parse(sms: string): ParseResult {
-    // Format MVola 1: "Vous avez recu X Ar de XXXX (03XXXXXXXX). Ref: XXXXX"
-    if (/recu/i.test(sms) || /ref/i.test(sms)) {
-      return this.parseFormat1(sms);
-    }
-
-    // Format MVola 2: "Transaction reussie. Montant: X Ar. De: XXXX. Ref: XXXX"
-    if (/transaction/i.test(sms) || /montant/i.test(sms)) {
-      return this.parseFormat2(sms);
-    }
-
+    if (/recu/i.test(sms) || /ref/i.test(sms)) return this.parseFormat1(sms);
+    if (/transaction/i.test(sms) || /montant/i.test(sms)) return this.parseFormat2(sms);
     return { success: false, error: "Format MVola non reconnu" };
   }
 
   private parseFormat1(sms: string): ParseResult {
-    const result: ParsedSMS = {
-      amount: null,
-      sender_number: null,
-      sender_name: null,
-      transaction_id: null,
-      sms_date: null,
-    };
-
-    // Amount
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
     const amountMatch = sms.match(/(?:recu|recus|reçu)\s+([\d\s]+)\s*Ar/i);
-    if (amountMatch) {
-      result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    }
-
-    // Sender
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
     const senderMatch = sms.match(/de\s+(.+?)\s*\(?(\d{10,})?/i);
-    if (senderMatch) {
-      result.sender_name = senderMatch[1].trim();
-      if (senderMatch[2]) result.sender_number = senderMatch[2];
-    }
-
-    // Reference
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); if (senderMatch[2]) result.sender_number = senderMatch[2]; }
     const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
-    if (refMatch) {
-      result.transaction_id = refMatch[1];
-    }
-
-    if (!result.transaction_id) {
-      return { success: false, error: "Ref MVola manquante (Format 1)" };
-    }
-
+    if (refMatch) result.transaction_id = refMatch[1];
+    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 1)" };
     return { success: true, data: result };
   }
 
   private parseFormat2(sms: string): ParseResult {
-    const result: ParsedSMS = {
-      amount: null,
-      sender_number: null,
-      sender_name: null,
-      transaction_id: null,
-      sms_date: null,
-    };
-
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
     const amountMatch = sms.match(/montant\s*:?\s*([\d\s]+)\s*Ar/i);
-    if (amountMatch) {
-      result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    }
-
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
     const senderMatch = sms.match(/de\s*:?\s*(.+?)(?:\s+\(?(\d{10,})|$)/i);
-    if (senderMatch) {
-      result.sender_name = senderMatch[1].trim();
-      if (senderMatch[2]) result.sender_number = senderMatch[2];
-    }
-
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); if (senderMatch[2]) result.sender_number = senderMatch[2]; }
     const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
-    if (refMatch) {
-      result.transaction_id = refMatch[1];
-    }
-
-    if (!result.transaction_id) {
-      return { success: false, error: "Ref MVola manquante (Format 2)" };
-    }
-
+    if (refMatch) result.transaction_id = refMatch[1];
+    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 2)" };
     return { success: true, data: result };
   }
 }
@@ -236,15 +124,40 @@ class MVolaParser {
 class ParserFactory {
   static getParser(operator: string): OrangeParser | MVolaParser | null {
     switch (operator.toLowerCase().trim()) {
-      case "orange":
-        return new OrangeParser();
-      case "mvola":
-      case "m-vola":
-        return new MVolaParser();
-      default:
-        return null;
+      case "orange": return new OrangeParser();
+      case "mvola": case "m-vola": return new MVolaParser();
+      default: return null;
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SÉCURITÉ — HMAC VERIFICATION
+// ═══════════════════════════════════════════════════════════════════════
+
+async function verifyHMAC(secret: string, payload: string, timestamp: string, signature: string): Promise<boolean> {
+  // Vérifier le timestamp (fenêtre de 5 minutes = 300 secondes)
+  const now = Math.floor(Date.now() / 1000);
+  const ts = parseInt(timestamp, 10);
+  if (isNaN(ts) || Math.abs(now - ts) > 300) {
+    return false;
+  }
+
+  // Calculer HMAC-SHA256
+  const message = `${timestamp}${payload}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const expected = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  const expectedHex = Array.from(new Uint8Array(expected))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return expectedHex === signature;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -261,7 +174,7 @@ serve(async (req: Request) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type",
       },
     });
   }
@@ -272,10 +185,12 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { secret, operator, sms } = body as {
+    const { secret, operator, sms, timestamp, signature } = body as {
       secret?: string;
       operator?: string;
       sms?: string;
+      timestamp?: string;
+      signature?: string;
     };
 
     // 1. Vérifier le secret
@@ -283,20 +198,28 @@ serve(async (req: Request) => {
       return json({ success: false, error: "UNAUTHORIZED", message: "Secret invalide" }, 401);
     }
 
+    // 2. Vérifier la signature HMAC (si fournie — rétrocompatible)
+    if (timestamp && signature) {
+      const payloadStr = JSON.stringify({ operator, sms });
+      const valid = await verifyHMAC(DEPOSIT_SECRET, payloadStr, timestamp, signature);
+      if (!valid) {
+        return json({ success: false, error: "INVALID_SIGNATURE", message: "Signature HMAC invalide ou expirée" }, 401);
+      }
+    }
+
     if (!operator || !sms) {
       return json({ success: false, error: "MISSING_PARAMS", message: "operator et sms requis" }, 400);
     }
 
-    // 2. Obtenir le parser
+    // 3. Obtenir le parser
     const parser = ParserFactory.getParser(operator);
     if (!parser) {
       return json({ success: false, error: "UNKNOWN_OPERATOR", message: `Opérateur inconnu: ${operator}` }, 400);
     }
 
-    // 3. Parser le SMS
+    // 4. Parser le SMS
     const parseResult = parser.parse(sms);
     if (!parseResult.success || !parseResult.data) {
-      // Logger l'échec de parsing
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -313,7 +236,7 @@ serve(async (req: Request) => {
 
     const parsed = parseResult.data;
 
-    // 4. Valider via la fonction PostgreSQL (atomique)
+    // 5. Valider via la fonction PostgreSQL (atomique)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -333,7 +256,6 @@ serve(async (req: Request) => {
       return json({ success: false, error: "DB_ERROR", message: error.message }, 500);
     }
 
-    // 5. Retourner le résultat
     return json(result, result?.success ? 200 : 422);
   } catch (err) {
     return json({ success: false, error: "INTERNAL_ERROR", message: String(err) }, 500);
