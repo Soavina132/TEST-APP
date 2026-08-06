@@ -13,7 +13,6 @@ import {
   HelpCircle, Shield, ChevronRight, Settings,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
-import PhoneVerification from "@/components/PhoneVerification";
 import { compressImageToWebp } from "@/lib/image-compress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -116,7 +115,6 @@ function ProfilePage() {
   const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
     const [achievements, setAchievements] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState<"none" | "deposits" | "withdrawals" | "games">("none");
   const [deps, setDeps] = useState<any[]>([]);
@@ -388,8 +386,14 @@ function ProfilePage() {
             action={() => navigate({ to: "/faq", search: {} })} />
           <MenuButton icon={Settings} label="Paramètres" color="text-muted-foreground"
             action={() => navigate({ to: "/parametres", search: {} })} />
-          <MenuButton icon={Phone} label={p.phone_verified ? "Vérifié" : "Vérifier numéro"} color={p.phone_verified ? "text-emerald-500" : "text-amber-500"}
-            action={() => p.phone_verified ? toast.info("Numéro vérifié ✓") : setShowPhoneVerify(true)} />
+          <MenuButton icon={Phone} label={p.phone_verified ? "Vérifié" : "Demander vérification"} color={p.phone_verified ? "text-emerald-500" : "text-amber-500"}
+            action={async () => {
+              if (p.phone_verified) return toast.info("Numéro vérifié ✓");
+              if (!p.phone) return toast.error("Ajoutez d'abord votre numéro dans Paramètres");
+              const { error } = await supabase.rpc("request_phone_verification", { _phone: p.phone });
+              if (error) return toast.error("Erreur: " + error.message);
+              toast.success("Demande envoyée — un admin vérifiera votre numéro");
+            }} />
         </div>
 
         {/* Logout + delete */}
@@ -404,16 +408,6 @@ function ProfilePage() {
           </button>
         </div>
       </div>
-      {showPhoneVerify && (
-        <PhoneVerification
-          currentPhone={p.phone}
-          onClose={() => setShowPhoneVerify(false)}
-          onVerified={async () => {
-            setShowPhoneVerify(false);
-            await refreshProfile();
-          }}
-        />
-      )}
     </main>
   );
 }

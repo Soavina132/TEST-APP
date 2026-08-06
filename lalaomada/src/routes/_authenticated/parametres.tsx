@@ -139,17 +139,15 @@ function ParametresPage() {
   const savePhone = async () => {
     const trimmed = phone.trim();
     if (!trimmed) return toast.error("Numero requis");
-    if (!/^[0-9+\s-]{8,15}$/.test(trimmed)) return toast.error("Numero invalide");
+    if (!/^\+?261?\d{9}$/.test(trimmed.replace(/\s/g, "")) && !/^[0-9+\s-]{8,15}$/.test(trimmed)) return toast.error("Numero invalide (format: +261 34 XX XXX XX)");
     if (trimmed === profile?.phone) return;
     setSavingPhone(true);
     try {
-      const { error } = await supabase.from("profiles").update({
-        phone: trimmed,
-        phone_verified: false,
-      }).eq("id", user!.id);
+      // Use the RPC that generates a verification code for admin approval
+      const { error } = await supabase.rpc("request_phone_verification", { _phone: trimmed });
       if (error) throw error;
       await refreshProfile();
-      toast.success("Numero mis a jour — a verifier");
+      toast.success("Numero enregistre — en attente de verification par un admin");
     } catch (e: any) {
       toast.error(e?.message || "Erreur lors de la mise a jour");
     } finally {
