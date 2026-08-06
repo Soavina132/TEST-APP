@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import GameInstructionsBanner from "./GameInstructionsBanner";
 import GamePauseControl from "./GamePauseControl";
+import { sfx, setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 
 type Color = "red" | "green" | "yellow" | "blue";
 const COLORS: Color[] = ["red", "green", "yellow", "blue"];
@@ -108,6 +109,32 @@ const POWER_TILE_META: Record<string, { icon: string; label: string; bg: string;
   lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(168,85,247,0.85)", border: "#a855f7" },
 };
 
+// CSS animations for power tile effects
+const POWER_TILE_STYLES = `
+@keyframes powerFlashAnim {
+  0% { opacity: 0.8; transform: scale(0.8); }
+  30% { opacity: 0.6; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+@keyframes powerTilePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3); }
+  50% { transform: scale(1.08); box-shadow: 0 4px 12px rgba(255,255,255,0.3), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.4); }
+}
+@keyframes powerTileAppear {
+  0% { transform: scale(0) rotate(180deg); opacity: 0; }
+  60% { transform: scale(1.2) rotate(-10deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes powerGlow {
+  0%, 100% { filter: drop-shadow(0 0 4px currentColor); }
+  50% { filter: drop-shadow(0 0 12px currentColor) drop-shadow(0 0 8px currentColor); }
+}
+@keyframes captureBurst {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+`;
+
 export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType }: Props) {
   const [boardSize, setBoardSize] = useState(600);
   const [busy, setBusy] = useState(false);
@@ -117,6 +144,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [animating, setAnimating] = useState(false);
   const [afkMax, setAfkMax] = useState<{t1:number;t2:number;secs:number}>({ t1: 2, t2: 2, secs: 30 });
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
+  const [powerFlash, setPowerFlash] = useState<{ type: string; color: string; key: string } | null>(null);
+  const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const lastBotKey = useRef<string>("");
   const lastPassKey = useRef<string>("");
   const lastTimeoutKey = useRef<string>("");
@@ -189,23 +218,28 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         if (m.from.s === "yard" && m.to.s === "track") {
           // Pop out to k=0 in one step
           await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k: 0 }, 200);
+          sfx.pawnMove();
           continue;
         }
         if (m.to.s === "finished") {
           // Walk through home stretch then mark finished
           for (let k = fromK + 1; k <= 56; k++) {
             await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
+            sfx.pawnStep();
           }
           await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 56 }, 30);
+          sfx.home();
           continue;
         }
         // Track → track: glide quickly cell by cell
         for (let k = fromK + 1; k <= toK; k++) {
           await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
+          sfx.pawnStep();
         }
       }
       // Then apply captures
       for (const c of captures) {
+        sfx.capture();
         await stepAnim(setDisplayedPawns, c.slot, c.idx, { s: "yard", k: -1 }, 200);
       }
       // Final sync
@@ -274,6 +308,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const roll = async () => {
     if (!isMyTurn || state.must_move || busy) return;
     setBusy(true);
+    sfx.diceRoll();
     // Visual roll animation
     const start = Date.now();
     const anim = setInterval(() => {
@@ -284,7 +319,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       const { error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
       if (error) toast.error(error.message);
     } finally {
-      setTimeout(() => { setRollingFace(null); setBusy(false); }, 750);
+      setTimeout(() => { setRollingFace(null); setBusy(false); sfx.diceLand(); }, 750);
     }
   };
 
@@ -350,7 +385,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const displayDice = noMoveDisplay ? noMoveDisplay.dice : state.dice;
   const displayPart = partsBySlot.get(displaySlot) || currentPart;
 
-  // Power event display (Mode Moderne) — visual feedback on board only, no intrusive toasts
+  // Power event display (Mode Moderne) — sound + visual flash
   const lastPowerEventRef = useRef<string>("");
   useEffect(() => {
     const pe = state.power_event;
@@ -358,10 +393,34 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const key = `${pe.type}-${pe.at}-${pe.slot}`;
     if (lastPowerEventRef.current === key) return;
     lastPowerEventRef.current = key;
-    // Visual feedback is handled by board animations, no toast needed
+    // Sound effect based on tile type
+    const tileType = pe.reward || pe.type;
+    sfx.powerTile(tileType);
+    // Visual flash overlay
+    const flashColors: Record<string, string> = {
+      boost: "#3b82f6",
+      shield: "#22c55e",
+      double_roll: "#f59e0b",
+      lucky_star: "#a855f7",
+    };
+    setPowerFlash({ type: tileType, color: flashColors[tileType] || "#a855f7", key });
+    setTimeout(() => setPowerFlash(null), 1500);
   }, [state.power_event]);
 
 
+
+  // Sound effects for last_event changes
+  const lastEventRef = useRef<string>("");
+  useEffect(() => {
+    const ev = state.last_event;
+    if (!ev || ev === lastEventRef.current) return;
+    lastEventRef.current = ev;
+    if (ev.startsWith("six")) sfx.six();
+    else if (ev.startsWith("capture")) sfx.capture();
+    else if (ev.startsWith("home")) sfx.home();
+    else if (ev.startsWith("roll:") && ev.endsWith(":no_move")) sfx.noMove();
+    else if (ev === "move") sfx.turnChange();
+  }, [state.last_event]);
 
   // Auto-move: if only one pawn can move, play it immediately (no artificial delay).
   // Keyed on turn_started_at (server timestamp) so it fires exactly once per turn,
@@ -538,8 +597,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     fontSize: cellPx * 0.42,
                     lineHeight: 1,
                     pointerEvents: "none",
+                    animation: "powerTilePulse 2s ease-in-out infinite",
                   }}>
-                  {meta.icon}
+                  <span style={{ animation: "powerGlow 1.5s ease-in-out infinite", color: meta.border, display: "inline-block" }}>
+                    {meta.icon}
+                  </span>
                 </div>
               );
             })}
@@ -627,6 +689,25 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         })}
 
       </div>
+
+      {/* Power event flash overlay */}
+      {powerFlash && (
+        <div key={powerFlash.key}
+          className="absolute inset-0 pointer-events-none rounded-2xl"
+          style={{
+            background: `radial-gradient(circle at center, ${powerFlash.color}40 0%, transparent 70%)`,
+            animation: "powerFlashAnim 1.5s ease-out forwards",
+            zIndex: 50,
+          }} />
+      )}
+
+      {/* Sound toggle */}
+      <button
+        onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }}
+        className="absolute top-2 right-2 z-30 w-8 h-8 rounded-full bg-card/80 backdrop-blur border border-border/40 flex items-center justify-center active:scale-90 transition"
+      >
+        {soundOn ? "🔊" : "🔇"}
+      </button>
 
       {/* Bottom HUD */}
       <div className="flex flex-col items-center gap-1.5">

@@ -1,0 +1,11 @@
+-- ═══════════════════════════════════════════════════════════════════════
+-- FIX: Power tiles — éviter les cases avec pions + effets visuels/sonores
+--
+-- CHANGEMENTS:
+-- 1. _ludo_relocate_tile accepte maintenant _game_id et _state (optionnels)
+--    pour éviter les cellules où des pions sont présents
+-- 2. ludo_move passe l'état du jeu à _ludo_relocate_tile
+-- 3. Les power tiles ne sont jamais placés sur une case occupée par un pion
+-- ═══════════════════════════════════════════════════════════════════════
+-- Note: Cette migration a été appliquée directement via l'API Management Supabase
+-- le 2026-08-06.
