@@ -1,3 +1,4 @@
+import { SUITS, SUIT_COLORS, RANKS } from "@/lib/game-constants";
 import React from "react";
 import { serverNow } from "@/lib/server-time";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -32,9 +33,6 @@ export const Route = createFileRoute("/_authenticated/jeux/rami/$id")({
 });
 
 // ── Playing Card SVG Renderer ─────────────────────────────────────────────
-const SUITS = ["♠", "♥", "♦", "♣"];
-const SUIT_COLORS = ["#111827", "#dc2626", "#dc2626", "#111827"];
-const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 
 function Pip({ suit, size = 7, flip = false }: { suit: number; size?: number; flip?: boolean }) {
   const s = size;

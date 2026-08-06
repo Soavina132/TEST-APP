@@ -1,3 +1,4 @@
+import { GAME_TABLE, type GameSlug } from "@/lib/game-constants";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/jeux/")({
       { rel: "preload", as: "image", href: pokerImg }]})});
 
 
-type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
+type Slug = GameSlug;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Covers — vraies images photoréalistes stylées
@@ -81,9 +82,6 @@ const GAMES: GameDef[] = [
 const ALL_DISPLAYED_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker"];
 const DIRECT_JOIN_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker"];
 
-const GAME_TABLE: Record<Slug, string> = {
-  ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games",
-  chess: "chess_games", rami: "rami_games", poker: "poker_games"};
 const HOST_COL: Record<Slug, string> = {
   ludo: "host_id", domino: "host_id", fanorona: "host_id",
   chess: "host_id", rami: "created_by", poker: "created_by"};

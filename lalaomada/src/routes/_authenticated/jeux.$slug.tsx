@@ -1,3 +1,4 @@
+import { UUID_RE, GAME_TABLE, type GameSlug } from "@/lib/game-constants";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/_authenticated/jeux/$slug")({
   }),
 });
 
-type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
+type Slug = GameSlug;
 const STAKES = [100, 500, 1000, 2000, 5000];
 
 const COVER_PLACEHOLDER: Record<string, string> = {
@@ -84,14 +85,10 @@ const META: Record<Slug, { label: string; cover: string; maxOpts: number[] }> = 
 const ROUTE: Record<Slug, any> = {
   ludo: "/jeux/ludo/$id", domino: "/jeux/domino/$id", fanorona: "/jeux/fanorona/$id", chess: "/jeux/chess/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id",
 };
-const GAME_TABLE: Record<Slug, string> = {
-  ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games", chess: "chess_games", rami: "rami_games", poker: "poker_games",
-};
 const PART_TABLE: Record<Slug, string | null> = {
   ludo: "ludo_participants", domino: "domino_participants", fanorona: "fanorona_participants", chess: null, rami: "rami_participants", poker: "poker_players",
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function extractGameId(data: unknown): string | null {
   const row = Array.isArray(data) ? data[0] : data;

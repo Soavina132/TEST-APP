@@ -14,7 +14,6 @@ import { useLocation } from "@tanstack/react-router";
 import { useT } from "@/lib/i18n";
 import { useWaitingRoomActive } from "@/lib/game-ui-state";
 import { PageLoader } from "@/components/layout/PageLoader";
-// AdminApprovalWatcher supprimé — sécurité admin désactivée
 
 
 export const Route = createFileRoute("/_authenticated")({

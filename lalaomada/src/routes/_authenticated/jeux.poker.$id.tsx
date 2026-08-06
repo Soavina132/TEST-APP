@@ -1,3 +1,4 @@
+import { SUITS, SUIT_COLORS, RANKS } from "@/lib/game-constants";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { serverNow } from "@/lib/server-time";
 import { useEffect, useState, useCallback } from "react";
@@ -20,9 +21,6 @@ export const Route = createFileRoute("/_authenticated/jeux/poker/$id")({
 });
 
 // ── Card encoding ─────────────────────────────────────────────────────────
-const SUITS = ["♠","♥","♦","♣"];
-const SUIT_COLORS = ["#0f172a","#dc2626","#dc2626","#0f172a"];
-const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 const HAND_LABELS: Record<string,string> = {
   "Quinte Royale": "Quinte Royale 👑",
   "Quinte Flush": "Quinte Flush",
