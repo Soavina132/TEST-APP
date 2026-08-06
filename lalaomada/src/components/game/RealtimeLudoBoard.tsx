@@ -103,6 +103,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [displayedPawns, setDisplayedPawns] = useState<GameState["pawns"]>(state.pawns);
   const [animating, setAnimating] = useState(false);
   const [afkMax, setAfkMax] = useState<{t1:number;t2:number;secs:number}>({ t1: 2, t2: 2, secs: 30 });
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const lastBotKey = useRef<string>("");
   const lastPassKey = useRef<string>("");
   const lastTimeoutKey = useRef<string>("");
@@ -118,6 +119,25 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       if (data) setAfkMax({ t1: data.afk_t1_max ?? 2, t2: data.afk_t2_max ?? 2, secs: data.turn_seconds ?? 30 });
     });
   }, []);
+
+  // Fetch real player avatars (bots get a generated Dicebear avatar instead)
+  const humanUserIds = participants.filter(p => !p.is_bot && p.user_id).map(p => p.user_id as string);
+  const humanUserIdsKey = humanUserIds.slice().sort().join(",");
+  useEffect(() => {
+    if (humanUserIds.length === 0) return;
+    supabase.from("profiles").select("id, avatar_url").in("id", humanUserIds).then(({ data }: any) => {
+      if (!data) return;
+      const map: Record<string, string> = {};
+      data.forEach((r: any) => { if (r.avatar_url) map[r.id] = r.avatar_url; });
+      setAvatarMap(map);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [humanUserIdsKey]);
+
+  const avatarOf = (p: Participant) => {
+    if (p.is_bot) return `https://api.dicebear.com/7.x/adventurer/svg?seed=joueur${botIndex.get(p.id) ?? p.slot}`;
+    return p.user_id ? avatarMap[p.user_id] : undefined;
+  };
 
 
   // Animate pawn movement step-by-step when state.pawns changes
@@ -408,24 +428,38 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
               const pawnArr = state.pawns?.[String(p.slot)] || [];
               const finishedCount = pawnArr.filter(pw => pw?.s === "finished").length;
               const totalPawns = pawnArr.length || 4;
-              const afkTitle = !p.is_bot ? `T1 ${p.afk_t1 ?? 0}/${afkMax.t1} · T2 ${p.afk_t2 ?? 0}/${afkMax.t2} — ${finishedCount}/${totalPawns} pions arrivés` : `${finishedCount}/${totalPawns} pions arrivés`;
               return (
-                <div key={p.id} title={afkTitle}
+                <div key={p.id}
                   className={`flex w-full items-center gap-1.5 rounded-lg bg-card px-2 py-1 shadow ring-2 transition ${
                     isCurrent ? `${COLOR_META[p.color].ring} scale-105` : "ring-transparent opacity-70"
                   } ${p.forfeited ? "line-through opacity-40" : ""}`}>
                   <div className="relative shrink-0">
-                    <div className={`h-4 w-4 rounded-full ${COLOR_META[p.color].bg} ${isCurrent ? "animate-pulse" : ""}`} />
+                    <div className={`h-7 w-7 rounded-full overflow-hidden ring-2 ${COLOR_META[p.color].ring} ${COLOR_META[p.color].bg} ${isCurrent ? "animate-pulse" : ""}`}>
+                      {avatarOf(p) ? (
+                        <img src={avatarOf(p)} alt={nameOf(p)} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[9px] font-bold text-white">
+                          {nameOf(p).slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
                     <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-emerald-500 px-0.5 text-[8px] font-bold leading-none text-white shadow">
                       {finishedCount}
                     </span>
                   </div>
-                  <span className={`truncate text-xs font-semibold leading-none ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
-                  {matchType === "groupe" && p.team && (
-                    <span className={`shrink-0 text-[8px] leading-none ${p.team === 1 ? "text-red-600" : "text-blue-600"}`}>
-                      {p.team === 1 ? "🔴" : "🔵"}
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <div className="flex items-center gap-1">
+                      <span className={`truncate text-xs font-semibold leading-none ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
+                      {matchType === "groupe" && p.team && (
+                        <span className={`shrink-0 text-[8px] leading-none ${p.team === 1 ? "text-red-600" : "text-blue-600"}`}>
+                          {p.team === 1 ? "🔴" : "🔵"}
+                        </span>
+                      )}
+                    </div>
+                    <span className="truncate text-[9px] leading-none text-muted-foreground">
+                      T1 {p.afk_t1 ?? 0}/{afkMax.t1} · T2 {p.afk_t2 ?? 0}/{afkMax.t2}
                     </span>
-                  )}
+                  </div>
                 </div>
               );
             })}
@@ -561,7 +595,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         )}
         <button onClick={roll}
           disabled={!isMyTurn || state.must_move || busy}
-          className={`group relative h-20 w-20 rounded-2xl bg-card shadow-xl ring-2 transition ${
+          className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
             currentPart ? COLOR_META[currentPart.color].ring : "ring-slate-300"
           } ${isMyTurn && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "animate-spin" : ""}`}>
           <DiceFace value={rollingFace ?? state.dice ?? 0} />
