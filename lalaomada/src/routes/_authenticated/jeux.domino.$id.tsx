@@ -9,6 +9,7 @@ import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Copy, Plus, Pause, Ban } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
+import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
@@ -545,6 +546,7 @@ function DominoPage() {
 
 
 
+      <PhoneVerifyBanner stake={Number(game.stake) || 0} />
       <div className="flex-1 min-h-0 flex flex-col">
         <DominoTable
           seats={parts.map(p => ({

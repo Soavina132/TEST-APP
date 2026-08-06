@@ -139,6 +139,7 @@ function Lobby() {
   const [busy, setBusy] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<((name?: string) => Promise<void>) | null>(null);
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [sheet, setSheet] = useState<string | null>(null);
   const closeSheet = () => setSheet(null);
 
@@ -159,7 +160,7 @@ function Lobby() {
     if (!(profile as any)?.phone_verified) {
       toast.error("Numéro non vérifié", {
         description: "Vérifiez votre numéro avant de jouer avec une mise.",
-        action: { label: "Vérifier", onClick: () => navigate({ to: "/profile" }) },
+        action: { label: "Vérifier", onClick: () => setShowPhoneVerify(true) },
         duration: 8000,
       });
       return false;

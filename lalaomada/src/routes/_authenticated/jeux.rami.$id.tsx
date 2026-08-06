@@ -90,6 +90,7 @@ import joker0Asset from "@/assets/rami/joker-0.png.asset.json";
 import joker1Asset from "@/assets/rami/joker-1.png.asset.json";
 import joker2Asset from "@/assets/rami/joker-2.png.asset.json";
 import joker3Asset from "@/assets/rami/joker-3.png.asset.json";
+import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 
 const JOKER_ART = [joker0Asset.url, joker1Asset.url, joker2Asset.url, joker3Asset.url];
 

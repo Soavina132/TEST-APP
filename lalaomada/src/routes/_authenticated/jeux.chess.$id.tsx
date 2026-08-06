@@ -18,6 +18,7 @@ import { serverNow } from "@/lib/server-time";
 import { useGlobalGameTimer } from "@/hooks/game/use-global-game-timer";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import { playChessMove, playChessCapture, playChessCastle, playChessCheck, playChessEnd, unlockAudio } from "@/lib/sounds/game-sounds";
+import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 
 export const Route = createFileRoute("/_authenticated/jeux/chess/$id")({
   component: ChessPage,
@@ -601,6 +602,7 @@ function ChessPage() {
 
   return (
     <div className="h-full overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950 overscroll-none">
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
       {/* Top bar */}
       <div className="px-2 pt-1">
               <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">

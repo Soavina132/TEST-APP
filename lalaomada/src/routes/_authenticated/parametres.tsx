@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
+import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
 import { useTheme } from "@/hooks/use-theme";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,6 +89,7 @@ function ParametresPage() {
   const [savingName, setSavingName] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -139,17 +141,19 @@ function ParametresPage() {
   const savePhone = async () => {
     const trimmed = phone.trim();
     if (!trimmed) return toast.error("Numero requis");
-    if (!/^\+?261?\d{9}$/.test(trimmed.replace(/\s/g, "")) && !/^[0-9+\s-]{8,15}$/.test(trimmed)) return toast.error("Numero invalide (format: +261 34 XX XXX XX)");
+    if (!/^[0-9+\s-]{8,15}$/.test(trimmed)) return toast.error("Numero invalide");
     if (trimmed === profile?.phone) return;
     setSavingPhone(true);
     try {
-      // Use the RPC that generates a verification code for admin approval
-      const { error } = await supabase.rpc("request_phone_verification", { _phone: trimmed });
+      const { error } = await supabase.from("profiles").update({
+        phone: trimmed,
+        phone_verified: false,
+      }).eq("id", user!.id);
       if (error) throw error;
       await refreshProfile();
-      toast.success("Numero enregistre — en attente de verification par un admin");
+      toast.success("Numero enregistre");
     } catch (e: any) {
-      toast.error(e?.message || "Erreur lors de la mise a jour");
+      toast.error(e?.message || "Erreur");
     } finally {
       setSavingPhone(false);
     }
@@ -218,7 +222,7 @@ function ParametresPage() {
         <div className="space-y-3">
           <Field label="Numero de telephone" value={phone} onChange={setPhone} type="tel" placeholder="+261 34 12 345 67" />
           {profile?.phone_verified && !phoneChanged && (
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Numero verifie</p>
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Numero verifie ✓</p>
           )}
           {phoneChanged && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
@@ -229,6 +233,12 @@ function ParametresPage() {
             className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-95 disabled:opacity-40 transition flex items-center justify-center gap-1.5">
             {savingPhone ? "Enregistrement…" : (<><Check className="w-4 h-4" /> Enregistrer</>)}
           </button>
+          {!profile?.phone_verified && !phoneChanged && (
+            <button onClick={() => setShowPhoneVerify(true)}
+              className="w-full py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm font-semibold active:scale-95 transition flex items-center justify-center gap-1.5">
+              <Phone className="w-4 h-4" /> Verifier mon numero
+            </button>
+          )}
         </div>
       </Section>
 
@@ -268,6 +278,7 @@ function ParametresPage() {
           sublabel={isDark ? "Tap pour passer en mode clair" : "Tap pour passer en mode sombre"}
         />
       </Section>
-    </main>
+          {showPhoneVerify && <PhoneVerifyPopup onClose={() => setShowPhoneVerify(false)} />}
+</main>
   );
 }

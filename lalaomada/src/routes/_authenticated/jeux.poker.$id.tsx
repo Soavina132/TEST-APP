@@ -14,6 +14,7 @@ import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
+import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 
 export const Route = createFileRoute("/_authenticated/jeux/poker/$id")({
   component: PokerPage,
@@ -398,6 +399,7 @@ function PokerPage() {
   // ── In-game board ─────────────────────────────────────────────────────────
   return (
     <main className="flex flex-col h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at 50% 30%, #166534 0%, #14532d 50%, #052e16 100%)" }}>
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-black/40 backdrop-blur z-20">

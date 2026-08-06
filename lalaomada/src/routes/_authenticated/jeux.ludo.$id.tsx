@@ -12,6 +12,7 @@ import { useT } from "@/lib/i18n";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import GameSocialFab from "@/components/game/GameSocialFab";
+import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 
 export const Route = createFileRoute("/_authenticated/jeux/ludo/$id")({
   component: GamePage,
@@ -223,6 +224,7 @@ function GamePage() {
 
   return (
     <main className="max-w-5xl mx-auto px-3 py-1 h-full overflow-hidden overscroll-none">
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
       <h1 className="sr-only">Partie de Ludo en cours</h1>
       <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
         <div className="flex items-baseline gap-1 min-w-0">

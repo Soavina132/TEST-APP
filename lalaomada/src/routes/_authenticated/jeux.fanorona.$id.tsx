@@ -19,6 +19,7 @@ import { useGlobalGameTimer } from "@/hooks/game/use-global-game-timer";
 import { useConfirm } from "@/components/ConfirmDialog";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import { playFanoronaMove, playFanoronaCapture, playFanoronaWin, playFanoronaLose, unlockAudio } from "@/lib/sounds/fanorona-sounds";
+import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 
 export const Route = createFileRoute("/_authenticated/jeux/fanorona/$id")({
   component: FanoronaPage,
@@ -467,6 +468,7 @@ function FanoronaPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-2 py-2 space-y-1.5 h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       <GameInstructionsBanner slug="fanorona" />
 
