@@ -107,6 +107,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const lastBotKey = useRef<string>("");
   const lastPassKey = useRef<string>("");
   const lastTimeoutKey = useRef<string>("");
+  const lastNoMoveRef = useRef<string>("");
   const animQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   // Rebrand bots as "Joueur N" (cartoon-only, no "Bot" or robot emoji)
@@ -314,6 +315,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   };
 
   // Auto-pass: if it's my turn and I rolled but no pawn can move, skip after a short delay
+  // (fallback — le backend passe aussi le tour immédiatement maintenant)
   useEffect(() => {
     if (!isMyTurn || !state.must_move || state.dice == null) return;
     if (movablePawnIdxs.size > 0) return;
@@ -327,6 +329,17 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }, 1200);
     return () => clearTimeout(t);
   }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.turn_started_at, movablePawnIdxs, gameId]);
+
+  // Detect no_move event from backend (roll:X:no_move) and show toast
+  useEffect(() => {
+    const ev = state.last_event || "";
+    if (!ev.includes(":no_move")) return;
+    const diceVal = ev.split(":")[1];
+    const key = `${state.turn_slot}-${diceVal}-${state.turn_started_at}`;
+    if (lastNoMoveRef.current === key) return;
+    lastNoMoveRef.current = key;
+    toast.info(`Dé: ${diceVal} — Aucun mouvement possible, tour passé`);
+  }, [state.last_event, state.turn_slot, state.turn_started_at]);
 
   // Auto-move: if only one pawn can move, play it immediately (no artificial delay).
   // Keyed on turn_started_at (server timestamp) so it fires exactly once per turn,
