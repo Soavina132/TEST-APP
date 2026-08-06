@@ -62,6 +62,7 @@ export default function GameSocialFab({
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef<{ mx: number; my: number; bx: number; by: number; moved: boolean } | null>(null);
+  const wasTapRef = useRef(false);
 
   useEffect(() => {
     setPos(getDefaultPos());
@@ -105,9 +106,10 @@ export default function GameSocialFab({
     dragStart.current = null;
     (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
     if (ds && !ds.moved) {
-      // Click — open panel
-      openPanel();
+      // Mark as tap — onClick will handle opening panel
+      wasTapRef.current = true;
     } else {
+      wasTapRef.current = false;
       setPos((p) => {
         localStorage.setItem(posKey, JSON.stringify(p));
         return p;
@@ -115,6 +117,13 @@ export default function GameSocialFab({
     }
     setDragging(false);
   }, [posKey]);
+
+  const onClick = useCallback(() => {
+    if (wasTapRef.current) {
+      wasTapRef.current = false;
+      openPanel();
+    }
+  }, []);
 
   // ── Chat room setup ──
   useEffect(() => {
@@ -239,6 +248,7 @@ export default function GameSocialFab({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onClick={onClick}
           className={`relative w-11 h-11 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all active:scale-90 select-none ${dragging ? "cursor-grabbing opacity-80" : "cursor-grab hover:scale-110"}`}
           style={{ touchAction: "none" }}
           aria-label="Discussion et réactions — glisser pour déplacer"
