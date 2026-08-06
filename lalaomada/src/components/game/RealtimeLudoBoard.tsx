@@ -313,20 +313,24 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
-  // Auto-pass: if it's my turn and I rolled but no pawn can move, skip after a short delay
-  // (fallback — le backend passe aussi le tour immédiatement maintenant)
+  // No-move auto-pass: when backend signals roll:X:no_move, wait 1 second
+  // (so the player sees the dice result + frame stays on current player),
+  // then call ludo_pass to clear the dice and move to the next player.
+  // Works for ANY player's turn (not just mine) — any participant can trigger
+  // the pass since the backend allows it for no_move events.
+  const lastNoMovePassKey = useRef<string>("");
   useEffect(() => {
-    if (!isMyTurn || !state.must_move || state.dice == null) return;
-    if (movablePawnIdxs.size > 0) return;
-    const key = `${state.turn_slot}-${state.dice}-${state.turn_started_at}`;
-    if (lastPassKey.current === key) return;
-    lastPassKey.current = key;
+    const ev = state.last_event || "";
+    if (!ev.includes(":no_move")) return;
+    const key = `${state.turn_slot}-${ev}-${state.turn_started_at}`;
+    if (lastNoMovePassKey.current === key) return;
+    lastNoMovePassKey.current = key;
     const t = setTimeout(async () => {
       const { error } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
-      if (error) console.warn("pass rpc", error);
-    }, 1200);
+      if (error) console.warn("no_move pass rpc", error);
+    }, 1000);
     return () => clearTimeout(t);
-  }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.turn_started_at, movablePawnIdxs, gameId]);
+  }, [state.last_event, state.turn_slot, state.turn_started_at, gameId]);
 
 
 

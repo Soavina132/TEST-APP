@@ -1,0 +1,137 @@
+-- ============================================================================
+-- Fix : Délai de 1 seconde avant de passer le tour sur no_move
+-- Le backend ne passe plus le tour immédiatement — il garde le dé visible
+-- et le turn_slot inchangé. Le frontend attend 1s puis appelle ludo_pass.
+-- ============================================================================
+
+-- ── ludo_roll : ne pas passer le tour sur no_move, juste marquer l'état ──
+CREATE OR REPLACE FUNCTION public.ludo_roll(_game_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE st jsonb; g public.ludo_games%ROWTYPE; v_uid UUID := auth.uid();
+  v_slot INT; v_user UUID; v_isbot BOOLEAN; v_bias INT; v_dice INT;
+  arr jsonb; pawn jsonb; i INT; pstate TEXT; pstep INT; has_move BOOLEAN := FALSE;
+  v_consec INT; v_override int;
+BEGIN
+  SELECT * INTO g FROM public.ludo_games WHERE id=_game_id FOR UPDATE;
+  IF g.status <> 'playing' THEN RAISE EXCEPTION 'Partie pas en cours'; END IF;
+  st := public._ludo_ensure_state(_game_id);
+  v_slot := (st->>'turn_slot')::INT;
+  SELECT user_id, is_bot, bot_win_bias, consecutive_sixes INTO v_user, v_isbot, v_bias, v_consec
+    FROM public.ludo_participants WHERE game_id=_game_id AND slot=v_slot;
+  IF NOT v_isbot AND v_user <> v_uid THEN RAISE EXCEPTION 'Pas votre tour'; END IF;
+  IF (st->>'must_move')::BOOLEAN THEN RAISE EXCEPTION 'Déjà lancé, déplacez un pion'; END IF;
+
+  v_override := NULLIF(g.dice_override->>v_slot::text,'')::int;
+  IF v_override IS NOT NULL AND v_override BETWEEN 1 AND 6 THEN
+    v_dice := v_override;
+    UPDATE public.ludo_games SET dice_override = dice_override - v_slot::text WHERE id=_game_id;
+  ELSE
+    v_dice := 1 + (floor(random()*6))::INT;
+    IF v_isbot AND COALESCE(v_bias,0) > 0 AND (random()*100) < v_bias THEN v_dice := 6; END IF;
+  END IF;
+
+  IF v_dice = 6 THEN v_consec := COALESCE(v_consec,0) + 1; ELSE v_consec := 0; END IF;
+  UPDATE public.ludo_participants SET consecutive_sixes=v_consec WHERE game_id=_game_id AND slot=v_slot;
+
+  IF v_consec >= 3 THEN
+    UPDATE public.ludo_participants SET consecutive_sixes=0 WHERE game_id=_game_id AND slot=v_slot;
+    st := jsonb_set(st,'{must_move}','false'::jsonb);
+    st := jsonb_set(st,'{turn_slot}', to_jsonb(public._ludo_next_slot(_game_id, v_slot, g.max_players)));
+    st := jsonb_set(st,'{dice}','null'::jsonb);
+    st := jsonb_set(st,'{turn_started_at}', to_jsonb(to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"')));
+    st := jsonb_set(st,'{last_event}', to_jsonb('triple_six:cancel'::text));
+    UPDATE public.ludo_games SET state=st, current_turn=(st->>'turn_slot')::INT WHERE id=_game_id;
+    PERFORM public._ludo_check_game_over(_game_id);
+    RETURN st;
+  END IF;
+
+  st := jsonb_set(st,'{dice}', to_jsonb(v_dice));
+  st := jsonb_set(st,'{must_move}','true'::jsonb);
+  st := jsonb_set(st,'{turn_started_at}', to_jsonb(to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"')));
+  st := jsonb_set(st,'{last_event}', to_jsonb('roll:'||v_dice));
+
+  arr := st->'pawns'->v_slot::text;
+  FOR i IN 0..3 LOOP
+    pawn := arr->i; pstate := pawn->>'s'; pstep := (pawn->>'k')::INT;
+    IF pstate='finished' THEN CONTINUE; END IF;
+    IF pstate='yard' THEN IF v_dice=6 THEN has_move:=TRUE; EXIT; END IF;
+    ELSE IF pstep + v_dice <= 56 THEN has_move:=TRUE; EXIT; END IF; END IF;
+  END LOOP;
+
+  IF NOT has_move THEN
+    -- Ne PAS passer le tour immédiatement.
+    -- Garder must_move=true, le dé visible, turn_slot inchangé.
+    -- Le frontend détectera no_move et appellera ludo_pass après 1 seconde.
+    st := jsonb_set(st,'{last_event}', to_jsonb('roll:'||v_dice||':no_move'));
+    UPDATE public.ludo_games SET state=st WHERE id=_game_id;
+  ELSE
+    UPDATE public.ludo_games SET state=st WHERE id=_game_id;
+  END IF;
+  RETURN st;
+END $function$;
+
+-- ── ludo_pass : autoriser n'importe quel joueur à passer sur no_move ──
+CREATE OR REPLACE FUNCTION public.ludo_pass(_game_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE g public.ludo_games%ROWTYPE; st jsonb; v_slot INT; v_dice INT;
+  v_uid UUID := auth.uid(); v_user UUID; v_isbot BOOLEAN; arr jsonb;
+  pawn jsonb; i INT; pstate TEXT; pstep INT; has_move BOOLEAN := FALSE;
+  v_ev TEXT; v_is_no_move BOOLEAN := FALSE;
+  v_participant_exists BOOLEAN;
+BEGIN
+  SELECT * INTO g FROM public.ludo_games WHERE id=_game_id FOR UPDATE;
+  IF g.status <> 'playing' THEN RAISE EXCEPTION 'Partie pas en cours'; END IF;
+  st := g.state; v_slot := (st->>'turn_slot')::INT;
+  v_ev := COALESCE(st->>'last_event','');
+  v_is_no_move := v_ev LIKE '%:no_move';
+
+  SELECT user_id, is_bot INTO v_user, v_isbot
+    FROM public.ludo_participants WHERE game_id=_game_id AND slot=v_slot;
+
+  -- Pour un pass normal (must_move=true), seul le joueur courant peut passer.
+  -- Pour un pass no_move, n'importe quel joueur de la partie peut le déclencher
+  -- (le frontend le fait après 1 seconde d'affichage).
+  IF NOT v_is_no_move THEN
+    IF NOT v_isbot AND v_user <> v_uid THEN RAISE EXCEPTION 'Pas votre tour'; END IF;
+    IF NOT (st->>'must_move')::BOOLEAN THEN RAISE EXCEPTION 'Lancez le dé d''abord'; END IF;
+  ELSE
+    -- Vérifier que l'appelant est bien un participant de la partie
+    SELECT EXISTS(SELECT 1 FROM public.ludo_participants WHERE game_id=_game_id AND user_id=v_uid) INTO v_participant_exists;
+    IF NOT v_participant_exists THEN RAISE EXCEPTION 'Pas un participant'; END IF;
+  END IF;
+
+  v_dice := (st->>'dice')::INT;
+  arr := st->'pawns'->v_slot::text;
+  FOR i IN 0..3 LOOP
+    pawn := arr->i; pstate := pawn->>'s'; pstep := (pawn->>'k')::INT;
+    IF pstate='finished' THEN CONTINUE; END IF;
+    IF pstate='yard' THEN
+      IF v_dice = 6 THEN has_move := TRUE; EXIT; END IF;
+    ELSE
+      IF pstep + v_dice <= 56 THEN has_move := TRUE; EXIT; END IF;
+    END IF;
+  END LOOP;
+  IF has_move THEN RAISE EXCEPTION 'Vous avez un coup possible'; END IF;
+
+  UPDATE public.ludo_participants SET consecutive_sixes = 0
+    WHERE game_id = _game_id AND slot = v_slot;
+
+  st := jsonb_set(st,'{must_move}','false'::jsonb);
+  st := jsonb_set(st,'{dice}','null'::jsonb);
+  st := jsonb_set(st,'{turn_slot}', to_jsonb(public._ludo_next_slot(_game_id, v_slot, g.max_players)));
+  st := jsonb_set(st,'{turn_started_at}', to_jsonb(to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"')));
+  st := jsonb_set(st,'{last_event}', to_jsonb('pass'));
+  UPDATE public.ludo_games SET state=st, current_turn=(st->>'turn_slot')::INT WHERE id=_game_id;
+
+  PERFORM public._ludo_check_game_over(_game_id);
+
+  RETURN st;
+END $function$;
