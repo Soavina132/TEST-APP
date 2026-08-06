@@ -58,7 +58,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     no_public_games: "Aucune partie publique. Créez-en une !",
     no_private_games: "Aucune partie privée.",
     no_mine_games: "Aucune partie en cours.",
-    classic_mode: "Classique", speed_mode: "Rapide", blitz_mode: "Blitz",
+    classic_mode: "Classique", speed_mode: "Moderne", blitz_mode: "Blitz",
     // Chat
     global_tab: "Global", private_tab: "Privés", game_tab: "Parties",
     back_btn: "← Retour", new_dm: "Nouveau message privé",
@@ -241,7 +241,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     no_public_games: "Tsy misy lalao mivelatra. Mamorona iray!",
     no_private_games: "Tsy misy lalao miafina.",
     no_mine_games: "Tsy misy lalao mandeha.",
-    classic_mode: "Klassika", speed_mode: "Haingana", blitz_mode: "Blitz",
+    classic_mode: "Klassika", speed_mode: "Maoderina", blitz_mode: "Blitz",
     // Chat
     global_tab: "Ankapobeny", private_tab: "Tsy miharihary", game_tab: "Lalao",
     back_btn: "← Hiverina", new_dm: "Hafatra tsy miharihary vaovao",
@@ -423,7 +423,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     no_public_games: "No public games. Create one!",
     no_private_games: "No private games.",
     no_mine_games: "No ongoing games.",
-    classic_mode: "Classic", speed_mode: "Speed", blitz_mode: "Blitz",
+    classic_mode: "Classic", speed_mode: "Modern", blitz_mode: "Blitz",
     // Chat
     global_tab: "Global", private_tab: "Private", game_tab: "Games",
     back_btn: "← Back", new_dm: "New private message",

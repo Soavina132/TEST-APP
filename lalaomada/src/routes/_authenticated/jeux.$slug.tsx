@@ -252,7 +252,7 @@ function Lobby() {
       let id: string | null = null;
       if (slug === "ludo") {
         const { data, error } = await supabase.rpc("ludo_start_solo_bot" as any, {
-          _max_players: maxP, _stake: 0, _mode: "classic", _match_type: matchType === "solo" ? "solo" : "groupe",
+          _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "solo" ? "solo" : "groupe",
         } as any);
         if (error) throw error;
         id = extractGameId(data);
@@ -609,7 +609,7 @@ function Lobby() {
               )}
               <SummaryRow icon="💰" label="Mise" value={stake > 0 ? `${stake.toLocaleString("fr-FR")} Ar` : "Gratuit"} onClick={() => setSheet("stake")} />
               {slug === "ludo" && (
-                <SummaryRow icon="🎲" label="Mode" value={mode === "fast" ? "Rapide" : "Classique"} onClick={() => setSheet("ludo_mode")} />
+                <SummaryRow icon="🎲" label="Mode" value={mode === "fast" ? "Moderne" : "Classique"} onClick={() => setSheet("ludo_mode")} />
               )}
               {slug === "ludo" && (
                 <SummaryRow icon="🤖" label="Déplacement auto" value={ludoAutoMove ? "Activé" : "Désactivé"} onClick={() => setLudoAutoMove(v => !v)} />
@@ -777,7 +777,7 @@ function Lobby() {
         <StakePicker stake={stake} setStake={setStake} onDone={closeSheet} />
       </BottomSheet>
       <BottomSheet open={sheet === "ludo_mode"} onClose={closeSheet} title="Mode de jeu">
-        <ModeBlock options={[{ v: "classic", l: "Classique" }, { v: "fast", l: "Rapide" }]} value={mode} onChange={(v) => { setMode(v as any); closeSheet(); }} />
+        <ModeBlock options={[{ v: "classic", l: "Classique" }, { v: "fast", l: "Moderne" }]} value={mode} onChange={(v) => { setMode(v as any); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "domino_mode"} onClose={closeSheet} title="Format">
         <div className="space-y-2">
