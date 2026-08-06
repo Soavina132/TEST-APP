@@ -247,10 +247,10 @@ function Lobby() {
         await createNewFree(visibility === "private");
         return;
       }
-      // vs BOT → créer une partie privée gratuite puis remplir avec des bots (démarrage immédiat)
+      // vs BOT → créer une partie avec bots (démarrage immédiat, sans salle d'attente)
       let id: string | null = null;
       if (slug === "ludo") {
-        const { data, error } = await supabase.rpc("create_private_game" as any, {
+        const { data, error } = await supabase.rpc("ludo_start_solo_bot" as any, {
           _max_players: maxP, _stake: 0, _mode: "classic", _match_type: matchType === "solo" ? "solo" : "groupe",
         } as any);
         if (error) throw error;
@@ -258,17 +258,6 @@ function Lobby() {
         if (!id) throw new Error("Identifiant de partie invalide");
         if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
         await applyLudoAutoMove(id);
-        const botsNeeded = Math.max(0, maxP - 1);
-        for (let i = 0; i < botsNeeded; i++) {
-          const { error: berr } = await supabase.rpc("player_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-          if (error) throw error;
-        }
-        // Auto-ready pour démarrer immédiatement (bypass salle d'attente)
-        const { error: readyErr } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
-        if (readyErr) {
-          // Phone not verified or other issue — game stays open, user goes to waiting room
-          toast.error(readyErr.message);
-        }
       } else if (slug === "domino") {
         const { data, error } = await supabase.rpc("domino_create" as any, {
           _stake: 0, _max: maxP, _private: true,
@@ -415,8 +404,8 @@ function Lobby() {
     setBusy(true);
     try {
       if (opponentMode === "bot" && slug === "ludo") {
-        // Mode Solo Ludo avec mise : créer une partie privée avec bots
-        const { data, error } = await supabase.rpc("create_private_game" as any, {
+        // Mode Solo Ludo avec mise : créer + bots + démarrer en un seul appel
+        const { data, error } = await supabase.rpc("ludo_start_solo_bot" as any, {
           _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "solo" ? "solo" : "groupe",
         } as any);
         if (error) throw error;
@@ -424,13 +413,6 @@ function Lobby() {
         if (!id) throw new Error("Identifiant de partie invalide");
         if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
         await applyLudoAutoMove(id);
-        const botsNeeded = Math.max(0, maxP - 1);
-        for (let i = 0; i < botsNeeded; i++) {
-          const { error: berr } = await supabase.rpc("player_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-          if (error) throw error;
-        }
-        const { error: readyErr2 } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
-        if (readyErr2) toast.error(readyErr2.message);
         refreshProfile(); goTo(id);
       } else {
         await createNew(visibility === "private");
