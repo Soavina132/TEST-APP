@@ -53,7 +53,7 @@ function PublicProfile() {
   return (
     <main className="max-w-lg mx-auto p-4 space-y-4">
       <button
-        onClick={() => navigate({ to: "/chat" })}
+        onClick={() => navigate({ to: "/chat", search: { dm: undefined } })}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="w-4 h-4" /> Retour

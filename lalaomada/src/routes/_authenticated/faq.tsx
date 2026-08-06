@@ -115,7 +115,7 @@ export default function FaqPage() {
           Notre équipe est disponible pour vous aider directement.
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => navigate({ to: "/chat", search: {} })}
+          <button onClick={() => navigate({ to: "/chat", search: { dm: undefined } })}
             className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition-transform">
             <MessageSquare className="w-4 h-4" /> Support chat
           </button>

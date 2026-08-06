@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
-import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock } from "lucide-react";
+import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock, History } from "lucide-react";
 import GameConfigsSection from "@/components/admin/GameConfigsSection";
 import GameTimersQuick from "@/components/admin/GameTimersQuick";
 import { ValidatedField, useFormErrors } from "@/components/admin/ValidatedField";
@@ -46,107 +46,40 @@ function AdminPage() {
 
   const refresh = () => setV(x => x + 1);
 
-  // ── Téléchargement Cloud complet ─────────────────────────────────────────
+  // ── Export Cloud (JSON complet de toutes les tables accessibles) ──
   async function downloadCloudData() {
-    toast.info("Export cloud en cours… (peut prendre quelques secondes)");
+    toast.info("Export cloud en cours…");
     try {
-      // 1. Liste exhaustive de toutes les tables du projet
-      // (information_schema n'est pas exposé par PostgREST, on utilise la liste complète)
-      const ALL_TABLES = [
-        "profiles","deposits","withdrawals","transactions",
-        "admin_logs","admin_broadcasts","admin_user_messages",
-        "chess_games","chess_moves",
-        "domino_games","domino_participants",
-        "fanorona_games","fanorona_participants",
-        "ludo_games","ludo_participants",
-        "rami_games","rami_participants",
-        "poker_games","poker_players",
-        "tournament_matches","tournament_entrants",
-        "referral_events","referral_fraud_flags","referral_settings",
-        "notifications",
-        "chat_rooms","chat_members","chat_messages","chat_mutes","chat_reactions","chat_presence",
+      const TABLES = [
+        "profiles","deposits","withdrawals","transactions","admin_logs","admin_broadcasts",
+        "chess_games","chess_moves","domino_games","domino_participants",
+        "fanorona_games","fanorona_participants","ludo_games","ludo_participants",
+        "rami_games","rami_participants","poker_games","poker_players",
+        "tournament_matches","tournament_entrants","referral_events","referral_settings",
+        "notifications","chat_rooms","chat_members","chat_messages","chat_mutes",
         "bug_reports","support_messages","money_offers","password_reset_requests",
-        "achievements","player_achievements","game_spectators",
-        "game_configs","app_settings",
-        "user_roles","admin_user_messages",
+        "achievements","player_achievements","game_configs","app_settings","user_roles",
       ];
-
-      // 2. Fetch avec pagination complète par tranche de 1 000 lignes
-      async function fetchAll(table: string): Promise<{ rows: unknown[]; error?: string }> {
-        const PAGE = 1000;
-        const rows: unknown[] = [];
-        let from = 0;
-        while (true) {
-          const { data, error } = await (supabase.from(table as any) as any)
-            .select("*")
-            .range(from, from + PAGE - 1);
-          if (error) return { rows: [], error: error.message };
-          const page: unknown[] = data ?? [];
-          rows.push(...page);
-          if (page.length < PAGE) break;   // dernière page
-          from += PAGE;
-        }
-        return { rows };
-      }
-
       const tablesData: Record<string, unknown[]> = {};
-      const tableMeta: Record<string, { count: number; error?: string }> = {};
-
-      // Traitement par lots de 8 tables en parallèle
+      const meta: Record<string, { count: number; error?: string }> = {};
       const BATCH = 8;
-      for (let i = 0; i < ALL_TABLES.length; i += BATCH) {
-        const batch = ALL_TABLES.slice(i, i + BATCH);
-        await Promise.all(
-          batch.map(async (table) => {
-            const { rows, error } = await fetchAll(table);
-            tablesData[table] = rows;
-            tableMeta[table] = error ? { count: 0, error } : { count: rows.length };
-          })
-        );
+      for (let i = 0; i < TABLES.length; i += BATCH) {
+        await Promise.all(TABLES.slice(i, i + BATCH).map(async (table) => {
+          const { data, error } = await (supabase.from(table as any) as any).select("*").limit(1000);
+          if (error) { meta[table] = { count: 0, error: error.message }; tablesData[table] = []; }
+          else { meta[table] = { count: (data ?? []).length }; tablesData[table] = data ?? []; }
+        }));
       }
-
-      // 3. Migrations SQL (bundlées à la compilation via import.meta.glob)
-      const migrations: Record<string, string> = {};
-      for (const [path, content] of Object.entries(MIGRATIONS)) {
-        const filename = path.split("/").pop() ?? path;
-        migrations[filename] = content;
-      }
-
-      // 4. Assemblage du bundle final
-      const accessible = Object.values(tableMeta).filter((m) => !m.error);
-      const blocked    = Object.values(tableMeta).filter((m) =>  m.error);
-      const totalRows  = accessible.reduce((s, m) => s + m.count, 0);
-
-      const bundle = {
-        exported_at: new Date().toISOString(),
-        project: "lalaomada",
-        summary: {
-          tables_total:    ALL_TABLES.length,
-          tables_exported: accessible.length,
-          tables_blocked:  blocked.length,
-          rows_total:      totalRows,
-          migrations_count: Object.keys(migrations).length,
-          per_table: tableMeta,
-        },
-        tables: tablesData,
-        migrations,
-      };
-
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+      const ok = Object.values(meta).filter(m => !m.error);
+      const blocked = Object.values(meta).filter(m => m.error);
+      const total = ok.reduce((s, m) => s + m.count, 0);
+      const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), project: "lalaomada", tables: tablesData, meta }, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `lalaomada_cloud_export_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      toast.success(
-        `Export terminé : ${accessible.length} tables (${totalRows} lignes) + ${Object.keys(migrations).length} migrations` +
-        (blocked.length ? ` · ${blocked.length} bloquées par RLS` : "")
-      );
-    } catch (e) {
-      toast.error("Erreur lors de l'export cloud");
-    }
+      a.href = url; a.download = `lalaomada_cloud_export_${new Date().toISOString().slice(0,10)}.json`;
+      a.click(); URL.revokeObjectURL(url);
+      toast.success(`Export: ${ok.length} tables (${total} lignes)${blocked.length ? ` · ${blocked.length} bloquées par RLS` : ""}`);
+    } catch { toast.error("Erreur lors de l'export cloud"); }
   }
 
   // ── Téléchargement Joueurs (CSV complet de la table profiles) ─────────────
@@ -281,6 +214,9 @@ function AdminPage() {
             <AdminSection id="players-persona" title="🎭 Persona admin" description="Alias et apparence publique de l'admin" accent="violet" icon={<Sliders className="w-4 h-4" />}>
               <PersonaAdmin />
             </AdminSection>
+            <AdminSection id="players-history" title="📋 Historique joueur" description="Rechercher et consulter l'historique d'un joueur" accent="sky" icon={<History className="w-4 h-4" />}>
+              <UserHistorySearch />
+            </AdminSection>
           </div>
         )}
 
@@ -321,11 +257,10 @@ function AdminPage() {
             <AdminSection id="content-banners" title="🎨 Bannières d'accueil" description="Carousel promo sur la page d'accueil" accent="violet" icon={<ImagePlus className="w-4 h-4" />} defaultOpen>
               <BannersAdmin />
             </AdminSection>
-            <AdminSection id="content-help" title="📚 Aide & tutoriels" description="Contenu pédagogique et CMS" accent="sky" icon={<Info className="w-4 h-4" />}>
+            <AdminSection id="content-help" title="📚 Aide, tutoriels & textes" description="Contenu pédagogique, textes d'aide, CGU, mentions légales" accent="sky" icon={<Info className="w-4 h-4" />}>
               <TutorialsAdmin />
               <CmsEditor />
-              <HelpTextsEditor />
-              <TermsEditor />
+              <ContentTextsEditor />
             </AdminSection>
             <AdminSection id="content-communities" title="🌍 Communautés" description="Réseaux et liens externes" accent="emerald" icon={<Users className="w-4 h-4" />}>
               <Communities />
@@ -335,21 +270,17 @@ function AdminPage() {
 
         {tab === "config" && (
           <div className="space-y-3">
-            <AdminSection id="config-timers" title="⏱️ Timers" description="Tour, salle d'attente, minuteurs globaux" accent="primary" defaultOpen icon={<Clock className="w-4 h-4" />}>
+            <AdminSection id="config-security" title="🔐 Sécurité" description="PIN admin" accent="rose" defaultOpen icon={<Lock className="w-4 h-4" />}>
+              <AdminPinSetup />
+            </AdminSection>
+            <AdminSection id="config-timers" title="⏱️ Timers" description="Tour, salle d'attente, minuteurs globaux" accent="primary" icon={<Clock className="w-4 h-4" />}>
               <GameTimersQuick />
             </AdminSection>
-            <AdminSection id="config-app" title="🛠️ Paramètres de l'application" description="Contact, chat, spectateurs, AFK, statut des jeux" accent="sky" icon={<Settings className="w-4 h-4" />}>
+            <AdminSection id="config-app" title="🛠️ Paramètres de l'application" description="Finance, contact, chat, points, statut des jeux" accent="sky" icon={<Settings className="w-4 h-4" />}>
               <AppConfigForm />
             </AdminSection>
-            <AdminSection id="config-points" title="🎯 Points & niveaux" description="Barème XP et progression" accent="violet" icon={<BarChart3 className="w-4 h-4" />}>
-              <PointsConfig />
-            </AdminSection>
-            <AdminSection id="config-referral" title="🤝 Parrainage" description="Commission, fenêtre, anti-fraude" accent="emerald" icon={<Users className="w-4 h-4" />}>
+            <AdminSection id="config-referral" title="🤝 Parrainage" description="Commission, niveaux, anti-fraude" accent="emerald" icon={<Users className="w-4 h-4" />}>
               <ReferralAdmin />
-            </AdminSection>
-            <AdminSection id="config-advanced" title="💰 Finance, IA & mentions légales" description="Bonus, opérateurs mobile money, IA, textes d'aide, CGU" accent="amber" icon={<Sliders className="w-4 h-4" />}>
-              <AdminPinSetup />
-              <SettingsForm />
             </AdminSection>
           </div>
         )}
@@ -875,7 +806,6 @@ function StatsSection() {
             </table>
           </div>}
       </Card>
-      <UserHistorySearch />
     </div>
   );
 }
@@ -1229,148 +1159,6 @@ function AdminPinSetup() {
           {saving ? "Enregistrement…" : hasPin ? "🔒 Changer le PIN" : "🔑 Définir mon PIN"}
         </button>
       </div>
-    </div>
-  );
-}
-
-// =================== SETTINGS ===================
-
-function SettingsForm() {
-  const [s, setS] = useState<any>(null);     const fe = useFormErrors();
-  useEffect(() => {
-    supabase.from("app_settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => {
-      if (data) { setS(data); }
-    });
-  }, []);
-  if (!s) return null;
-
-  const save = async () => {
-    if (fe.hasErrors) { toast.error("⚠️ Corrige les champs en erreur", { description: fe.firstError || "Un ou plusieurs champs sont invalides." }); return; }
-    await saveWithToast(
-      () => supabase.rpc("admin_update_settings", {
-        _admin_phone: s.mvola_phone || s.admin_phone,
-        _admin_label: "MVola",
-        _signup_bonus: Number(s.signup_bonus), _referral_pct: Number(s.referral_pct),
-        _game_commission_pct: Number(s.game_commission_pct),
-        _min_deposit: Number(s.min_deposit), _min_withdraw: Number(s.min_withdraw),
-        _mvola_phone:  s.mvola_phone,  _mvola_name:  s.mvola_name,
-        _orange_phone: s.orange_phone, _orange_name: s.orange_name,
-        _airtel_phone: s.airtel_phone, _airtel_name: s.airtel_name,
-        _withdrawal_fee_pct: Number(s.withdrawal_fee_pct ?? 3),
-      } as any),
-      { label: "Paramètres généraux" },
-    );
-  };
-
-  const F = ({ k, label, type = "text", hint, min, max, validate }: any) => (
-    <ValidatedField
-      variant="pill"
-      label={label}
-      value={s[k]}
-      type={type}
-      hint={hint}
-      min={min}
-      max={max}
-      validate={validate}
-      onValidityChange={fe.setError(k)}
-      onChange={(v) => setS({ ...s, [k]: v })}
-    />
-  );
-  return (
-    <div className="space-y-4">
-      {/* Programme de parrainage : géré dans l'onglet Config → 🤝 Parrainage */}
-      <Card>
-        {/* ── Numéros par opérateur ── */}
-        <div className="space-y-2">
-          <div className="text-sm font-bold">📱 Numéros de dépôt par opérateur</div>
-          {/* MVola */}
-          <div className="rounded-2xl bg-secondary/50 p-3 space-y-2">
-            <span className="px-2 py-0.5 rounded-full text-white text-[10px] font-extrabold bg-black">MVola</span>
-            <F k="mvola_phone" label="Numéro" validate={V.combine(V.required("Le numéro MVola"), V.malagasyPhone)} />
-            <F k="mvola_name"  label="Nom du titulaire" validate={V.combine(V.required("Le nom"), V.minLen(2), V.maxLen(80))} />
-          </div>
-          {/* Orange Money */}
-          <div className="rounded-2xl bg-orange-50 dark:bg-orange-950/20 p-3 space-y-2">
-            <span className="px-2 py-0.5 rounded-full text-white text-[10px] font-extrabold bg-orange-500">Orange Money</span>
-            <F k="orange_phone" label="Numéro" validate={V.optional(V.malagasyPhone)} />
-            <F k="orange_name"  label="Nom du titulaire" validate={V.maxLen(80)} />
-          </div>
-          {/* Airtel Money */}
-          <div className="rounded-2xl bg-red-50 dark:bg-red-950/20 p-3 space-y-2">
-            <span className="px-2 py-0.5 rounded-full text-white text-[10px] font-extrabold bg-red-600">Airtel Money</span>
-            <F k="airtel_phone" label="Numéro" validate={V.optional(V.malagasyPhone)} />
-            <F k="airtel_name"  label="Nom du titulaire" validate={V.maxLen(80)} />
-          </div>
-        </div>
-        <F k="signup_bonus" label="🎁 Bonus inscription (Ar)" type="number" hint="Bonus offert à chaque nouveau compte (0 = désactivé)" validate={V.number({ min: 0, max: 1_000_000, integer: true })} />
-        {/* Commission parrainage : gérée dans l'onglet Config → 🤝 Parrainage */}
-        <F k="game_commission_pct" label="💰 Commission sur les parties (%)" type="number" hint="% du pot prélevé comme bénéfice (10 recommandé)" validate={V.percent} />
-        <F k="min_deposit"         label="Dépôt minimum (Ar)" type="number" validate={V.number({ min: 0, integer: true })} />
-        <F k="min_withdraw"        label="Retrait minimum (Ar)" type="number" validate={V.number({ min: 0, integer: true })} />
-        <F k="withdrawal_fee_pct"  label="💸 Frais de retrait (%)" type="number" min={0} max={100} hint="Déduit automatiquement du montant (ex: 3 = 3%). Affiché au joueur avant confirmation." validate={V.percent} />
-        {fe.hasErrors && (
-          <div className="text-xs font-semibold text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2">
-            ⚠️ Corrige les champs en erreur avant d'enregistrer.
-          </div>
-        )}
-        <button onClick={save} disabled={fe.hasErrors}
-          className="w-full py-3 rounded-full text-white font-bold mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "var(--gradient-primary)" }}>💾 Enregistrer les paramètres</button>
-      </Card>
-      <Card>
-        <div className="font-bold text-sm mb-2">💬 Textes d'aide (dépôt / retrait)</div>
-        <div className="text-xs text-muted-foreground mb-2">HTML autorisé. Affiché aux joueurs via le lien « Tu ne sais pas comment faire un dépôt/retrait ? »</div>
-        <label className="block mb-3">
-          <div className="text-sm font-semibold mb-1">Aide dépôt</div>
-          <textarea value={s.deposit_help_html || ""} onChange={e => setS({ ...s, deposit_help_html: e.target.value })}
-            rows={5} className="w-full px-4 py-3 rounded-2xl bg-card border border-border outline-none font-mono text-xs" />
-        </label>
-        <label className="block mb-3">
-          <div className="text-sm font-semibold mb-1">Aide retrait</div>
-          <textarea value={s.withdrawal_help_html || ""} onChange={e => setS({ ...s, withdrawal_help_html: e.target.value })}
-            rows={5} className="w-full px-4 py-3 rounded-2xl bg-card border border-border outline-none font-mono text-xs" />
-        </label>
-        <button
-          onClick={() => saveWithToast(
-            () => supabase.from("app_settings").update({
-              deposit_help_html: s.deposit_help_html || "",
-              withdrawal_help_html: s.withdrawal_help_html || "",
-            } as any).eq("id", 1),
-            { label: "Textes d'aide" },
-          )}
-          className="w-full py-3 rounded-full text-white font-bold" style={{ background: "var(--gradient-primary)" }}>💾 Enregistrer les textes d'aide</button>
-      </Card>
-      <Card>
-        <div className="font-bold text-sm mb-2">📜 Mentions légales (page connexion / inscription)</div>
-        <div className="text-xs text-muted-foreground mb-3">Utilisez l'éditeur pour mettre en forme le texte. Affiché aux visiteurs via les liens « conditions d'utilisation » et « politique de confidentialité » en bas du formulaire de connexion.</div>
-        <div className="block mb-3">
-          <div className="text-sm font-semibold mb-2">Conditions d'utilisation</div>
-          <RichTextEditor
-            value={(s as any).terms_html || ""}
-            onChange={html => setS({ ...s, terms_html: html })}
-            placeholder="Rédigez les conditions d'utilisation…"
-            minHeight="200px"
-          />
-        </div>
-        <div className="block mb-3 mt-4">
-          <div className="text-sm font-semibold mb-2">Politique de confidentialité</div>
-          <RichTextEditor
-            value={(s as any).privacy_html || ""}
-            onChange={html => setS({ ...s, privacy_html: html })}
-            placeholder="Rédigez la politique de confidentialité…"
-            minHeight="200px"
-          />
-        </div>
-        <button
-          onClick={() => saveWithToast(
-            () => supabase.from("app_settings").update({
-              terms_html: (s as any).terms_html || "",
-              privacy_html: (s as any).privacy_html || "",
-            } as any).eq("id", 1),
-            { label: "Mentions légales" },
-          )}
-          className="w-full py-3 rounded-full text-white font-bold" style={{ background: "var(--gradient-primary)" }}>💾 Enregistrer les mentions légales</button>
-      </Card>
     </div>
   );
 }
@@ -2152,85 +1940,97 @@ function TutorialsAdmin() {
   );
 }
 
-function HelpTextsEditor() {
-  const [signup, setSignup] = useState("");
-  const [reset, setReset] = useState("");
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    (supabase.from("app_settings").select("signup_help_html, password_reset_help_html" as any) as any).eq("id", 1).maybeSingle().then(({ data }: any) => {
-      setSignup(data?.signup_help_html || "");
-      setReset(data?.password_reset_help_html || "");
-      setLoaded(true);
-    });
-  }, []);
-  const save = async () => {
-    const { error } = await (supabase.from("app_settings").update({ signup_help_html: signup, password_reset_help_html: reset } as any) as any).eq("id", 1);
-    if (error) return toast.error(error.message);
-    toast.success("Textes d'aide enregistrés");
-  };
-  if (!loaded) return null;
-  return (
-    <div className="rounded-3xl bg-card p-5 shadow-sm space-y-3">
-      <div className="font-bold">💬 Textes d'aide (Inscription & Mot de passe oublié)</div>
-      <div className="text-xs text-muted-foreground">HTML autorisé. Les liens &lt;a href="…"&gt; seront cliquables.</div>
-      <div>
-        <div className="text-sm font-semibold mb-1">Aide à l'inscription</div>
-        <textarea value={signup} onChange={e => setSignup(e.target.value)} rows={5}
-          className="w-full px-3 py-2 rounded-xl bg-secondary outline-none text-sm font-mono" placeholder="<p>Comment faire une inscription chez Lalao MADA…</p>" />
-      </div>
-      <div>
-        <div className="text-sm font-semibold mb-1">Aide « Mot de passe oublié »</div>
-        <textarea value={reset} onChange={e => setReset(e.target.value)} rows={5}
-          className="w-full px-3 py-2 rounded-xl bg-secondary outline-none text-sm font-mono" placeholder="<p>Comment réinitialiser…</p>" />
-      </div>
-      <button onClick={save} className="w-full py-2 rounded-full bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Enregistrer</button>
-    </div>
-  );
-}
-
-function TermsEditor() {
+// =================== CONTENT TEXTS ===================
+function ContentTextsEditor() {
   const confirm = useConfirm();
-  const [text, setText] = useState("");
+  const [s, setS] = useState<any>(null);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    supabase.from("app_settings").select("terms_text").eq("id", 1).maybeSingle().then(({ data }) => {
-      setText((data?.terms_text as string) || ""); setLoaded(true);
+    supabase.from("app_settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => {
+      setS(data || {}); setLoaded(true);
     });
   }, []);
-  const save = () => saveWithToast(
-    () => supabase.from("app_settings").update({ terms_text: text }).eq("id", 1),
-    { label: "CGU" },
-  );
-  const clear = async () => {
-    if (!(await confirm({ title: "Supprimer les CGU ?", destructive: true }))) return;
-    setText("");
-    await supabase.from("app_settings").update({ terms_text: "" }).eq("id", 1);
-    toast.success("CGU supprimées");
+  const saveTexts = async () => {
+    const { error } = await (supabase.from("app_settings").update({
+      deposit_help_html: s.deposit_help_html || "",
+      withdrawal_help_html: s.withdrawal_help_html || "",
+      signup_help_html: s.signup_help_html || "",
+      password_reset_help_html: s.password_reset_help_html || "",
+      terms_text: s.terms_text || "",
+      terms_html: s.terms_html || "",
+      privacy_html: s.privacy_html || "",
+    } as any) as any).eq("id", 1);
+    if (error) return toast.error(error.message);
+    toast.success("✅ Textes enregistrés");
   };
-  const reshow = async () => {
+  const reshowTerms = async () => {
     const ok = await confirm({
       title: "Réafficher les CGU à tous les utilisateurs ?",
-      description: "Tous les utilisateurs devront accepter à nouveau les conditions à leur prochaine ouverture de l'application.",
+      description: "Tous les utilisateurs devront accepter à nouveau les conditions à leur prochaine ouverture.",
       confirmLabel: "Réafficher",
-      destructive: false,
     });
     if (!ok) return;
     const { data, error } = await supabase.rpc("admin_reset_all_terms" as any);
     if (error) return toast.error(error.message);
     toast.success(`CGU réinitialisées pour ${data ?? 0} utilisateur(s)`);
   };
+  const clearTerms = async () => {
+    if (!(await confirm({ title: "Supprimer les CGU ?", destructive: true }))) return;
+    setS({ ...s, terms_text: "" });
+    await (supabase.from("app_settings").update({ terms_text: "" } as any) as any).eq("id", 1);
+    toast.success("CGU supprimées");
+  };
+  const TextArea = ({ k, label, hint, rows = 5 }: any) => (
+    <div>
+      <div className="text-sm font-semibold mb-1">{label}</div>
+      {hint && <div className="text-xs text-muted-foreground mb-1">{hint}</div>}
+      <textarea value={s[k] || ""} onChange={e => setS({ ...s, [k]: e.target.value })} rows={rows}
+        className="w-full px-3 py-2 rounded-xl bg-secondary outline-none text-sm font-mono" />
+    </div>
+  );
+  const RichText = ({ k, label, placeholder }: any) => (
+    <div className="block mb-3">
+      <div className="text-sm font-semibold mb-2">{label}</div>
+      <RichTextEditor
+        value={s[k] || ""}
+        onChange={html => setS({ ...s, [k]: html })}
+        placeholder={placeholder}
+        minHeight="200px"
+      />
+    </div>
+  );
   if (!loaded) return null;
   return (
-    <div className="rounded-3xl bg-card p-5 shadow-sm space-y-3">
-      <div className="font-bold">📜 CGU (popup après inscription)</div>
-      <div className="text-xs text-muted-foreground">Affiché après inscription. Si vide, aucune modale n'apparaît.</div>
-      <textarea value={text} onChange={e => setText(e.target.value)} rows={8}
-        className="w-full px-3 py-2 rounded-xl bg-secondary outline-none text-sm" placeholder="Texte des CGU…" />
-      <div className="flex gap-2 flex-wrap">
-        <button onClick={save} className="flex-1 min-w-[140px] py-2 rounded-full bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Enregistrer</button>
-        <button onClick={reshow} className="py-2 px-3 rounded-full bg-amber-500 text-white font-semibold text-sm">🔔 Réafficher à tous</button>
-        <button onClick={clear} className="px-3 py-2 rounded-full bg-destructive text-destructive-foreground"><Trash2 className="w-4 h-4" /></button>
-      </div>
+    <div className="space-y-4">
+      {/* Help texts */}
+      <Card>
+        <div className="font-bold text-sm mb-2">💬 Textes d'aide</div>
+        <div className="text-xs text-muted-foreground mb-3">HTML autorisé. Affichés aux joueurs via les liens d'aide.</div>
+        <TextArea k="deposit_help_html" label="Aide dépôt" hint="Comment faire un dépôt" />
+        <TextArea k="withdrawal_help_html" label="Aide retrait" hint="Comment faire un retrait" />
+        <TextArea k="signup_help_html" label="Aide inscription" hint="Comment s'inscrire" />
+        <TextArea k="password_reset_help_html" label="Aide mot de passe oublié" hint="Comment réinitialiser" />
+      </Card>
+      {/* Legal texts */}
+      <Card>
+        <div className="font-bold text-sm mb-2">📜 Mentions légales & CGU</div>
+        <div className="text-xs text-muted-foreground mb-3">Affichés aux visiteurs et nouveaux inscrits.</div>
+        <RichText k="terms_html" label="Conditions d'utilisation" placeholder="Rédigez les conditions d'utilisation…" />
+        <RichText k="privacy_html" label="Politique de confidentialité" placeholder="Rédigez la politique de confidentialité…" />
+        <div className="border-t border-border/40 pt-3">
+          <div className="text-sm font-semibold mb-1">📜 CGU (popup après inscription)</div>
+          <div className="text-xs text-muted-foreground mb-2">Si vide, aucune modale n'apparaît.</div>
+          <textarea value={s.terms_text || ""} onChange={e => setS({ ...s, terms_text: e.target.value })} rows={6}
+            className="w-full px-3 py-2 rounded-xl bg-secondary outline-none text-sm" placeholder="Texte des CGU…" />
+          <div className="flex gap-2 flex-wrap mt-2">
+            <button onClick={reshowTerms} className="py-2 px-3 rounded-full bg-amber-500 text-white font-semibold text-sm">🔔 Réafficher à tous</button>
+            <button onClick={clearTerms} className="px-3 py-2 rounded-full bg-destructive text-destructive-foreground text-sm"><Trash2 className="w-4 h-4" /></button>
+          </div>
+        </div>
+      </Card>
+      <button onClick={saveTexts} className="w-full py-3 rounded-full text-white font-bold" style={{ background: "var(--gradient-primary)" }}>
+        💾 Enregistrer tous les textes
+      </button>
     </div>
   );
 }
@@ -2295,48 +2095,13 @@ function Communities() {
   );
 }
 
-// =================== FROM ADMIN-EXTRA : CONFIG ===================
-
-function PointsConfig() {
-  const [s, setS] = useState<any>(null);
-  useEffect(() => { supabase.from("app_settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => setS(data)); }, []);
-  if (!s) return null;
-  const save = async () => {
-    const patch = ["points_capture","points_home","points_first","points_second","points_third","tpoints_first","tpoints_second","tpoints_third","min_stake","max_stake"].reduce((a, k) => ({ ...a, [k]: Number(s[k]) || 0 }), {} as any);
-    await saveWithToast(
-      () => (supabase.from("app_settings") as any).update(patch).eq("id", 1),
-      { label: "Points & limites" },
-    );
-  };
-  const F = ({ k, l }: any) => (
-    <label className="text-xs block">{l}<input type="number" value={s[k] ?? 0} onChange={e => setS({ ...s, [k]: e.target.value })} className="w-full mt-1 px-2 py-2 rounded-xl bg-secondary text-sm outline-none" /></label>
-  );
-  return (
-    <div className="rounded-3xl bg-card p-5 shadow-sm space-y-3">
-      <div className="font-bold">🎯 Points & limites mises</div>
-      <div className="grid grid-cols-3 gap-2">
-        <F k="points_capture" l="Capture" />
-        <F k="points_home" l="Arrivée pion" />
-        <F k="points_first" l="1er partie" />
-        <F k="points_second" l="2e partie" />
-        <F k="points_third" l="3e partie" />
-        <F k="tpoints_first" l="🥇 Tournoi" />
-        <F k="tpoints_second" l="🥈 Tournoi" />
-        <F k="tpoints_third" l="🥉 Tournoi" />
-        <F k="min_stake" l="Min mise (Ar)" />
-        <F k="max_stake" l="Max mise (Ar)" />
-      </div>
-      <button onClick={save} className="w-full py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-1"><Save className="w-4 h-4" /> Enregistrer points</button>
-    </div>
-  );
-}
-
 function AppConfigForm() {
   const [s, setS] = useState<any>(null);
   const fe = useFormErrors();
   const load = () => supabase.from("app_settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => setS(data));
   useEffect(() => { load(); }, []);
   if (!s) return null;
+
   const GAME_SLUGS: { slug: string; label: string }[] = [
     { slug: "ludo",     label: "Ludo"     },
     { slug: "domino",   label: "Domino"   },
@@ -2362,10 +2127,13 @@ function AppConfigForm() {
       : [...cleaned, slug + ":paused"];
     setS({ ...s, games_disabled: next });
   };
+
+  // ── Save: unified settings (financial + app config + points) ──
   const save = async () => {
     if (fe.hasErrors) { toast.error("⚠️ Corrige les champs en erreur", { description: fe.firstError || "Un ou plusieurs champs sont invalides." }); return; }
     await saveWithToast(
       () => (supabase.from("app_settings").update({
+        // Liens & contact
         download_url: s.download_url || "",
         tuto_url: s.tuto_url || "",
         update_url: s.update_url || "",
@@ -2373,31 +2141,52 @@ function AppConfigForm() {
         contact_whatsapp: s.contact_whatsapp || "",
         contact_phone: s.contact_phone || "",
         contact_email: s.contact_email || "",
+        // Chat & features
         chat_global_enabled: !!s.chat_global_enabled,
         chat_room_enabled: !!s.chat_room_enabled,
         live_enabled: !!s.live_enabled,
         max_spectators: Number(s.max_spectators) || 50,
-        ready_timeout_seconds: Number(s.ready_timeout_seconds) || 60,
         afk_enabled: !!s.afk_enabled,
         afk_t1_max: Number(s.afk_t1_max) || 2,
         afk_t2_max: Number(s.afk_t2_max) || 2,
-        turn_seconds: Number(s.turn_seconds) || 30,
+        // Finance
+        signup_bonus: Number(s.signup_bonus) || 0,
+        game_commission_pct: Number(s.game_commission_pct) || 0,
+        min_deposit: Number(s.min_deposit) || 0,
+        min_withdraw: Number(s.min_withdraw) || 0,
+        withdrawal_fee_pct: Number(s.withdrawal_fee_pct) || 0,
+        // Mobile money operators
+        mvola_phone: s.mvola_phone || "",
+        mvola_name: s.mvola_name || "",
+        orange_phone: s.orange_phone || "",
+        orange_name: s.orange_name || "",
+        airtel_phone: s.airtel_phone || "",
+        airtel_name: s.airtel_name || "",
+        // Points & stakes
+        points_capture: Number(s.points_capture) || 0,
+        points_home: Number(s.points_home) || 0,
+        points_first: Number(s.points_first) || 0,
+        points_second: Number(s.points_second) || 0,
+        points_third: Number(s.points_third) || 0,
+        tpoints_first: Number(s.tpoints_first) || 0,
+        tpoints_second: Number(s.tpoints_second) || 0,
+        tpoints_third: Number(s.tpoints_third) || 0,
+        min_stake: Number(s.min_stake) || 0,
+        max_stake: Number(s.max_stake) || 0,
+        // Game status
         games_disabled: disabledGames,
-        chess_global_timer_enabled: !!s.chess_global_timer_enabled,
-        chess_global_timer_minutes: Number(s.chess_global_timer_minutes) || 10,
-        fanorona_global_timer_enabled: !!s.fanorona_global_timer_enabled,
-        fanorona_global_timer_minutes: Number(s.fanorona_global_timer_minutes) || 10,
-        game_invite_timeout_minutes: Number(s.game_invite_timeout_minutes) || 6,
       } as any) as any).eq("id", 1),
-      { label: "Paramètres de l'application" },
+      { label: "Paramètres" },
     );
   };
-  const F = ({ k, label, type = "text", validate }: any) => (
+
+  const F = ({ k, label, type = "text", validate, hint }: any) => (
     <ValidatedField
       variant="soft"
       label={label}
       value={s[k] ?? ""}
       type={type}
+      hint={hint}
       validate={validate}
       onValidityChange={fe.setError(k)}
       onChange={(v) => setS({ ...s, [k]: v })}
@@ -2409,36 +2198,98 @@ function AppConfigForm() {
       {label}
     </label>
   );
+  const PF = ({ k, l }: any) => (
+    <label className="text-xs block">{l}<input type="number" value={s[k] ?? 0} onChange={e => setS({ ...s, [k]: e.target.value })} className="w-full mt-1 px-2 py-2 rounded-xl bg-secondary text-sm outline-none" /></label>
+  );
+
   return (
-    <div className="rounded-3xl bg-card p-5 shadow-sm space-y-3">
+    <div className="rounded-3xl bg-card p-5 shadow-sm space-y-4">
       <div className="font-bold flex items-center gap-2"><Settings className="w-4 h-4" /> Paramètres de l'application</div>
-      <F k="download_url" label="Lien téléchargement APK" validate={V.optional(V.url)} />
-      <div className="grid grid-cols-2 gap-2">
-        <F k="tuto_url" label="Lien TUTO (Facebook)" validate={V.optional(V.url)} />
-        <F k="update_url" label="Lien Mise à jour (Mediafire)" validate={V.optional(V.url)} />
+
+      {/* ── Liens ── */}
+      <div className="space-y-2">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">📱 Liens & Contact</div>
+        <F k="download_url" label="Lien téléchargement APK" validate={V.optional(V.url)} />
+        <div className="grid grid-cols-2 gap-2">
+          <F k="tuto_url" label="Lien TUTO (Facebook)" validate={V.optional(V.url)} />
+          <F k="update_url" label="Lien Mise à jour" validate={V.optional(V.url)} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <F k="contact_facebook" label="Facebook URL" validate={V.optional(V.url)} />
+          <F k="contact_whatsapp" label="WhatsApp (numéro)" validate={V.optional(V.malagasyPhone)} />
+          <F k="contact_phone" label="Téléphone" validate={V.optional(V.malagasyPhone)} />
+          <F k="contact_email" label="Email" type="email" validate={V.optional(V.email)} />
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <F k="contact_facebook" label="Facebook URL" validate={V.optional(V.url)} />
-        <F k="contact_whatsapp" label="WhatsApp (numéro)" validate={V.optional(V.malagasyPhone)} />
-        <F k="contact_phone" label="Téléphone" validate={V.optional(V.malagasyPhone)} />
-        <F k="contact_email" label="Email" type="email" validate={V.optional(V.email)} />
+
+      {/* ── Finance ── */}
+      <div className="space-y-2 pt-3 border-t border-border/60">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">💰 Finance</div>
+        <F k="signup_bonus" label="🎁 Bonus inscription (Ar)" type="number" hint="0 = désactivé" validate={V.number({ min: 0, max: 1_000_000, integer: true })} />
+        <div className="grid grid-cols-2 gap-2">
+          <F k="game_commission_pct" label="Commission parties (%)" type="number" hint="% du pot" validate={V.percent} />
+          <F k="withdrawal_fee_pct" label="Frais de retrait (%)" type="number" min={0} max={100} validate={V.percent} />
+          <F k="min_deposit" label="Dépôt min (Ar)" type="number" validate={V.number({ min: 0, integer: true })} />
+          <F k="min_withdraw" label="Retrait min (Ar)" type="number" validate={V.number({ min: 0, integer: true })} />
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 pt-2">
-        <Switch k="chat_global_enabled" label="Chat global actif" />
-        <Switch k="chat_room_enabled" label="Chat de partie actif" />
-        <Switch k="live_enabled" label="LIVE actif" />
-        <Switch k="afk_enabled" label="Système AFK actif" />
+
+      {/* ── Mobile Money ── */}
+      <div className="space-y-2 pt-3 border-t border-border/60">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">📲 Numéros de dépôt (Mobile Money)</div>
+        <div className="rounded-2xl bg-secondary/50 p-3 space-y-2">
+          <span className="px-2 py-0.5 rounded-full text-white text-[10px] font-extrabold bg-black">MVola</span>
+          <F k="mvola_phone" label="Numéro MVola" validate={V.combine(V.required("Requis"), V.malagasyPhone)} />
+          <F k="mvola_name" label="Titulaire MVola" validate={V.combine(V.required("Requis"), V.minLen(2), V.maxLen(80))} />
+        </div>
+        <div className="rounded-2xl bg-orange-50 dark:bg-orange-950/20 p-3 space-y-2">
+          <span className="px-2 py-0.5 rounded-full text-white text-[10px] font-extrabold bg-orange-500">Orange Money</span>
+          <F k="orange_phone" label="Numéro Orange" validate={V.optional(V.malagasyPhone)} />
+          <F k="orange_name" label="Titulaire Orange" validate={V.maxLen(80)} />
+        </div>
+        <div className="rounded-2xl bg-red-50 dark:bg-red-950/20 p-3 space-y-2">
+          <span className="px-2 py-0.5 rounded-full text-white text-[10px] font-extrabold bg-red-600">Airtel Money</span>
+          <F k="airtel_phone" label="Numéro Airtel" validate={V.optional(V.malagasyPhone)} />
+          <F k="airtel_name" label="Titulaire Airtel" validate={V.maxLen(80)} />
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 pt-2">
-        <F k="max_spectators" label="Max spectateurs / partie" type="number" validate={V.number({ min: 0, max: 1000, integer: true })} />
-        <F k="afk_t1_max" label="Max T1 (timeout sans lancer)" type="number" validate={V.number({ min: 0, max: 20, integer: true })} />
-        <F k="afk_t2_max" label="Max T2 (timeout sans déplacer)" type="number" validate={V.number({ min: 0, max: 20, integer: true })} />
+
+      {/* ── Chat & Features ── */}
+      <div className="space-y-2 pt-3 border-t border-border/60">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">💬 Chat & Fonctionnalités</div>
+        <div className="grid grid-cols-2 gap-3">
+          <Switch k="chat_global_enabled" label="Chat global actif" />
+          <Switch k="chat_room_enabled" label="Chat de partie actif" />
+          <Switch k="live_enabled" label="LIVE actif" />
+          <Switch k="afk_enabled" label="Système AFK actif" />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <F k="max_spectators" label="Max spectateurs" type="number" validate={V.number({ min: 0, max: 1000, integer: true })} />
+          <F k="afk_t1_max" label="Max T1 (timeout)" type="number" validate={V.number({ min: 0, max: 20, integer: true })} />
+          <F k="afk_t2_max" label="Max T2 (timeout)" type="number" validate={V.number({ min: 0, max: 20, integer: true })} />
+        </div>
       </div>
-      <div className="pt-2 text-[11px] text-muted-foreground">
-        ⏱️ Tous les <b>timers</b> (tour, salle d'attente, prêt, minuteurs Échecs/Fanorona) sont regroupés dans le panneau <b>⏱️ Timers</b> en haut de cet onglet.
+
+      {/* ── Points & Stakes ── */}
+      <div className="space-y-2 pt-3 border-t border-border/60">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">🎯 Points & Limites mises</div>
+        <div className="grid grid-cols-3 gap-2">
+          <PF k="points_capture" l="Capture" />
+          <PF k="points_home" l="Arrivée pion" />
+          <PF k="points_first" l="1er partie" />
+          <PF k="points_second" l="2e partie" />
+          <PF k="points_third" l="3e partie" />
+          <PF k="tpoints_first" l="🥇 Tournoi" />
+          <PF k="tpoints_second" l="🥈 Tournoi" />
+          <PF k="tpoints_third" l="🥉 Tournoi" />
+          <PF k="min_stake" l="Min mise (Ar)" />
+          <PF k="max_stake" l="Max mise (Ar)" />
+        </div>
       </div>
+
+      {/* ── Game Status ── */}
       <div className="pt-3 border-t border-border/60">
-        <div className="text-xs font-bold uppercase tracking-wide mb-2">🎮 Statut des jeux</div>
+        <div className="text-xs font-bold uppercase tracking-wide mb-2 text-muted-foreground">🎮 Statut des jeux</div>
         <div className="space-y-2">
           {GAME_SLUGS.map(g => {
             const st = getGameStatus(g.slug);
@@ -2451,7 +2302,7 @@ function AppConfigForm() {
             const LABEL: Record<GameStatus, string> = {
               active: "✅ Actif",
               hidden: "🚫 Masqué",
-              dev:    "🔧 En cours de développement",
+              dev:    "🔧 En développement",
               paused: "⏸️ En pause",
             };
             return (
@@ -2472,14 +2323,19 @@ function AppConfigForm() {
           })}
         </div>
       </div>
+
+      <div className="pt-2 text-[11px] text-muted-foreground">
+        ⏱️ Les <b>timers</b> (tour, salle d'attente, minuteries Échecs/Fanorona) sont dans le panneau <b>⏱️ Timers</b> ci-dessus.
+      </div>
+
       {fe.hasErrors && (
         <div className="text-xs font-semibold text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2">
           ⚠️ {fe.firstError || "Corrige les champs en erreur avant d'enregistrer."}
         </div>
       )}
-      <button onClick={save} disabled={fe.hasErrors} className="w-full py-2.5 rounded-full bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save className="w-4 h-4" /> Enregistrer</button>
+      <button onClick={save} disabled={fe.hasErrors} className="w-full py-2.5 rounded-full bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save className="w-4 h-4" /> Enregistrer tous les paramètres</button>
       <button onClick={async () => { const { data } = await supabase.rpc("ludo_purge_unready_rooms" as any); toast.success(`${data || 0} parties purgées`); }}
-        className="w-full py-2 rounded-full bg-secondary text-sm">Purger les parties non prêtes maintenant</button>
+        className="w-full py-2 rounded-full bg-secondary text-sm">🧹 Purger les parties non prêtes</button>
     </div>
   );
 }
