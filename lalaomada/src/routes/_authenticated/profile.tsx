@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Camera, Copy, Coins, ShieldCheck, LogOut, Trash2,
-  Phone, Gamepad2, Moon, Sun, Languages,
+  Phone, Gamepad2,
   ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings,
 } from "lucide-react";

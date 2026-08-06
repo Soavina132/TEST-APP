@@ -556,16 +556,10 @@ type I18nCtx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => strin
 const Ctx = createContext<I18nCtx>({ lang: "fr", setLang: () => {}, t: (k) => k });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("fr");
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("lang") as Lang | null;
-      if (saved && DICT[saved]) setLangState(saved);
-    } catch {}
-  }, []);
-  useEffect(() => { try { localStorage.setItem("lang", lang); document.documentElement.lang = lang; } catch {} }, [lang]);
-  const setLang = (l: Lang) => setLangState(l);
-  const t = (k: string) => DICT[lang]?.[k] || DICT.fr[k] || k;
+  useEffect(() => { document.documentElement.lang = "fr"; }, []);
+  const lang: Lang = "fr";
+  const setLang = (_l: Lang) => {};
+  const t = (k: string) => DICT.fr[k] || k;
   return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
 }
 

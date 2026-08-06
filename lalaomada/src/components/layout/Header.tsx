@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { Gamepad2, LayoutGrid, Shield, LogOut, ChevronDown, User, Zap } from "lucide-react";
 import NotificationsBell from "@/components/NotificationsBell";
 import WalletButton from "@/components/WalletButton";
-import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { useT } from "@/lib/i18n";
 
 function RouteLoadingBar() {
@@ -102,7 +101,6 @@ export default function Header() {
 
               {/* Language — hidden on very small screens to save space */}
               <div className="hidden sm:block">
-                <LanguageSwitcher />
               </div>
 
               <NotificationsBell />

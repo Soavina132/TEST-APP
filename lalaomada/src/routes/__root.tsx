@@ -16,7 +16,6 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { I18nProvider } from "@/lib/i18n";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
-import AutoTranslator from "@/components/AutoTranslator";
 import { PageLoader, useDelayedPending } from "@/components/layout/PageLoader";
 
 function NotFoundComponent() {
@@ -195,7 +194,6 @@ function RootComponent() {
             <Outlet />
             <RouteSkeletonOverlay />
             <PushNotificationsManager />
-            <AutoTranslator />
             <Toaster richColors position="top-center" />
           </ConfirmProvider>
         </AuthProvider>
