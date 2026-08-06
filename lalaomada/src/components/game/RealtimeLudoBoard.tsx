@@ -412,9 +412,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       double_roll: "⚡ Deuxième lancer ! Lancez le dé à nouveau",
       lucky_star: `⭐ Étoile Chance : ${pe.reward || "récompense"}`,
     };
-    const part = participants.find(p => p.slot === pe.slot);
-    const who = part ? nameOf(part) : "";
-    const msg = toastMsgs[pe.reward || pe.type] || toastMsgs[pe.type] || "Pouvoir activé";
+    let msg = toastMsgs[pe.reward || pe.type] || toastMsgs[pe.type] || "Pouvoir activé";
+    if (pe.skipped) msg = "🚀 Boost ignoré";
     if (pe.slot === state.turn_slot || true) {
       toast.success(who ? `${who} : ${msg}` : msg, { duration: 3000 });
     }
@@ -442,6 +441,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     else if (ev.startsWith("home")) sfx.home();
     else if (ev.startsWith("roll:") && ev.endsWith(":no_move")) sfx.noMove();
     else if (ev === "move") sfx.turnChange();
+    else if (ev === "double_roll:rejoue") sfx.powerTile("double_roll");
+    else if (ev === "bot:pass") sfx.noMove();
   }, [state.last_event]);
 
   // Auto-move: if only one pawn can move, play it immediately (no artificial delay).
@@ -638,7 +639,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     color: isActive ? meta.border : "rgba(100,116,139,0.6)",
                     display: "inline-block",
                   }}>
-                    {isActive ? meta.icon : `⏳${cd}`}
+                    {isActive ? meta.icon : "⏳"}
                   </span>
                 </div>
               );
