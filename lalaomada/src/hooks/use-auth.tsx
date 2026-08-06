@@ -49,7 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Auth session bootstrap + change listener
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
+      // Redirect to reset-password page when recovering password via email link
+      if (evt === "PASSWORD_RECOVERY") {
+        window.location.href = "/reset-password";
+        return;
+      }
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {

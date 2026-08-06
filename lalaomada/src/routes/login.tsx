@@ -594,41 +594,22 @@ function Field({
 
 // ── Forgot password modal ───────────────────────────────────────────────────
 function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState<"request" | "code" | "done">("request");
-  const [contact, setContact] = useState("");
-  const [code, setCode] = useState("");
-  const [pw1, setPw1] = useState("");
-  const [pw2, setPw2] = useState("");
+  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  const normContact = () => contact.trim().toLowerCase();
-
-  const submitRequest = async (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (contact.trim().length < 3) return toast.error("Email invalide");
-    setBusy(true);
-    const { error } = await supabase.rpc("request_password_reset" as any, {
-      _contact: normContact(), _type: "email",
-    } as any);
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    setStep("code");
-    toast.success("Demande envoyée. Contactez l'administrateur pour recevoir votre code.");
-  };
-
-  const submitNewPassword = async (e: FormEvent) => {
-    e.preventDefault();
-    if (pw1.length < 6) return toast.error("Mot de passe trop court");
-    if (pw1 !== pw2) return toast.error("Les mots de passe ne correspondent pas");
-    if (!/^\d{4,8}$/.test(code)) return toast.error("Code invalide");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return toast.error("Email invalide");
     setBusy(true);
     try {
-      await callEdgeFunction("password-reset", {
-        contact: normContact(), contactType: "email", code, newPassword: pw1,
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
-      setStep("done");
+      if (error) throw error;
+      setSent(true);
     } catch (err: any) {
-      toast.error(err?.message || "Échec de la réinitialisation");
+      toast.error(err?.message || "Erreur");
     } finally {
       setBusy(false);
     }
@@ -646,49 +627,52 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {step === "request" && (
-          <form onSubmit={submitRequest} className="space-y-3">
+        {sent ? (
+          <div className="text-center py-4">
+            <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center mb-3">
+              <Mail className="w-7 h-7 text-emerald-500" />
+            </div>
+            <h3 className="font-bold text-base mb-2">Email envoyé !</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Un lien de réinitialisation a été envoyé à
+            </p>
+            <p className="text-sm font-semibold text-foreground mb-4 break-all">{email.trim()}</p>
+            <div className="bg-secondary/40 rounded-xl p-3 mb-4 text-left">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground">1.</span> Ouvrez votre boîte de réception<br />
+                <span className="font-semibold text-foreground">2.</span> Cherchez l'email "Reset your password"<br />
+                <span className="font-semibold text-foreground">3.</span> Cliquez sur le bouton "Reset password"<br />
+                <span className="font-semibold text-foreground">4.</span> Choisissez votre nouveau mot de passe
+              </p>
+            </div>
+            <p className="text-[11px] text-amber-500 mb-4">
+              Pensez à vérifier vos spams.
+            </p>
+            <button onClick={onClose}
+              className="w-full py-3 rounded-xl text-white font-bold text-sm"
+              style={{ background: "var(--gradient-primary)" }}>
+              Fermer
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
             <Field
               icon={Mail}
               type="email"
               placeholder="Votre email"
-              value={contact}
-              onChange={setContact}
+              value={email}
+              onChange={setEmail}
             />
             <button type="submit" disabled={busy}
-              className="w-full py-3 rounded-xl text-white font-bold text-sm disabled:opacity-60"
+              className="w-full py-3 rounded-xl text-white font-bold text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               style={{ background: "var(--gradient-primary)" }}>
-              {busy ? "Envoi…" : "Demander un code"}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              {busy ? "Envoi…" : "Envoyer le lien de réinitialisation"}
             </button>
             <p className="text-[11px] text-muted-foreground text-center">
-              Un administrateur vous transmettra le code de réinitialisation.
+              Un email avec un lien de réinitialisation vous sera envoyé automatiquement.
             </p>
           </form>
-        )}
-
-        {step === "code" && (
-          <form onSubmit={submitNewPassword} className="space-y-3">
-            <Field icon={KeyRound} type="text" placeholder="Code reçu" value={code} onChange={setCode} />
-            <Field icon={Lock} type="password" placeholder="Nouveau mot de passe" value={pw1} onChange={setPw1} />
-            <Field icon={Lock} type="password" placeholder="Confirmer" value={pw2} onChange={setPw2} />
-            <button type="submit" disabled={busy}
-              className="w-full py-3 rounded-xl text-white font-bold text-sm disabled:opacity-60"
-              style={{ background: "var(--gradient-primary)" }}>
-              {busy ? "Enregistrement…" : "Valider"}
-            </button>
-          </form>
-        )}
-
-        {step === "done" && (
-          <div className="text-center py-4">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-            <p className="font-semibold mb-4">Mot de passe réinitialisé</p>
-            <button onClick={onClose}
-              className="w-full py-3 rounded-xl text-white font-bold text-sm"
-              style={{ background: "var(--gradient-primary)" }}>
-              Se connecter
-            </button>
-          </div>
         )}
       </div>
     </div>

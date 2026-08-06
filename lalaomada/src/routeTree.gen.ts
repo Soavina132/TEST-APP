@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as JeuxPublicsRouteImport } from './routes/jeux-publics'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdminBugReportsRouteImport } from './routes/_authenticated/admin-bug-reports'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
@@ -65,6 +66,11 @@ const JeuxPublicsRoute = JeuxPublicsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
   '/chat': typeof AuthenticatedChatRoute
@@ -290,6 +297,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
   '/chat': typeof AuthenticatedChatRoute
@@ -330,6 +338,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
@@ -371,6 +380,7 @@ export interface FileRouteTypes {
     | '/'
     | '/jeux-publics'
     | '/login'
+    | '/reset-password'
     | '/admin'
     | '/admin-bug-reports'
     | '/chat'
@@ -410,6 +420,7 @@ export interface FileRouteTypes {
     | '/'
     | '/jeux-publics'
     | '/login'
+    | '/reset-password'
     | '/admin'
     | '/admin-bug-reports'
     | '/chat'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/jeux-publics'
     | '/login'
+    | '/reset-password'
     | '/_authenticated/admin'
     | '/_authenticated/admin-bug-reports'
     | '/_authenticated/chat'
@@ -490,6 +502,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   JeuxPublicsRoute: typeof JeuxPublicsRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ApiLinkPreviewRoute: typeof ApiLinkPreviewRoute
   ApiTranslateRoute: typeof ApiTranslateRoute
 }
@@ -522,6 +535,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -853,6 +873,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   JeuxPublicsRoute: JeuxPublicsRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ApiLinkPreviewRoute: ApiLinkPreviewRoute,
   ApiTranslateRoute: ApiTranslateRoute,
 }
