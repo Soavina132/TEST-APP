@@ -79,10 +79,11 @@ interface GameState {
   turn_started_at: string;
   last_event?: string;
   no_move_display?: { slot: number; dice: number; until: string };
-  power_tiles?: { type: string; cell: number }[];
-  shields?: Record<string, number[]>;
+  power_tiles?: { type: string; cell: number; cd?: number }[];
+  shields?: Record<string, boolean>;
   double_roll_pending?: number | null;
   power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; at: string };
+  power_pending?: { slot: number; pawn_idx: number; tile_type: string; cell: number; options?: string[]; at: string } | null;
 }
 
 interface Props {
@@ -132,6 +133,14 @@ const POWER_TILE_STYLES = `
 @keyframes captureBurst {
   0% { transform: scale(0); opacity: 1; }
   100% { transform: scale(2.5); opacity: 0; }
+}
+@keyframes shieldRingPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(249, 115, 22, 0.5), 0 0 3px rgba(249, 115, 22, 0.3); border-color: rgba(249, 115, 22, 0.8); }
+  50% { box-shadow: 0 0 14px rgba(249, 115, 22, 0.8), 0 0 8px rgba(249, 115, 22, 0.5); border-color: rgba(249, 115, 22, 1); }
+}
+@keyframes shieldBadgeFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }
 `;
 
@@ -396,6 +405,19 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Sound effect based on tile type
     const tileType = pe.reward || pe.type;
     sfx.powerTile(tileType);
+    // Toast notification with specific details
+    const toastMsgs: Record<string, string> = {
+      boost: `🚀 Boost activé ! +${pe.dice || "?"} cases`,
+      shield: "🛡️ Bouclier activé ! Tous vos pions sont protégés",
+      double_roll: "⚡ Deuxième lancer ! Lancez le dé à nouveau",
+      lucky_star: `⭐ Étoile Chance : ${pe.reward || "récompense"}`,
+    };
+    const part = participants.find(p => p.slot === pe.slot);
+    const who = part ? nameOf(part) : "";
+    const msg = toastMsgs[pe.reward || pe.type] || toastMsgs[pe.type] || "Pouvoir activé";
+    if (pe.slot === state.turn_slot || true) {
+      toast.success(who ? `${who} : ${msg}` : msg, { duration: 3000 });
+    }
     // Visual flash overlay
     const flashColors: Record<string, string> = {
       boost: "#0ea5e9",
@@ -544,6 +566,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                   <div className="flex min-w-0 flex-col leading-tight">
                     <div className="flex items-center gap-1">
                       <span className={`truncate text-xs font-semibold leading-none ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
+                      {state.double_roll_pending === p.slot && (
+                        <span className="shrink-0 rounded bg-pink-500/90 px-1 text-[7px] font-bold leading-tight text-white">⚡2x</span>
+                      )}
+                      {state.shields?.[String(p.slot)] === true && (
+                        <span className="shrink-0 text-[8px] leading-none">🛡️</span>
+                      )}
                       {matchType === "groupe" && p.team && (
                         <span className={`shrink-0 text-[8px] leading-none ${p.team === 1 ? "text-red-600" : "text-blue-600"}`}>
                           {p.team === 1 ? "🔴" : "🔵"}
@@ -583,6 +611,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             {state.power_tiles.map((tile, ti) => {
               const [row, col] = PATH[tile.cell];
               const meta = POWER_TILE_META[tile.type] || POWER_TILE_META.lucky_star;
+              const cd = tile.cd || 0;
+              const isActive = cd === 0;
               return (
                 <div key={`pt-${ti}`} className="absolute flex items-center justify-center rounded-lg"
                   style={{
@@ -591,16 +621,24 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     width: cellPx * 0.84,
                     height: cellPx * 0.84,
                     background: meta.bg,
-                    border: `2px solid ${meta.border}`,
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)",
+                    border: `2px solid ${isActive ? meta.border : "rgba(100,116,139,0.4)"}`,
+                    boxShadow: isActive
+                      ? "0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)"
+                      : "0 1px 3px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1)",
                     zIndex: 10,
                     fontSize: cellPx * 0.42,
                     lineHeight: 1,
                     pointerEvents: "none",
-                    animation: "powerTilePulse 2s ease-in-out infinite",
+                    opacity: isActive ? 1 : 0.35,
+                    filter: isActive ? "none" : "grayscale(0.8)",
+                    animation: isActive ? "powerTilePulse 2s ease-in-out infinite" : "none",
                   }}>
-                  <span style={{ animation: "powerGlow 1.5s ease-in-out infinite", color: meta.border, display: "inline-block" }}>
-                    {meta.icon}
+                  <span style={{
+                    animation: isActive ? "powerGlow 1.5s ease-in-out infinite" : "none",
+                    color: isActive ? meta.border : "rgba(100,116,139,0.6)",
+                    display: "inline-block",
+                  }}>
+                    {isActive ? meta.icon : `⏳${cd}`}
                   </span>
                 </div>
               );
@@ -676,6 +714,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                   boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.35), inset -2px -3px 6px rgba(0,0,0,0.55), inset 2px 2px 4px rgba(255,255,255,0.3), 0 4px 8px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4)`,
                   filter: "saturate(1.35) contrast(1.1)",
                 }}>
+                {state.shields?.[String(p.slot)] === true && (
+                  <div className="absolute pointer-events-none rounded-full"
+                    style={{
+                      inset: "-3px",
+                      border: "2px solid rgba(249,115,22,0.8)",
+                      animation: "shieldRingPulse 1.5s ease-in-out infinite",
+                      borderRadius: "50%",
+                    }}>
+                    <span className="absolute -top-2 -right-1 text-[10px]"
+                      style={{ animation: "shieldBadgeFloat 1s ease-in-out infinite" }}>🛡️</span>
+                  </div>
+                )}
                 <span className="absolute rounded-full pointer-events-none"
                       style={{
                         left: "18%", top: "12%", width: "38%", height: "28%",
@@ -699,6 +749,29 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             animation: "powerFlashAnim 1.5s ease-out forwards",
             zIndex: 50,
           }} />
+      )}
+
+      {/* Power choice dialog (Mode Moderne) */}
+      {state.power_pending && isMyTurn && !animating && (
+        <PowerChoiceDialog
+          pending={state.power_pending}
+          onChoose={async (choice: string) => {
+            setBusy(true);
+            try {
+              const { error } = await supabase.rpc("ludo_choose_power" as any, { _game_id: gameId, _choice: choice } as any);
+              if (error) toast.error(error.message);
+            } finally { setBusy(false); }
+          }}
+          disabled={busy}
+        />
+      )}
+      {state.power_pending && !isMyTurn && (
+        <div className="w-full rounded-xl bg-blue-500/10 border border-blue-500/30 px-3 py-2 text-center text-[11px] text-blue-600 dark:text-blue-400 animate-pulse">
+          {(() => {
+            const part = participants.find(p => p.slot === state.power_pending!.slot);
+            return part ? `${nameOf(part)} choisit son pouvoir…` : "En attente du choix…";
+          })()}
+        </div>
       )}
 
       {/* Sound toggle */}
@@ -896,4 +969,87 @@ function DiceFace({ value }: { value: number }) {
       ))}
     </div>
   );
+}
+
+// ═══ Power Choice Dialog (Mode Moderne v2) ═══════════════════════════
+function PowerChoiceDialog({
+  pending,
+  onChoose,
+  disabled,
+}: {
+  pending: NonNullable<GameState["power_pending"]>;
+  onChoose: (choice: string) => void | Promise<void>;
+  disabled?: boolean;
+}) {
+  if (pending.tile_type === "boost") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="bg-card text-card-foreground rounded-2xl p-6 max-w-xs w-full text-center shadow-2xl border border-border">
+          <div className="text-5xl mb-3">🚀</div>
+          <h3 className="font-bold text-lg mb-2">Boost</h3>
+          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+            Avance automatiquement de <strong>1 à 6 cases</strong> supplémentaires.
+            <br />Attention : peut te mener sur une case dangereuse !
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onChoose("activate")}
+              disabled={disabled}
+              className="flex-1 rounded-lg bg-primary text-primary-foreground py-2.5 font-semibold text-sm hover:bg-primary/90 active:scale-95 transition disabled:opacity-50"
+            >
+              Activer
+            </button>
+            <button
+              onClick={() => onChoose("skip")}
+              disabled={disabled}
+              className="flex-1 rounded-lg bg-secondary text-secondary-foreground py-2.5 font-semibold text-sm hover:bg-secondary/80 active:scale-95 transition disabled:opacity-50"
+            >
+              Passer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (pending.tile_type === "lucky_star") {
+    const options = pending.options || [];
+    const optionMeta: Record<string, { icon: string; label: string; desc: string }> = {
+      boost:      { icon: "🚀", label: "Boost",        desc: "+1 à 6 cases" },
+      shield:     { icon: "🛡️", label: "Bouclier",     desc: "Tous pions protégés" },
+      double_roll:{ icon: "⚡", label: "2e Lancer",    desc: "Deux lancers de dé" },
+      free_pawn:  { icon: "🎁", label: "Pion gratuit", desc: "Sort un pion du yard" },
+      reroll:     { icon: "🎲", label: "Re-lancer",    desc: "Relance le dé" },
+    };
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="bg-card text-card-foreground rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
+          <div className="text-5xl mb-3 text-center">⭐</div>
+          <h3 className="font-bold text-lg mb-2 text-center">Étoile Chance</h3>
+          <p className="text-sm text-muted-foreground mb-4 text-center">Choisis ta récompense :</p>
+          <div className="grid gap-2">
+            {options.map((opt, i) => {
+              const meta = optionMeta[opt] || { icon: "❓", label: opt, desc: "" };
+              return (
+                <button
+                  key={i}
+                  onClick={() => onChoose(opt)}
+                  disabled={disabled}
+                  className="flex items-center gap-3 rounded-lg bg-secondary hover:bg-accent text-secondary-foreground p-3 text-left transition active:scale-95 disabled:opacity-50"
+                >
+                  <span className="text-2xl">{meta.icon}</span>
+                  <div>
+                    <div className="font-semibold text-sm">{meta.label}</div>
+                    <div className="text-xs text-muted-foreground">{meta.desc}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
