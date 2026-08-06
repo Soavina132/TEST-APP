@@ -3,6 +3,7 @@
 ╔══════════════════════════════════════════════════════════════════╗
 ║   Lalao-Mada — Dépôt SMS Auto-Validator (Termux)                  ║
 ║   Validation automatique des dépôts Orange Money + MVola          ║
+║   + Validation automatique des vérifications téléphone            ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 INSTALLATION:
@@ -13,13 +14,16 @@ INSTALLATION:
 
 Le script:
   - Lit les SMS reçus
-  - Filtre UNIQUEMENT les SMS venant d'Orange Money ou MVola
-  - Ignore les SMS envoyés par des contacts normaux
+  - Filtre UNIQUEMENT les SMS venant d'Orange Money ou MVola (dépôts)
+  - Vérifie aussi les SMS contenant un code de vérif (LMxxxxxx)
+  - Ignore les SMS envoyés par des contacts normaux (sauf si code LM)
   - Envoie chaque SMS de dépôt à l'API Supabase
+  - Envoie chaque SMS de vérif à auto_verify_phone_by_sms
   - Évite les doublons (ne retraite pas le même SMS 2 fois)
 
 SÉCURITÉ:
-  - Vérifie l'expéditeur du SMS (pas les messages normaux)
+  - Vérifie l'expéditeur du SMS (pas les messages normaux pour dépôts)
+  - Pour la vérif téléphone: vérifie le numéro + le code
   - Utilise un secret partagé avec l'API
   - Logge toutes les opérations
 """
@@ -38,14 +42,16 @@ from datetime import datetime
 # CONFIGURATION — MODIFIEZ CES VALEURS
 # ═══════════════════════════════════════════════════════════════════
 
-# URL de l'Edge Function Supabase
+# URL de l'Edge Function Supabase (dépôts)
 API_URL = "https://gifwfjgciwbsottztzoc.supabase.co/functions/v1/validate-deposit-sms"
+
+# URL Supabase REST (pour vérif téléphone)
+SUPABASE_URL = "https://gifwfjgciwbsottztzoc.supabase.co"
 
 # Secret partagé (doit correspondre à DEPOSIT_SMS_SECRET dans Supabase)
 API_SECRET = "LalaoMada2026SecretKey!"
 
-# Clé service role Supabase (pour les logs de parsing échoué)
-SUPABASE_URL = "https://gifwfjgciwbsottztzoc.supabase.co"
+# Clé service role Supabase (pour les logs de parsing échoué + vérif téléphone)
 SERVICE_ROLE_KEY = "VOTRE_CLE_SERVICE_ROLE_ICI"  # ← Remplacez par votre clé
 
 # Numéro admin (pour info)
@@ -61,7 +67,7 @@ PROCESSED_FILE = os.path.join(os.environ.get("HOME", "/tmp"), ".lalao_deposit_pr
 LOG_FILE = os.path.join(os.environ.get("HOME", "/tmp"), ".lalao_deposit_log")
 
 # ═══════════════════════════════════════════════════════════════════
-# EXPÉDITEURS AUTORISÉS — Seuls ces expéditeurs sont traités
+# EXPÉDITEURS AUTORISÉS — Seuls ces expéditeurs sont traités pour les DÉPÔTS
 # ═══════════════════════════════════════════════════════════════════
 
 # Orange Money: l'expéditeur est typiquement "Orange" ou un short code
@@ -133,6 +139,7 @@ class C:
     DIM = "\033[2m"
     RESET = "\033[0m"
     MAGENTA = "\033[95m"
+    BLUE = "\033[94m"
 
 # ═══════════════════════════════════════════════════════════════════
 # LOGGING
@@ -149,6 +156,7 @@ def log(msg, level="INFO"):
         "SUCCESS": C.GREEN,
         "ERROR": C.RED,
         "WARN": C.YELLOW,
+        "VERIFY": C.BLUE,
     }.get(level, C.CYAN)
     print(f"{C.DIM}[{ts}]{C.RESET} {color}{level}{C.RESET}: {msg}")
 
@@ -286,7 +294,23 @@ def is_deposit_sms(body):
     return any(kw in body_lower for kw in deposit_keywords)
 
 # ═══════════════════════════════════════════════════════════════════
-# APPEL API
+# DÉTECTION DE CODE DE VÉRIFICATION TÉLÉPHONE
+# ═══════════════════════════════════════════════════════════════════
+
+# Pattern: LM suivi de 6 chiffres (ex: LM123456)
+PHONE_VERIFY_PATTERN = re.compile(r'LM[0-9]{6}', re.IGNORECASE)
+
+def extract_phone_verify_code(body):
+    """Extrait le code de vérification téléphone (LMxxxxxx) du SMS"""
+    if not body:
+        return None
+    match = PHONE_VERIFY_PATTERN.search(body)
+    if match:
+        return match.group(0).upper()
+    return None
+
+# ═══════════════════════════════════════════════════════════════════
+# APPEL API — DÉPÔTS
 # ═══════════════════════════════════════════════════════════════════
 
 def send_to_api(operator, sms_body):
@@ -303,6 +327,41 @@ def send_to_api(operator, sms_body):
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {SERVICE_ROLE_KEY}",
+        },
+        method="POST",
+    )
+
+    try:
+        resp = urllib.request.urlopen(req, timeout=30)
+        return json.loads(resp.read().decode("utf-8")), None
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        try:
+            return json.loads(body), f"HTTP {e.code}"
+        except Exception:
+            return None, f"HTTP {e.code}: {body}"
+    except Exception as e:
+        return None, str(e)
+
+# ═══════════════════════════════════════════════════════════════════
+# APPEL API — VÉRIFICATION TÉLÉPHONE
+# ═══════════════════════════════════════════════════════════════════
+
+def send_phone_verification(sender_phone, sms_body):
+    """Envoie le SMS à auto_verify_phone_by_sms pour validation téléphone"""
+    rpc_url = f"{SUPABASE_URL}/rest/v1/rpc/auto_verify_phone_by_sms"
+    payload = json.dumps({
+        "_sender_phone": sender_phone,
+        "_sms_body": sms_body,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        rpc_url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {SERVICE_ROLE_KEY}",
+            "apikey": SERVICE_ROLE_KEY,
         },
         method="POST",
     )
@@ -374,8 +433,8 @@ def main():
 
     print(f"{C.CYAN}{C.BOLD}")
     print("╔══════════════════════════════════════════════════════════════╗")
-    print("║   Lalao-Mada — Dépôt SMS Auto-Validator                      ║")
-    print("║   Validation automatique Orange Money + MVola                ║")
+    print("║   Lalao-Mada — SMS Auto-Validator                             ║")
+    print("║   Dépôts Orange Money + MVola + Vérif téléphone               ║")
     print("╚══════════════════════════════════════════════════════════════╝")
     print(f"{C.RESET}")
 
@@ -386,9 +445,10 @@ def main():
     check_service_key()
 
     # 3. Démarrer
-    print(f"{C.BOLD}📡 Écoute des SMS de dépôt...{C.RESET}")
-    print(f"   Expéditeurs autorisés: {C.CYAN}Orange Money, MVola{C.RESET}")
-    print(f"   SMS normaux (contacts): {C.RED}ignorés{C.RESET}")
+    print(f"{C.BOLD}📡 Écoute des SMS...{C.RESET}")
+    print(f"   Dépôts: expéditeurs {C.CYAN}Orange Money, MVola{C.RESET}")
+    print(f"   Vérif téléphone: SMS contenant {C.BLUE}LMxxxxxx{C.RESET}")
+    print(f"   SMS normaux (sans code): {C.RED}ignorés{C.RESET}")
     print(f"   Intervalle: {POLL_INTERVAL}s")
     print(f"   API: {C.DIM}{API_URL}{C.RESET}")
     print(f"   {C.DIM}Appuyez sur Ctrl+C pour arrêter{C.RESET}")
@@ -397,6 +457,7 @@ def main():
 
     processed = load_processed()
     verified_count = 0
+    phone_verified_count = 0
     skipped_count = 0
     error_count = 0
 
@@ -417,9 +478,38 @@ def main():
                 if sms_id in processed:
                     continue
 
-                # ── ÉTAPE 1: Vérifier l'expéditeur ──────────────────
+                ts = datetime.now().strftime("%H:%M:%S")
+
+                # ── ÉTAPE 0: Vérifier d'abord si c'est un SMS de vérif téléphone ──
+                # Un SMS contenant LMxxxxxx est une vérif téléphone
+                # On vérifie le numéro de l'expéditeur ET le code
+                verify_code = extract_phone_verify_code(body)
+                if verify_code:
+                    print(f"\n{C.DIM}[{ts}]{C.RESET} {C.BLUE}📱 Vérif téléphone{C.RESET} de {C.CYAN}{sender}{C.RESET}")
+                    print(f"   Code détecté: {C.BLUE}{verify_code}{C.RESET}")
+                    print(f"   {C.BOLD}→ Vérification...{C.RESET}", end=" ")
+
+                    result, error = send_phone_verification(sender, body)
+
+                    if error:
+                        print(f"{C.RED}ERREUR{C.RESET}")
+                        log(f"Erreur vérif téléphone: {error}", "ERROR")
+                        error_count += 1
+                    elif result and result.get("success"):
+                        print(f"{C.GREEN}✓ VÉRIFIÉ{C.RESET}")
+                        phone_verified_count += 1
+                        log(f"Téléphone vérifié: {result.get('phone', '?')} (code: {verify_code})", "VERIFY")
+                    else:
+                        reason = result.get("message", "Inconnu") if result else "Pas de réponse"
+                        print(f"{C.YELLOW}REJETÉ{C.RESET}")
+                        log(f"Vérif téléphone rejetée: {reason}", "WARN")
+
+                    mark_processed(sms_id)
+                    continue
+
+                # ── ÉTAPE 1: Vérifier l'expéditeur pour les DÉPÔTS ─────────
                 # SEULS les SMS venant d'Orange Money / MVola sont traités
-                # Les SMS de contacts normaux sont ignorés
+                # Les SMS de contacts normaux sont ignorés (sauf si code LM, déjà traité ci-dessus)
                 operator = detect_operator_by_sender(sender)
 
                 # Fallback: détecter par contenu si l'expéditeur n'est pas reconnu
@@ -447,7 +537,6 @@ def main():
                     continue
 
                 # ── ÉTAPE 3: Envoyer à l'API ─────────────────────────
-                ts = datetime.now().strftime("%H:%M:%S")
                 print(f"\n{C.DIM}[{ts}]{C.RESET} {C.MAGENTA}📧 SMS {operator.upper()}{C.RESET} de {C.CYAN}{sender}{C.RESET}")
                 print(f"   {C.DIM}{body[:80]}...{C.RESET}")
                 print(f"   {C.BOLD}→ Envoi à l'API...{C.RESET}", end=" ")
@@ -475,13 +564,14 @@ def main():
                     mark_processed(sms_id)
 
                 # Nettoyer les anciennes entrées de temps en temps
-                if (verified_count + skipped_count + error_count) % 50 == 0:
+                if (verified_count + phone_verified_count + skipped_count + error_count) % 50 == 0:
                     cleanup_processed()
 
             # Afficher le statut
             status = (
                 f"\r{C.DIM}Statut: {C.RESET}"
-                f"{C.GREEN}✓{verified_count}{C.RESET} validés · "
+                f"{C.GREEN}✓{verified_count}{C.RESET} dépôts · "
+                f"{C.BLUE}📱{phone_verified_count}{C.RESET} vérifs · "
                 f"{C.YELLOW}⊘{skipped_count}{C.RESET} ignorés · "
                 f"{C.RED}✗{error_count}{C.RESET} erreurs · "
                 f"{C.DIM}en attente...{C.RESET}"
@@ -492,7 +582,8 @@ def main():
 
     except KeyboardInterrupt:
         print(f"\n\n{C.BOLD}Arrêt...{C.RESET}")
-        print(f"  Validés: {C.GREEN}{verified_count}{C.RESET}")
+        print(f"  Dépôts validés: {C.GREEN}{verified_count}{C.RESET}")
+        print(f"  Téléphones vérifiés: {C.BLUE}{phone_verified_count}{C.RESET}")
         print(f"  Ignorés: {C.DIM}{skipped_count}{C.RESET}")
         print(f"  Erreurs: {C.RED}{error_count}{C.RESET}")
         print(f"\n{C.CYAN}Au revoir 👋{C.RESET}")

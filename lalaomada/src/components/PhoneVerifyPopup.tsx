@@ -1,24 +1,30 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { X, Phone, Send, Check, Loader2, ShieldCheck, MessageSquare } from "lucide-react";
+import { X, Phone, Send, Check, Loader2, ShieldCheck, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 /**
  * PhoneVerifyPopup — flow manuel de vérification téléphone.
  * 1. User entre son numéro
- * 2. Système génère un code (LMxxxx)
+ * 2. Système génère un code (LMxxxxxx)
  * 3. User envoie ce code par SMS au numéro admin
  * 4. Admin valide (ou Termux auto-valide en lisant le SMS reçu)
+ *
+ * PERSISTANCE: Au montage, on interroge get_pending_phone_verification()
+ * pour restaurer l'état "en attente" si un code valide existe (10 min).
+ * Même après refresh / fermeture, l'utilisateur retrouve son code.
  */
 export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
   const { profile, refreshProfile } = useAuth();
-  const [step, setStep] = useState<"phone" | "code" | "done">("phone");
+  const [step, setStep] = useState<"loading" | "phone" | "code" | "done">("loading");
   const [phone, setPhone] = useState(profile?.phone || "");
   const [code, setCode] = useState("");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [adminPhone, setAdminPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [countdown, setCountdown] = useState("");
 
   // Fetch admin phone from app_settings
   useEffect(() => {
@@ -31,6 +37,53 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
       if (data?.admin_phone) setAdminPhone(data.admin_phone);
     })();
   }, []);
+
+  // ── RESTAURATION: Au montage, vérifier s'il y a une vérification en cours ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_pending_phone_verification");
+        if (error) throw error;
+
+        if (data?.pending && data?.code) {
+          // Il y a un code valide → restaurer l'état "code"
+          setPhone(data.phone || phone);
+          setCode(data.code);
+          setExpiresAt(data.expires_at);
+          setStep("code");
+          setPolling(true);
+        } else {
+          // Pas de vérification en cours
+          setStep("phone");
+        }
+      } catch {
+        setStep("phone");
+      }
+    })();
+  }, []);
+
+  // ── COUNTDOWN: afficher le temps restant avant expiration ──
+  useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => {
+      const expiry = new Date(expiresAt).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((expiry - now) / 1000));
+      if (remaining <= 0) {
+        setCountdown("Expiré");
+        setPolling(false);
+        setStep("phone");
+        toast.info("Le code a expiré. Veuillez en générer un nouveau.");
+        return;
+      }
+      const min = Math.floor(remaining / 60);
+      const sec = remaining % 60;
+      setCountdown(`${min}:${sec.toString().padStart(2, "0")}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
 
   // Poll for verification status (when user has sent the SMS)
   useEffect(() => {
@@ -59,9 +112,13 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
     try {
       const { data, error } = await supabase.rpc("request_phone_verification", { _phone: trimmed });
       if (error) throw error;
-      setCode(data as string);
+      const newCode = data as string;
+      setCode(newCode);
       setStep("code");
       setPolling(true);
+      // Calculer l'expiration (10 min)
+      const expiry = new Date(Date.now() + 10 * 60 * 1000);
+      setExpiresAt(expiry.toISOString());
       toast.success("Code généré !");
     } catch (e: any) {
       toast.error(e?.message || "Erreur");
@@ -85,6 +142,12 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {step === "loading" && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
 
         {step === "phone" && (
           <div className="space-y-3">
@@ -119,6 +182,12 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
               <div className="text-3xl font-mono font-extrabold text-primary tracking-wider py-2 bg-primary/10 rounded-xl">
                 {code}
               </div>
+              {countdown && (
+                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Code valable encore <span className="font-semibold text-amber-600 dark:text-amber-400">{countdown}</span>
+                </p>
+              )}
             </div>
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-1.5">
               <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
@@ -143,7 +212,7 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
               )}
             </div>
             <button
-              onClick={() => setStep("phone")}
+              onClick={() => { setStep("phone"); setPolling(false); }}
               className="w-full py-2 rounded-xl border border-border text-xs text-muted-foreground hover:bg-accent transition"
             >
               Changer de numéro

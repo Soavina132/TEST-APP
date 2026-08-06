@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   ArrowLeft, User as UserIcon, Mail, Phone, Lock, Moon, Sun,
-  Check, Eye, EyeOff,
+  Check, Eye, EyeOff, Clock, Loader2, ShieldCheck,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/parametres")({
@@ -91,6 +91,10 @@ function ParametresPage() {
   const [savingPhone, setSavingPhone] = useState(false);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
 
+  // ── État de vérification en attente (persistant) ──
+  const [pendingVerify, setPendingVerify] = useState<{ phone: string; code: string; expiresAt: string } | null>(null);
+  const [verifyCountdown, setVerifyCountdown] = useState("");
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -103,6 +107,55 @@ function ParametresPage() {
       setPhone(profile.phone || "");
     }
   }, [profile?.id, profile?.pseudo, profile?.email, profile?.phone]);
+
+  // ── Vérifier s'il y a une demande de vérification en attente ──
+  useEffect(() => {
+    (async () => {
+      if (profile?.phone_verified) {
+        setPendingVerify(null);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.rpc("get_pending_phone_verification");
+        if (error) throw error;
+        if (data?.pending && data?.code) {
+          setPendingVerify({
+            phone: data.phone,
+            code: data.code,
+            expiresAt: data.expires_at,
+          });
+        } else {
+          setPendingVerify(null);
+        }
+      } catch {
+        setPendingVerify(null);
+      }
+    })();
+  }, [profile?.phone_verified, profile?.id]);
+
+  // ── Countdown pour la vérification en attente ──
+  useEffect(() => {
+    if (!pendingVerify) {
+      setVerifyCountdown("");
+      return;
+    }
+    const update = () => {
+      const expiry = new Date(pendingVerify.expiresAt).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((expiry - now) / 1000));
+      if (remaining <= 0) {
+        setVerifyCountdown("Expiré");
+        setPendingVerify(null);
+        return;
+      }
+      const min = Math.floor(remaining / 60);
+      const sec = remaining % 60;
+      setVerifyCountdown(`${min}:${sec.toString().padStart(2, "0")}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [pendingVerify]);
 
   const savePseudo = async () => {
     const trimmed = pseudo.trim();
@@ -221,9 +274,48 @@ function ParametresPage() {
       <Section icon={Phone} title="Modifier le telephone">
         <div className="space-y-3">
           <Field label="Numero de telephone" value={phone} onChange={setPhone} type="tel" placeholder="+261 34 12 345 67" />
+
+          {/* Statut: Vérifié */}
           {profile?.phone_verified && !phoneChanged && (
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Numero verifie ✓</p>
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" /> Numero verifie ✓
+            </p>
           )}
+
+          {/* Statut: En attente de vérification */}
+          {pendingVerify && !profile?.phone_verified && !phoneChanged && (
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Vérification en attente
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Code: <span className="font-mono font-bold text-primary">{pendingVerify.code}</span>
+              </div>
+              {verifyCountdown && (
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Expire dans <span className="font-semibold text-amber-600 dark:text-amber-400">{verifyCountdown}</span>
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Envoyez le code par SMS au {pendingVerify.phone ? "0385708218" : "0385708218"}
+              </p>
+              <button onClick={() => setShowPhoneVerify(true)}
+                className="w-full py-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold active:scale-95 transition">
+                Voir les détails
+              </button>
+            </div>
+          )}
+
+          {/* Statut: Non vérifié, pas en attente */}
+          {!profile?.phone_verified && !phoneChanged && !pendingVerify && (
+            <button onClick={() => setShowPhoneVerify(true)}
+              className="w-full py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm font-semibold active:scale-95 transition flex items-center justify-center gap-1.5">
+              <Phone className="w-4 h-4" /> Verifier mon numero
+            </button>
+          )}
+
           {phoneChanged && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
               Le numero devra etre verifie a nouveau.
@@ -233,12 +325,6 @@ function ParametresPage() {
             className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-95 disabled:opacity-40 transition flex items-center justify-center gap-1.5">
             {savingPhone ? "Enregistrement…" : (<><Check className="w-4 h-4" /> Enregistrer</>)}
           </button>
-          {!profile?.phone_verified && !phoneChanged && (
-            <button onClick={() => setShowPhoneVerify(true)}
-              className="w-full py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm font-semibold active:scale-95 transition flex items-center justify-center gap-1.5">
-              <Phone className="w-4 h-4" /> Verifier mon numero
-            </button>
-          )}
         </div>
       </Section>
 
