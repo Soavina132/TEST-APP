@@ -2,7 +2,7 @@ import { serverNow } from "@/lib/server-time";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import GameChatDrawer from "./GameChatDrawer";
+import GameSocialFab from "./GameSocialFab";
 import GameInstructionsBanner from "./GameInstructionsBanner";
 import GamePauseControl from "./GamePauseControl";
 
@@ -634,7 +634,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         myUserId={myUserId}
         simplePause={participants.some(p => p.is_bot)}
       />
-      <GameChatDrawer gameId={gameId} isAdmin={isAdmin} />
+      <GameSocialFab gameId={gameId} gameSlug="ludo" participants={participants} isAdmin={isAdmin} />
     </div>
   );
 }
