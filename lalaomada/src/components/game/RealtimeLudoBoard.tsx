@@ -431,7 +431,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
               return (
                 <div key={p.id}
                   className={`flex w-full items-center gap-1.5 rounded-lg bg-card px-2 py-1 shadow ring-2 transition ${
-                    isCurrent ? `${COLOR_META[p.color].ring} scale-105` : "ring-transparent opacity-70"
+                    isCurrent ? "ring-orange-500 dark:ring-white scale-105" : "ring-transparent opacity-70"
                   } ${p.forfeited ? "line-through opacity-40" : ""}`}>
                   <div className="relative shrink-0">
                     <div className={`h-7 w-7 rounded-full overflow-hidden ring-2 ${COLOR_META[p.color].ring} ${COLOR_META[p.color].bg} ${isCurrent ? "animate-pulse" : ""}`}>

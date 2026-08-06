@@ -222,9 +222,9 @@ function GamePage() {
     }).filter(p => p.remaining > 0);
 
   return (
-    <main className="max-w-5xl mx-auto px-3 py-3 h-full overflow-hidden overscroll-none">
+    <main className="max-w-5xl mx-auto px-3 py-1 h-full overflow-hidden overscroll-none">
       <h1 className="sr-only">Partie de Ludo en cours</h1>
-      <div className="rounded-full bg-card px-2 py-0.5 mb-1.5 shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
+      <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
         <div className="flex items-baseline gap-1 min-w-0">
           <span className="text-[8px] uppercase text-muted-foreground tracking-wider">{t("prize_winner")}</span>
           <span className="text-xs font-extrabold truncate">{payout.toLocaleString("fr-FR")} Ar</span>
