@@ -1,7 +1,25 @@
 -- Auto-verify phone from SMS received by Termux
--- Termux script reads incoming SMS, extracts code, calls this function
--- This function checks if the code matches a pending verification
--- If match: marks phone as verified
+-- Termux script reads incoming SMS, extracts code (LMxxxxxx = LM + 6 digits),
+-- calls this function which checks if the code matches a pending verification.
+-- If match: marks phone as verified.
+
+CREATE OR REPLACE FUNCTION public.request_phone_verification(_phone text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE v_code text; v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Non authentifié'; END IF;
+  IF _phone IS NULL OR length(trim(_phone))<8 THEN RAISE EXCEPTION 'Numéro invalide'; END IF;
+  IF EXISTS (SELECT 1 FROM public.profiles WHERE phone=_phone AND phone_verified=true AND id<>v_uid) THEN
+    RAISE EXCEPTION 'Numéro déjà utilisé';
+  END IF;
+  v_code := 'LM' || lpad((floor(random()*1000000))::int::text, 6, '0');
+  UPDATE public.profiles
+    SET phone = _phone, phone_verified = false,
+        phone_verification_code = v_code,
+        phone_verification_requested_at = now()
+    WHERE id = v_uid;
+  RETURN v_code;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.auto_verify_phone_by_sms(_sender_phone text, _sms_body text)
 RETURNS jsonb
@@ -13,23 +31,18 @@ DECLARE
   v_code text;
   v_user_id uuid;
   v_user_phone text;
-  v_match boolean := false;
 BEGIN
-  -- Extract code from SMS body (format: LMxxxx or just the code)
-  -- Try to find LM followed by 4 digits, or any 4-6 char alphanumeric code
   v_code := NULL;
   
-  -- Pattern 1: LMxxxx (LM + 4 digits)
-  IF _sms_body ~* 'LM[0-9]{4}' THEN
-    v_code := substring(_sms_body from 'LM[0-9]{4}');
+  -- Pattern: LMxxxxxx (LM + 6 digits)
+  IF _sms_body ~* 'LM[0-9]{6}' THEN
+    v_code := substring(_sms_body from 'LM[0-9]{6}');
   END IF;
   
-  -- If no code found, return error
   IF v_code IS NULL THEN
     RETURN jsonb_build_object('success', false, 'message', 'No verification code found in SMS');
   END IF;
   
-  -- Find the pending verification matching this code
   SELECT id, phone INTO v_user_id, v_user_phone
     FROM public.profiles
     WHERE phone_verification_code = v_code
@@ -41,7 +54,6 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'No pending verification matches code: ' || v_code);
   END IF;
   
-  -- Verify the phone
   UPDATE public.profiles
     SET phone_verified = true,
         phone_verification_code = NULL,
@@ -57,6 +69,5 @@ BEGIN
   );
 END $function$;
 
--- Grant execute to authenticated (Termux will use service_role key via REST)
 REVOKE EXECUTE ON FUNCTION public.auto_verify_phone_by_sms(text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.auto_verify_phone_by_sms(text, text) TO authenticated, service_role;
