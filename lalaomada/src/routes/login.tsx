@@ -109,30 +109,19 @@ function LoginPage() {
     return () => clearTimeout(t);
   }, [pseudo, tab]);
 
-  // Debounced email/phone check
+  // Debounced email check
   useEffect(() => {
     if (tab !== "signup") return;
     const v = identifier.trim();
     if (v.length < 4) { setEmailStatus("idle"); return; }
-    const isPhone = isPhoneLike(v);
-    if (isPhone && !isValidMgPhone(v)) { setEmailStatus("invalid"); return; }
-    if (!isPhone && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setEmailStatus("invalid"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setEmailStatus("invalid"); return; }
     setEmailStatus("checking");
     const t = setTimeout(async () => {
-      if (isPhone) {
-        const phone = normalizePhone(v);
-        const { count } = await supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("phone", phone);
-        setEmailStatus(count && count > 0 ? "taken" : "ok");
-      } else {
-        const { count } = await supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("email", v.toLowerCase());
-        setEmailStatus(count && count > 0 ? "taken" : "ok");
-      }
+      const { count } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("email", v.toLowerCase());
+      setEmailStatus(count && count > 0 ? "taken" : "ok");
     }, 400);
     return () => clearTimeout(t);
   }, [identifier, tab]);
@@ -163,7 +152,7 @@ function LoginPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!identifier.trim()) return toast.error("Identifiant requis");
+    if (!identifier.trim()) return toast.error("Email requis");
     if (!password) return toast.error("Mot de passe requis");
     if (tab === "signup") {
       if (!pseudo.trim()) return toast.error("Pseudo requis");
@@ -172,66 +161,41 @@ function LoginPage() {
       if (!acceptTerms) return toast.error("Veuillez accepter les conditions");
     }
 
+    const email = identifier.trim().toLowerCase();
     setBusy(true);
     try {
-      const isPhone = isPhoneLike(identifier);
-      let email = identifier.trim();
-      let phone: string | null = null;
-
-      if (isPhone) {
-        if (!isValidMgPhone(identifier)) {
-          setBusy(false);
-          return toast.error("Le numéro doit commencer par +261 et contenir 9 chiffres après (ex : +261340000000)");
-        }
-        phone = normalizePhone(identifier);
-      }
-
       if (tab === "login") {
-        if (isPhone) {
-          let { error } = await supabase.auth.signInWithPassword({ phone: phone!, password });
-          if (error) {
-            // Compte ancien (créé avec faux e-mail téléphone) : fallback
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          // Fallback: ancien compte téléphone converti en faux email
+          if (isPhoneLike(identifier)) {
+            const phone = normalizePhone(identifier);
             const { data: lookup } = await supabase.rpc("get_email_by_phone" as any, { _phone: phone } as any);
-            const legacyEmail = (lookup as string) || phoneToSyntheticEmail(phone!);
+            const legacyEmail = (lookup as string) || phoneToSyntheticEmail(phone);
             const r = await supabase.auth.signInWithPassword({ email: legacyEmail, password });
             if (r.error) throw error;
+          } else {
+            throw error;
           }
-        } else {
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) throw error;
         }
         if (rememberMe) localStorage.setItem("lalaomada_remembered_identifier", identifier.trim());
         else localStorage.removeItem("lalaomada_remembered_identifier");
         toast.success("Bienvenue !");
       } else {
-        if (isPhone) {
-          // Inscription téléphone directe (sans OTP, sans faux e-mail)
-          await callEdgeFunction("signup", {
-            phone: phone!,
-            password,
-            pseudo: pseudo.trim(),
-            referral_code: referral.trim().toUpperCase() || null,
-          });
-          const { error: sErr } = await supabase.auth.signInWithPassword({ phone: phone!, password });
-          if (sErr) throw sErr;
-          toast.success("Compte créé !");
-        } else {
-          // Inscription e-mail — confirmation requise par email
-          const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                pseudo: pseudo.trim(),
-                referral_code: referral.trim().toUpperCase() || null,
-              },
+        // Inscription e-mail — confirmation requise par email
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              pseudo: pseudo.trim(),
+              referral_code: referral.trim().toUpperCase() || null,
             },
-          });
-          if (error) throw error;
-          // Pas de connexion auto — l'utilisateur doit confirmer son email
-          setVerifyEmailAddr(email);
-          setShowVerifyEmail(true);
-        }
+          },
+        });
+        if (error) throw error;
+        setVerifyEmailAddr(email);
+        setShowVerifyEmail(true);
       }
     } catch (err: any) {
       toast.error(err?.message || "Erreur");
@@ -372,10 +336,10 @@ function LoginPage() {
               <Field
                 icon={Mail}
                 type="text"
-                placeholder="Email ou numéro"
+                placeholder="Adresse email"
                 value={identifier}
                 onChange={setIdentifier}
-                autoComplete={tab === "login" ? "username" : "email"}
+                autoComplete="email"
               />
               {tab === "signup" && emailStatus !== "idle" && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -387,7 +351,7 @@ function LoginPage() {
               )}
             </div>
             {tab === "signup" && emailStatus === "taken" && (
-              <p className="text-xs text-destructive -mt-2 px-1">Cet email/numéro est déjà utilisé</p>
+              <p className="text-xs text-destructive -mt-2 px-1">Cet email est déjà utilisé</p>
             )}
             {tab === "signup" && emailStatus === "invalid" && (
               <p className="text-xs text-amber-500 -mt-2 px-1">Format invalide (ex: nom@email.com ou +261340000000)</p>
@@ -631,25 +595,20 @@ function Field({
 // ── Forgot password modal ───────────────────────────────────────────────────
 function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<"request" | "code" | "done">("request");
-  const [type, setType] = useState<"email" | "phone">("phone");
   const [contact, setContact] = useState("");
   const [code, setCode] = useState("");
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const normContact = () =>
-    type === "phone" ? normalizePhone(contact) : contact.trim().toLowerCase();
+  const normContact = () => contact.trim().toLowerCase();
 
   const submitRequest = async (e: FormEvent) => {
     e.preventDefault();
-    if (contact.trim().length < 3) return toast.error("Contact invalide");
-    if (type === "phone" && !isValidMgPhone(contact)) {
-      return toast.error("Le numéro doit commencer par +261 et contenir 9 chiffres après (ex : +261340000000)");
-    }
+    if (contact.trim().length < 3) return toast.error("Email invalide");
     setBusy(true);
     const { error } = await supabase.rpc("request_password_reset" as any, {
-      _contact: normContact(), _type: type,
+      _contact: normContact(), _type: "email",
     } as any);
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -665,7 +624,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       await callEdgeFunction("password-reset", {
-        contact: normContact(), contactType: type, code, newPassword: pw1,
+        contact: normContact(), contactType: "email", code, newPassword: pw1,
       });
       setStep("done");
     } catch (err: any) {
@@ -689,20 +648,10 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
 
         {step === "request" && (
           <form onSubmit={submitRequest} className="space-y-3">
-            <div className="flex bg-secondary rounded-lg p-0.5 text-xs">
-              <button type="button" onClick={() => setType("phone")}
-                className={`flex-1 py-2 rounded ${type === "phone" ? "bg-card font-semibold" : "text-muted-foreground"}`}>
-                Téléphone
-              </button>
-              <button type="button" onClick={() => setType("email")}
-                className={`flex-1 py-2 rounded ${type === "email" ? "bg-card font-semibold" : "text-muted-foreground"}`}>
-                Email
-              </button>
-            </div>
             <Field
-              icon={type === "phone" ? User : Mail}
-              type={type === "phone" ? "tel" : "email"}
-              placeholder={type === "phone" ? "Votre numéro" : "Votre email"}
+              icon={Mail}
+              type="email"
+              placeholder="Votre email"
               value={contact}
               onChange={setContact}
             />
@@ -712,7 +661,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
               {busy ? "Envoi…" : "Demander un code"}
             </button>
             <p className="text-[11px] text-muted-foreground text-center">
-              Un administrateur vous transmettra le code par WhatsApp/SMS.
+              Un administrateur vous transmettra le code de réinitialisation.
             </p>
           </form>
         )}
