@@ -8,7 +8,7 @@ import {
   Coins, Loader2, Plus, ArrowDownLeft, ArrowUpRight,
   X, ChevronRight, RefreshCw, Trophy, Gamepad2,
   History, Gift, Zap, Users, Copy, Check,
-  Wallet, TrendingUp, Shield,
+  Wallet, TrendingUp, Shield, ShieldCheck, ShieldAlert,
 } from "lucide-react";
 import { serverNow } from "@/lib/server-time";
 import MesPartiesSheet from "@/components/game/MesPartiesSheet";
@@ -535,6 +535,19 @@ function LobbyPage() {
           <div className="shrink-0 w-11 h-11 rounded-xl bg-white/20 grid place-items-center">
             <Wallet className="w-5 h-5" />
           </div>
+        </div>
+
+        {/* Badge vérification téléphone */}
+        <div className="flex items-center gap-1.5 mt-2 mb-1">
+          {profile.phone_verified ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+              <ShieldCheck className="w-3 h-3" /> Numéro vérifié
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+              <ShieldAlert className="w-3 h-3" /> Numéro non vérifié
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">

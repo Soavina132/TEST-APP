@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Camera, Copy, Coins, ShieldCheck, LogOut, Trash2,
+  Camera, Copy, Coins, ShieldCheck, ShieldAlert, Mail, LogOut, Trash2,
   Phone, Gamepad2,
   ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings,
@@ -289,6 +289,11 @@ function ProfilePage() {
                   <Phone className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{p.phone}</span>
                 </span>
               )}
+              {profile.email && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground truncate max-w-[120px]">
+                  <Mail className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{profile.email}</span>
+                </span>
+              )}
               {profile.unique_code && (
                 <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
                   className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground font-mono hover:text-foreground">
@@ -297,7 +302,11 @@ function ProfilePage() {
               )}
             </div>
             <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
-              {p.phone_verified && <span className="inline-flex items-center gap-0.5 text-emerald-500"><ShieldCheck className="w-2.5 h-2.5" /> Vérifié</span>}
+              {p.phone_verified ? (
+                <span className="inline-flex items-center gap-0.5 text-emerald-500"><ShieldCheck className="w-2.5 h-2.5" /> Vérifié</span>
+              ) : (
+                <span className="inline-flex items-center gap-0.5 text-amber-500"><ShieldAlert className="w-2.5 h-2.5" /> Non vérifié</span>
+              )}
               <span>{memberDays}j</span>
               <span className="text-muted-foreground">{badge.icon} {badge.label}</span>
             </div>
