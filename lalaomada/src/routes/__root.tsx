@@ -194,7 +194,7 @@ function RootComponent() {
             <Outlet />
             <RouteSkeletonOverlay />
             <PushNotificationsManager />
-            <Toaster richColors position="top-center" />
+            <Toaster />
           </ConfirmProvider>
         </AuthProvider>
       </I18nProvider>

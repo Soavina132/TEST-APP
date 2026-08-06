@@ -350,7 +350,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const displayDice = noMoveDisplay ? noMoveDisplay.dice : state.dice;
   const displayPart = partsBySlot.get(displaySlot) || currentPart;
 
-  // Power event toast (Mode Moderne)
+  // Power event display (Mode Moderne) — visual feedback on board only, no intrusive toasts
   const lastPowerEventRef = useRef<string>("");
   useEffect(() => {
     const pe = state.power_event;
@@ -358,21 +358,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const key = `${pe.type}-${pe.at}-${pe.slot}`;
     if (lastPowerEventRef.current === key) return;
     lastPowerEventRef.current = key;
-    const part = partsBySlot.get(pe.slot);
-    const who = part ? nameOf(part) : "Joueur";
-    if (pe.type === "boost") {
-      toast.info(`🚀 ${who} : Boost ! Avance de ${pe.dice} cases`);
-    } else if (pe.type === "shield") {
-      toast.info(`🛡️ ${who} : Bouclier activé !`);
-    } else if (pe.type === "double_roll") {
-      toast.info(`⚡ ${who} : Deuxième lancer au prochain tour !`);
-    } else if (pe.type === "lucky_star") {
-      const rewardLabels: Record<string, string> = {
-        boost: "🚀 Boost", shield: "🛡️ Bouclier", double_roll: "⚡ 2e Lancer",
-        reroll: "🎲 Relance", free_pawn: "🚪 Pion sorti",
-      };
-      toast.info(`⭐ ${who} : Étoile Chance — ${rewardLabels[pe.reward || ""] || pe.reward}`);
-    }
+    // Visual feedback is handled by board animations, no toast needed
   }, [state.power_event]);
 
 

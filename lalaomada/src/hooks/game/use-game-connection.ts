@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 /**
@@ -12,6 +11,8 @@ import { toast } from "sonner";
  * - Auto-reconnects when connection drops or becomes very slow.
  * - Exposes `isConnected`, `isReconnecting`, and `isSlow` for the UI overlay.
  * - `retry()` lets the user manually trigger a reconnection attempt.
+ *
+ * Toasts are kept minimal — the reconnect overlay handles the visual feedback.
  */
 
 const PING_INTERVAL_MS = 15_000; // check every 15s
@@ -31,21 +32,20 @@ export function useGameConnection({ onReconnect }: { onReconnect: () => void }) 
     callbackRef.current = onReconnect;
   }, [onReconnect]);
 
-  // Track whether we've shown the "lost" toast so we don't spam
+  // Track whether we've shown the "lost" state so we don't spam
   const wasOfflineRef = useRef(false);
 
   const doReconnect = useCallback(() => {
     setIsReconnecting(true);
-    // Give Supabase Realtime ~1.5 s to re-subscribe before reloading state
     const t = setTimeout(() => {
       callbackRef.current();
       const online = typeof navigator !== "undefined" ? navigator.onLine : true;
       setIsConnected(online);
       setIsReconnecting(false);
       setIsSlow(false);
-      if (online) {
-        toast.success("Connexion rétablie ✓");
+      if (online && wasOfflineRef.current) {
         wasOfflineRef.current = false;
+        toast.success("Reconnecté", { duration: 1500 });
       }
     }, 1500);
     return t;
@@ -61,7 +61,6 @@ export function useGameConnection({ onReconnect }: { onReconnect: () => void }) 
         if (!wasOfflineRef.current) {
           wasOfflineRef.current = true;
           setIsConnected(false);
-          toast.warning("Connexion perdue — votre partie est en pause");
         }
         return;
       }
@@ -85,18 +84,14 @@ export function useGameConnection({ onReconnect }: { onReconnect: () => void }) 
         const latency = performance.now() - t0;
 
         if (latency > SLOW_THRESHOLD_MS) {
-          // Very slow — treat as disconnect and auto-reconnect
           if (!wasOfflineRef.current) {
             wasOfflineRef.current = true;
             setIsConnected(false);
             setIsSlow(true);
-            toast.warning("Connexion lente — reconnexion en cours…");
-            // Try to reconnect immediately
             const t = doReconnect();
             return () => clearTimeout(t);
           }
         } else {
-          // Connection is good
           if (wasOfflineRef.current) {
             wasOfflineRef.current = false;
             setIsConnected(true);
@@ -108,11 +103,9 @@ export function useGameConnection({ onReconnect }: { onReconnect: () => void }) 
         }
       } catch {
         if (cancelled) return;
-        // Fetch failed or timed out — treat as offline
         if (!wasOfflineRef.current) {
           wasOfflineRef.current = true;
           setIsConnected(false);
-          toast.warning("Connexion perdue — votre partie est en pause");
         }
       }
     };
@@ -132,7 +125,6 @@ export function useGameConnection({ onReconnect }: { onReconnect: () => void }) 
         wasOfflineRef.current = true;
       }
       setIsConnected(false);
-      toast.warning("Connexion perdue — votre partie est en pause");
     };
 
     const handleOnline = () => {
@@ -151,7 +143,7 @@ export function useGameConnection({ onReconnect }: { onReconnect: () => void }) 
   /** Manual retry triggered from the overlay button */
   const retry = useCallback(() => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      toast.error("Toujours hors ligne — vérifiez votre réseau");
+      toast.error("Hors ligne", { duration: 1500 });
       return;
     }
     doReconnect();
