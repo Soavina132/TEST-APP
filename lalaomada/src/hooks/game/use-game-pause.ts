@@ -80,7 +80,7 @@ export function useGamePause({
     lastWarnKeyRef.current = key;
     toast.warning(
       `⚠️ ${afkWarning.name} est inactif — votez pour mettre la partie en pause`,
-      { duration: 8000 }
+      { duration: 5000 }
     );
   }, [afkWarning, myUserId]);
 

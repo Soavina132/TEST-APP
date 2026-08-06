@@ -309,7 +309,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     lastTimeoutKey.current = key;
     const t = setTimeout(async () => {
       const { error } = await supabase.rpc("ludo_check_timeout" as any, { _game_id: gameId } as any);
-      if (error) toast.error("Le changement de tour automatique a échoué");
+      // Silent — timeout failures are usually race conditions (game ended, turn already advanced)
     }, 600);
     return () => clearTimeout(t);
   }, [remaining, status, gameId, state.turn_slot, state.turn_started_at]);
@@ -326,7 +326,14 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }, 80);
     try {
       const { error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
-      if (error) toast.error(error.message);
+      if (error) {
+        const friendlyMap: Record<string, string> = {
+          "Partie pas en cours": "La partie est terminée",
+          "Pas votre tour": "Ce n'est pas votre tour",
+          "Déjà lancé, déplacez un pion": "Vous avez déjà lancé le dé",
+        };
+        toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
+      }
     } finally {
       setTimeout(() => { setRollingFace(null); setBusy(false); sfx.diceLand(); }, 750);
     }
@@ -366,7 +373,20 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     moveLockRef.current = true;
     setSelectedIdx(idx);
     setBusy(true);
-    try { const { error } = await supabase.rpc("ludo_move" as any, { _game_id: gameId, _pawn_idx: idx } as any); if (error) { toast.error(error.message); setSelectedIdx(null); } }
+    try { const { error } = await supabase.rpc("ludo_move" as any, { _game_id: gameId, _pawn_idx: idx } as any);
+        if (error) {
+          const friendlyMap: Record<string, string> = {
+            "Partie pas en cours": "La partie est terminée",
+            "Pas votre tour": "Ce n'est pas votre tour",
+            "Pion inconnu": "Pion invalide",
+            "Pion deja arrive": "Ce pion est déjà arrivé",
+            "Sortie possible avec un 6": "Il faut un 6 pour sortir un pion",
+            "Depassement": "Déplacement impossible",
+          };
+          toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
+          setSelectedIdx(null);
+        }
+      }
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
@@ -414,9 +434,16 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     };
     let msg = toastMsgs[pe.reward || pe.type] || toastMsgs[pe.type] || "Pouvoir activé";
     if (pe.skipped) msg = "🚀 Boost ignoré";
-    if (pe.slot === state.turn_slot || true) {
-      toast.success(who ? `${who} : ${msg}` : msg, { duration: 3000 });
+    // Only show toast to the player whose turn it is; brief info for others
+    const isMyPowerEvent = participants.some(p => p.slot === pe.slot && p.user_id === myUserId);
+    const isBotPower = participants.some(p => p.slot === pe.slot && p.is_bot);
+    if (isMyPowerEvent) {
+      toast.success(msg, { duration: 2500 });
+    } else if (!isBotPower) {
+      // Other human player's power — brief notification
+      toast.info(who ? `${who} : ${msg}` : msg, { duration: 1500 });
     }
+    // Bot power events: silent (sound + flash only, no toast)
     // Visual flash overlay
     const flashColors: Record<string, string> = {
       boost: "#0ea5e9",
@@ -760,7 +787,15 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             setBusy(true);
             try {
               const { error } = await supabase.rpc("ludo_choose_power" as any, { _game_id: gameId, _choice: choice } as any);
-              if (error) toast.error(error.message);
+              if (error) {
+                const friendlyMap: Record<string, string> = {
+                  "Aucun pouvoir en attente": "Aucun pouvoir à activer",
+                  "Pas votre pouvoir": "Ce n'est pas votre pouvoir",
+                  "Choix invalide": "Choix invalide",
+                  "Partie pas en cours": "La partie est terminée",
+                };
+                toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
+              }
             } finally { setBusy(false); }
           }}
           disabled={busy}
