@@ -78,6 +78,7 @@ interface GameState {
   must_move: boolean;
   turn_started_at: string;
   last_event?: string;
+  no_move_display?: { slot: number; dice: number; until: string };
 }
 
 interface Props {
@@ -313,24 +314,29 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
-  // No-move auto-pass: when backend signals roll:X:no_move, wait 1 second
-  // (so the player sees the dice result + frame stays on current player),
-  // then call ludo_pass to clear the dice and move to the next player.
-  // Works for ANY player's turn (not just mine) — any participant can trigger
-  // the pass since the backend allows it for no_move events.
-  const lastNoMovePassKey = useRef<string>("");
+  // No-move display: the backend already passed the turn, but includes
+  // no_move_display = { slot, dice, until } so the frontend can visually
+  // show the dice + previous player's frame for 1 second before updating.
+  const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
   useEffect(() => {
-    const ev = state.last_event || "";
-    if (!ev.includes(":no_move")) return;
-    const key = `${state.turn_slot}-${ev}-${state.turn_started_at}`;
-    if (lastNoMovePassKey.current === key) return;
-    lastNoMovePassKey.current = key;
-    const t = setTimeout(async () => {
-      const { error } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
-      if (error) console.warn("no_move pass rpc", error);
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [state.last_event, state.turn_slot, state.turn_started_at, gameId]);
+    const nmd = state.no_move_display;
+    if (nmd && nmd.until) {
+      const untilMs = new Date(nmd.until).getTime();
+      const nowMs = Date.now();
+      if (untilMs > nowMs) {
+        // Still within the 1-second display window — show dice + previous player frame
+        setNoMoveDisplay({ slot: nmd.slot, dice: nmd.dice });
+        const t = setTimeout(() => setNoMoveDisplay(null), untilMs - nowMs);
+        return () => clearTimeout(t);
+      }
+    }
+    setNoMoveDisplay(null);
+  }, [state.no_move_display]);
+
+  // When no_move_display is active, show the previous player's slot + dice
+  const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
+  const displayDice = noMoveDisplay ? noMoveDisplay.dice : state.dice;
+  const displayPart = partsBySlot.get(displaySlot) || currentPart;
 
 
 
@@ -430,7 +436,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             {slotColors.map((slotColor) => {
               const p = participants.find(pp => pp.color === slotColor);
               if (!p) return <div key={slotColor} />;
-              const isCurrent = p.slot === state.turn_slot && status === "playing";
+              const isCurrent = p.slot === displaySlot && status === "playing";
               const pawnArr = state.pawns?.[String(p.slot)] || [];
               const finishedCount = pawnArr.filter(pw => pw?.s === "finished").length;
               const totalPawns = pawnArr.length || 4;
@@ -602,12 +608,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         <button onClick={roll}
           disabled={!isMyTurn || state.must_move || busy}
           className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
-            currentPart ? COLOR_META[currentPart.color].ring : "ring-slate-300"
+            displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
           } ${isMyTurn && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "animate-spin" : ""}`}>
-          <DiceFace value={rollingFace ?? state.dice ?? 0} />
+          <DiceFace value={rollingFace ?? displayDice ?? 0} />
         </button>
-        {state.dice != null && rollingFace === null && (
-          <div className="text-lg font-extrabold text-foreground">Dé : {state.dice}</div>
+        {displayDice != null && rollingFace === null && (
+          <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
         )}
 
       </div>
