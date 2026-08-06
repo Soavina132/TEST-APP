@@ -186,11 +186,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   useEffect(() => {
     const u = () => {
       const vh = window.innerHeight, vw = window.innerWidth;
-      // Reserve enough vertical space for: instructions banner, player cards,
-      // status/timer text, admin dice panel (when shown) and the roll button
-      // itself — 320px was too tight on many phones and pushed the dice
-      // button below the (non-scrollable) viewport. 440px keeps it visible.
-      setBoardSize(Math.max(260, Math.min(vh - 440, vw - 40, 820)));
+      setBoardSize(Math.max(320, Math.min(vh - 320, vw - 40, 820)));
     };
     u(); window.addEventListener("resize", u); return () => window.removeEventListener("resize", u);
   }, []);
