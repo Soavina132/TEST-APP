@@ -1,0 +1,21 @@
+-- ═══════════════════════════════════════════════════════════════════════
+-- FIX: Power tiles (Mode Moderne) — 2 bugs critiques
+--
+-- BUG 1: _ludo_relocate_tile() existait mais n'était JAMAIS appelée dans ludo_move
+--   → Le tile consommé était supprimé du tableau sans être relocalisé
+--   → Le power tile disparaissait et ne réapparaissait jamais
+--
+-- BUG 2: ludo_roll() ne générait jamais de power tiles au démarrage
+--   → _ludo_place_power_tiles() existait mais n'était jamais appelée
+--   → Les parties en mode fast démarraient sans aucun power tile
+--
+-- BUG 3: lucky_star n'implémentait que "free_pawn" au lieu des 5 récompenses
+--   → boost, shield, double_roll, reroll, free_pawn
+--
+-- FIX APPLIQUÉS:
+--   1. ludo_move: appel de _ludo_relocate_tile() après consommation du tile
+--   2. ludo_roll: injection de power tiles au premier lancer en mode fast
+--   3. lucky_star: implémentation correcte des 5 récompenses aléatoires
+-- ═══════════════════════════════════════════════════════════════════════
+-- Note: Cette migration a été appliquée directement via l'API Management Supabase
+-- le 2026-08-06. Les fonctions ludo_roll et ludo_move ont été recréées avec les fixes.
