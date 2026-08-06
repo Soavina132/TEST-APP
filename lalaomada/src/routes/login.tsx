@@ -84,6 +84,8 @@ function LoginPage() {
   const [otpCode, setOtpCode] = useState("");
   const [otpEmail, setOtpEmail] = useState("");
   const [otpResendIn, setOtpResendIn] = useState(0);
+  const [showVerifyEmail, setShowVerifyEmail] = useState(false);
+  const [verifyEmailAddr, setVerifyEmailAddr] = useState("");
 
   // ── Real-time validation (signup) ──
   const [pseudoStatus, setPseudoStatus] = useState<"idle"|"checking"|"ok"|"taken">("idle");
@@ -214,7 +216,7 @@ function LoginPage() {
           if (sErr) throw sErr;
           toast.success("Compte créé !");
         } else {
-          // Inscription e-mail directe (sans vérification OTP)
+          // Inscription e-mail — confirmation requise par email
           const { error } = await supabase.auth.signUp({
             email,
             password,
@@ -226,10 +228,9 @@ function LoginPage() {
             },
           });
           if (error) throw error;
-          // Connexion immédiate (auto-confirm activé côté serveur)
-          const { error: sErr } = await supabase.auth.signInWithPassword({ email, password });
-          if (sErr) throw sErr;
-          toast.success("Compte créé !");
+          // Pas de connexion auto — l'utilisateur doit confirmer son email
+          setVerifyEmailAddr(email);
+          setShowVerifyEmail(true);
         }
       }
     } catch (err: any) {
@@ -563,6 +564,40 @@ function LoginPage() {
       </div>
 
       {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
+
+      {showVerifyEmail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => { setShowVerifyEmail(false); setTab("login"); }}>
+          <div className="bg-card border border-border rounded-2xl shadow-xl max-w-sm w-full p-6 text-center"
+            onClick={e => e.stopPropagation()}>
+            <div className="mx-auto w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center mb-4">
+              <Mail className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-lg font-bold mb-2">Vérifiez votre email</h2>
+            <p className="text-sm text-muted-foreground mb-1">
+              Un email de confirmation a été envoyé à
+            </p>
+            <p className="text-sm font-semibold text-foreground mb-4 break-all">{verifyEmailAddr}</p>
+            <div className="bg-secondary/40 rounded-xl p-3 mb-4 text-left">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground">1.</span> Ouvrez votre boîte de réception<br />
+                <span className="font-semibold text-foreground">2.</span> Cherchez l'email de Supabase<br />
+                <span className="font-semibold text-foreground">3.</span> Cliquez sur le bouton « Confirm email address »<br />
+                <span className="font-semibold text-foreground">4.</span> Revenez ici et connectez-vous
+              </p>
+            </div>
+            <p className="text-[11px] text-amber-500 mb-4">
+              Pensez à vérifier vos spams si vous ne recevez rien.
+            </p>
+            <button
+              onClick={() => { setShowVerifyEmail(false); setTab("login"); setIdentifier(verifyEmailAddr); setPassword(""); setConfirmPassword(""); }}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition"
+            >
+              Aller à la connexion
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
