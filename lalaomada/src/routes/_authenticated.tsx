@@ -57,8 +57,8 @@ function AuthLayout() {
       {!inGame && <OnlineStatusBar />}
       {!inGame && <DesktopNav />}
       <div
-        className={inGame ? "fixed inset-0 top-14 overflow-hidden overscroll-none" : "md:ml-56"}
-        style={inGame ? { height: "calc(100dvh - 56px)", touchAction: "none" } : undefined}
+        className={inGame ? "fixed inset-0 top-14 overflow-y-auto overscroll-none" : "md:ml-56"}
+        style={inGame ? { height: "calc(100dvh - 56px)", touchAction: "pan-y" } : undefined}
       >
         <Outlet />
       </div>

@@ -6,9 +6,9 @@ function getInitialTheme(): Theme {
   if (typeof document !== "undefined") {
     const stored = localStorage.getItem("theme");
     if (stored === "dark" || stored === "light") return stored;
-    // Default to light (user preference; could use prefers-color-scheme)
   }
-  return "light";
+  // Default to dark mode when the user hasn't explicitly chosen a theme yet.
+  return "dark";
 }
 
 export function useTheme() {

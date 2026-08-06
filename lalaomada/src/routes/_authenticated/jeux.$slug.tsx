@@ -120,8 +120,8 @@ function Lobby() {
   // (uniquement si le dé a déjà été lancé).
   const [ludoAutoMove, setLudoAutoMove] = useState(true);
   const [matchType, setMatchType] = useState<"solo" | "groupe">("solo");
-  const [opponentMode, setOpponentMode] = useState<"bot" | "friends">("friends");
-  const [drawMode, setDrawMode] = useState<"with" | "without">("with");
+  const [opponentMode, setOpponentMode] = useState<"bot" | "friends">("bot");
+  const [drawMode, setDrawMode] = useState<"with" | "without">("without");
   const [firstTileRule, setFirstTileRule] = useState<"libre" | "under6">("libre");
   const [targetScore, setTargetScore] = useState(100);
   const [fanoronaVariant, setFanoronaVariant] = useState<"telo" | "dimy" | "tsivy">("tsivy");
