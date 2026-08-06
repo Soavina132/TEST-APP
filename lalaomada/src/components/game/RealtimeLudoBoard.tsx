@@ -430,13 +430,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
               const totalPawns = pawnArr.length || 4;
               return (
                 <div key={p.id}
-<<<<<<< HEAD:lalaomada/src/components/game/RealtimeLudoBoard.tsx
-                  className={`flex w-full items-center gap-1.5 rounded-lg bg-card px-2 py-1 shadow ring-2 transition ${
-                    isCurrent ? "ring-orange-500 dark:ring-white scale-105" : "ring-transparent opacity-70"
-=======
                   className={`flex w-full items-center gap-2 rounded-xl bg-card px-3 py-1.5 shadow ring-2 transition ${
                     isCurrent ? `${COLOR_META[p.color].ring} scale-105 border-2 border-white shadow-lg shadow-white/20` : "ring-transparent opacity-70 border border-white/10"
->>>>>>> 312a772 (fix: remove Ludo dice text, add white frame on active player, Ludo-style banner for Domino+Fanorona):lalaomada/src/components/RealtimeLudoBoard.tsx
                   } ${p.forfeited ? "line-through opacity-40" : ""}`}>
                   <div className="relative shrink-0">
                     <div className={`h-7 w-7 rounded-full overflow-hidden ring-2 ${COLOR_META[p.color].ring} ${COLOR_META[p.color].bg} ${isCurrent ? "animate-pulse" : ""}`}>
@@ -576,11 +571,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           {isSpectator ? "Mode spectateur" :
             status !== "playing" ? "En attente du démarrage…" :
             currentPart && (currentPart.is_bot ? `${nameOf(currentPart)} joue…` :
-<<<<<<< HEAD:lalaomada/src/components/game/RealtimeLudoBoard.tsx
-            isMyTurn ? (state.must_move ? (movablePawnIdxs.size > 0 ? `Tu as fait ${state.dice}, choisis un pion` : `Tu as fait ${state.dice} — aucun coup possible, passage…`) : "À toi de lancer le dé") :
-=======
             isMyTurn ? (state.must_move ? "" : "À toi de lancer le dé") :
->>>>>>> 312a772 (fix: remove Ludo dice text, add white frame on active player, Ludo-style banner for Domino+Fanorona):lalaomada/src/components/RealtimeLudoBoard.tsx
             `Tour de ${nameOf(currentPart)}`)}
         </div>
         {status === "playing" && (

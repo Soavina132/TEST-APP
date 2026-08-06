@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight } from "lucide-react";
+import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight, Pause } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
@@ -1507,6 +1507,36 @@ function RamiPage() {
       }}
     >
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
+      <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
+        <div className="flex items-baseline gap-1 min-w-0">
+          <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
+          <span className="text-xs font-extrabold truncate">{Math.round(Number(game.pot) * (100 - (Number((game as any).commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar</span>
+        </div>
+        {!me ? (
+          <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
+            Spectateur
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
+              <button
+                onClick={async () => {
+                  const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "rami", _game_id: id } as any);
+                  if (error) toast.error(error.message);
+                  else toast.success("Partie en pause");
+                }}
+                className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-0.5"
+              >
+                <Pause className="w-2.5 h-2.5" /> Pause
+              </button>
+            )}
+            <button onClick={forfeit} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
+              <LogOut className="w-2.5 h-2.5" /> Quitter
+            </button>
+          </div>
+        )}
+      </div>
+
       {cardFx && (
         <FlyingCard card={cardFx.card} from={cardFx.from} to={cardFx.to} />
       )}

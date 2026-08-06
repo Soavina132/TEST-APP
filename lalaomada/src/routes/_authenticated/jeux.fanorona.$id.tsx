@@ -471,40 +471,33 @@ function FanoronaPage() {
       <GameInstructionsBanner slug="fanorona" />
 
       {/* ── Header compact (aligné sur le style Ludo/Domino) ── */}
-      <div className="rounded-md bg-card/70 border border-white/8 px-2 py-1 flex items-center gap-2 text-xs">
-        <span className="font-bold text-sm shrink-0">⚫</span>
-        <span className="font-extrabold text-sm truncate shrink-0">
-          {game.variant === "telo" ? "Telo 3×3" : game.variant === "dimy" ? "Dimy 5×5" : "Tsivy 9×5"}
-        </span>
-        {Number(game.pot) > 0 ? (
-          <span className="font-bold text-emerald-500 truncate">
-            {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
-          </span>
+            <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
+        <div className="flex items-baseline gap-1 min-w-0">
+          <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
+          <span className="text-xs font-extrabold truncate">{Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar</span>
+        </div>
+        {!me ? (
+          <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
+            Spectateur
+          </div>
         ) : (
-          <span className="text-muted-foreground truncate">Gratuite</span>
-        )}
-        {mandatoryCapture && <span title="Capture obligatoire" className="shrink-0">⚠️</span>}
-        {parts.some(p => p.is_bot) && <span title="Solo vs bot" className="shrink-0">🤖</span>}
-        {game.is_private && (
-          <button onClick={() => { copyText(game.room_code).then(ok => toast[ok ? "success" : "error"](ok ? "Copié" : "Impossible de copier")); }}
-            className="flex items-center gap-1 font-mono text-muted-foreground/60 hover:text-foreground transition-colors shrink-0">
-            {game.room_code} <Copy className="w-2.5 h-2.5" />
-          </button>
-        )}
-        <button onClick={() => setRotated90(r => !r)} title="Pivoter le plateau"
-          className="ml-auto p-1 rounded bg-white/6 hover:bg-white/10 text-muted-foreground transition-all shrink-0">
-          <RotateCw className="w-3.5 h-3.5" />
-        </button>
-        {me ? (
-          <button onClick={forfeit}
-            className="flex items-center gap-1 px-2 py-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 text-xs font-semibold border border-destructive/20 shrink-0">
-            <LogOut className="w-3.5 h-3.5" /> Quitter
-          </button>
-        ) : (
-          <button onClick={() => navigate({ to: "/live" })}
-            className="flex items-center gap-1 px-2 py-1 rounded bg-secondary text-foreground hover:bg-secondary/80 text-xs font-semibold border border-white/10 shrink-0">
-            <LogOut className="w-3.5 h-3.5" /> Sortir
-          </button>
+          <div className="flex items-center gap-1">
+            {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
+              <button
+                onClick={async () => {
+                  const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "fanorona", _game_id: id } as any);
+                  if (error) toast.error(error.message);
+                  else toast.success("Partie en pause");
+                }}
+                className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-0.5"
+              >
+                <Pause className="w-2.5 h-2.5" /> Pause
+              </button>
+            )}
+            <button onClick={{forfeit}} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
+              <LogOut className="w-2.5 h-2.5" /> Quitter
+            </button>
+          </div>
         )}
       </div>
 

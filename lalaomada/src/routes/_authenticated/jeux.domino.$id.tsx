@@ -513,42 +513,33 @@ function DominoPage() {
   return (
     <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1 h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
-      <div className="rounded-md bg-card/70 border border-white/8 px-2 py-1 flex items-center gap-2 shrink-0 text-xs">
-        <span className="font-bold text-sm">🁣</span>
-        {Number(game.pot) > 0 ? (
-          <span className="flex items-baseline gap-1">
-            <span className="text-[9px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
-            <span className="font-extrabold text-sm text-emerald-500">
-              {Math.round(Number(game.pot) * (100 - (Number((game as any).commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
-            </span>
-          </span>
+            <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
+        <div className="flex items-baseline gap-1 min-w-0">
+          <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
+          <span className="text-xs font-extrabold truncate">{Math.round(Number(game.pot) * (100 - (Number((game as any).commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar</span>
+        </div>
+        {!me ? (
+          <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
+            Spectateur
+          </div>
         ) : (
-          <span className="text-muted-foreground text-[11px]">Partie gratuite</span>
-        )}
-
-
-        {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
-          <button
-            onClick={async () => {
-              const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "domino", _game_id: id } as any);
-              if (error) toast.error(error.message);
-              else toast.success("Partie en pause");
-            }}
-            className="ml-auto flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 text-xs font-semibold border border-amber-500/20"
-          >
-            <Pause className="w-3.5 h-3.5" /> Pause
-          </button>
-        )}
-        {me ? (
-          <button onClick={forfeit}
-            className={`${parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused ? "" : "ml-auto "}flex items-center gap-1 px-2 py-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 text-xs font-semibold border border-destructive/20`}>
-            <LogOut className="w-3.5 h-3.5" /> Quitter
-          </button>
-        ) : (
-          <button onClick={() => navigate({ to: "/live" })}
-            className="ml-auto flex items-center gap-1 px-2 py-1 rounded bg-secondary text-foreground hover:bg-secondary/80 text-xs font-semibold border border-white/10">
-            <LogOut className="w-3.5 h-3.5" /> Sortir du live
-          </button>
+          <div className="flex items-center gap-1">
+            {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
+              <button
+                onClick={async () => {
+                  const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "domino", _game_id: id } as any);
+                  if (error) toast.error(error.message);
+                  else toast.success("Partie en pause");
+                }}
+                className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-0.5"
+              >
+                <Pause className="w-2.5 h-2.5" /> Pause
+              </button>
+            )}
+            <button onClick={{forfeit}} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
+              <LogOut className="w-2.5 h-2.5" /> Quitter
+            </button>
+          </div>
         )}
       </div>
 
