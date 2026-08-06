@@ -85,6 +85,69 @@ function LoginPage() {
   const [otpEmail, setOtpEmail] = useState("");
   const [otpResendIn, setOtpResendIn] = useState(0);
 
+  // ── Real-time validation (signup) ──
+  const [pseudoStatus, setPseudoStatus] = useState<"idle"|"checking"|"ok"|"taken">("idle");
+  const [emailStatus, setEmailStatus] = useState<"idle"|"checking"|"ok"|"taken"|"invalid">("idle");
+  const [pwStrength, setPwStrength] = useState<{ len: number; ok: boolean }>({ len: 0, ok: false });
+  const [pwMatch, setPwMatch] = useState<"idle"|"match"|"mismatch">("idle");
+
+  // Debounced pseudo check
+  useEffect(() => {
+    if (tab !== "signup") return;
+    const v = pseudo.trim();
+    if (v.length < 2) { setPseudoStatus("idle"); return; }
+    setPseudoStatus("checking");
+    const t = setTimeout(async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .ilike("pseudo", v);
+      setPseudoStatus(count && count > 0 ? "taken" : "ok");
+    }, 400);
+    return () => clearTimeout(t);
+  }, [pseudo, tab]);
+
+  // Debounced email/phone check
+  useEffect(() => {
+    if (tab !== "signup") return;
+    const v = identifier.trim();
+    if (v.length < 4) { setEmailStatus("idle"); return; }
+    const isPhone = isPhoneLike(v);
+    if (isPhone && !isValidMgPhone(v)) { setEmailStatus("invalid"); return; }
+    if (!isPhone && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setEmailStatus("invalid"); return; }
+    setEmailStatus("checking");
+    const t = setTimeout(async () => {
+      if (isPhone) {
+        const phone = normalizePhone(v);
+        const { count } = await supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("phone", phone);
+        setEmailStatus(count && count > 0 ? "taken" : "ok");
+      } else {
+        const { count } = await supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("email", v.toLowerCase());
+        setEmailStatus(count && count > 0 ? "taken" : "ok");
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [identifier, tab]);
+
+  // Password strength (8 chars min)
+  useEffect(() => {
+    if (tab !== "signup") return;
+    setPwStrength({ len: password.length, ok: password.length >= 8 });
+  }, [password, tab]);
+
+  // Password match
+  useEffect(() => {
+    if (tab !== "signup") return;
+    if (!confirmPassword) { setPwMatch("idle"); return; }
+    setPwMatch(confirmPassword === password ? "match" : "mismatch");
+  }, [confirmPassword, password, tab]);
+
   useEffect(() => {
     if (otpResendIn <= 0) return;
     const t = setInterval(() => setOtpResendIn((s) => Math.max(0, s - 1)), 1000);
@@ -102,7 +165,7 @@ function LoginPage() {
     if (!password) return toast.error("Mot de passe requis");
     if (tab === "signup") {
       if (!pseudo.trim()) return toast.error("Pseudo requis");
-      if (password.length < 6) return toast.error("Mot de passe : 6 caractères minimum");
+      if (password.length < 8) return toast.error("Mot de passe : 8 caractères minimum");
       if (password !== confirmPassword) return toast.error("Les mots de passe ne correspondent pas");
       if (!acceptTerms) return toast.error("Veuillez accepter les conditions");
     }
@@ -304,57 +367,118 @@ function LoginPage() {
 
           <form onSubmit={onSubmit} className="space-y-4">
             {/* Identifiant */}
-            <Field
-              icon={Mail}
-              type="text"
-              placeholder="Email ou numéro"
-              value={identifier}
-              onChange={setIdentifier}
-              autoComplete={tab === "login" ? "username" : "email"}
-            />
+            <div className="relative">
+              <Field
+                icon={Mail}
+                type="text"
+                placeholder="Email ou numéro"
+                value={identifier}
+                onChange={setIdentifier}
+                autoComplete={tab === "login" ? "username" : "email"}
+              />
+              {tab === "signup" && emailStatus !== "idle" && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {emailStatus === "checking" && <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />}
+                  {emailStatus === "ok" && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                  {emailStatus === "taken" && <X className="w-4 h-4 text-destructive" />}
+                  {emailStatus === "invalid" && <X className="w-4 h-4 text-amber-500" />}
+                </div>
+              )}
+            </div>
+            {tab === "signup" && emailStatus === "taken" && (
+              <p className="text-xs text-destructive -mt-2 px-1">Cet email/numéro est déjà utilisé</p>
+            )}
+            {tab === "signup" && emailStatus === "invalid" && (
+              <p className="text-xs text-amber-500 -mt-2 px-1">Format invalide (ex: nom@email.com ou +261340000000)</p>
+            )}
 
             {/* Pseudo (signup only) */}
             {tab === "signup" && (
-              <Field
-                icon={User}
-                type="text"
-                placeholder="Pseudo"
-                value={pseudo}
-                onChange={setPseudo}
-                autoComplete="nickname"
-              />
+              <div>
+                <div className="relative">
+                  <Field
+                    icon={User}
+                    type="text"
+                    placeholder="Pseudo"
+                    value={pseudo}
+                    onChange={setPseudo}
+                    autoComplete="nickname"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {pseudoStatus === "checking" && <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />}
+                    {pseudoStatus === "ok" && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                    {pseudoStatus === "taken" && <X className="w-4 h-4 text-destructive" />}
+                  </div>
+                </div>
+                {pseudoStatus === "taken" && (
+                  <p className="text-xs text-destructive mt-1 px-1">Ce pseudo est déjà pris</p>
+                )}
+                {pseudoStatus === "ok" && pseudo.trim().length >= 2 && (
+                  <p className="text-xs text-emerald-500 mt-1 px-1">Pseudo disponible</p>
+                )}
+              </div>
             )}
 
             {/* Password */}
-            <div className="relative">
-              <Field
-                icon={Lock}
-                type={showPw ? "text" : "password"}
-                placeholder="Mot de passe"
-                value={password}
-                onChange={setPassword}
-                autoComplete={tab === "login" ? "current-password" : "new-password"}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPw(v => !v)}
-                aria-label={showPw ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
-              >
-                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+            <div>
+              <div className="relative">
+                <Field
+                  icon={Lock}
+                  type={showPw ? "text" : "password"}
+                  placeholder="Mot de passe"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete={tab === "login" ? "current-password" : "new-password"}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(v => !v)}
+                  aria-label={showPw ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {tab === "signup" && password.length > 0 && (
+                <div className="mt-1.5 px-1 space-y-1">
+                  <div className="flex gap-1">
+                    {[0,1,2,3,4,5,6,7].map(i => (
+                      <div key={i} className={"h-1 flex-1 rounded-full transition-colors " + (
+                        i < pwStrength.len ? (pwStrength.ok ? "bg-emerald-500" : "bg-amber-500") : "bg-muted"
+                      )} />
+                    ))}
+                  </div>
+                  <p className={"text-xs " + (pwStrength.ok ? "text-emerald-500" : "text-amber-500")}>
+                    {pwStrength.ok ? "Mot de passe valide (8+ caractères)" : `${pwStrength.len}/8 caractères — il faut au moins 8 caractères`}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Confirm password (signup only) */}
             {tab === "signup" && (
-              <Field
-                icon={Lock}
-                type={showPw ? "text" : "password"}
-                placeholder="Confirmer le mot de passe"
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                autoComplete="new-password"
-              />
+              <div>
+                <div className="relative">
+                  <Field
+                    icon={Lock}
+                    type={showPw ? "text" : "password"}
+                    placeholder="Confirmer le mot de passe"
+                    value={confirmPassword}
+                    onChange={setConfirmPassword}
+                    autoComplete="new-password"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {pwMatch === "match" && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                    {pwMatch === "mismatch" && <X className="w-4 h-4 text-destructive" />}
+                  </div>
+                </div>
+                {pwMatch === "mismatch" && (
+                  <p className="text-xs text-destructive mt-1 px-1">Les mots de passe ne correspondent pas</p>
+                )}
+                {pwMatch === "match" && (
+                  <p className="text-xs text-emerald-500 mt-1 px-1">Les mots de passe correspondent</p>
+                )}
+              </div>
             )}
 
             {/* Referral (signup only, optional) */}

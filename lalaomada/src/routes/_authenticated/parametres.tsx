@@ -158,7 +158,7 @@ function ParametresPage() {
   };
 
   const savePassword = async () => {
-    if (newPassword.length < 6) return toast.error("Mot de passe : 6 caracteres minimum");
+    if (newPassword.length < 8) return toast.error("Mot de passe : 8 caracteres minimum");
     if (newPassword !== confirmPassword) return toast.error("Les mots de passe ne correspondent pas");
     setSavingPassword(true);
     try {
@@ -244,7 +244,7 @@ function ParametresPage() {
                 type={showPassword ? "text" : "password"}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                placeholder="Minimum 6 caracteres"
+                placeholder="Minimum 8 caracteres"
                 className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40"
               />
               <button onClick={() => setShowPassword(s => !s)}
@@ -254,7 +254,7 @@ function ParametresPage() {
             </div>
           </div>
           <Field label="Confirmer le mot de passe" value={confirmPassword} onChange={setConfirmPassword} type={showPassword ? "text" : "password"} placeholder="Repter le mot de passe" />
-          <button onClick={savePassword} disabled={newPassword.length < 6 || newPassword !== confirmPassword || savingPassword}
+          <button onClick={savePassword} disabled={newPassword.length < 8 || newPassword !== confirmPassword || savingPassword}
             className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-95 disabled:opacity-40 transition flex items-center justify-center gap-1.5">
             {savingPassword ? "Enregistrement…" : (<><Lock className="w-4 h-4" /> Changer le mot de passe</>)}
           </button>
