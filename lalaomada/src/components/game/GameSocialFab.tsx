@@ -147,7 +147,7 @@ export default function GameSocialFab({
       setUnread(count || 0);
     };
     refresh();
-    const ch = supabase.channel(`gamechat-unread-${roomId}`)
+    const ch = supabase.channel(`gamechat-fab-unread-${roomId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `room_id=eq.${roomId}` }, (payload: any) => {
         if (chatOpen) return;
         if (payload.new?.user_id === user.id) return;

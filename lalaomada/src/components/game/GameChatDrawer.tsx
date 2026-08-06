@@ -61,7 +61,7 @@ export default function GameChatDrawer({ gameId, isAdmin, gameSlug }: { gameId: 
       setUnread(count || 0);
     };
     refresh();
-    const ch = supabase.channel(`gamechat-unread-${roomId}`)
+    const ch = supabase.channel(`gamechat-drawer-unread-${roomId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `room_id=eq.${roomId}` }, (payload: any) => {
         if (open) return;
         if (payload.new?.user_id === user.id) return;
