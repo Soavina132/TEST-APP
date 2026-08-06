@@ -523,7 +523,7 @@ function AdminBar({ t, busy, rpc }: { t: any; busy: boolean; rpc: (fn: string, a
               className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold">⏭ Phase suivante</button>
             <button disabled={busy} onClick={() => rpc("admin_tournament_set_auto", { _tid: t.id, _auto: !t.auto_advance }, "Mode mis à jour")}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold ${t.auto_advance ? "bg-primary/15 text-primary" : "bg-secondary"}`}>
-              {t.auto_advance ? "🤖 Auto" : "✋ Manuel"}
+              {t.auto_advance ? "⚡ Auto" : "✋ Manuel"}
             </button>
             <button disabled={busy} onClick={() => rpc("admin_tournament_set_status", { _tid: t.id, _status: "paused" }, "Tournoi en pause")}
               className="px-3 py-1.5 rounded-xl bg-secondary text-xs font-bold">⏸ Pause</button>

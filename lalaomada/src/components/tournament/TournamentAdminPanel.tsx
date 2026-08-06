@@ -205,7 +205,7 @@ export default function TournamentAdminPanel() {
                         <button disabled={busy} onClick={() => run("admin_tournament_set_status", { _tid: t.id, _status: "paused" }, "En pause")}
                           className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold">⏸ Pause</button>
                         <button disabled={busy} onClick={() => run("admin_tournament_set_auto", { _tid: t.id, _auto: !t.auto_advance }, "Mode mis à jour")}
-                          className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold">{t.auto_advance ? "🤖 Auto ON" : "✋ Auto OFF"}</button>
+                          className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold">{t.auto_advance ? "⚡ Auto ON" : "✋ Auto OFF"}</button>
                       </>
                     )}
                     {t.status === "paused" && (

@@ -127,9 +127,9 @@ function DepotModal({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="relative w-full max-w-md rounded-t-3xl bg-background shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-sm rounded-2xl bg-background shadow-2xl max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-10 h-1 rounded-full bg-border mx-auto mt-3" />
@@ -311,9 +311,9 @@ function RetraitModal({ open, onClose, minWithdrawal, onSuccess }: {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="relative w-full max-w-md rounded-t-3xl bg-background shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-sm rounded-2xl bg-background shadow-2xl max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-10 h-1 rounded-full bg-border mx-auto mt-3" />

@@ -20,7 +20,7 @@ const GAME_LABELS: Record<GameSlug, string> = {
 const GAME_SPECIFIC_TIPS: Record<GameSlug, string[]> = {
   ludo: [
     "<strong>Équipe</strong> : joue seul (Solo) ou en équipe de 2 contre 2 (Groupe).",
-    "<strong>Déplacement auto</strong> : avance automatiquement ton pion quand un seul coup est possible.",
+    "<strong>Déplacement auto</strong> : si tu ne déplaces pas ton pion avant la fin du timer (30s), le système choisit un de tes pions jouables au hasard et le déplace automatiquement.",
     "<strong>Mode Moderne</strong> : ajoute des cases spéciales (🚀 Boost, 🛡️ Bouclier, ⚡ Deuxième lancer, ⭐ Étoile Chance) placées aléatoirement. Elles changent de position après activation.",
     "<strong>Boost</strong> : avance automatiquement de 1 à 6 cases supplémentaires.",
     "<strong>Bouclier</strong> : protège de la capture jusqu'à ton prochain tour.",

@@ -946,7 +946,7 @@ function RamiPage() {
         }
         if (p?.is_bot && m.type !== "seven") {
           const kind = m.type === "run" ? "suite" : m.type === "set" ? "brelan/carré" : "combinaison";
-          toast.info(`🤖 ${p.display_name || "Bot"} a posé une ${kind} (${m.cards.length} cartes)`, { duration: 2500 });
+          toast.info(`🎯 ${p.display_name || "Bot"} a posé une ${kind} (${m.cards.length} cartes)`, { duration: 2500 });
         }
       }
     }
@@ -956,7 +956,7 @@ function RamiPage() {
       newDiscardKeys.push(lastBy);
       const p = parts.find(pp => pp.user_id === lastBy);
       if (p?.is_bot) {
-        toast.info(`🤖 ${p.display_name || "Bot"} a défaussé une carte`, { duration: 2000 });
+        toast.info(`🎯 ${p.display_name || "Bot"} a défaussé une carte`, { duration: 2000 });
       }
     }
 

@@ -523,9 +523,9 @@ function Lobby() {
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
               {slug === "ludo" && (
-                <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+                <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🎯 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               )}
-              <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🤖 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
+              <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🎯 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
               {meta.maxOpts.length > 1 && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
               )}
@@ -537,7 +537,10 @@ function Lobby() {
                 </>
               )}
               {slug === "ludo" && (
-                <SummaryRow icon="🤖" label="Déplacement auto" value={ludoAutoMove ? "Activé" : "Désactivé"} onClick={() => setLudoAutoMove(v => !v)} />
+                <SummaryRow icon="🎲" label="Mode" value={mode === "fast" ? "Moderne" : "Classique"} onClick={() => setSheet("ludo_mode")} />
+              )}
+              {slug === "ludo" && (
+                <SummaryRow icon="🎲" label="Déplacement auto" value={ludoAutoMove ? "Activé" : "Désactivé"} onClick={() => setLudoAutoMove(v => !v)} />
               )}
               {slug === "fanorona" && (
                 <>
@@ -599,7 +602,7 @@ function Lobby() {
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
               {slug === "ludo" && (
-                <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🤖 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
+                <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🎯 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               )}
               {showMaxP && (slug !== "ludo" || matchType === "solo") && (
                 <SummaryRow icon="👥" label="Joueurs" value={`${maxP}`} onClick={() => setSheet("players")} />
@@ -612,7 +615,7 @@ function Lobby() {
                 <SummaryRow icon="🎲" label="Mode" value={mode === "fast" ? "Moderne" : "Classique"} onClick={() => setSheet("ludo_mode")} />
               )}
               {slug === "ludo" && (
-                <SummaryRow icon="🤖" label="Déplacement auto" value={ludoAutoMove ? "Activé" : "Désactivé"} onClick={() => setLudoAutoMove(v => !v)} />
+                <SummaryRow icon="🎲" label="Déplacement auto" value={ludoAutoMove ? "Activé" : "Désactivé"} onClick={() => setLudoAutoMove(v => !v)} />
               )}
               {slug === "domino" && (
                 <>
@@ -757,10 +760,10 @@ function Lobby() {
 
 
       <BottomSheet open={sheet === "opponent"} onClose={closeSheet} title="Équipe">
-        <ModeBlock options={[{ v: "solo", l: "🤖 Solo" }, { v: "groupe", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); if (v === "groupe") setMaxP(4); closeSheet(); }} />
+        <ModeBlock options={[{ v: "solo", l: "🎯 Solo" }, { v: "groupe", l: "👥 Groupe" }]} value={matchType} onChange={(v) => { setMatchType(v as any); if (v === "groupe") setMaxP(4); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "opponent_mode"} onClose={closeSheet} title="Adversaire">
-        <ModeBlock options={[{ v: "bot", l: "🤖 vs Bot" }, { v: "friends", l: "👥 vs Amis" }]} value={opponentMode} onChange={(v) => { setOpponentMode(v as any); closeSheet(); }} />
+        <ModeBlock options={[{ v: "bot", l: "🎯 vs Bot" }, { v: "friends", l: "👥 vs Amis" }]} value={opponentMode} onChange={(v) => { setOpponentMode(v as any); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "players"} onClose={closeSheet} title="Nombre de joueurs">
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${meta.maxOpts.length}, minmax(0,1fr))` }}>
@@ -943,7 +946,7 @@ function VisibilityBadge({ kind }: { kind: "public" | "private-code" | "solo" })
   const cfg = kind === "public"
     ? { icon: "🌐", label: "Partie publique", desc: "Visible par tous dans « Parties ouvertes ».", cls: "bg-emerald-500/10 border-emerald-500/25 text-emerald-500" }
     : kind === "solo"
-    ? { icon: "🤖", label: "Partie solo (privée)", desc: "Visible uniquement par toi.", cls: "bg-sky-500/10 border-sky-500/25 text-sky-500" }
+    ? { icon: "🎯", label: "Partie solo (privée)", desc: "Visible uniquement par toi.", cls: "bg-sky-500/10 border-sky-500/25 text-sky-500" }
     : { icon: "🔒", label: "Partie privée", desc: "Accessible uniquement via le code d'invitation.", cls: "bg-orange-500/10 border-orange-500/25 text-orange-500" };
   return (
     <div className={`rounded-xl border px-3 py-2 flex items-center gap-2.5 ${cfg.cls}`}>

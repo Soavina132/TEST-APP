@@ -1038,7 +1038,7 @@ function GamesList() {
                       <button key={p.id} onClick={() => p.is_bot && editBot(p)}
                         className={`text-xs px-2 py-0.5 rounded-full bg-secondary ${p.is_bot ? "hover:bg-primary hover:text-primary-foreground cursor-pointer border border-primary/30" : ""}`}
                         title={p.is_bot ? "Bot · cliquez pour modifier" : ""}>
-                        {p.display_name}{p.is_bot ? " 🤖" : ""}
+                        {p.display_name}{p.is_bot ? " [IA]" : ""}
                       </button>
                     ))}
                   </div>
@@ -1635,7 +1635,7 @@ function GamesAdmin() {
             </div>
           </div>
           <div className="text-xs text-muted-foreground">
-            {(g.players || []).map((p: any) => `${p.name}${p.is_bot ? "🤖" : ""}${p.forfeited ? "✕" : ""}`).join(" · ")}
+            {(g.players || []).map((p: any) => `${p.name}${p.is_bot ? "[IA]" : ""}${p.forfeited ? "✕" : ""}`).join(" · ")}
           </div>
         </div>
       ))}

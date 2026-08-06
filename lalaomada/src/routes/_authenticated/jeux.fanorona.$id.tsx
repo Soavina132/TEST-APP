@@ -108,7 +108,7 @@ function FanoronaPlayerBar({
         {isWhite ? "⚪" : "⚫"}
       </div>
       <span className="font-bold text-xs truncate">{p.display_name}</span>
-      {p.is_bot && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
+      {p.is_bot && <span className="text-[10px] text-violet-500 shrink-0">🎯</span>}
       {isMe && <span className="text-[10px] text-primary/60 shrink-0">(vous)</span>}
       <span className="text-[10px] font-semibold text-muted-foreground truncate ml-auto shrink-0">
         {p.forfeited ? <span className="text-destructive">Forfait</span> : `${pieceCount} pions`}
