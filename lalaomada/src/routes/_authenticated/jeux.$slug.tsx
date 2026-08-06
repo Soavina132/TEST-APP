@@ -14,6 +14,8 @@ import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import pokerCover from "@/assets/games/poker.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
 import HelpPopover from "@/components/HelpPopover";
+import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
+import { DepotModal, useAppSettings } from "@/components/WalletButton";
 import { getLobbyHelp } from "@/lib/game-help-content";
 
 const COVER_BY_SLUG: Record<string, string> = {
@@ -140,6 +142,8 @@ function Lobby() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<((name?: string) => Promise<void>) | null>(null);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
+  const [showDepositPopup, setShowDepositPopup] = useState(false);
+  const walletSettings = useAppSettings();
   const [sheet, setSheet] = useState<string | null>(null);
   const closeSheet = () => setSheet(null);
 
@@ -152,7 +156,7 @@ function Lobby() {
     if (bal < intendedStake) {
       toast.error("Solde insuffisant", {
         description: `Vous avez ${bal.toLocaleString("fr-FR")} Ar. Il vous faut ${intendedStake.toLocaleString("fr-FR")} Ar.`,
-        action: { label: "Déposer", onClick: () => navigate({ to: "/" }) },
+        action: { label: "Déposer", onClick: () => setShowDepositPopup(true) },
         duration: 8000,
       });
       return false;
@@ -454,7 +458,7 @@ function Lobby() {
       const msg = (e?.message || "").toLowerCase();
       if (msg.includes("insufficient")) {
         toast.error("Solde insuffisant pour rejoindre cette partie.", {
-          action: { label: "Déposer", onClick: () => navigate({ to: "/" }) },
+          action: { label: "Déposer", onClick: () => setShowDepositPopup(true) },
         });
       } else {
         toast.error(e.message || "Code invalide");
@@ -868,6 +872,23 @@ function Lobby() {
           const action = pendingAction; setPendingAction(null);
           if (action) await action(name);
         }}
+      />
+
+      {showPhoneVerify && (
+        <PhoneVerifyPopup onClose={() => setShowPhoneVerify(false)} />
+      )}
+
+      <DepotModal
+        open={showDepositPopup}
+        onClose={() => setShowDepositPopup(false)}
+        mvolaPhone={walletSettings.mvolaPhone}
+        mvolaName={walletSettings.mvolaName}
+        orangePhone={walletSettings.orangePhone}
+        orangeName={walletSettings.orangeName}
+        airtelPhone={walletSettings.airtelPhone}
+        airtelName={walletSettings.airtelName}
+        minDeposit={walletSettings.minDeposit}
+        onSuccess={() => { refreshProfile(); }}
       />
     </main>
   );

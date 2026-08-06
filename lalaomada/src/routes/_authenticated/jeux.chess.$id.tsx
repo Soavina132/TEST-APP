@@ -19,6 +19,8 @@ import { useGlobalGameTimer } from "@/hooks/game/use-global-game-timer";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import { playChessMove, playChessCapture, playChessCastle, playChessCheck, playChessEnd, unlockAudio } from "@/lib/sounds/game-sounds";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
+import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 
 export const Route = createFileRoute("/_authenticated/jeux/chess/$id")({
   component: ChessPage,
@@ -217,6 +219,8 @@ function ChessPage() {
       setMoveHistory(moves.map((m: any) => ({ san: m.san, ply: m.ply })));
     }
   }, [id, isValidGameId, profile?.id]);
+
+  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
 
   useEffect(() => { void load(); }, [load]);
 
@@ -817,6 +821,7 @@ function ChessPage() {
         );
       <GameSocialFab gameId={id} gameSlug="chess" participants={[{ user_id: game?.white_id, display_name: game?.white_is_bot ? (game?.bot_name ?? "Bot") : (profiles[game?.white_id ?? ""]?.pseudo ?? "Blancs"), slot: 0 }, { user_id: game?.black_id, display_name: game?.black_is_bot ? (game?.bot_name ?? "Bot") : (profiles[game?.black_id ?? ""]?.pseudo ?? "Noirs"), slot: 1 }].filter(p => p.user_id)} />
       })()}
+      <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
     </div>
   );
 }

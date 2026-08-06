@@ -13,6 +13,8 @@ import GameEndScreen from "@/components/game/GameEndScreen";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
+import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 
 export const Route = createFileRoute("/_authenticated/jeux/ludo/$id")({
   component: GamePage,
@@ -50,6 +52,8 @@ function GamePage() {
       setLoadError(true);
     }
   };
+
+  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
 
   // Initial load — fetch game data immediately, and retry when auth is ready
   useEffect(() => {
@@ -294,6 +298,8 @@ function GamePage() {
           </div>
         </div>
       )}
+
+      <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
     </main>
   );
 }

@@ -6,6 +6,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useRealtimePlayerCount } from "@/hooks/use-realtime-player-count";
 import { toast } from "sonner";
 import { Users, RefreshCw, Plus, KeyRound, Play, Coins } from "lucide-react";
+import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
+import { DepotModal, useAppSettings } from "@/components/WalletButton";
 
 import ludoImg from "@/assets/covers/ludo-cover.jpg";
 import dominoImg from "@/assets/covers/domino-cover.jpg";
@@ -158,6 +160,9 @@ function LivePlayerCount({ game }: { game: OpenGame }) {
 function JeuxPage() {
   const navigate = useNavigate();
   const { profile, refreshProfile, isAdmin } = useAuth();
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
+  const [showDepositPopup, setShowDepositPopup] = useState(false);
+  const walletSettings = useAppSettings();
 
   const [onlineCounts, setOnlineCounts]   = useState<Record<string, number>>({});
   const [disabled, setDisabled]           = useState<string[]>([]);
@@ -314,7 +319,7 @@ function JeuxPage() {
     } catch (e: any) {
       const msg = (e?.message || "").toLowerCase();
       if (msg.includes("insufficient") || msg.includes("solde")) {
-        toast.error("Solde insuffisant", { action: { label: "Déposer", onClick: () => navigate({ to: "/" }) } });
+        toast.error("Solde insuffisant", { action: { label: "Déposer", onClick: () => setShowDepositPopup(true) } });
       } else {
         toast.error(e.message || "Code invalide");
       }
@@ -328,7 +333,7 @@ function JeuxPage() {
     if (!fn) { toast.error("Rejoins par code pour ce jeu."); return; }
     const bal = Number(profile?.balance_ar || 0);
     if (game.stake > 0 && bal < game.stake) {
-      toast.error("Solde insuffisant", { action: { label: "Déposer", onClick: () => navigate({ to: "/" }) } });
+      toast.error("Solde insuffisant", { action: { label: "Déposer", onClick: () => setShowDepositPopup(true) } });
       return;
     }
     setJoiningId(game.id);
@@ -589,6 +594,22 @@ function JeuxPage() {
           })}
         </div>
       </section>
+      {showPhoneVerify && (
+        <PhoneVerifyPopup onClose={() => setShowPhoneVerify(false)} />
+      )}
+
+      <DepotModal
+        open={showDepositPopup}
+        onClose={() => setShowDepositPopup(false)}
+        mvolaPhone={walletSettings.mvolaPhone}
+        mvolaName={walletSettings.mvolaName}
+        orangePhone={walletSettings.orangePhone}
+        orangeName={walletSettings.orangeName}
+        airtelPhone={walletSettings.airtelPhone}
+        airtelName={walletSettings.airtelName}
+        minDeposit={walletSettings.minDeposit}
+        onSuccess={() => { refreshProfile(); }}
+      />
     </main>
   );
 }

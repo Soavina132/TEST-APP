@@ -19,7 +19,7 @@ type Op = (typeof OPERATORS)[number]["id"];
 const fmtAr = (n: number) => Math.round(n).toLocaleString("fr-FR") + " Ar";
 
 // ─── Hook: load app settings (operator info) ─────────────────
-function useAppSettings() {
+export function useAppSettings() {
   const [mvolaPhone, setMvolaPhone] = useState("");
   const [mvolaName, setMvolaName] = useState("");
   const [orangePhone, setOrangePhone] = useState("");
@@ -57,7 +57,7 @@ function useAppSettings() {
 }
 
 // ─── Modal Dépôt ─────────────────────────────────────────────
-function DepotModal({
+export function DepotModal({
   open, onClose, mvolaPhone, mvolaName, orangePhone, orangeName, airtelPhone, airtelName, minDeposit, onSuccess,
 }: {
   open: boolean; onClose: () => void;
