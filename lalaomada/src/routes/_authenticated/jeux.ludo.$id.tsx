@@ -224,17 +224,17 @@ function GamePage() {
   return (
     <main className="max-w-5xl mx-auto px-3 py-3 h-full overflow-hidden overscroll-none">
       <h1 className="sr-only">Partie de Ludo en cours</h1>
-      <div className="rounded-full bg-card px-3 py-1.5 mb-2 shadow-[var(--shadow-soft)] flex items-center justify-between gap-2">
-        <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="text-[9px] uppercase text-muted-foreground tracking-wider">{t("prize_winner")}</span>
-          <span className="text-sm font-extrabold truncate">{payout.toLocaleString("fr-FR")} Ar</span>
+      <div className="rounded-full bg-card px-2 py-0.5 mb-1.5 shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
+        <div className="flex items-baseline gap-1 min-w-0">
+          <span className="text-[8px] uppercase text-muted-foreground tracking-wider">{t("prize_winner")}</span>
+          <span className="text-xs font-extrabold truncate">{payout.toLocaleString("fr-FR")} Ar</span>
         </div>
         {isSpectator ? (
-          <div className="px-2.5 py-1 rounded-full bg-secondary text-[11px] font-semibold flex items-center gap-1">
-            <Eye className="w-3.5 h-3.5" /> {t("spectator_lbl")}
+          <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
+            <Eye className="w-3 h-3" /> {t("spectator_lbl")}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
               <button
                 onClick={async () => {
@@ -242,13 +242,13 @@ function GamePage() {
                   if (error) toast.error(error.message);
                   else toast.success("Partie en pause");
                 }}
-                className="px-2.5 py-1 rounded-full bg-amber-500 text-white text-[11px] font-semibold flex items-center gap-1"
+                className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-0.5"
               >
-                <Pause className="w-3 h-3" /> Pause
+                <Pause className="w-2.5 h-2.5" /> Pause
               </button>
             )}
-            <button onClick={() => setConfirmQuit(true)} className="px-2.5 py-1 rounded-full bg-destructive text-white text-[11px] font-semibold flex items-center gap-1">
-              <LogOut className="w-3 h-3" /> {t("quit_refunded")}
+            <button onClick={() => setConfirmQuit(true)} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
+              <LogOut className="w-2.5 h-2.5" /> {t("quit_refunded")}
             </button>
           </div>
         )}
