@@ -246,7 +246,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [afkMax, setAfkMax] = useState<{t1:number;t2:number;secs:number}>({ t1: 2, t2: 2, secs: 30 });
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
-  const [pawnPowerEffect, setPawnPowerEffect] = useState<{ slot: number; type: string; key: string } | null>(null);
+  const [pawnPowerEffect, setPawnPowerEffect] = useState<{ slot: number; type: string; key: string; pawn?: number } | null>(null);
   const [displayedPowerTiles, setDisplayedPowerTiles] = useState(state.power_tiles);
   const [doubleRollPhase, setDoubleRollPhase] = useState<{ slot: number; phase: "2x" | "1x" } | null>(null);
   const [boardPowerEffect, setBoardPowerEffect] = useState<{ cell: number; type: string; key: string } | null>(null);
@@ -550,7 +550,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }
     // Pawn visual effect based on power type
     const effectType = pe.reward || pe.type;
-    setPawnPowerEffect({ slot: pe.slot, type: effectType, key });
+    setPawnPowerEffect({ slot: pe.slot, type: effectType, key, pawn: pe.pawn });
     setTimeout(() => setPawnPowerEffect(null), 1500);
     // Board-level effect: find the cell from displayedPowerTiles (old tiles before update)
     const matchTileType = pe.type === "lucky_star" ? "lucky_star" : effectType;
@@ -985,7 +985,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                       style={{ animation: "shieldBadgeFloat 1s ease-in-out infinite" }}>🛡️</span>
                   </div>
                 )}
-                {pawnPowerEffect && pawnPowerEffect.slot === p.slot && (
+                {pawnPowerEffect && pawnPowerEffect.slot === p.slot && (pawnPowerEffect.type === "shield" || pawnPowerEffect.pawn === p.idx) && (
                   (() => {
                     const effType = pawnPowerEffect.type;
                     const effKey = pawnPowerEffect.key;
