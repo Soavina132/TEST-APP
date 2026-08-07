@@ -55,3 +55,12 @@ Thumbs.db
 supabase/.temp/
 lalaomada/.vercel/
 lalaomada/.output/
+
+# Android / Capacitor
+lalaomada/android/app/build/
+lalaomada/android/.gradle/
+lalaomada/android/captures/
+lalaomada/android/local.properties
+lalaomada/resources/
+lalaomada/*.apk
+lalaomada/dist/

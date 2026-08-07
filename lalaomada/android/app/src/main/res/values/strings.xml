@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lalao MADA</string>
+    <string name="title_activity_main">Lalao MADA</string>
+    <string name="package_name">com.lalaomada.app</string>
+    <string name="custom_url_scheme">com.lalaomada.app</string>
+</resources>
