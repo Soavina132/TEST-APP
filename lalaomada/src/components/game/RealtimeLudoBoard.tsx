@@ -103,10 +103,10 @@ interface Props {
 
 // Power tile icons for Mode Moderne
 const POWER_TILE_META: Record<string, { icon: string; label: string; bg: string; border: string }> = {
-  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
-  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
-  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
-  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
+  boost:      { icon: "🚀", label: "Boost",      bg: "transparent",  border: "transparent" },
+  shield:     { icon: "🛡️", label: "Bouclier",   bg: "transparent",  border: "transparent" },
+  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "transparent",  border: "transparent" },
+  lucky_star: { icon: "⭐", label: "Chance",     bg: "transparent",  border: "transparent" },
 };
 
 // CSS animations for power tile effects
@@ -388,12 +388,21 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    // Humanized delay: 1.5-3.5s before rolling, 2-4.5s to see dice before moving
-    const min = state.must_move ? 2000 : 1500;
+    // Phase 1: must_move=false → roll dice ONLY (so player sees the result)
+    // Phase 2: must_move=true → bot_play to choose & move pawn (dice already visible)
+    const min = state.must_move ? 2500 : 1500;
     const max = state.must_move ? 4500 : 3500;
     const delay = min + Math.random() * (max - min);
     const t = setTimeout(async () => {
-      try { await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any); } catch {}
+      try {
+        if (state.must_move) {
+          // Dice already rolled & visible — now move the pawn
+          await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any);
+        } else {
+          // Roll first — player will see the dice, then this effect fires again
+          await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
+        }
+      } catch {}
     }, delay);
     return () => clearTimeout(t);
   }, [currentPart?.is_bot, state.turn_slot, state.dice, state.must_move, state.turn_started_at, status, gameId, animating]);
