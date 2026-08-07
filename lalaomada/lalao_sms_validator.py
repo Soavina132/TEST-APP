@@ -226,7 +226,7 @@ def classify_sms(sms):
 def send_deposit_sms(operator, sms_body):
     """Envoie un SMS de dépôt à l'Edge Function avec HMAC obligatoire."""
     timestamp = str(int(time.time()))
-    payload = json.dumps({"operator": operator, "sms": sms_body})
+    payload = json.dumps({"operator": operator, "sms": sms_body}, separators=(',', ':'))  # FIX: format compact identique a JSON.stringify JS
     signature = compute_hmac(API_SECRET, payload, timestamp)
 
     body = json.dumps({
