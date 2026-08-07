@@ -1,188 +1,369 @@
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
-};
+// ═══════════════════════════════════════════════════════════════════════
+// validate-deposit-sms — Edge Function Supabase v4 (parsers corrigés)
+//
+// POST /functions/v1/validate-deposit-sms
+// Body: { "secret": "xxx", "operator": "orange|mvola", "sms": "...",
+//         "timestamp": "1234567890", "signature": "hmac_hex" }
+//
+// SÉCURITÉ v3 (conservée):
+//   1. Vérification du secret API (OBLIGATOIRE)
+//   2. Vérification de la signature HMAC-SHA256 (OBLIGATOIRE — anti-replay)
+//   3. Vérification du timestamp (fenêtre de 5 minutes)
+//   4. La clé service_role n'est JAMAIS reçue du client
+//   5. CORS restreint à l'URL de l'app (pas *)
+//   6. Pas de secret hardcodé en fallback
+//
+// FIX v4 (basé sur SMS réels fournis par l'utilisateur):
+//   A. OrangeParser — Trans Id capturait un point final en trop
+//      Ex réel: "Trans Id: PP260519.1245.C46612." → capturait avec le "."
+//      Fix: strip du point final avant retour
+//   B. MVolaParser — le format réel a le montant AVANT "recu de", pas après
+//      Ex réel: "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907 le
+//                04/08/26 a 16:45. Raison: ludo. Solde: 20 559 Ar. Ref 4876739165"
+//      L'ancien regex ne matchait JAMAIS ce format → amount restait NULL
+//      SANS ÊTRE VALIDÉ (pas de check manquant), ce qui pouvait bypasser
+//      la vérification du montant côté DB (NULL <= 200 = NULL = pas de rejet)
+//      Fix: nouveau parseFormat dédié + vérification stricte du montant
+//
+// Architecture:
+//   ParserFactory → OrangeParser | MVolaParser
+//   → validate_deposit_from_sms() (PostgreSQL, atomique)
+//
+// NOTE: AirtelParser pas encore implémenté — en attente d'un exemple de SMS
+//       Airtel Money réel. Les dépôts Airtel doivent être validés
+//       manuellement par l'admin en attendant.
+// ═══════════════════════════════════════════════════════════════════════
 
-function json(data: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: CORS });
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+
+// ═══════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════
+
+interface ParsedSMS {
+  amount: number | null;
+  sender_number: string | null;
+  sender_name: string | null;
+  transaction_id: string | null;
+  sms_date: string | null;
 }
 
-function parseAmount(sms: string): number {
-  const m = sms.match(/(\d[\d\s,]*\d)\s*(?:Ar|Ariary|ar)/i);
-  return m ? parseInt(m[1].replace(/[\s,]/g, "")) : 0;
+interface ParseResult {
+  success: boolean;
+  data?: ParsedSMS;
+  error?: string;
 }
 
-function parsePhone(sms: string): string {
-  const m = sms.match(/(?:de|from)\s+(\+?\d[\d\s]{6,})/i);
-  return m ? m[1].replace(/[\s+]/g, "") : "";
+// ═══════════════════════════════════════════════════════════════════════
+// ORANGE PARSER
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Format réel confirmé (SMS reçu):
+//   "Vous avez recu un transfert de 25650Ar venant du 0322159515
+//    Nouveau Solde: 26230Ar.  Trans Id: PP260519.1245.C46612.
+//    Orange Money vous remercie..."
+//
+// Structure du Trans Id: PP + AAMMJJ . HHMM . C + chiffres (séparés par points)
+
+class OrangeParser {
+  parse(sms: string): ParseResult {
+    if (/vous avez reçu/i.test(sms) || /transfert/i.test(sms)) {
+      return this.parseFormat1(sms);
+    }
+    if (/recu de/i.test(sms) || /Ref\s+\d/i.test(sms)) {
+      return this.parseFormat2(sms);
+    }
+    return { success: false, error: "Format Orange Money non reconnu" };
+  }
+
+  private parseFormat1(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+    const amountMatch = sms.match(/(?:transfert|recu|reçu)\s+de\s+([\d\s]+)\s*Ar/i);
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+    const senderMatch = sms.match(/venant\s+du\s+(\d[\d\s]+)/i);
+    if (senderMatch) result.sender_number = senderMatch[1].trim();
+    const transIdMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i);
+    if (transIdMatch) {
+      // FIX v4: retirer le point final de fin de phrase (pas un vrai séparateur)
+      result.transaction_id = transIdMatch[1].trim().replace(/\.$/, "");
+    }
+    if (!result.transaction_id) return { success: false, error: "Trans Id manquant (Format 1)" };
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 1)" };
+    return { success: true, data: result };
+  }
+
+  private parseFormat2(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+    const amountMatch = sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i);
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+    const senderMatch = sms.match(/recu\s+de\s+(.+?)\s+(\d{10,})/i);
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); result.sender_number = senderMatch[2]; }
+    const dateMatch = sms.match(/le\s+(\d{2}\/\d{2}\/\d{2,4})\s+[àa]\s+(\d{2}:\d{2})/i);
+    if (dateMatch) result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
+    const refMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i) || sms.match(/Ref\s+(\d+)/i);
+    if (refMatch) result.transaction_id = refMatch[1].trim().replace(/\.$/, "");
+    if (!result.transaction_id) return { success: false, error: "Ref/Trans Id manquante (Format 2)" };
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 2)" };
+    return { success: true, data: result };
+  }
 }
 
-function parseTransId(sms: string): string {
-  const m = sms.match(/(?:trans\s*id|transaction\s*id|reference|ref)[:\s]*([A-Za-z0-9]+)/i);
-  return m ? m[1] : "";
+// ═══════════════════════════════════════════════════════════════════════
+// MVOLA PARSER
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Format réel confirmé (SMS reçu):
+//   "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907 le 04/08/26
+//    a 16:45. Raison: ludo. Solde: 20 559 Ar. Ref 4876739165"
+//
+// IMPORTANT: le montant reçu est AVANT "recu de" — le "Solde" (après)
+// est le solde du compte admin, PAS le montant reçu. Ne jamais confondre
+// les deux nombres.
+
+class MVolaParser {
+  parse(sms: string): ParseResult {
+    // FIX v4: format réel prioritaire — "X Ar recu de ... Ref Y"
+    if (/[\d\s]+\s*Ar\s+recu\s+de/i.test(sms)) {
+      return this.parseRealFormat(sms);
+    }
+    if (/recu/i.test(sms) || /ref/i.test(sms)) return this.parseFormat1(sms);
+    if (/transaction/i.test(sms) || /montant/i.test(sms)) return this.parseFormat2(sms);
+    return { success: false, error: "Format MVola non reconnu" };
+  }
+
+  // FIX v4: nouveau parser dédié au format réel MVola
+  private parseRealFormat(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+
+    // Montant AVANT "Ar recu de" (pas le Solde, qui vient après)
+    const amountMatch = sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i);
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+
+    // Nom + numéro entre "recu de" et "le <date>"
+    const senderMatch = sms.match(/recu\s+de\s+(.+?)\s+(\d{9,10})\s+le/i);
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); result.sender_number = senderMatch[2]; }
+
+    // Date + heure
+    const dateMatch = sms.match(/le\s+(\d{2}\/\d{2}\/\d{2,4})\s+[àa]\s+(\d{2}:\d{2})/i);
+    if (dateMatch) result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
+
+    // Ref (numérique) — toujours à la fin du SMS
+    const refMatch = sms.match(/Ref\s+(\d+)/i);
+    if (refMatch) result.transaction_id = refMatch[1];
+
+    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (format réel)" };
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (format réel)" };
+    return { success: true, data: result };
+  }
+
+  private parseFormat1(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+    const amountMatch = sms.match(/(?:recu|recus|reçu)\s+([\d\s]+)\s*Ar/i);
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+    const senderMatch = sms.match(/de\s+(.+?)\s*\(?(\d{10,})?/i);
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); if (senderMatch[2]) result.sender_number = senderMatch[2]; }
+    const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
+    if (refMatch) result.transaction_id = refMatch[1];
+    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 1)" };
+    // FIX v4: vérification du montant ajoutée (manquait — bypass possible)
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 1)" };
+    return { success: true, data: result };
+  }
+
+  private parseFormat2(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+    const amountMatch = sms.match(/montant\s*:?\s*([\d\s]+)\s*Ar/i);
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+    const senderMatch = sms.match(/de\s*:?\s*(.+?)(?:\s+\(?(\d{10,})|$)/i);
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); if (senderMatch[2]) result.sender_number = senderMatch[2]; }
+    const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
+    if (refMatch) result.transaction_id = refMatch[1];
+    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 2)" };
+    // FIX v4: vérification du montant ajoutée (manquait — bypass possible)
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 2)" };
+    return { success: true, data: result };
+  }
 }
 
-function phoneMatches(a: string, b: string): boolean {
-  const ca = a.replace(/[\s+\-()]/g, "");
-  const cb = b.replace(/[\s+\-()]/g, "");
-  if (ca.length >= 8 && cb.length >= 8) return ca.slice(-8) === cb.slice(-8);
-  return ca === cb;
+// ═══════════════════════════════════════════════════════════════════════
+// PARSER FACTORY
+// ═══════════════════════════════════════════════════════════════════════
+
+class ParserFactory {
+  static getParser(operator: string): OrangeParser | MVolaParser | null {
+    switch (operator.toLowerCase().trim()) {
+      case "orange": return new OrangeParser();
+      case "mvola": case "m-vola": return new MVolaParser();
+      // NOTE: "airtel" pas encore supporté — en attente d'un exemple de SMS réel
+      default: return null;
+    }
+  }
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-  if (req.method !== "POST") return json({ success: false, error: "METHOD_NOT_ALLOWED" }, 405);
+// ═══════════════════════════════════════════════════════════════════════
+// SÉCURITÉ — HMAC VERIFICATION
+// ═══════════════════════════════════════════════════════════════════════
+
+async function verifyHMAC(secret: string, payload: string, timestamp: string, signature: string): Promise<boolean> {
+  const now = Math.floor(Date.now() / 1000);
+  const ts = parseInt(timestamp, 10);
+  if (isNaN(ts) || Math.abs(now - ts) > 300) {
+    return false;
+  }
+
+  const message = `${timestamp}${payload}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const expected = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  const expectedHex = Array.from(new Uint8Array(expected))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return expectedHex === signature;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HANDLER
+// ═══════════════════════════════════════════════════════════════════════
+
+// FIX v3: Pas de secret hardcodé — erreur si env var manquante
+const DEPOSIT_SECRET = Deno.env.get("DEPOSIT_SMS_SECRET");
+if (!DEPOSIT_SECRET) {
+  console.error("ERREUR CRITIQUE: DEPOSIT_SMS_SECRET env var non définie");
+}
+
+// FIX v3: CORS restreint au domaine de l'app
+const ALLOWED_ORIGINS = [
+  "https://test-app.vercel.app",
+  "https://gifwfjgciwbsottztzoc.supabase.co",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+function getCORSHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "POST",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
+}
+
+function json(data: unknown, status = 200, corsHeaders?: Record<string, string>): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...(corsHeaders || {}),
+    },
+  });
+}
+
+serve(async (req: Request) => {
+  const origin = req.headers.get("Origin");
+
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: getCORSHeaders(origin),
+    });
+  }
+
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405, getCORSHeaders(origin));
+  }
+
+  // FIX v3: Vérifier que le secret est configuré
+  if (!DEPOSIT_SECRET) {
+    return json({ success: false, error: "SERVER_MISCONFIG", message: "Secret non configuré" }, 500, getCORSHeaders(origin));
+  }
 
   try {
-    const { secret, operator, sms } = await req.json();
-    const expectedSecret = Deno.env.get("DEPOSIT_API_SECRET") || "LalaoMada2026SecretKey!";
-    if (secret !== expectedSecret) return json({ success: false, error: "INVALID_SECRET", message: "Secret invalide" }, 403);
-    if (!sms || typeof sms !== "string") return json({ success: false, error: "MISSING_SMS", message: "SMS manquant" }, 400);
+    const body = await req.json();
+    const { secret, operator, sms, timestamp, signature } = body as {
+      secret?: string;
+      operator?: string;
+      sms?: string;
+      timestamp?: string;
+      signature?: string;
+    };
 
-    const amount = parseAmount(sms);
-    const senderPhone = parsePhone(sms);
-    const transId = parseTransId(sms);
-
-    if (!amount || amount < 100) {
-      return json({ success: false, error: "PARSE_ERROR", message: "Montant non reconnu dans le SMS" });
+    // 1. Vérifier le secret
+    if (!secret || secret !== DEPOSIT_SECRET) {
+      return json({ success: false, error: "UNAUTHORIZED", message: "Secret invalide" }, 401, getCORSHeaders(origin));
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const headers = { "apikey": serviceKey, "Authorization": `Bearer ${serviceKey}`, "Content-Type": "application/json" };
-
-    // ── Step 1: Try to match a PENDING deposit ──
-    let depositRecord: any = null;
-
-    const depResp = await fetch(`${supabaseUrl}/rest/v1/deposits?select=id,user_id,amount,method,reference,user_phone,status&status=eq.pending&method=eq.${operator}&order=created_at.asc&limit=20`, { headers });
-    const pendingDeposits = await depResp.json();
-
-    if (Array.isArray(pendingDeposits) && pendingDeposits.length > 0) {
-      for (const d of pendingDeposits) {
-        if (d.amount === amount && senderPhone && d.user_phone && phoneMatches(senderPhone, d.user_phone)) {
-          depositRecord = d; break;
-        }
-      }
-      if (!depositRecord) {
-        for (const d of pendingDeposits) {
-          if (d.amount === amount) { depositRecord = d; break; }
-        }
-      }
+    // FIX v3: HMAC OBLIGATOIRE (plus de mode rétrocompatible)
+    if (!timestamp || !signature) {
+      return json({ success: false, error: "MISSING_SIGNATURE", message: "Timestamp et signature HMAC obligatoires" }, 401, getCORSHeaders(origin));
     }
 
-    // ── Step 2: Auto-create from sender phone ──
-    if (!depositRecord && senderPhone) {
-      const usersResp = await fetch(`${supabaseUrl}/rest/v1/profiles?select=id,pseudo,phone,phone_verified&phone=not.is.null&limit=1000`, { headers });
-      const users = await usersResp.json();
-
-      if (Array.isArray(users)) {
-        const matchedUser = users.find((u: any) => u.phone && phoneMatches(senderPhone, u.phone));
-        if (matchedUser) {
-          const createResp = await fetch(`${supabaseUrl}/rest/v1/deposits`, {
-            method: "POST",
-            headers: { ...headers, "Prefer": "return=representation" },
-            body: JSON.stringify({
-              user_id: matchedUser.id, amount, method: operator,
-              reference: transId || `AUTO-${Date.now()}`,
-              user_phone: matchedUser.phone, status: "pending",
-            }),
-          });
-          const newDep = await createResp.json();
-          if (Array.isArray(newDep) && newDep[0]) {
-            depositRecord = { ...newDep[0], user_pseudo: matchedUser.pseudo };
-          }
-        }
-      }
+    const payloadStr = JSON.stringify({ operator, sms });
+    const valid = await verifyHMAC(DEPOSIT_SECRET, payloadStr, timestamp, signature);
+    if (!valid) {
+      return json({ success: false, error: "INVALID_SIGNATURE", message: "Signature HMAC invalide ou expirée" }, 401, getCORSHeaders(origin));
     }
 
-    if (!depositRecord) {
-      return json({
-        success: false,
-        error: "NO_PENDING_DEPOSIT",
-        message: `Aucun utilisateur trouvé pour ${amount} Ar${senderPhone ? ` de ${senderPhone}` : ""}`,
-        parsed_amount: amount, parsed_phone: senderPhone, parsed_transid: transId,
+    if (!operator || !sms) {
+      return json({ success: false, error: "MISSING_PARAMS", message: "operator et sms requis" }, 400, getCORSHeaders(origin));
+    }
+
+    // 2. Obtenir le parser
+    const parser = ParserFactory.getParser(operator);
+    if (!parser) {
+      return json({ success: false, error: "UNKNOWN_OPERATOR", message: `Opérateur inconnu: ${operator}` }, 400, getCORSHeaders(origin));
+    }
+
+    // 3. Parser le SMS
+    const parseResult = parser.parse(sms);
+    if (!parseResult.success || !parseResult.data) {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await supabase.from("deposit_transactions").insert({
+        operator,
+        transaction_id: `PARSE_ERROR_${Date.now()}`,
+        sms_content: sms,
+        status: "rejected",
+        rejection_reason: parseResult.error || "Parse error",
       });
+      return json({ success: false, error: "PARSE_ERROR", message: parseResult.error }, 422, getCORSHeaders(origin));
     }
 
-    // ── Step 3: Validate ──
-    const userId = depositRecord.user_id;
-    let userPseudo = depositRecord.user_pseudo || "?";
+    const parsed = parseResult.data;
 
-    // Get pseudo if needed
-    if (userPseudo === "?") {
-      const profResp = await fetch(`${supabaseUrl}/rest/v1/profiles?select=pseudo,balance_ar,first_deposit_at&id=eq.${userId}&limit=1`, { headers });
-      const profData = await profResp.json();
-      if (Array.isArray(profData) && profData[0]) {
-        userPseudo = profData[0].pseudo || "?";
-        const profile = profData[0];
-        const newBalance = Number(profile.balance_ar || 0) + amount;
-        const updates: Record<string, unknown> = { balance_ar: newBalance };
-        if (!profile.first_deposit_at) {
-          updates.first_deposit_at = new Date().toISOString();
-          updates.first_deposit_amount = amount;
-        }
-        await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${userId}`, {
-          method: "PATCH",
-          headers: { ...headers, "Prefer": "return=minimal" },
-          body: JSON.stringify(updates),
-        });
-        await fetch(`${supabaseUrl}/rest/v1/transactions`, {
-          method: "POST",
-          headers: { ...headers, "Prefer": "return=minimal" },
-          body: JSON.stringify({
-            user_id: userId, type: "deposit", amount,
-            note: `Dépôt ${operator.toUpperCase()} — ${transId || "auto"}`,
-          }),
-        });
-      }
-    } else {
-      // We have pseudo but still need to credit
-      const profResp = await fetch(`${supabaseUrl}/rest/v1/profiles?select=balance_ar,first_deposit_at&id=eq.${userId}&limit=1`, { headers });
-      const profData = await profResp.json();
-      if (Array.isArray(profData) && profData[0]) {
-        const profile = profData[0];
-        const newBalance = Number(profile.balance_ar || 0) + amount;
-        const updates: Record<string, unknown> = { balance_ar: newBalance };
-        if (!profile.first_deposit_at) {
-          updates.first_deposit_at = new Date().toISOString();
-          updates.first_deposit_amount = amount;
-        }
-        await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${userId}`, {
-          method: "PATCH",
-          headers: { ...headers, "Prefer": "return=minimal" },
-          body: JSON.stringify(updates),
-        });
-        await fetch(`${supabaseUrl}/rest/v1/transactions`, {
-          method: "POST",
-          headers: { ...headers, "Prefer": "return=minimal" },
-          body: JSON.stringify({
-            user_id: userId, type: "deposit", amount,
-            note: `Dépôt ${operator.toUpperCase()} — ${transId || "auto"}`,
-          }),
-        });
-      }
+    // 4. Valider via la fonction PostgreSQL (atomique)
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { data: result, error } = await supabase.rpc("validate_deposit_from_sms", {
+      _operator: operator,
+      _transaction_id: parsed.transaction_id,
+      _sender_number: parsed.sender_number,
+      _sender_name: parsed.sender_name,
+      _amount: parsed.amount,
+      _sms_date: parsed.sms_date,
+      _sms_content: sms,
+    });
+
+    if (error) {
+      return json({ success: false, error: "DB_ERROR", message: error.message }, 500, getCORSHeaders(origin));
     }
 
-    // Update deposit status
-    await fetch(`${supabaseUrl}/rest/v1/deposits?id=eq.${depositRecord.id}`, {
-      method: "PATCH",
-      headers: { ...headers, "Prefer": "return=minimal" },
-      body: JSON.stringify({
-        status: "validated",
-        validated_at: new Date().toISOString(),
-        reference: transId || depositRecord.reference,
-      }),
-    });
-
-    return json({
-      success: true,
-      user_pseudo: userPseudo,
-      amount, transaction_id: transId || depositRecord.reference, operator,
-    });
-
+    return json(result, result?.success ? 200 : 422, getCORSHeaders(origin));
   } catch (err) {
-    return json({ success: false, error: "SERVER_ERROR", message: String(err) }, 500);
+    return json({ success: false, error: "INTERNAL_ERROR", message: String(err) }, 500, getCORSHeaders(origin));
   }
 });
