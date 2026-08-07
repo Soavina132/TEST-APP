@@ -16,6 +16,7 @@ import { shareNewGameInGroup } from "@/lib/share-game";
 import HelpPopover from "@/components/HelpPopover";
 import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
 import { DepotModal, useAppSettings } from "@/components/WalletButton";
+import PremiumSubscriptionModal from "@/components/PremiumSubscriptionModal";
 import { getLobbyHelp } from "@/lib/game-help-content";
 
 const COVER_BY_SLUG: Record<string, string> = {
@@ -143,6 +144,8 @@ function Lobby() {
   const [pendingAction, setPendingAction] = useState<((name?: string) => Promise<void>) | null>(null);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [showDepositPopup, setShowDepositPopup] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [freeGameInfo, setFreeGameInfo] = useState<{ remaining: number; isPremium: boolean } | null>(null);
   const walletSettings = useAppSettings();
   const [sheet, setSheet] = useState<string | null>(null);
   const closeSheet = () => setSheet(null);
@@ -215,8 +218,22 @@ function Lobby() {
     });
   };
 
+  // Load free game usage info
+  const loadFreeGameInfo = async () => {
+    try {
+      const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug } as any);
+      if (!error && data) {
+        const result = data as any;
+        setFreeGameInfo({
+          remaining: result.is_premium ? (result.premium_remaining === -1 ? -1 : result.premium_remaining) : result.remaining_free,
+          isPremium: result.is_premium || false,
+        });
+      }
+    } catch (e) { /* fail silently */ }
+  };
+
   useEffect(() => {
-    loadPublic(); loadMine();
+    loadPublic(); loadMine(); loadFreeGameInfo();
     const ch = supabase.channel("lobby-" + slug)
       .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, () => { loadPublic(); loadMine(); })
       .subscribe();
@@ -240,10 +257,42 @@ function Lobby() {
       loadMine();
       return;
     }
+    // Increment free/premium game usage counter
+    if (stake === 0) await incrementGameUsage();
     navigate({ to: ROUTE[slug], params: { id } as any });
   };
+  // ── Free game limit check ──
+  const checkFreeGameLimit = async (): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug } as any);
+    if (error) {
+      console.error("check_game_eligibility error:", error);
+      return true; // fail open — let them play
+    }
+    const result = data as any;
+    setFreeGameInfo({ remaining: result.remaining_free || 0, is_premium: result.is_premium || false });
+    if (!result.can_play) {
+      toast.error("Limite atteinte", {
+        description: result.reason || "Limite de jeux gratuits atteinte",
+        action: { label: "S'abonner", onClick: () => setShowPremiumModal(true) },
+        duration: 8000,
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const incrementGameUsage = async () => {
+    try {
+      await supabase.rpc("increment_game_usage" as any, { p_game_type: slug } as any);
+    } catch (e) {
+      console.error("increment_game_usage error:", e);
+    }
+  };
+
 
   const joinPublicOrCreate = withAdminRename(async (overrideName) => {
+    // Check free game limit before creating
+    if (!(await checkFreeGameLimit())) return;
     // Onglet Gratuit : mise forcée à 0, aucune vérification requise
     setBusy(true);
     try {
@@ -318,6 +367,8 @@ function Lobby() {
   });
 
   const createNewFree = async (priv: boolean) => {
+    // Free games need limit check
+    if (!(await checkFreeGameLimit())) return;
     const savedStake = stake;
     (stake as any); // no-op
     try {
@@ -356,7 +407,7 @@ function Lobby() {
         const { data, error } = await supabase.rpc("poker_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
         if (error) throw error; id = extractGameId(data);
       }
-      if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
+      if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
     } finally { void savedStake; }
   };
 
@@ -401,7 +452,7 @@ function Lobby() {
       const { data, error } = await supabase.rpc("poker_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
       if (error) throw error; id = extractGameId(data);
     }
-    if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
+    if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
   };
 
   const createPrivate = withAdminRename(async (overrideName) => {
@@ -587,6 +638,22 @@ function Lobby() {
                 <KeyRound className="w-3.5 h-3.5 shrink-0" />
                 <span>Un code d'invitation à 6 caractères sera généré.</span>
               </div>
+            {freeGameInfo && !freeGameInfo.isPremium && freeGameInfo.remaining <= 3 && freeGameInfo.remaining > 0 && (
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-600 flex items-center gap-2">
+                <span>⚡ {freeGameInfo.remaining} partie{freeGameInfo.remaining > 1 ? "s" : ""} gratuite{freeGameInfo.remaining > 1 ? "s" : ""} restante{freeGameInfo.remaining > 1 ? "s" : ""} aujourd'hui pour {meta.label}</span>
+              </div>
+            )}
+            {freeGameInfo && !freeGameInfo.isPremium && freeGameInfo.remaining === 0 && (
+              <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2 text-[11px] text-destructive flex items-center justify-between">
+                <span>🚫 Limite de 5 parties gratuites atteinte</span>
+                <button onClick={() => setShowPremiumModal(true)} className="font-bold underline">S'abonner</button>
+              </div>
+            )}
+            {freeGameInfo && freeGameInfo.isPremium && (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[11px] text-emerald-600 flex items-center gap-2">
+                <span>👑 Premium actif — matchs {freeGameInfo.remaining === -1 ? "illimités" : `restants: ${freeGameInfo.remaining}`}</span>
+              </div>
+            )}
             )}
             <button onClick={joinPublicOrCreate} disabled={busy}
               className="w-full py-3.5 rounded-full text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/40 active:scale-[0.98] transition-transform sticky bottom-2"
@@ -889,6 +956,11 @@ function Lobby() {
         airtelName={walletSettings.airtelName}
         minDeposit={walletSettings.minDeposit}
         onSuccess={() => { refreshProfile(); }}
+      />
+
+      <PremiumSubscriptionModal
+        open={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
       />
     </main>
   );
