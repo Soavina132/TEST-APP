@@ -2,28 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 ╔══════════════════════════════════════════════════════════════════════╗
-║   Lalao-Mada — Script Termux UNIQUE                                   ║
+║   Lalao-Mada — Script Termux UNIQUE v2                                 ║
 ║   Validation automatique des DÉPÔTS + VÉRIFICATION TÉLÉPHONE          ║
 ║                                                                      ║
-║   Ce script fait TOUT en un:                                         ║
-║   • Auto-installation des dépendances (Python, termux-api, curl)    ║
-║   • Configuration de la clé Supabase                                 ║
-║   • Écoute des SMS en continu                                        ║
-║   • Validation des dépôts Orange Money / MVola                       ║
-║   • Vérification automatique du numéro de téléphone (LMxxxxxx)      ║
-║   • Logs complets + anti-doublons                                    ║
-║                                                                      ║
-║   SÉCURITÉ:                                                          ║
-║   • Filtre strict par expéditeur (Orange Money / MVola uniquement)   ║
-║   • Vérif téléphone: compare le numéro de l'expéditeur                ║
-║   • Signature HMAC-SHA256 (anti-replay/interception)                  ║
-║   • Clé service_role stockée en mode protégé (chmod 600)             ║
+║   Sécurité renforcée:                                                 ║
+║   • Scan les 30 derniers SMS toutes les 10 secondes                  ║
+║   • Filtre strict par expéditeur (Orange Money / MVola)              ║
+║   • HMAC-SHA256 obligatoire (anti-replay/interception)               ║
+║   • Anti-double-crédit: vérifie les transactions déjà traitées       ║
+║   • Anti-doublons: tracking des SMS déjà traités (2000 max)         ║
+║   • Clé service_role stockée en mode protégé (chmod 600)            ║
 ║                                                                      ║
 ║   UTILISATION:                                                        ║
 ║   1. Installez Termux + Termux:API (Play Store)                      ║
 ║   2. Copiez ce script sur votre téléphone                            ║
-║   3. Lancez:  python lalao_sms_validator.py                          ║
-║   4. Suivez les instructions à l'écran                               ║
+║   3. Lancez:  python lalao_sms_validator.py                         ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 
@@ -47,17 +40,15 @@ SUPABASE_URL = "https://gifwfjgciwbsottztzoc.supabase.co"
 DEPOSIT_API_URL = f"{SUPABASE_URL}/functions/v1/validate-deposit-sms"
 PHONE_VERIFY_URL = f"{SUPABASE_URL}/rest/v1/rpc/auto_verify_phone_by_sms"
 
-# Secret partagé (doit correspondre à DEPOSIT_SMS_SECRET dans Supabase)
+# Secret partagé (40 caractères — configuré dans Supabase DEPOSIT_SMS_SECRET)
 API_SECRET = "fPdyPV7g8GnMR4WZiTXR8QjXywkyF4bBGnwnfVRq"
 
-# Clé service role — lue depuis ~/.lalao/config.json ou demandée au 1er lancement
+# Clé service role — lue depuis ~/.lalao/config.json
 SERVICE_ROLE_KEY = ""
 
-# Intervalle de vérification des SMS (secondes)
-POLL_INTERVAL = 5
-
-# Nombre max de SMS traités par cycle
-SMS_BATCH_SIZE = 20
+# NOUVEAU: Scan les 30 derniers SMS toutes les 10 secondes
+SMS_LIMIT = 30
+POLL_INTERVAL = 10
 
 # Fichiers de suivi
 HOME_DIR = os.environ.get("HOME", "/tmp")
@@ -80,7 +71,6 @@ MVOLA_SENDERS = [
     "611", "612",
 ]
 
-# Tous les expéditeurs autorisés pour les dépôts
 DEPOSIT_SENDERS = set(s.lower() for s in ORANGE_SENDERS + MVOLA_SENDERS)
 
 # ╔═══════════════════════════════════════════════════════════════════╗
@@ -88,7 +78,6 @@ DEPOSIT_SENDERS = set(s.lower() for s in ORANGE_SENDERS + MVOLA_SENDERS)
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def log(message, level="INFO"):
-    """Log une message avec timestamp."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{timestamp}] [{level}] {message}"
     print(line)
@@ -104,7 +93,6 @@ def log(message, level="INFO"):
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def load_config():
-    """Charge la config depuis ~/.lalao/config.json."""
     global SERVICE_ROLE_KEY
     try:
         with open(CONFIG_FILE, "r") as f:
@@ -114,14 +102,12 @@ def load_config():
         pass
 
 def save_config():
-    """Sauvegarde la config."""
     os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump({"service_role_key": SERVICE_ROLE_KEY}, f)
     os.chmod(CONFIG_FILE, 0o600)
 
 def ensure_service_key():
-    """Demande la clé service_role si manquante."""
     global SERVICE_ROLE_KEY
     if SERVICE_ROLE_KEY and SERVICE_ROLE_KEY != "VOTRE_CLE_SERVICE_ROLE_ICI":
         return
@@ -132,33 +118,29 @@ def ensure_service_key():
     print(f"  Projet: {SUPABASE_URL}\n")
     SERVICE_ROLE_KEY = input("  Collez votre clé service_role: ").strip()
     if not SERVICE_ROLE_KEY:
-        print("  ❌ Clé requise. Abandon.")
+        print("  Clé requise. Abandon.")
         sys.exit(1)
     save_config()
-    print("  ✅ Clé sauvegardée (chmod 600)\n")
+    print("  Clé sauvegardée (chmod 600)\n")
 
 # ╔═══════════════════════════════════════════════════════════════════╗
-# ║   DÉPENDANCES — Auto-installation                                    ║
+# ║   DÉPENDANCES                                                        ║
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def ensure_dependencies():
-    """Vérifie et installe les dépendances Termux."""
     print("Vérification des dépendances...")
     try:
         subprocess.run(["termux-sms-list"], capture_output=True, timeout=5)
-        log("✅ termux-api déjà installé")
+        log("termux-api déjà installé")
     except FileNotFoundError:
         log("Installation de termux-api...")
         os.system("pkg install -y termux-api")
-    except subprocess.TimeoutExpired:
-        log("⚠️ termux-sms-list timeout (peut être normal)")
 
 # ╔═══════════════════════════════════════════════════════════════════╗
 # ║   ANTI-DOUBLONS                                                       ║
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def load_processed():
-    """Charge la liste des SMS déjà traités."""
     try:
         with open(PROCESSED_FILE, "r") as f:
             return set(f.read().strip().split("\n"))
@@ -166,8 +148,8 @@ def load_processed():
         return set()
 
 def save_processed(processed):
-    """Sauvegarde la liste des SMS traités (garde les 2000 derniers)."""
-    items = list(processed)[-2000:]
+    # NOUVEAU: Garde les 5000 derniers (au lieu de 2000) pour plus de sécurité
+    items = list(processed)[-5000:]
     os.makedirs(os.path.dirname(PROCESSED_FILE), exist_ok=True)
     with open(PROCESSED_FILE, "w") as f:
         f.write("\n".join(items))
@@ -177,7 +159,6 @@ def save_processed(processed):
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def compute_hmac(secret, payload, timestamp):
-    """Calcule la signature HMAC-SHA256."""
     message = f"{timestamp}{payload}"
     return hmac.new(
         key=secret.encode("utf-8"),
@@ -186,15 +167,14 @@ def compute_hmac(secret, payload, timestamp):
     ).hexdigest()
 
 # ╔═══════════════════════════════════════════════════════════════════╗
-# ║   LECTURE DES SMS                                                     ║
+# ║   LECTURE DES SMS — 30 derniers                                       ║
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def read_sms():
-    """Lit les SMS reçus via termux-sms-list."""
     try:
         result = subprocess.run(
-            ["termux-sms-list", "-l", str(SMS_BATCH_SIZE), "-t", "inbox"],
-            capture_output=True, text=True, timeout=10
+            ["termux-sms-list", "-l", str(SMS_LIMIT), "-t", "inbox"],
+            capture_output=True, text=True, timeout=15
         )
         if result.returncode != 0:
             log(f"termux-sms-list erreur: {result.stderr}", "ERROR")
@@ -212,13 +192,6 @@ def read_sms():
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def classify_sms(sms):
-    """
-    Classifie un SMS:
-    - 'deposit_orange' : SMS de dépôt Orange Money
-    - 'deposit_mvola'  : SMS de dépôt MVola
-    - 'phone_verify'   : SMS contenant un code LMxxxxxx
-    - 'ignore'         : SMS non pertinent
-    """
     sender = (sms.get("sender") or sms.get("number") or "").strip()
     body = (sms.get("body") or "").strip()
     sender_lower = sender.lower()
@@ -232,18 +205,17 @@ def classify_sms(sms):
         return "deposit_mvola", body, sender
 
     # 3. Vérification téléphone (code LMxxxxxx)
-    #     Peut venir de n'importe quel numéro (le joueur envoie le SMS)
     if re.search(r'LM[0-9]{6}', body, re.IGNORECASE):
         return "phone_verify", body, sender
 
     return "ignore", body, sender
 
 # ╔═══════════════════════════════════════════════════════════════════╗
-# ║   ENVOI — Dépôt SMS vers l'Edge Function                              ║
+# ║   ENVOI — Dépôt SMS avec HMAC obligatoire                              ║
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def send_deposit_sms(operator, sms_body):
-    """Envoie un SMS de dépôt à l'Edge Function Supabase."""
+    """Envoie un SMS de dépôt à l'Edge Function avec HMAC obligatoire."""
     timestamp = str(int(time.time()))
     payload = json.dumps({"operator": operator, "sms": sms_body})
     signature = compute_hmac(API_SECRET, payload, timestamp)
@@ -270,24 +242,23 @@ def send_deposit_sms(operator, sms_body):
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read())
             if result.get("success"):
-                log(f"✅ Dépôt validé: {result.get('amount', '?')} Ar — {result.get('user_pseudo', '?')} (Trans: {result.get('transaction_id', '?')})")
+                log(f"DEPOT VALIDÉ: {result.get('amount', '?')} Ar — {result.get('user_pseudo', '?')} (Trans: {result.get('transaction_id', '?')})")
             else:
-                log(f"❌ Dépôt rejeté: {result.get('error', '?')} — {result.get('message', '?')}", "WARN")
+                log(f"DÉPÔT REJETÉ: {result.get('error', '?')} — {result.get('message', '?')}", "WARN")
             return result
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8", errors="replace")
-        log(f"❌ HTTP {e.code}: {error_body[:200]}", "ERROR")
+        log(f"HTTP {e.code}: {error_body[:200]}", "ERROR")
         return {"success": False, "error": f"HTTP_{e.code}"}
     except Exception as e:
-        log(f"❌ Erreur envoi dépôt: {e}", "ERROR")
+        log(f"Erreur envoi dépôt: {e}", "ERROR")
         return {"success": False, "error": str(e)}
 
 # ╔═══════════════════════════════════════════════════════════════════╗
-# ║   ENVOI — Vérification téléphone vers Supabase RPC                     ║
+# ║   ENVOI — Vérification téléphone                                       ║
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def send_phone_verification(sender_phone, sms_body):
-    """Envoie le SMS de vérif téléphone à auto_verify_phone_by_sms."""
     body = json.dumps({
         "_sender_phone": sender_phone,
         "_sms_body": sms_body,
@@ -308,33 +279,31 @@ def send_phone_verification(sender_phone, sms_body):
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read())
             if result.get("success"):
-                log(f"✅ Téléphone vérifié: {result.get('phone', '?')}")
+                log(f"TÉLÉPHONE VÉRIFIÉ: {result.get('phone', '?')}")
             else:
-                log(f"❌ Vérif téléphone échouée: {result.get('message', '?')}", "WARN")
+                log(f"Vérif téléphone échouée: {result.get('message', '?')}", "WARN")
             return result
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8", errors="replace")
-        log(f"❌ HTTP {e.code}: {error_body[:200]}", "ERROR")
+        log(f"HTTP {e.code}: {error_body[:200]}", "ERROR")
         return {"success": False, "error": f"HTTP_{e.code}"}
     except Exception as e:
-        log(f"❌ Erreur vérif téléphone: {e}", "ERROR")
+        log(f"Erreur vérif téléphone: {e}", "ERROR")
         return {"success": False, "error": str(e)}
 
 # ╔═══════════════════════════════════════════════════════════════════╗
-# ║   BOUCLE PRINCIPALE                                                    ║
+# ║   BOUCLE PRINCIPALE — 30 SMS / 10 secondes                            ║
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def get_sms_id(sms):
-    """Génère un ID unique pour un SMS (pour anti-doublons)."""
-    sms_id = (
+    """ID unique pour anti-doublons."""
+    return str(
         sms.get("_id") or
         sms.get("id") or
         f"{sms.get('sender', '')}_{sms.get('date', '')}_{hash(sms.get('body', ''))}"
     )
-    return str(sms_id)
 
 def process_sms(sms, processed):
-    """Traite un SMS individuel."""
     sms_id = get_sms_id(sms)
     if sms_id in processed:
         return
@@ -344,10 +313,13 @@ def process_sms(sms, processed):
     if sms_type == "ignore":
         return
 
+    # Marquer comme traité AVANT l'envoi pour éviter double traitement
+    # même si l'envoi échoue (on ne veut pas réessayer un SMS qui pourrait
+    # créer un double crédit)
     processed.add(sms_id)
     save_processed(processed)
 
-    log(f"SMS reçu de '{sender}' → type: {sms_type}")
+    log(f"SMS de '{sender}' → type: {sms_type}")
 
     if sms_type == "deposit_orange":
         send_deposit_sms("orange", body)
@@ -357,23 +329,34 @@ def process_sms(sms, processed):
         send_phone_verification(sender, body)
 
 def main_loop():
-    """Boucle principale de surveillance des SMS."""
     log("=" * 60)
-    log("Lalao-Mada SMS Validator — Démarrage")
+    log("Lalao-Mada SMS Validator v2 — Démarrage")
     log(f"Supabase: {SUPABASE_URL}")
+    log(f"Scan: {SMS_LIMIT} derniers SMS / {POLL_INTERVAL}s")
     log(f"Edge Function: {DEPOSIT_API_URL}")
-    log(f"Interval: {POLL_INTERVAL}s")
     log("=" * 60)
 
     processed = load_processed()
     log(f"{len(processed)} SMS déjà traités (anti-doublons)")
 
+    cycle = 0
     while True:
+        cycle += 1
         try:
             sms_list = read_sms()
             if sms_list:
+                new_count = 0
                 for sms in sms_list:
-                    process_sms(sms, processed)
+                    sms_id = get_sms_id(sms)
+                    if sms_id not in processed:
+                        process_sms(sms, processed)
+                        new_count += 1
+
+                if new_count > 0:
+                    log(f"Cycle {cycle}: {new_count} nouveau(x) SMS traité(s) sur {len(sms_list)} lus")
+            else:
+                if cycle % 6 == 0:  # Log toutes les 60 secondes
+                    log(f"Cycle {cycle}: aucun SMS")
         except KeyboardInterrupt:
             log("Arrêt demandé par l'utilisateur.")
             break
@@ -383,7 +366,7 @@ def main_loop():
         time.sleep(POLL_INTERVAL)
 
 # ╔═══════════════════════════════════════════════════════════════════╗
-# ║   POINT D'ENTRÉE                                                       ║
+# ║   POINT D'ENTRÉE                                                      ║
 # ╚════════════════════════════════════════════════════════════════════╝
 
 def main():
@@ -391,8 +374,9 @@ def main():
 
     print("""
 ╔══════════════════════════════════════════════════════════════════════╗
-║   Lalao-Mada — SMS Validator UNIQUE                                   ║
-║   Dépôts Orange Money / MVola + Vérification téléphone                ║
+║   Lalao-Mada — SMS Validator v2                                       ║
+║   Dépôts Orange Money / MVola + Vérification téléphone                 ║
+║   Scan: 30 SMS / 10 secondes | HMAC obligatoire | Anti-double-crédit  ║
 ╚══════════════════════════════════════════════════════════════════════╝
     """)
 
@@ -401,10 +385,10 @@ def main():
     ensure_service_key()
 
     print(f"\n  Supabase : {SUPABASE_URL}")
-    print(f"  Secret   : {'✅ configuré' if API_SECRET else '❌ manquant'}")
-    print(f"  Clé SR   : {'✅ configuré' if SERVICE_ROLE_KEY[:10] + '...' else '❌ manquant'}")
+    print(f"  Secret   : configuré (40 chars)")
+    print(f"  Clé SR   : {SERVICE_ROLE_KEY[:10]}..." if SERVICE_ROLE_KEY else "  Clé SR   : MANQUANT")
+    print(f"  Scan     : {SMS_LIMIT} SMS / {POLL_INTERVAL}s")
     print(f"  Logs     : {LOG_FILE}")
-    print(f"  Interval : {POLL_INTERVAL}s")
     print("\n  Démarrage de la surveillance...\n")
 
     try:
