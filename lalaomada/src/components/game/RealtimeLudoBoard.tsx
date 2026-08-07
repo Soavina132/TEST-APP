@@ -711,6 +711,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   return (
     <div className="flex flex-col items-center gap-3">
+      <style dangerouslySetInnerHTML={{ __html: POWER_TILE_STYLES }} />
       <div className="w-full px-2"><GameInstructionsBanner slug="ludo" /></div>
       {/* Players: 2 on a single row, 4 in a 2x2 square */}
       {(() => {
