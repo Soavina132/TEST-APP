@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lalaomada/android/**'
+      - 'lalaomada/src/**'
+      - 'lalaomada/capacitor.config.ts'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        working-directory: lalaomada
+        run: npm ci
+
+      - name: Build web assets
+        working-directory: lalaomada
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://gifwfjgciwbsottztzoc.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Sync Capacitor
+        working-directory: lalaomada
+        run: npx cap sync android
+
+      - name: Build APK
+        working-directory: lalaomada/android
+        run: ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LalaoMADA-apk
+          path: lalaomada/android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
