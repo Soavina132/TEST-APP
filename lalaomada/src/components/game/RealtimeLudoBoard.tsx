@@ -552,11 +552,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const effectType = pe.reward || pe.type;
     setPawnPowerEffect({ slot: pe.slot, type: effectType, key, pawn: pe.pawn });
     setTimeout(() => setPawnPowerEffect(null), 1500);
-    // Board-level effect: find the cell from displayedPowerTiles (old tiles before update)
-    const matchTileType = pe.type === "lucky_star" ? "lucky_star" : effectType;
-    const matchedTile = (displayedPowerTiles || []).find(t => t.type === matchTileType);
-    if (matchedTile) {
-      setBoardPowerEffect({ cell: matchedTile.cell, type: effectType, key });
+    // Board-level effect: BUG 3 FIX — use pe.cell from backend instead of searching by type
+    const eventCell = pe.cell;
+    if (eventCell !== undefined && eventCell !== null) {
+      setBoardPowerEffect({ cell: eventCell, type: effectType, key });
       setTimeout(() => setBoardPowerEffect(null), 1800);
     }
   }, [state.power_event]);
