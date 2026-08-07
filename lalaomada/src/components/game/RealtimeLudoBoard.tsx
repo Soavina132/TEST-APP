@@ -179,6 +179,49 @@ const POWER_TILE_STYLES = `
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.15); }
 }
+@keyframes boardBoostRing {
+  0% { transform: scale(0.3); opacity: 0; border-width: 6px; }
+  30% { opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; border-width: 1px; }
+}
+@keyframes boardBoostArrow {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-30px) scale(1.5); opacity: 0; }
+}
+@keyframes boardShieldHex {
+  0% { transform: scale(0.3) rotate(0deg); opacity: 0; }
+  30% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+  60% { transform: scale(1) rotate(0deg); opacity: 0.8; }
+  100% { transform: scale(2) rotate(0deg); opacity: 0; }
+}
+@keyframes boardLightningFlash {
+  0% { transform: scale(0.3); opacity: 0; }
+  20% { transform: scale(1.5); opacity: 1; filter: brightness(2); }
+  40% { transform: scale(0.9); opacity: 0.7; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+@keyframes boardStarBurst {
+  0% { transform: scale(0) rotate(0deg); opacity: 0; }
+  25% { transform: scale(1.5) rotate(90deg); opacity: 1; }
+  100% { transform: scale(2.8) rotate(180deg); opacity: 0; }
+}
+@keyframes boardRerollDice {
+  0% { transform: scale(0.3) rotate(0deg); opacity: 0; }
+  25% { transform: scale(1.3) rotate(180deg); opacity: 1; }
+  50% { transform: scale(0.9) rotate(360deg); opacity: 0.8; }
+  100% { transform: scale(2.2) rotate(720deg); opacity: 0; }
+}
+@keyframes boardGiftPop {
+  0% { transform: scale(0) translateY(10px); opacity: 0; }
+  30% { transform: scale(1.4) translateY(-5px); opacity: 1; }
+  60% { transform: scale(1) translateY(0); opacity: 0.9; }
+  100% { transform: scale(2) translateY(-20px); opacity: 0; }
+}
+@keyframes boardPowerGlow {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
 @keyframes bottomSheetIn {
   0% { transform: translateY(100%); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
@@ -206,6 +249,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [pawnPowerEffect, setPawnPowerEffect] = useState<{ slot: number; type: string; key: string } | null>(null);
   const [displayedPowerTiles, setDisplayedPowerTiles] = useState(state.power_tiles);
   const [doubleRollPhase, setDoubleRollPhase] = useState<{ slot: number; phase: "2x" | "1x" } | null>(null);
+  const [boardPowerEffect, setBoardPowerEffect] = useState<{ cell: number; type: string; key: string } | null>(null);
   const prevPowerTilesRef = useRef(state.power_tiles);
   const pendingPowerTilesRef = useRef<typeof state.power_tiles | null>(null);
   const powerEventCellRef = useRef<number | null>(null);
@@ -499,6 +543,13 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const effectType = pe.reward || pe.type;
     setPawnPowerEffect({ slot: pe.slot, type: effectType, key });
     setTimeout(() => setPawnPowerEffect(null), 1500);
+    // Board-level effect: find the cell from displayedPowerTiles (old tiles before update)
+    const matchTileType = pe.type === "lucky_star" ? "lucky_star" : effectType;
+    const matchedTile = (displayedPowerTiles || []).find(t => t.type === matchTileType);
+    if (matchedTile) {
+      setBoardPowerEffect({ cell: matchedTile.cell, type: effectType, key });
+      setTimeout(() => setBoardPowerEffect(null), 1800);
+    }
   }, [state.power_event]);
 
   // Delayed power tiles update — wait for pawn animation to ACTUALLY finish before relocating tiles
@@ -775,6 +826,77 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             })}
           </>
         )}
+
+        {/* Board-level power activation effect — distinct visual per power type */}
+        {boardPowerEffect && (() => {
+          const [row, col] = PATH[boardPowerEffect.cell];
+          if (!row && !col) return null;
+          const cx = col * cellPx + cellPx / 2;
+          const cy = row * cellPx + cellPx / 2;
+          const effType = boardPowerEffect.type;
+          const effKey = boardPowerEffect.key;
+          const colors: Record<string, string> = {
+            boost: "#a855f7", shield: "#14b8a6", double_roll: "#ec4899",
+            lucky_star: "#fbbf24", reroll: "#ec4899", free_pawn: "#14b8a6",
+          };
+          const icons: Record<string, string> = {
+            boost: "🚀", shield: "🛡️", double_roll: "⚡",
+            lucky_star: "⭐", reroll: "🎲", free_pawn: "🎁",
+          };
+          const c = colors[effType] || "#a855f7";
+          const icon = icons[effType] || "✨";
+          const animMap: Record<string, string> = {
+            boost: "boardBoostRing", shield: "boardShieldHex",
+            double_roll: "boardLightningFlash", lucky_star: "boardStarBurst",
+            reroll: "boardRerollDice", free_pawn: "boardGiftPop",
+          };
+          const anim = animMap[effType] || "boardBoostRing";
+          return (
+            <div key={`bpe-${effKey}`} className="absolute pointer-events-none" style={{ left: cx, top: cy, zIndex: 50, transform: "translate(-50%, -50%)" }}>
+              {/* Expanding colored ring */}
+              <div className="absolute rounded-full"
+                style={{
+                  width: cellPx * 1.2, height: cellPx * 1.2,
+                  left: -cellPx * 0.6, top: -cellPx * 0.6,
+                  border: `4px solid ${c}`,
+                  animation: `${anim} 1.5s ease-out forwards`,
+                  borderRadius: effType === "shield" ? "30%" : "50%",
+                }} />
+              {/* Big icon at center */}
+              <div className="absolute"
+                style={{
+                  fontSize: cellPx * 0.8,
+                  lineHeight: 1,
+                  left: -cellPx * 0.4, top: -cellPx * 0.4,
+                  width: cellPx * 0.8, height: cellPx * 0.8,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  animation: `${anim} 1.5s ease-out forwards`,
+                  filter: `drop-shadow(0 0 8px ${c})`,
+                }}>
+                {icon}
+              </div>
+              {/* Radial glow */}
+              <div className="absolute rounded-full"
+                style={{
+                  width: cellPx * 2, height: cellPx * 2,
+                  left: -cellPx, top: -cellPx,
+                  background: `radial-gradient(circle, ${c}40 0%, transparent 70%)`,
+                  animation: "boardPowerGlow 1s ease-out forwards",
+                }} />
+              {/* Sparkle particles */}
+              {[0, 1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="absolute rounded-full"
+                  style={{
+                    width: "5px", height: "5px",
+                    background: c,
+                    left: 0, top: 0,
+                    animation: `pawnStarBurst 1s ease-out ${i * 0.08}s forwards`,
+                    transform: `rotate(${i * 60}deg) translateY(-${cellPx * 0.6}px)`,
+                  }} />
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Yard inner white rect + 4 dots per quadrant */}
         {quadrants.map(q => {
