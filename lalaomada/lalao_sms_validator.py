@@ -48,7 +48,7 @@ DEPOSIT_API_URL = f"{SUPABASE_URL}/functions/v1/validate-deposit-sms"
 PHONE_VERIFY_URL = f"{SUPABASE_URL}/rest/v1/rpc/auto_verify_phone_by_sms"
 
 # Secret partagé (doit correspondre à DEPOSIT_SMS_SECRET dans Supabase)
-API_SECRET = "LalaoMada2026SecretKey!"
+API_SECRET = "fPdyPV7g8GnMR4WZiTXR8QjXywkyF4bBGnwnfVRq"
 
 # Clé service role — lue depuis ~/.lalao/config.json ou demandée au 1er lancement
 SERVICE_ROLE_KEY = ""
