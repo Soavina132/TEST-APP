@@ -7,7 +7,8 @@ import { copyText } from "@/lib/clipboard";
 import RealtimeLudoBoard from "@/components/game/RealtimeLudoBoard";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import { toast } from "sonner";
-import { LogOut, Eye, Plus, Pause } from "lucide-react";
+import { LogOut, Eye, Plus, Pause, Volume2, VolumeX } from "lucide-react";
+import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 import { useT } from "@/lib/i18n";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
@@ -33,6 +34,7 @@ function GamePage() {
   const [game, setGame] = useState<any>(null);
   const [parts, setParts] = useState<any[]>([]);
   const [confirmQuit, setConfirmQuit] = useState(false);
+  const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [now, setNowTick] = useState(serverNow());
 
   const [loadError, setLoadError] = useState(false);
@@ -253,6 +255,12 @@ function GamePage() {
                 <Pause className="w-2.5 h-2.5" /> Pause
               </button>
             )}
+            <button
+              onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }}
+              className="w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center active:scale-90 transition"
+            >
+              {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            </button>
             <button onClick={() => setConfirmQuit(true)} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
               <LogOut className="w-2.5 h-2.5" /> {t("quit_refunded")}
             </button>

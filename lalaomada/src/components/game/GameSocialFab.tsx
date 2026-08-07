@@ -57,7 +57,7 @@ export default function GameSocialFab({
     if (saved) {
       try { return JSON.parse(saved); } catch { /* ignore */ }
     }
-    return { x: window.innerWidth - BTN_SIZE - 12, y: 64 };
+    return { x: window.innerWidth - BTN_SIZE - 12, y: window.innerHeight - BTN_SIZE - 80 };
   };
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);

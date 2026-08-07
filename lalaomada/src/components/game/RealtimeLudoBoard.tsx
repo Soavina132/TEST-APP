@@ -83,7 +83,6 @@ interface GameState {
   shields?: Record<string, boolean>;
   double_roll_pending?: number | null;
   power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; at: string };
-  power_pending?: { slot: number; pawn_idx: number; tile_type: string; cell: number; options?: string[]; at: string } | null;
 }
 
 interface Props {
@@ -104,19 +103,14 @@ interface Props {
 
 // Power tile icons for Mode Moderne
 const POWER_TILE_META: Record<string, { icon: string; label: string; bg: string; border: string }> = {
-  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(15,23,42,0.88)",  border: "#0ea5e9" },   // sky-500 (not blue pawn)
-  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(15,23,42,0.88)",  border: "#f97316" },   // orange-500 (not green/yellow pawn)
-  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(15,23,42,0.88)",  border: "#ec4899" },   // pink-500 (not red pawn)
-  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(15,23,42,0.88)",  border: "#e2e8f0" },   // slate-200 (silver, no pawn conflict)
+  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(15,23,42,0.88)",  border: "#a855f7" },   // purple
+  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(15,23,42,0.88)",  border: "#14b8a6" },   // teal
+  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(15,23,42,0.88)",  border: "#ec4899" },   // pink
+  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(15,23,42,0.88)",  border: "#e2e8f0" },   // silver
 };
 
 // CSS animations for power tile effects
 const POWER_TILE_STYLES = `
-@keyframes powerFlashAnim {
-  0% { opacity: 0.8; transform: scale(0.8); }
-  30% { opacity: 0.6; transform: scale(1.1); }
-  100% { opacity: 0; transform: scale(1.3); }
-}
 @keyframes powerTilePulse {
   0%, 100% { transform: scale(1); box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3); }
   50% { transform: scale(1.08); box-shadow: 0 4px 12px rgba(255,255,255,0.3), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.4); }
@@ -135,12 +129,37 @@ const POWER_TILE_STYLES = `
   100% { transform: scale(2.5); opacity: 0; }
 }
 @keyframes shieldRingPulse {
-  0%, 100% { box-shadow: 0 0 6px rgba(249, 115, 22, 0.5), 0 0 3px rgba(249, 115, 22, 0.3); border-color: rgba(249, 115, 22, 0.8); }
-  50% { box-shadow: 0 0 14px rgba(249, 115, 22, 0.8), 0 0 8px rgba(249, 115, 22, 0.5); border-color: rgba(249, 115, 22, 1); }
+  0%, 100% { box-shadow: 0 0 6px rgba(20, 184, 166, 0.5), 0 0 3px rgba(20, 184, 166, 0.3); border-color: rgba(20, 184, 166, 0.8); }
+  50% { box-shadow: 0 0 14px rgba(20, 184, 166, 0.8), 0 0 8px rgba(20, 184, 166, 0.5); border-color: rgba(20, 184, 166, 1); }
 }
 @keyframes shieldBadgeFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
+}
+@keyframes pawnBoostEffect {
+  0% { transform: scale(1); opacity: 1; }
+  30% { transform: scale(1.3); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes pawnShieldEffect {
+  0% { transform: scale(0.5); opacity: 0; }
+  40% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+@keyframes pawnSparkleEffect {
+  0% { transform: scale(0) rotate(0deg); opacity: 0; }
+  30% { transform: scale(1) rotate(90deg); opacity: 1; }
+  100% { transform: scale(1.5) rotate(180deg); opacity: 0; }
+}
+@keyframes pawnStarBurst {
+  0% { transform: scale(0) rotate(0deg); opacity: 0; }
+  20% { transform: scale(1.2) rotate(45deg); opacity: 1; }
+  100% { transform: scale(2) rotate(360deg); opacity: 0; }
+}
+@keyframes tileConsumedFade {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 0.4; }
+  100% { transform: scale(0); opacity: 0; }
 }
 @keyframes bottomSheetIn {
   0% { transform: translateY(100%); opacity: 0; }
@@ -165,9 +184,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [animating, setAnimating] = useState(false);
   const [afkMax, setAfkMax] = useState<{t1:number;t2:number;secs:number}>({ t1: 2, t2: 2, secs: 30 });
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
-  const [powerFlash, setPowerFlash] = useState<{ type: string; color: string; key: string } | null>(null);
-  const [showPowerGuide, setShowPowerGuide] = useState(false);
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
+  const [pawnPowerEffect, setPawnPowerEffect] = useState<{ slot: number; type: string; key: string } | null>(null);
+  const [displayedPowerTiles, setDisplayedPowerTiles] = useState(state.power_tiles);
+  const prevPowerTilesRef = useRef(state.power_tiles);
+  const powerEventCellRef = useRef<number | null>(null);
   const lastBotKey = useRef<string>("");
   const lastPassKey = useRef<string>("");
   const lastTimeoutKey = useRef<string>("");
@@ -427,7 +448,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const displayDice = noMoveDisplay ? noMoveDisplay.dice : state.dice;
   const displayPart = partsBySlot.get(displaySlot) || currentPart;
 
-  // Power event display (Mode Moderne) — sound + visual flash
+  // Power event display (Mode Moderne) — sound + pawn visual effect
   const lastPowerEventRef = useRef<string>("");
   useEffect(() => {
     const pe = state.power_event;
@@ -435,38 +456,45 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const key = `${pe.type}-${pe.at}-${pe.slot}`;
     if (lastPowerEventRef.current === key) return;
     lastPowerEventRef.current = key;
-    // Sound effect based on tile type
     const tileType = pe.reward || pe.type;
     sfx.powerTile(tileType);
-    // Toast notification with specific details
+    // Toast notification
     const toastMsgs: Record<string, string> = {
-      boost: `🚀 Boost activé ! +${pe.dice || "?"} cases`,
-      shield: "🛡️ Bouclier activé ! Tous vos pions sont protégés",
-      double_roll: "⚡ Deuxième lancer ! Lancez le dé à nouveau",
-      lucky_star: `⭐ Étoile Chance : ${pe.reward || "récompense"}`,
+      boost: `🚀 Boost ! +${pe.dice || "?"} cases`,
+      shield: "🛡️ Bouclier activé !",
+      double_roll: "⚡ Deuxième lancer !",
+      lucky_star: `⭐ Chance : ${pe.reward || "?"}`,
+      reroll: "🎲 Re-lancer !",
+      free_pawn: "🎁 Pion gratuit sorti !",
     };
     let msg = toastMsgs[pe.reward || pe.type] || toastMsgs[pe.type] || "Pouvoir activé";
-    if (pe.skipped) msg = "🚀 Boost ignoré";
-    // Only show toast to the player whose turn it is; brief info for others
     const isMyPowerEvent = participants.some(p => p.slot === pe.slot && p.user_id === myUserId);
     const isBotPower = participants.some(p => p.slot === pe.slot && p.is_bot);
     if (isMyPowerEvent) {
       toast.success(msg, { duration: 2500 });
     } else if (!isBotPower) {
-      // Other human player's power — brief notification
-      toast.info(who ? `${who} : ${msg}` : msg, { duration: 1500 });
+      toast.info(msg, { duration: 1500 });
     }
-    // Bot power events: silent (sound + flash only, no toast)
-    // Visual flash overlay
-    const flashColors: Record<string, string> = {
-      boost: "#0ea5e9",
-      shield: "#f97316",
-      double_roll: "#ec4899",
-      lucky_star: "#e2e8f0",
-    };
-    setPowerFlash({ type: tileType, color: flashColors[tileType] || "#a855f7", key });
-    setTimeout(() => setPowerFlash(null), 1500);
+    // Pawn visual effect based on power type
+    const effectType = pe.reward || pe.type;
+    setPawnPowerEffect({ slot: pe.slot, type: effectType, key });
+    setTimeout(() => setPawnPowerEffect(null), 1500);
   }, [state.power_event]);
+
+  // Delayed power tiles update — wait for pawn animation to finish before relocating tiles
+  useEffect(() => {
+    const pe = state.power_event;
+    if (pe && pe.at) {
+      // A power was just activated — delay tile update so pawn arrives first
+      const timer = setTimeout(() => {
+        setDisplayedPowerTiles(state.power_tiles);
+      }, 800);
+      prevPowerTilesRef.current = state.power_tiles;
+      return () => clearTimeout(timer);
+    }
+    setDisplayedPowerTiles(state.power_tiles);
+    prevPowerTilesRef.current = state.power_tiles;
+  }, [state.power_tiles, state.power_event]);
 
 
 
@@ -646,14 +674,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         {/* Center triangles */}
         <CenterTriangles cellPx={cellPx} />
 
-        {/* Power tiles (Mode Moderne) */}
-        {state.power_tiles && state.power_tiles.length > 0 && (
+        {/* Power tiles (Mode Moderne) — uses displayedPowerTiles for animation delay */}
+        {displayedPowerTiles && displayedPowerTiles.length > 0 && (
           <>
-            {state.power_tiles.map((tile, ti) => {
+            {displayedPowerTiles.map((tile, ti) => {
               const [row, col] = PATH[tile.cell];
               const meta = POWER_TILE_META[tile.type] || POWER_TILE_META.lucky_star;
-              const cd = tile.cd || 0;
-              const isActive = cd === 0;
               return (
                 <div key={`pt-${ti}`} className="absolute flex items-center justify-center rounded-lg"
                   style={{
@@ -662,24 +688,22 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     width: cellPx * 0.84,
                     height: cellPx * 0.84,
                     background: meta.bg,
-                    border: `2px solid ${isActive ? meta.border : "rgba(100,116,139,0.4)"}`,
-                    boxShadow: isActive
-                      ? "0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)"
-                      : "0 1px 3px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1)",
+                    border: `2px solid ${meta.border}`,
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)",
                     zIndex: 10,
                     fontSize: cellPx * 0.42,
                     lineHeight: 1,
                     pointerEvents: "none",
-                    opacity: isActive ? 1 : 0.35,
-                    filter: isActive ? "none" : "grayscale(0.8)",
-                    animation: isActive ? "powerTilePulse 2s ease-in-out infinite" : "none",
+                    opacity: 1,
+                    animation: "powerTilePulse 2s ease-in-out infinite",
+                    transition: "left 0.5s ease, top 0.5s ease",
                   }}>
                   <span style={{
-                    animation: isActive ? "powerGlow 1.5s ease-in-out infinite" : "none",
-                    color: isActive ? meta.border : "rgba(100,116,139,0.6)",
+                    animation: "powerGlow 1.5s ease-in-out infinite",
+                    color: meta.border,
                     display: "inline-block",
                   }}>
-                    {isActive ? meta.icon : "⏳"}
+                    {meta.icon}
                   </span>
                 </div>
               );
@@ -755,17 +779,70 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                   boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.35), inset -2px -3px 6px rgba(0,0,0,0.55), inset 2px 2px 4px rgba(255,255,255,0.3), 0 4px 8px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4)`,
                   filter: "saturate(1.35) contrast(1.1)",
                 }}>
-                {state.shields?.[String(p.slot)] === true && (
+                {state.shields?.[String(p.slot)] === true && !pawnPowerEffect && (
                   <div className="absolute pointer-events-none rounded-full"
                     style={{
                       inset: "-3px",
-                      border: "2px solid rgba(249,115,22,0.8)",
+                      border: "2px solid rgba(20,184,166,0.8)",
                       animation: "shieldRingPulse 1.5s ease-in-out infinite",
                       borderRadius: "50%",
                     }}>
                     <span className="absolute -top-2 -right-1 text-[10px]"
                       style={{ animation: "shieldBadgeFloat 1s ease-in-out infinite" }}>🛡️</span>
                   </div>
+                )}
+                {pawnPowerEffect && pawnPowerEffect.slot === p.slot && (
+                  (() => {
+                    const effType = pawnPowerEffect.type;
+                    const effKey = pawnPowerEffect.key;
+                    const effectColors: Record<string, string> = {
+                      boost: "#a855f7",
+                      shield: "#14b8a6",
+                      double_roll: "#ec4899",
+                      lucky_star: "#e2e8f0",
+                      reroll: "#ec4899",
+                      free_pawn: "#14b8a6",
+                    };
+                    const effColor = effectColors[effType] || "#a855f7";
+                    const effectIcons: Record<string, string> = {
+                      boost: "🚀",
+                      shield: "🛡️",
+                      double_roll: "⚡",
+                      lucky_star: "⭐",
+                      reroll: "🎲",
+                      free_pawn: "🎁",
+                    };
+                    return (
+                      <div className="absolute pointer-events-none" style={{ inset: "-8px", zIndex: 40 }}>
+                        {/* Pulsing ring */}
+                        <div className="absolute inset-0 rounded-full"
+                          style={{
+                            border: `3px solid ${effColor}`,
+                            animation: "pawnBoostEffect 1.2s ease-out forwards",
+                            borderRadius: "50%",
+                          }} />
+                        {/* Icon badge */}
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-lg"
+                          style={{
+                            animation: "pawnSparkleEffect 1.2s ease-out forwards",
+                            filter: `drop-shadow(0 0 4px ${effColor})`,
+                          }}>
+                          {effectIcons[effType] || "✨"}
+                        </div>
+                        {/* Sparkle particles */}
+                        {[0, 1, 2, 3].map(i => (
+                          <div key={i} className="absolute rounded-full"
+                            style={{
+                              width: "4px", height: "4px",
+                              background: effColor,
+                              top: "50%", left: "50%",
+                              animation: `pawnStarBurst 1s ease-out ${i * 0.1}s forwards`,
+                              transform: `rotate(${i * 90}deg) translateY(-12px)`,
+                            }} />
+                        ))}
+                      </div>
+                    );
+                  })()
                 )}
                 <span className="absolute rounded-full pointer-events-none"
                       style={{
@@ -781,66 +858,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
       </div>
 
-      {/* Power event flash overlay */}
-      {powerFlash && (
-        <div key={powerFlash.key}
-          className="absolute inset-0 pointer-events-none rounded-2xl"
-          style={{
-            background: `radial-gradient(circle at center, ${powerFlash.color}40 0%, transparent 70%)`,
-            animation: "powerFlashAnim 1.5s ease-out forwards",
-            zIndex: 50,
-          }} />
-      )}
-
-      {/* Power choice dialog (Mode Moderne) */}
-      {state.power_pending && isMyTurn && !animating && (
-        <PowerChoiceDialog
-          pending={state.power_pending}
-          onChoose={async (choice: string) => {
-            setBusy(true);
-            try {
-              const { error } = await supabase.rpc("ludo_choose_power" as any, { _game_id: gameId, _choice: choice } as any);
-              if (error) {
-                const friendlyMap: Record<string, string> = {
-                  "Aucun pouvoir en attente": "Aucun pouvoir à activer",
-                  "Pas votre pouvoir": "Ce n'est pas votre pouvoir",
-                  "Choix invalide": "Choix invalide",
-                  "Partie pas en cours": "La partie est terminée",
-                };
-                toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
-              }
-            } finally { setBusy(false); }
-          }}
-          disabled={busy}
-        />
-      )}
-      {state.power_pending && !isMyTurn && (
-        <div className="w-full rounded-xl bg-blue-500/10 border border-blue-500/30 px-3 py-2 text-center text-[11px] text-blue-600 dark:text-blue-400 animate-pulse">
-          {(() => {
-            const part = participants.find(p => p.slot === state.power_pending!.slot);
-            return part ? `${nameOf(part)} choisit son pouvoir…` : "En attente du choix…";
-          })()}
-        </div>
-      )}
-
-      {/* Sound toggle + Power guide */}
-      <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5">
-        {state.power_tiles && state.power_tiles.length > 0 && (
-          <button
-            onClick={() => setShowPowerGuide(true)}
-            className="w-8 h-8 rounded-full bg-card/80 backdrop-blur border border-border/40 flex items-center justify-center active:scale-90 transition text-sm"
-            title="Guide des pouvoirs"
-          >
-            ⭐
-          </button>
-        )}
-        <button
-          onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }}
-          className="w-8 h-8 rounded-full bg-card/80 backdrop-blur border border-border/40 flex items-center justify-center active:scale-90 transition"
-        >
-          {soundOn ? "🔊" : "🔇"}
-        </button>
-      </div>
+      {/* Sound toggle (moved to game page header) */}
 
       {/* Forfeit banner */}
       {(() => {
@@ -927,9 +945,6 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         )}
 
       </div>
-      {/* Power guide modal */}
-      {showPowerGuide && <PowerGuideModal onClose={() => setShowPowerGuide(false)} />}
-
       <GamePauseControl
         slug="ludo"
         gameId={gameId}
@@ -1055,163 +1070,3 @@ function DiceFace({ value }: { value: number }) {
 }
 
 // ═══ Power Choice Dialog — Compact Bottom Sheet (Mode Moderne v3) ═══════
-function PowerChoiceDialog({
-  pending,
-  onChoose,
-  disabled,
-}: {
-  pending: NonNullable<GameState["power_pending"]>;
-  onChoose: (choice: string) => void | Promise<void>;
-  disabled?: boolean;
-}) {
-  if (pending.tile_type === "boost") {
-    return (
-      <>
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" style={{ animation: "overlayIn 0.2s ease-out" }} />
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-3 pb-4"
-          style={{ animation: "bottomSheetIn 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
-          <div className="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border w-full max-w-xs overflow-hidden">
-            {/* Header strip */}
-            <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-border/50">
-              <span className="text-2xl">🚀</span>
-              <div>
-                <h3 className="font-bold text-sm">Boost</h3>
-                <p className="text-[11px] text-muted-foreground">Avance de 1 à 6 cases supplémentaires</p>
-              </div>
-            </div>
-            {/* Warning */}
-            <p className="px-4 py-2 text-[11px] text-muted-foreground/80">
-              ⚠ Peut te mener sur une case dangereuse. Si le total dépasse 56, le pion ne bouge pas.
-            </p>
-            {/* Buttons */}
-            <div className="flex gap-2 p-3">
-              <button
-                onClick={() => onChoose("activate")}
-                disabled={disabled}
-                className="flex-1 rounded-xl bg-primary text-primary-foreground py-2 font-semibold text-sm hover:bg-primary/90 active:scale-95 transition disabled:opacity-50"
-              >
-                Activer
-              </button>
-              <button
-                onClick={() => onChoose("skip")}
-                disabled={disabled}
-                className="flex-1 rounded-xl bg-secondary text-secondary-foreground py-2 font-semibold text-sm hover:bg-secondary/80 active:scale-95 transition disabled:opacity-50"
-              >
-                Passer
-              </button>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  if (pending.tile_type === "lucky_star") {
-    const options = pending.options || [];
-    const optionMeta: Record<string, { icon: string; label: string; desc: string }> = {
-      boost:      { icon: "🚀", label: "Boost",        desc: "+1 à 6 cases" },
-      shield:     { icon: "🛡️", label: "Bouclier",     desc: "Tous pions protégés" },
-      double_roll:{ icon: "⚡", label: "2e Lancer",    desc: "Deux lancers de dé" },
-      free_pawn:  { icon: "🎁", label: "Pion gratuit", desc: "Sort un pion du yard" },
-      reroll:     { icon: "🎲", label: "Re-lancer",    desc: "Relance le dé" },
-    };
-    return (
-      <>
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" style={{ animation: "overlayIn 0.2s ease-out" }} />
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-3 pb-4"
-          style={{ animation: "bottomSheetIn 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
-          <div className="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border w-full max-w-sm overflow-hidden">
-            {/* Header strip */}
-            <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-border/50">
-              <span className="text-2xl">⭐</span>
-              <div>
-                <h3 className="font-bold text-sm">Étoile Chance</h3>
-                <p className="text-[11px] text-muted-foreground">Choisis ta récompense</p>
-              </div>
-            </div>
-            {/* Options */}
-            <div className="p-2 gap-1">
-              {options.map((opt, i) => {
-                const meta = optionMeta[opt] || { icon: "❓", label: opt, desc: "" };
-                return (
-                  <button
-                    key={i}
-                    onClick={() => onChoose(opt)}
-                    disabled={disabled}
-                    className="w-full flex items-center gap-3 rounded-xl bg-secondary/60 hover:bg-accent text-secondary-foreground px-3 py-2.5 text-left transition active:scale-[0.98] disabled:opacity-50"
-                  >
-                    <span className="text-xl">{meta.icon}</span>
-                    <div className="flex-1">
-                      <div className="font-semibold text-sm">{meta.label}</div>
-                      <div className="text-[11px] text-muted-foreground">{meta.desc}</div>
-                    </div>
-                    <span className="text-muted-foreground/40 text-sm">›</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  return null;
-}
-
-// ═══ Power Guide Modal — Compact reference for all power tiles ════════
-function PowerGuideModal({ onClose }: { onClose: () => void }) {
-  const powers = [
-    { icon: "🚀", label: "Boost", color: "#0ea5e9",
-      desc: "Avance automatiquement de 1 à 6 cases supplémentaires. Peut capturer. Dépassement 56 = gaspillé.",
-      action: "Dialog: Activer / Passer" },
-    { icon: "🛡️", label: "Bouclier", color: "#f97316",
-      desc: "Tous tes pions sont protégés contre la capture. Expire à ton prochain tour.",
-      action: "Automatique" },
-    { icon: "⚡", label: "Double Lancer", color: "#ec4899",
-      desc: "Lancer de dé supplémentaire. Si no-move, tu obtiens encore un lancer. Consommé au move.",
-      action: "Automatique" },
-    { icon: "⭐", label: "Étoile Chance", color: "#e2e8f0",
-      desc: "Choisis 1 récompense parmi 3 options aléatoires: Boost, Bouclier, Double Lancer, Pion gratuit, Re-lancer.",
-      action: "Dialog: 3 options" },
-  ];
-  return (
-    <>
-      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} style={{ animation: "overlayIn 0.2s ease-out" }} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-3 pb-4"
-        style={{ animation: "bottomSheetIn 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
-        <div className="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border w-full max-w-sm overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">⭐</span>
-              <h3 className="font-bold text-sm">Guide des Pouvoirs</h3>
-            </div>
-            <button onClick={onClose} className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-muted-foreground active:scale-90 transition text-sm">✕</button>
-          </div>
-          {/* Power list */}
-          <div className="p-2 gap-1">
-            {powers.map((p, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-xl px-3 py-2.5">
-                <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-lg" style={{ background: `${p.color}20`, border: `1px solid ${p.color}40` }}>
-                  {p.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm">{p.label}</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{p.action}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{p.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* Footer note */}
-          <div className="px-4 py-2 border-t border-border/50 text-center text-[10px] text-muted-foreground">
-            6 tuiles sur le plateau · Cooldown 3 tours après activation · Toujours rejoue
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
