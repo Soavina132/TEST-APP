@@ -103,10 +103,10 @@ interface Props {
 
 // Power tile icons for Mode Moderne
 const POWER_TILE_META: Record<string, { icon: string; label: string; bg: string; border: string }> = {
-  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(15,23,42,0.88)",  border: "#a855f7" },   // purple
-  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(15,23,42,0.88)",  border: "#14b8a6" },   // teal
-  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(15,23,42,0.88)",  border: "#ec4899" },   // pink
-  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(15,23,42,0.88)",  border: "#e2e8f0" },   // silver
+  boost:      { icon: "🚀", label: "Boost",      bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
+  shield:     { icon: "🛡️", label: "Bouclier",   bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
+  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
+  lucky_star: { icon: "⭐", label: "Chance",     bg: "rgba(10,10,15,0.92)",  border: "rgba(255,255,255,0.25)" },
 };
 
 // CSS animations for power tile effects
@@ -161,6 +161,24 @@ const POWER_TILE_STYLES = `
   50% { transform: scale(1.3); opacity: 0.4; }
   100% { transform: scale(0); opacity: 0; }
 }
+@keyframes shieldAuraPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(20,184,166,0.4), inset 0 0 4px rgba(20,184,166,0.2); opacity: 0.7; }
+  50% { box-shadow: 0 0 14px rgba(20,184,166,0.7), inset 0 0 8px rgba(20,184,166,0.4); opacity: 1; }
+}
+@keyframes shieldBurstEffect {
+  0% { transform: scale(0.5); opacity: 0; }
+  30% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes doubleRollBadgeIn {
+  0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+  50% { transform: scale(1.3) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes doubleRollBadgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
 @keyframes bottomSheetIn {
   0% { transform: translateY(100%); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
@@ -187,7 +205,9 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [pawnPowerEffect, setPawnPowerEffect] = useState<{ slot: number; type: string; key: string } | null>(null);
   const [displayedPowerTiles, setDisplayedPowerTiles] = useState(state.power_tiles);
+  const [doubleRollPhase, setDoubleRollPhase] = useState<{ slot: number; phase: "2x" | "1x" } | null>(null);
   const prevPowerTilesRef = useRef(state.power_tiles);
+  const pendingPowerTilesRef = useRef<typeof state.power_tiles | null>(null);
   const powerEventCellRef = useRef<number | null>(null);
   const lastBotKey = useRef<string>("");
   const lastPassKey = useRef<string>("");
@@ -481,20 +501,55 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     setTimeout(() => setPawnPowerEffect(null), 1500);
   }, [state.power_event]);
 
-  // Delayed power tiles update — wait for pawn animation to finish before relocating tiles
+  // Delayed power tiles update — wait for pawn animation to ACTUALLY finish before relocating tiles
+  // When a power_event fires, we store the new tiles in a ref and only apply them
+  // once `animating` goes false (pawn has truly arrived on the cell).
   useEffect(() => {
     const pe = state.power_event;
     if (pe && pe.at) {
-      // A power was just activated — delay tile update so pawn arrives first
-      const timer = setTimeout(() => {
+      // A power was just activated — store the new tiles for deferred application
+      pendingPowerTilesRef.current = state.power_tiles;
+      // If not currently animating, apply immediately
+      if (!animating) {
         setDisplayedPowerTiles(state.power_tiles);
-      }, 800);
-      prevPowerTilesRef.current = state.power_tiles;
-      return () => clearTimeout(timer);
+        pendingPowerTilesRef.current = null;
+      }
+    } else {
+      // No power event — sync immediately
+      setDisplayedPowerTiles(state.power_tiles);
+      pendingPowerTilesRef.current = null;
     }
-    setDisplayedPowerTiles(state.power_tiles);
     prevPowerTilesRef.current = state.power_tiles;
   }, [state.power_tiles, state.power_event]);
+
+  // When animation finishes, apply any pending power tiles
+  useEffect(() => {
+    if (!animating && pendingPowerTilesRef.current) {
+      setDisplayedPowerTiles(pendingPowerTilesRef.current);
+      pendingPowerTilesRef.current = null;
+    }
+  }, [animating]);
+
+  // Double roll phase tracking: 2x → 1x → gone
+  useEffect(() => {
+    const drp = state.double_roll_pending;
+    if (drp !== null && drp !== undefined) {
+      // Player just got double_roll — show "2x"
+      setDoubleRollPhase({ slot: drp, phase: "2x" });
+    } else if (doubleRollPhase && doubleRollPhase.phase === "2x") {
+      // double_roll_pending went from set → null while still this player's turn
+      // The extra roll was consumed — show "1x" briefly
+      const isStillTheirTurn = state.turn_slot === doubleRollPhase.slot;
+      if (isStillTheirTurn) {
+        setDoubleRollPhase({ slot: doubleRollPhase.slot, phase: "1x" });
+        const t = setTimeout(() => setDoubleRollPhase(null), 2000);
+        return () => clearTimeout(t);
+      } else {
+        setDoubleRollPhase(null);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.double_roll_pending, state.turn_slot]);
 
 
 
@@ -635,8 +690,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                   <div className="flex min-w-0 flex-col leading-tight">
                     <div className="flex items-center gap-1">
                       <span className={`truncate text-xs font-semibold leading-none ${COLOR_META[p.color].text}`}>{nameOf(p)}</span>
-                      {state.double_roll_pending === p.slot && (
-                        <span className="shrink-0 rounded bg-pink-500/90 px-1 text-[7px] font-bold leading-tight text-white">⚡2x</span>
+                      {doubleRollPhase && doubleRollPhase.slot === p.slot && (
+                        <span
+                          key={doubleRollPhase.phase}
+                          className="shrink-0 rounded px-1 text-[7px] font-bold leading-tight text-white"
+                          style={{
+                            background: doubleRollPhase.phase === "2x" ? "#ec4899" : "#6366f1",
+                            animation: doubleRollPhase.phase === "2x"
+                              ? "doubleRollBadgeIn 0.3s ease-out, doubleRollBadgePulse 1s ease-in-out 0.3s infinite"
+                              : "doubleRollBadgeIn 0.3s ease-out",
+                          }}>
+                          ⚡{doubleRollPhase.phase}
+                        </span>
                       )}
                       {state.shields?.[String(p.slot)] === true && (
                         <span className="shrink-0 text-[8px] leading-none">🛡️</span>
@@ -779,12 +844,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                   boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.35), inset -2px -3px 6px rgba(0,0,0,0.55), inset 2px 2px 4px rgba(255,255,255,0.3), 0 4px 8px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4)`,
                   filter: "saturate(1.35) contrast(1.1)",
                 }}>
-                {state.shields?.[String(p.slot)] === true && !pawnPowerEffect && (
+                {state.shields?.[String(p.slot)] === true && (
                   <div className="absolute pointer-events-none rounded-full"
                     style={{
-                      inset: "-3px",
-                      border: "2px solid rgba(20,184,166,0.8)",
-                      animation: "shieldRingPulse 1.5s ease-in-out infinite",
+                      inset: "-4px",
+                      border: "2.5px solid rgba(20,184,166,0.9)",
+                      animation: "shieldAuraPulse 1.5s ease-in-out infinite",
                       borderRadius: "50%",
                     }}>
                     <span className="absolute -top-2 -right-1 text-[10px]"
@@ -821,6 +886,15 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                             animation: "pawnBoostEffect 1.2s ease-out forwards",
                             borderRadius: "50%",
                           }} />
+                        {/* Shield: extra burst ring */}
+                        {effType === "shield" && (
+                          <div className="absolute inset-0 rounded-full"
+                            style={{
+                              border: `4px solid ${effColor}`,
+                              animation: "shieldBurstEffect 1.5s ease-out forwards",
+                              borderRadius: "50%",
+                            }} />
+                        )}
                         {/* Icon badge */}
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-lg"
                           style={{
