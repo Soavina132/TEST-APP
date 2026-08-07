@@ -130,9 +130,12 @@ def ensure_service_key():
 def ensure_dependencies():
     print("Vérification des dépendances...")
     try:
-        subprocess.run(["termux-sms-list"], capture_output=True, timeout=5)
+        subprocess.run(["termux-sms-list", "-l", "1"], capture_output=True, timeout=30)
         log("termux-api déjà installé")
     except FileNotFoundError:
+        pass
+    except subprocess.TimeoutExpired:
+        log("termux-sms-list répond lentement (30s timeout) — probablement installé", "WARN")
         log("Installation de termux-api...")
         os.system("pkg install -y termux-api")
 
@@ -145,6 +148,9 @@ def load_processed():
         with open(PROCESSED_FILE, "r") as f:
             return set(f.read().strip().split("\n"))
     except FileNotFoundError:
+        pass
+    except subprocess.TimeoutExpired:
+        log("termux-sms-list répond lentement (30s timeout) — probablement installé", "WARN")
         return set()
 
 def save_processed(processed):
@@ -174,13 +180,16 @@ def read_sms():
     try:
         result = subprocess.run(
             ["termux-sms-list", "-l", str(SMS_LIMIT), "-t", "inbox"],
-            capture_output=True, text=True, timeout=15
+            capture_output=True, text=True, timeout=30
         )
         if result.returncode != 0:
             log(f"termux-sms-list erreur: {result.stderr}", "ERROR")
             return []
         return json.loads(result.stdout)
     except FileNotFoundError:
+        pass
+    except subprocess.TimeoutExpired:
+        log("termux-sms-list répond lentement (30s timeout) — probablement installé", "WARN")
         log("termux-sms-list introuvable. Installez termux-api.", "ERROR")
         return []
     except (json.JSONDecodeError, subprocess.TimeoutExpired) as e:
