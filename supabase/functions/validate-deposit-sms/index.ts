@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════
-// validate-deposit-sms — Edge Function Supabase v3 (sécurité renforcée)
+// validate-deposit-sms — Edge Function Supabase v4 (parsers corrigés)
 //
 // POST /functions/v1/validate-deposit-sms
 // Body: { "secret": "xxx", "operator": "orange|mvola", "sms": "...",
 //         "timestamp": "1234567890", "signature": "hmac_hex" }
 //
-// SÉCURITÉ v3:
+// SÉCURITÉ v3 (conservée):
 //   1. Vérification du secret API (OBLIGATOIRE)
 //   2. Vérification de la signature HMAC-SHA256 (OBLIGATOIRE — anti-replay)
 //   3. Vérification du timestamp (fenêtre de 5 minutes)
@@ -13,9 +13,25 @@
 //   5. CORS restreint à l'URL de l'app (pas *)
 //   6. Pas de secret hardcodé en fallback
 //
+// FIX v4 (basé sur SMS réels fournis par l'utilisateur):
+//   A. OrangeParser — Trans Id capturait un point final en trop
+//      Ex réel: "Trans Id: PP260519.1245.C46612." → capturait avec le "."
+//      Fix: strip du point final avant retour
+//   B. MVolaParser — le format réel a le montant AVANT "recu de", pas après
+//      Ex réel: "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907 le
+//                04/08/26 a 16:45. Raison: ludo. Solde: 20 559 Ar. Ref 4876739165"
+//      L'ancien regex ne matchait JAMAIS ce format → amount restait NULL
+//      SANS ÊTRE VALIDÉ (pas de check manquant), ce qui pouvait bypasser
+//      la vérification du montant côté DB (NULL <= 200 = NULL = pas de rejet)
+//      Fix: nouveau parseFormat dédié + vérification stricte du montant
+//
 // Architecture:
 //   ParserFactory → OrangeParser | MVolaParser
 //   → validate_deposit_from_sms() (PostgreSQL, atomique)
+//
+// NOTE: AirtelParser pas encore implémenté — en attente d'un exemple de SMS
+//       Airtel Money réel. Les dépôts Airtel doivent être validés
+//       manuellement par l'admin en attendant.
 // ═══════════════════════════════════════════════════════════════════════
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -42,6 +58,13 @@ interface ParseResult {
 // ═══════════════════════════════════════════════════════════════════════
 // ORANGE PARSER
 // ═══════════════════════════════════════════════════════════════════════
+//
+// Format réel confirmé (SMS reçu):
+//   "Vous avez recu un transfert de 25650Ar venant du 0322159515
+//    Nouveau Solde: 26230Ar.  Trans Id: PP260519.1245.C46612.
+//    Orange Money vous remercie..."
+//
+// Structure du Trans Id: PP + AAMMJJ . HHMM . C + chiffres (séparés par points)
 
 class OrangeParser {
   parse(sms: string): ParseResult {
@@ -61,7 +84,10 @@ class OrangeParser {
     const senderMatch = sms.match(/venant\s+du\s+(\d[\d\s]+)/i);
     if (senderMatch) result.sender_number = senderMatch[1].trim();
     const transIdMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i);
-    if (transIdMatch) result.transaction_id = transIdMatch[1].trim();
+    if (transIdMatch) {
+      // FIX v4: retirer le point final de fin de phrase (pas un vrai séparateur)
+      result.transaction_id = transIdMatch[1].trim().replace(/\.$/, "");
+    }
     if (!result.transaction_id) return { success: false, error: "Trans Id manquant (Format 1)" };
     if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 1)" };
     return { success: true, data: result };
@@ -75,9 +101,9 @@ class OrangeParser {
     if (senderMatch) { result.sender_name = senderMatch[1].trim(); result.sender_number = senderMatch[2]; }
     const dateMatch = sms.match(/le\s+(\d{2}\/\d{2}\/\d{2,4})\s+[àa]\s+(\d{2}:\d{2})/i);
     if (dateMatch) result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
-    const refMatch = sms.match(/Ref\s+(\d+)/i);
-    if (refMatch) result.transaction_id = refMatch[1];
-    if (!result.transaction_id) return { success: false, error: "Ref manquante (Format 2)" };
+    const refMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i) || sms.match(/Ref\s+(\d+)/i);
+    if (refMatch) result.transaction_id = refMatch[1].trim().replace(/\.$/, "");
+    if (!result.transaction_id) return { success: false, error: "Ref/Trans Id manquante (Format 2)" };
     if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 2)" };
     return { success: true, data: result };
   }
@@ -86,12 +112,49 @@ class OrangeParser {
 // ═══════════════════════════════════════════════════════════════════════
 // MVOLA PARSER
 // ═══════════════════════════════════════════════════════════════════════
+//
+// Format réel confirmé (SMS reçu):
+//   "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907 le 04/08/26
+//    a 16:45. Raison: ludo. Solde: 20 559 Ar. Ref 4876739165"
+//
+// IMPORTANT: le montant reçu est AVANT "recu de" — le "Solde" (après)
+// est le solde du compte admin, PAS le montant reçu. Ne jamais confondre
+// les deux nombres.
 
 class MVolaParser {
   parse(sms: string): ParseResult {
+    // FIX v4: format réel prioritaire — "X Ar recu de ... Ref Y"
+    if (/[\d\s]+\s*Ar\s+recu\s+de/i.test(sms)) {
+      return this.parseRealFormat(sms);
+    }
     if (/recu/i.test(sms) || /ref/i.test(sms)) return this.parseFormat1(sms);
     if (/transaction/i.test(sms) || /montant/i.test(sms)) return this.parseFormat2(sms);
     return { success: false, error: "Format MVola non reconnu" };
+  }
+
+  // FIX v4: nouveau parser dédié au format réel MVola
+  private parseRealFormat(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+
+    // Montant AVANT "Ar recu de" (pas le Solde, qui vient après)
+    const amountMatch = sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i);
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+
+    // Nom + numéro entre "recu de" et "le <date>"
+    const senderMatch = sms.match(/recu\s+de\s+(.+?)\s+(\d{9,10})\s+le/i);
+    if (senderMatch) { result.sender_name = senderMatch[1].trim(); result.sender_number = senderMatch[2]; }
+
+    // Date + heure
+    const dateMatch = sms.match(/le\s+(\d{2}\/\d{2}\/\d{2,4})\s+[àa]\s+(\d{2}:\d{2})/i);
+    if (dateMatch) result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
+
+    // Ref (numérique) — toujours à la fin du SMS
+    const refMatch = sms.match(/Ref\s+(\d+)/i);
+    if (refMatch) result.transaction_id = refMatch[1];
+
+    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (format réel)" };
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (format réel)" };
+    return { success: true, data: result };
   }
 
   private parseFormat1(sms: string): ParseResult {
@@ -103,6 +166,8 @@ class MVolaParser {
     const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
     if (refMatch) result.transaction_id = refMatch[1];
     if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 1)" };
+    // FIX v4: vérification du montant ajoutée (manquait — bypass possible)
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 1)" };
     return { success: true, data: result };
   }
 
@@ -115,6 +180,8 @@ class MVolaParser {
     const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
     if (refMatch) result.transaction_id = refMatch[1];
     if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 2)" };
+    // FIX v4: vérification du montant ajoutée (manquait — bypass possible)
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 2)" };
     return { success: true, data: result };
   }
 }
@@ -128,6 +195,7 @@ class ParserFactory {
     switch (operator.toLowerCase().trim()) {
       case "orange": return new OrangeParser();
       case "mvola": case "m-vola": return new MVolaParser();
+      // NOTE: "airtel" pas encore supporté — en attente d'un exemple de SMS réel
       default: return null;
     }
   }
