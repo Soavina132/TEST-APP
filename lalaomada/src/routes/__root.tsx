@@ -1,5 +1,6 @@
 import * as React from "react";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useNativePush } from "@/hooks/use-native-push";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -176,11 +177,12 @@ function RouteSkeletonOverlay() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Push notifications manager — registers SW and subscribes to push
+// Push notifications manager — registers both web push AND native FCM
 // ═══════════════════════════════════════════════════════════════════════════
 
 function PushNotificationsManager() {
-  usePushNotifications();
+  usePushNotifications();  // Web push (browser) — auto-skips on native
+  useNativePush();          // FCM push (Android/iOS) — auto-skips on web
   return null;
 }
 
