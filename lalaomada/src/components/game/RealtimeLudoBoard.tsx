@@ -102,11 +102,11 @@ interface Props {
 
 
 // Power tile icons for Mode Moderne
-const POWER_TILE_META: Record<string, { icon: string; label: string; bg: string; border: string }> = {
-  boost:      { icon: "🚀", label: "Boost",      bg: "transparent",  border: "transparent" },
-  shield:     { icon: "🛡️", label: "Bouclier",   bg: "transparent",  border: "transparent" },
-  double_roll:{ icon: "⚡", label: "2e Lancer",  bg: "transparent",  border: "transparent" },
-  lucky_star: { icon: "⭐", label: "Chance",     bg: "transparent",  border: "transparent" },
+const POWER_TILE_META: Record<string, { icon: string; label: string; color: string }> = {
+  boost:       { icon: "🚀", label: "Boost",      color: "#a855f7" },  // violet
+  shield:      { icon: "🛡️", label: "Bouclier",   color: "#14b8a6" },  // teal
+  double_roll: { icon: "⚡", label: "2e Lancer",  color: "#f472b6" },  // rose
+  lucky_star:  { icon: "⭐", label: "Chance",     color: "#fbbf24" },  // or
 };
 
 // CSS animations for power tile effects
@@ -799,34 +799,32 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         {/* Center triangles */}
         <CenterTriangles cellPx={cellPx} />
 
-        {/* Power tiles (Mode Moderne) — uses displayedPowerTiles for animation delay */}
+        {/* Power tiles (Mode Moderne) — just colored icons, no background */}
         {displayedPowerTiles && displayedPowerTiles.length > 0 && (
           <>
             {displayedPowerTiles.map((tile, ti) => {
               const [row, col] = PATH[tile.cell];
               const meta = POWER_TILE_META[tile.type] || POWER_TILE_META.lucky_star;
               return (
-                <div key={`pt-${ti}`} className="absolute flex items-center justify-center rounded-lg"
+                <div key={`pt-${ti}`} className="absolute flex items-center justify-center"
                   style={{
-                    left: col * cellPx + cellPx * 0.08,
-                    top: row * cellPx + cellPx * 0.08,
-                    width: cellPx * 0.84,
-                    height: cellPx * 0.84,
-                    background: meta.bg,
-                    border: `2px solid ${meta.border}`,
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.3)",
+                    left: col * cellPx + cellPx * 0.1,
+                    top: row * cellPx + cellPx * 0.1,
+                    width: cellPx * 0.8,
+                    height: cellPx * 0.8,
                     zIndex: 10,
-                    fontSize: cellPx * 0.42,
+                    fontSize: cellPx * 0.52,
                     lineHeight: 1,
                     pointerEvents: "none",
-                    opacity: 1,
                     animation: "powerTilePulse 2s ease-in-out infinite",
-                    transition: "left 0.5s ease, top 0.5s ease",
+                    transition: "left 0.4s ease, top 0.4s ease",
                   }}>
                   <span style={{
                     animation: "powerGlow 1.5s ease-in-out infinite",
-                    color: meta.border,
+                    color: meta.color,
                     display: "inline-block",
+                    filter: `drop-shadow(0 0 6px ${meta.color}) drop-shadow(0 0 2px rgba(0,0,0,0.9))`,
+                    fontWeight: "bold",
                   }}>
                     {meta.icon}
                   </span>
