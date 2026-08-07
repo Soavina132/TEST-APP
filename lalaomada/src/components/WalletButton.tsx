@@ -10,9 +10,9 @@ import {
 
 // ─── Opérateurs ─────────────────────────────────────────────
 const OPERATORS = [
-  { id: "mvola",  label: "MVola",  color: "bg-red-500" },
-  { id: "orange", label: "Orange", color: "bg-orange-500" },
-  { id: "airtel", label: "Airtel", color: "bg-rose-600" },
+  { id: "mvola",  label: "MVola",  color: "bg-red-500",    refLabel: "Ref MVola",      refPlaceholder: "Ex: MP2407123456" },
+  { id: "orange", label: "Orange", color: "bg-orange-500", refLabel: "Trans ID Orange", refPlaceholder: "Ex: TX123456789" },
+  { id: "airtel", label: "Airtel", color: "bg-rose-600",   refLabel: "Ref Airtel",     refPlaceholder: "Ex: AR12345678" },
 ] as const;
 type Op = (typeof OPERATORS)[number]["id"];
 
@@ -92,6 +92,7 @@ export function DepotModal({
     airtel: { phone: airtelPhone, name: airtelName },
   };
   const active = opData[operator];
+  const activeOp = OPERATORS.find((o) => o.id === operator)!;
 
   const copyPhone = () => {
     if (!active.phone) return;
@@ -105,17 +106,21 @@ export function DepotModal({
     e.preventDefault();
     const amt = Number(amount);
     if (!amt || amt < minDeposit) return toast.error(`Minimum : ${fmtAr(minDeposit)}`);
-    if (!reference.trim()) return toast.error("Code de référence requis");
-    if (reference.trim().length < 6) return toast.error("Code de référence trop court (min 6 caractères)");
+    if (!phone.trim() || phone.trim().length < 8) return toast.error("Numéro de téléphone requis");
+    if (!reference.trim()) return toast.error(`${activeOp.refLabel} requis`);
+    if (reference.trim().length < 3) return toast.error("Référence trop courte (min 3 caractères)");
     if (!/^[A-Za-z0-9]+$/.test(reference.trim())) return toast.error("Référence invalide: alphanumérique uniquement");
     setBusy(true);
     try {
-      const { error } = await (supabase.from("deposits") as any).insert({
-        user_id: user!.id, amount: amt, method: operator,
-        reference: reference.trim(), user_phone: phone.trim() || null,
+      // NOUVEAU: Appel RPC create_deposit avec 4 paramètres (au lieu d'un insert direct)
+      const { error } = await supabase.rpc("create_deposit", {
+        _amount: amt,
+        _method: operator,
+        _user_phone: phone.trim(),
+        _user_reference: reference.trim(),
       });
       if (error) throw error;
-      toast.success("Dépôt envoyé !");
+      toast.success("Dépôt enregistré ! Validation automatique après réception du SMS.");
       onSuccess();
       onClose();
     } catch (e: any) {
@@ -202,7 +207,7 @@ export function DepotModal({
             <form onSubmit={submit} className="space-y-4">
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 space-y-2">
                 <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  Transférez {fmtAr(Number(amount))} via {OPERATORS.find((o) => o.id === operator)?.label} :
+                  Transférez {fmtAr(Number(amount))} via {activeOp.label} :
                 </p>
                 {active.phone ? (
                   <div className="flex items-center gap-3">
@@ -224,44 +229,64 @@ export function DepotModal({
                 )}
               </div>
 
+              {/* NOUVEAU: Label dynamique selon l'opérateur */}
               <div>
-                <label className="text-xs font-bold text-muted-foreground mb-2 block">CODE DE RÉFÉRENCE *</label>
+                <label className="text-xs font-bold text-muted-foreground mb-2 block">
+                  {activeOp.refLabel.toUpperCase()} *
+                </label>
                 <input
                   required
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="Ex: TX123456789"
+                  placeholder={activeOp.refPlaceholder}
                   className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none font-mono"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {operator === "orange"
+                    ? "Le Trans ID est dans le SMS de confirmation Orange Money"
+                    : operator === "mvola"
+                    ? "La Ref est dans le SMS de confirmation MVola"
+                    : "La Ref est dans le SMS de confirmation Airtel Money"}
+                </p>
               </div>
 
+              {/* NOUVEAU: Téléphone obligatoire */}
               <div>
-                <label className="text-xs font-bold text-muted-foreground mb-2 block">VOTRE NUMÉRO (optionnel)</label>
+                <label className="text-xs font-bold text-muted-foreground mb-2 block">
+                  NUMÉRO QUI A ENVOYÉ L'ARGENT *
+                </label>
                 <input
+                  required
                   inputMode="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+261 34 00 000 00"
                   className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Le numéro doit correspondre à celui dans le SMS de confirmation
+                </p>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="flex-1 py-3.5 rounded-xl bg-secondary font-bold text-sm"
-                >
-                  ← Retour
-                </button>
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="flex-[2] py-3.5 rounded-xl bg-emerald-500 text-white font-bold disabled:opacity-60"
-                >
-                  {busy ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Soumettre"}
-                </button>
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
+                <p className="text-xs text-amber-700 dark:text-amber-400 font-bold">
+                  ⚠️ Validation automatique
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Le système vérifie automatiquement 3 critères sur le SMS reçu :
+                  numéro de téléphone + {activeOp.refLabel} + montant.
+                  Tout doit correspondre pour valider le dépôt.
+                </p>
               </div>
+
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full py-3.5 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {busy ? "Envoi..." : "Confirmer le dépôt"}
+              </button>
             </form>
           )}
         </div>
@@ -270,33 +295,37 @@ export function DepotModal({
   );
 }
 
-// ─── Modal Retrait ───────────────────────────────────────────
-function RetraitModal({ open, onClose, minWithdrawal, onSuccess }: {
-  open: boolean; onClose: () => void; minWithdrawal: number; onSuccess: () => void;
+// ─── Modal Retrait ────────────────────────────────────────────
+export function RetraitModal({
+  open, onClose, balance, minRetrait, onSuccess,
+}: {
+  open: boolean; onClose: () => void;
+  balance: number; minRetrait: number; onSuccess: () => void;
 }) {
   const { user, profile } = useAuth();
-  const [operator, setOperator] = useState<Op>("mvola");
   const [amount, setAmount] = useState("");
-  const [phone, setPhone] = useState(profile?.phone || "");
-  const [recipientName, setRecipientName] = useState(profile?.pseudo || "");
   const [busy, setBusy] = useState(false);
-  const balance = profile?.balance_ar ?? 0;
+  const [bankName, setBankName] = useState("");
+  const [bankNumber, setBankNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(profile?.phone || "");
+  const [withdrawMethod, setWithdrawMethod] = useState<"mvola" | "orange" | "airtel" | "bank">("mvola");
+  const [type, setType] = useState<"mobile" | "bank">("mobile");
 
   useEffect(() => { if (open) { setAmount(""); setBusy(false); } }, [open]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const amt = Number(amount);
-    if (!amt || amt < minWithdrawal) return toast.error(`Minimum : ${fmtAr(minWithdrawal)}`);
-    if (amt > balance) return toast.error("Solde insuffisant");
-    if (!phone.trim()) return toast.error("Numéro requis");
+    if (!amt || amt > balance) return toast.error("Solde insuffisant");
+    if (amt < minRetrait) return toast.error(`Retrait minimum : ${fmtAr(minRetrait)}`);
     setBusy(true);
     try {
-      const { error } = await (supabase.rpc as any)("request_withdrawal", {
+      const { error } = await supabase.rpc("create_withdrawal", {
         _amount: amt,
-        _method: operator,
-        _user_phone: phone.trim(),
-        _recipient_name: recipientName.trim() || null,
+        _method: type === "bank" ? "bank" : withdrawMethod,
+        _bank_name: type === "bank" ? bankName : null,
+        _bank_account_number: type === "bank" ? bankNumber : null,
+        _phone_number: type === "mobile" ? phoneNumber : null,
       });
       if (error) throw error;
       toast.success("Demande de retrait envoyée !");
@@ -320,10 +349,8 @@ function RetraitModal({ open, onClose, minWithdrawal, onSuccess }: {
         <div className="p-5">
           <div className="flex items-center justify-between mb-5">
             <div className="min-w-0">
-              <h2 className="text-lg font-black">Retrait Mobile Money</h2>
-              <p className="text-xs text-muted-foreground">
-                Solde : <span className="font-bold text-primary">{fmtAr(balance)}</span>
-              </p>
+              <h2 className="text-lg font-black">Retrait</h2>
+              <p className="text-xs text-muted-foreground">Solde : {fmtAr(balance)}</p>
             </div>
             <button onClick={onClose} className="shrink-0 w-9 h-9 rounded-full bg-secondary grid place-items-center">
               <X className="w-4 h-4" />
@@ -332,61 +359,116 @@ function RetraitModal({ open, onClose, minWithdrawal, onSuccess }: {
 
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">OPÉRATEUR</label>
-              <div className="grid grid-cols-3 gap-2">
-                {OPERATORS.map((op) => (
+              <label className="text-xs font-bold text-muted-foreground mb-2 block">MONTANT (Ar)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0 Ar"
+                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none text-base font-bold"
+              />
+              <div className="flex gap-2 mt-2">
+                {[
+                  { label: "25%", fn: () => setAmount(String(Math.floor(balance * 0.25))) },
+                  { label: "50%", fn: () => setAmount(String(Math.floor(balance * 0.5))) },
+                  { label: "Max", fn: () => setAmount(String(balance)) },
+                ].map((b) => (
                   <button
-                    key={op.id}
+                    key={b.label}
                     type="button"
-                    onClick={() => setOperator(op.id)}
-                    className={`py-3 rounded-xl text-white text-xs font-bold ${op.color} ${operator === op.id ? "" : "opacity-50"}`}
+                    onClick={b.fn}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-secondary border-border text-muted-foreground"
                   >
-                    {op.label}
+                    {b.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">MONTANT (Ar)</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={minWithdrawal}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={`Min. ${fmtAr(minWithdrawal)}`}
-                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none text-base font-bold"
-              />
+              <label className="text-xs font-bold text-muted-foreground mb-2 block">MÉTHODE</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setType("mobile")}
+                  className={`py-2.5 rounded-xl text-xs font-bold border ${type === "mobile" ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border text-muted-foreground"}`}
+                >
+                  Mobile Money
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setType("bank")}
+                  className={`py-2.5 rounded-xl text-xs font-bold border ${type === "bank" ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border text-muted-foreground"}`}
+                >
+                  Banque
+                </button>
+              </div>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">NUMÉRO</label>
-              <input
-                inputMode="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+261 34 00 000 00"
-                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
-              />
-            </div>
+            {type === "mobile" ? (
+              <>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground mb-2 block">OPÉRATEUR</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "mvola", label: "MVola", color: "bg-red-500" },
+                      { id: "orange", label: "Orange", color: "bg-orange-500" },
+                      { id: "airtel", label: "Airtel", color: "bg-rose-600" },
+                    ].map((op) => (
+                      <button
+                        key={op.id}
+                        type="button"
+                        onClick={() => setWithdrawMethod(op.id as any)}
+                        className={`py-2.5 rounded-xl text-white text-xs font-bold ${op.color} ${withdrawMethod === op.id ? "" : "opacity-50"}`}
+                      >
+                        {op.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">NOM DU BÉNÉFICIAIRE</label>
-              <input
-                value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
-                placeholder="Nom complet"
-                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
-              />
-            </div>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground mb-2 block">NUMÉRO</label>
+                  <input
+                    inputMode="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+261 34 00 000 00"
+                    className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground mb-2 block">NOM DE LA BANQUE</label>
+                  <input
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="Ex: BNI, BOA, BFV..."
+                    className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground mb-2 block">NUMÉRO DE COMPTE</label>
+                  <input
+                    value={bankNumber}
+                    onChange={(e) => setBankNumber(e.target.value)}
+                    placeholder="00000 000 0000000000"
+                    className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
+                  />
+                </div>
+              </>
+            )}
 
             <button
               type="submit"
               disabled={busy}
-              className="w-full py-3.5 rounded-xl bg-rose-500 text-white font-bold disabled:opacity-60"
+              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2"
             >
-              {busy ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Demander le retrait"}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {busy ? "Envoi..." : "Demander le retrait"}
             </button>
           </form>
         </div>
@@ -395,80 +477,80 @@ function RetraitModal({ open, onClose, minWithdrawal, onSuccess }: {
   );
 }
 
-// ─── WalletButton — balance pill + "+" menu ──────────────────
-export default function WalletButton({ compact = false }: { compact?: boolean }) {
-  const { profile, refreshProfile } = useAuth();
+// ─── Bouton principal ────────────────────────────────────────
+export function WalletButton({ onNavigate }: { onNavigate?: (path: string) => void }) {
+  const { user, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
   const settings = useAppSettings();
-  const balance = profile ? Math.round(profile.balance_ar).toLocaleString("en-US") : "0";
 
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
-
-  const reload = () => { refreshProfile(); };
+  if (!profile) return null;
 
   return (
     <>
-      <div className="relative" ref={ref}>
+      <div className="flex items-center gap-2">
         <button
-          onClick={() => setMenuOpen((o) => !o)}
-          className={compact
-            ? "flex items-center gap-0.5 py-0 px-0 transition-all duration-200 whitespace-nowrap"
-            : "flex items-center gap-1 py-1 pr-1 rounded-full transition-all duration-200 whitespace-nowrap shrink-0"}
-          aria-label="Solde — Déposer / Retirer"
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary border border-border hover:bg-accent transition-colors"
         >
-          {/* Balance text */}
-          <span className={compact
-            ? "text-[10px] font-semibold tabular-nums text-muted-foreground whitespace-nowrap"
-            : "text-xs font-bold tabular-nums text-foreground whitespace-nowrap"}>{balance}Ar</span>
-
-          {/* Plus button */}
-          <span className={compact
-            ? "w-4 h-4 rounded-full bg-primary flex items-center justify-center shrink-0"
-            : "w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0"}>
-            <Plus className={compact ? "w-2.5 h-2.5 text-primary-foreground" : "w-3 h-3 text-primary-foreground"} strokeWidth={3} />
-          </span>
+          <Wallet className="w-4 h-4 text-emerald-500" />
+          <span className="text-sm font-bold">{fmtAr(profile.balance_ar || 0)}</span>
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
         </button>
-
-        {menuOpen && (
-          <div className="absolute right-0 mt-2 w-44 rounded-2xl bg-card shadow-2xl shadow-black/10 border border-border/60 overflow-hidden z-50 animate-pop-in">
-            <div className="px-3 py-2.5 border-b border-border/40">
-              <div className="flex items-center gap-1.5">
-                <Wallet className="w-3.5 h-3.5 text-primary" />
-                <span className="text-xs text-muted-foreground">Solde</span>
-                <span className="ml-auto text-sm font-bold tabular-nums whitespace-nowrap">{balance}Ar</span>
-              </div>
-            </div>
-            <button
-              onClick={() => { setMenuOpen(false); setShowDeposit(true); }}
-              className="w-full px-3 py-2.5 flex items-center gap-3 text-sm font-medium hover:bg-accent/80 transition-colors"
-            >
-              <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
-                <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
-              </span>
-              Dépôt
-            </button>
-            <button
-              onClick={() => { setMenuOpen(false); setShowRetrait(true); }}
-              className="w-full px-3 py-2.5 flex items-center gap-3 text-sm font-medium hover:bg-accent/80 transition-colors"
-            >
-              <span className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center">
-                <ArrowUpRight className="w-4 h-4 text-rose-600" />
-              </span>
-              Retrait
-            </button>
-          </div>
-        )}
       </div>
+
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+          <div className="absolute top-full mt-2 right-0 z-50 w-64 rounded-2xl bg-background border border-border shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-border">
+              <p className="text-xs text-muted-foreground">Solde</p>
+              <p className="text-xl font-black text-emerald-500">{fmtAr(profile.balance_ar || 0)}</p>
+            </div>
+            <div className="p-2">
+              <button
+                onClick={() => { setMenuOpen(false); setShowDeposit(true); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-accent transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 grid place-items-center">
+                  <Plus className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">Dépôt</p>
+                  <p className="text-xs text-muted-foreground">Mobile Money</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); setShowRetrait(true); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-accent transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-blue-500/10 grid place-items-center">
+                  <ArrowUpRight className="w-4 h-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">Retrait</p>
+                  <p className="text-xs text-muted-foreground">Mobile / Banque</p>
+                </div>
+              </button>
+              {onNavigate && (
+                <button
+                  onClick={() => { setMenuOpen(false); onNavigate("/history"); }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-accent transition-colors text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-muted grid place-items-center">
+                    <ArrowDownLeft className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Historique</p>
+                    <p className="text-xs text-muted-foreground">Transactions</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       <DepotModal
         open={showDeposit}
@@ -480,13 +562,14 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
         airtelPhone={settings.airtelPhone}
         airtelName={settings.airtelName}
         minDeposit={settings.minDeposit}
-        onSuccess={reload}
+        onSuccess={() => {}}
       />
       <RetraitModal
         open={showRetrait}
         onClose={() => setShowRetrait(false)}
-        minWithdrawal={2000}
-        onSuccess={reload}
+        balance={profile.balance_ar || 0}
+        minRetrait={2000}
+        onSuccess={() => {}}
       />
     </>
   );
