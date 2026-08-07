@@ -1,15 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════
-// validate-deposit-sms — Edge Function Supabase v2 (sécurisée)
+// validate-deposit-sms — Edge Function Supabase v3 (sécurité renforcée)
 //
 // POST /functions/v1/validate-deposit-sms
 // Body: { "secret": "xxx", "operator": "orange|mvola", "sms": "...",
 //         "timestamp": "1234567890", "signature": "hmac_hex" }
 //
-// SÉCURITÉ v2:
-//   1. Vérification du secret API
-//   2. Vérification de la signature HMAC-SHA256 (anti-interception/replay)
-//   3. Vérification du timestamp (anti-replay, fenêtre de 5 minutes)
-//   4. La clé service_role n'est JAMAIS reçue du client (elle est dans les env)
+// SÉCURITÉ v3:
+//   1. Vérification du secret API (OBLIGATOIRE)
+//   2. Vérification de la signature HMAC-SHA256 (OBLIGATOIRE — anti-replay)
+//   3. Vérification du timestamp (fenêtre de 5 minutes)
+//   4. La clé service_role n'est JAMAIS reçue du client
+//   5. CORS restreint à l'URL de l'app (pas *)
+//   6. Pas de secret hardcodé en fallback
 //
 // Architecture:
 //   ParserFactory → OrangeParser | MVolaParser
@@ -38,7 +40,7 @@ interface ParseResult {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// ORANGE PARSER — reconnaît plusieurs formats
+// ORANGE PARSER
 // ═══════════════════════════════════════════════════════════════════════
 
 class OrangeParser {
@@ -82,7 +84,7 @@ class OrangeParser {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MVOLA PARSER — architecture extensible
+// MVOLA PARSER
 // ═══════════════════════════════════════════════════════════════════════
 
 class MVolaParser {
@@ -136,14 +138,12 @@ class ParserFactory {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function verifyHMAC(secret: string, payload: string, timestamp: string, signature: string): Promise<boolean> {
-  // Vérifier le timestamp (fenêtre de 5 minutes = 300 secondes)
   const now = Math.floor(Date.now() / 1000);
   const ts = parseInt(timestamp, 10);
   if (isNaN(ts) || Math.abs(now - ts) > 300) {
     return false;
   }
 
-  // Calculer HMAC-SHA256
   const message = `${timestamp}${payload}`;
   const key = await crypto.subtle.importKey(
     "raw",
@@ -164,23 +164,59 @@ async function verifyHMAC(secret: string, payload: string, timestamp: string, si
 // HANDLER
 // ═══════════════════════════════════════════════════════════════════════
 
-const DEPOSIT_SECRET = Deno.env.get("DEPOSIT_SMS_SECRET") ?? "LalaoMada2026SecretKey!";
+// FIX v3: Pas de secret hardcodé — erreur si env var manquante
+const DEPOSIT_SECRET = Deno.env.get("DEPOSIT_SMS_SECRET");
+if (!DEPOSIT_SECRET) {
+  console.error("ERREUR CRITIQUE: DEPOSIT_SMS_SECRET env var non définie");
+}
+
+// FIX v3: CORS restreint au domaine de l'app
+const ALLOWED_ORIGINS = [
+  "https://test-app.vercel.app",
+  "https://gifwfjgciwbsottztzoc.supabase.co",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+function getCORSHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "POST",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
+}
+
+function json(data: unknown, status = 200, corsHeaders?: Record<string, string>): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...(corsHeaders || {}),
+    },
+  });
+}
 
 serve(async (req: Request) => {
-  // CORS
+  const origin = req.headers.get("Origin");
+
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
+      headers: getCORSHeaders(origin),
     });
   }
 
   if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+    return json({ error: "Method not allowed" }, 405, getCORSHeaders(origin));
+  }
+
+  // FIX v3: Vérifier que le secret est configuré
+  if (!DEPOSIT_SECRET) {
+    return json({ success: false, error: "SERVER_MISCONFIG", message: "Secret non configuré" }, 500, getCORSHeaders(origin));
   }
 
   try {
@@ -195,29 +231,31 @@ serve(async (req: Request) => {
 
     // 1. Vérifier le secret
     if (!secret || secret !== DEPOSIT_SECRET) {
-      return json({ success: false, error: "UNAUTHORIZED", message: "Secret invalide" }, 401);
+      return json({ success: false, error: "UNAUTHORIZED", message: "Secret invalide" }, 401, getCORSHeaders(origin));
     }
 
-    // 2. Vérifier la signature HMAC (si fournie — rétrocompatible)
-    if (timestamp && signature) {
-      const payloadStr = JSON.stringify({ operator, sms });
-      const valid = await verifyHMAC(DEPOSIT_SECRET, payloadStr, timestamp, signature);
-      if (!valid) {
-        return json({ success: false, error: "INVALID_SIGNATURE", message: "Signature HMAC invalide ou expirée" }, 401);
-      }
+    // FIX v3: HMAC OBLIGATOIRE (plus de mode rétrocompatible)
+    if (!timestamp || !signature) {
+      return json({ success: false, error: "MISSING_SIGNATURE", message: "Timestamp et signature HMAC obligatoires" }, 401, getCORSHeaders(origin));
+    }
+
+    const payloadStr = JSON.stringify({ operator, sms });
+    const valid = await verifyHMAC(DEPOSIT_SECRET, payloadStr, timestamp, signature);
+    if (!valid) {
+      return json({ success: false, error: "INVALID_SIGNATURE", message: "Signature HMAC invalide ou expirée" }, 401, getCORSHeaders(origin));
     }
 
     if (!operator || !sms) {
-      return json({ success: false, error: "MISSING_PARAMS", message: "operator et sms requis" }, 400);
+      return json({ success: false, error: "MISSING_PARAMS", message: "operator et sms requis" }, 400, getCORSHeaders(origin));
     }
 
-    // 3. Obtenir le parser
+    // 2. Obtenir le parser
     const parser = ParserFactory.getParser(operator);
     if (!parser) {
-      return json({ success: false, error: "UNKNOWN_OPERATOR", message: `Opérateur inconnu: ${operator}` }, 400);
+      return json({ success: false, error: "UNKNOWN_OPERATOR", message: `Opérateur inconnu: ${operator}` }, 400, getCORSHeaders(origin));
     }
 
-    // 4. Parser le SMS
+    // 3. Parser le SMS
     const parseResult = parser.parse(sms);
     if (!parseResult.success || !parseResult.data) {
       const supabase = createClient(
@@ -231,12 +269,12 @@ serve(async (req: Request) => {
         status: "rejected",
         rejection_reason: parseResult.error || "Parse error",
       });
-      return json({ success: false, error: "PARSE_ERROR", message: parseResult.error }, 422);
+      return json({ success: false, error: "PARSE_ERROR", message: parseResult.error }, 422, getCORSHeaders(origin));
     }
 
     const parsed = parseResult.data;
 
-    // 5. Valider via la fonction PostgreSQL (atomique)
+    // 4. Valider via la fonction PostgreSQL (atomique)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -253,21 +291,11 @@ serve(async (req: Request) => {
     });
 
     if (error) {
-      return json({ success: false, error: "DB_ERROR", message: error.message }, 500);
+      return json({ success: false, error: "DB_ERROR", message: error.message }, 500, getCORSHeaders(origin));
     }
 
-    return json(result, result?.success ? 200 : 422);
+    return json(result, result?.success ? 200 : 422, getCORSHeaders(origin));
   } catch (err) {
-    return json({ success: false, error: "INTERNAL_ERROR", message: String(err) }, 500);
+    return json({ success: false, error: "INTERNAL_ERROR", message: String(err) }, 500, getCORSHeaders(origin));
   }
 });
-
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
-}
