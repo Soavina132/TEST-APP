@@ -290,7 +290,7 @@ function ProfilePage() {
                   <button onClick={savePseudo} className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
                 </div>
               ) : (
-                <button onClick={() => setEditingName(true)} className="font-black text-lg leading-tight hover:text-primary transition-colors truncate block">
+                <button onClick={() => setEditingName(true)} className="font-black text-lg leading-tight hover:text-primary transition-colors break-words text-left w-full line-clamp-2">
                   {profile.pseudo}
                 </button>
               )}
