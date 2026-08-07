@@ -10,13 +10,38 @@ import {
 
 // ─── Opérateurs ─────────────────────────────────────────────
 const OPERATORS = [
-  { id: "mvola",  label: "MVola",  color: "bg-red-500",    refLabel: "Ref MVola",      refPlaceholder: "Ex: MP2407123456" },
-  { id: "orange", label: "Orange", color: "bg-orange-500", refLabel: "Trans ID Orange", refPlaceholder: "Ex: TX123456789" },
-  { id: "airtel", label: "Airtel", color: "bg-rose-600",   refLabel: "Ref Airtel",     refPlaceholder: "Ex: AR12345678" },
+  { id: "mvola",  label: "MVola",  color: "bg-red-500",    refLabel: "Ref MVola",      refPlaceholder: "Ex: 4876739165 (les chiffres après \"Ref\")" },
+  { id: "orange", label: "Orange", color: "bg-orange-500", refLabel: "Trans ID Orange", refPlaceholder: "Ex: PP260519.1245.C46612 (après \"Trans Id\")" },
+  { id: "airtel", label: "Airtel", color: "bg-rose-600",   refLabel: "Référence Airtel", refPlaceholder: "Ex: 12345678 (juste les chiffres, sans point)" },
 ] as const;
 type Op = (typeof OPERATORS)[number]["id"];
 
 const fmtAr = (n: number) => Math.round(n).toLocaleString("fr-FR") + " Ar";
+
+// FIX v6: extrait la référence même si l'utilisateur colle le SMS complet
+// reçu, avec ou sans les points de séparation (ex: Orange "PP260519.1245.C46612"
+// peut être tapé "PP2605191245C46612" — la vérification côté serveur ignore
+// la ponctuation, donc les deux formats sont acceptés).
+function extractReferenceFromText(text: string): string {
+  const t = text.trim();
+  // Entrée courte sans espace = déjà un code, on la garde telle quelle
+  if (t.length <= 25 && !/\s/.test(t)) return t;
+
+  // SMS Orange: "Trans Id: PP260519.1245.C46612."
+  let m = t.match(/Trans\s*Id\s*:?\s*([A-Za-z0-9.]+)/i);
+  if (m) return m[1].replace(/\.$/, "");
+
+  // SMS MVola/Airtel: "Ref 4876739165" ou "Ref: 4876739165"
+  m = t.match(/Ref(?:erence)?\s*:?\s*([A-Za-z0-9.]+)/i);
+  if (m) return m[1].replace(/\.$/, "");
+
+  // Fallback: le plus long token alphanumérique trouvé dans le texte collé
+  const tokens = t.match(/[A-Za-z0-9.]{6,}/g);
+  if (tokens && tokens.length) {
+    return tokens.sort((a, b) => b.length - a.length)[0].replace(/\.$/, "");
+  }
+  return t;
+}
 
 // ─── Hook: load app settings (operator info) ─────────────────
 export function useAppSettings() {
@@ -102,22 +127,35 @@ export function DepotModal({
     });
   };
 
+  const handleReferencePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData("text");
+    if (!pasted) return;
+    // Si ça ressemble à un SMS complet collé (long texte ou mots-clés connus), on extrait
+    if (pasted.length > 20 || /trans\s*id|ref(erence)?\s|recu\s+de|montant/i.test(pasted)) {
+      e.preventDefault();
+      const extracted = extractReferenceFromText(pasted);
+      setReference(extracted);
+      toast.success(`Référence extraite : ${extracted}`);
+    }
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const amt = Number(amount);
     if (!amt || amt < minDeposit) return toast.error(`Minimum : ${fmtAr(minDeposit)}`);
-    if (!phone.trim() || phone.trim().length < 8) return toast.error("Numéro de téléphone requis");
-    if (!reference.trim()) return toast.error(`${activeOp.refLabel} requis`);
-    if (reference.trim().length < 3) return toast.error("Référence trop courte (min 3 caractères)");
-    if (!/^[A-Za-z0-9]+$/.test(reference.trim())) return toast.error("Référence invalide: alphanumérique uniquement");
+    if (!phone.trim() || phone.trim().length < 8) return toast.error("Numéro de téléphone requis (obligatoire)");
+    const cleanRef = extractReferenceFromText(reference);
+    if (!cleanRef) return toast.error(`${activeOp.refLabel} requis (obligatoire)`);
+    if (cleanRef.replace(/[^A-Za-z0-9]/g, "").length < 3) return toast.error("Référence trop courte (min 3 caractères)");
+    // FIX v6: on autorise les points (format Orange) — la vérif serveur ignore la ponctuation
+    if (!/^[A-Za-z0-9. ]+$/.test(cleanRef)) return toast.error("Référence invalide : chiffres et lettres uniquement");
     setBusy(true);
     try {
-      // NOUVEAU: Appel RPC create_deposit avec 4 paramètres (au lieu d'un insert direct)
       const { error } = await supabase.rpc("create_deposit", {
         _amount: amt,
         _method: operator,
         _user_phone: phone.trim(),
-        _user_reference: reference.trim(),
+        _user_reference: cleanRef,
       });
       if (error) throw error;
       toast.success("Dépôt enregistré ! Validation automatique après réception du SMS.");
@@ -190,6 +228,9 @@ export function DepotModal({
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  ⚠️ Vous devrez envoyer <b>exactement</b> ce montant — c'est celui qui sera vérifié.
+                </p>
               </div>
 
               <button
@@ -207,7 +248,7 @@ export function DepotModal({
             <form onSubmit={submit} className="space-y-4">
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 space-y-2">
                 <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  Transférez {fmtAr(Number(amount))} via {activeOp.label} :
+                  Transférez exactement {fmtAr(Number(amount))} via {activeOp.label} :
                 </p>
                 {active.phone ? (
                   <div className="flex items-center gap-3">
@@ -229,7 +270,6 @@ export function DepotModal({
                 )}
               </div>
 
-              {/* NOUVEAU: Label dynamique selon l'opérateur */}
               <div>
                 <label className="text-xs font-bold text-muted-foreground mb-2 block">
                   {activeOp.refLabel.toUpperCase()} *
@@ -238,19 +278,19 @@ export function DepotModal({
                   required
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
+                  onPaste={handleReferencePaste}
                   placeholder={activeOp.refPlaceholder}
                   className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none font-mono"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  {operator === "orange"
-                    ? "Le Trans ID est dans le SMS de confirmation Orange Money"
-                    : operator === "mvola"
-                    ? "La Ref est dans le SMS de confirmation MVola"
-                    : "La Ref est dans le SMS de confirmation Airtel Money"}
+                  💡 Vous pouvez <b>copier-coller le SMS entier</b> que vous avez reçu de{" "}
+                  {activeOp.label} — la référence en sera extraite automatiquement. Sinon,
+                  tapez juste le code qui suit{" "}
+                  {operator === "orange" ? '"Trans Id:"' : '"Ref"'} dans le SMS (le point n'est
+                  pas obligatoire, vous pouvez l'omettre).
                 </p>
               </div>
 
-              {/* NOUVEAU: Téléphone obligatoire */}
               <div>
                 <label className="text-xs font-bold text-muted-foreground mb-2 block">
                   NUMÉRO QUI A ENVOYÉ L'ARGENT *
@@ -264,18 +304,22 @@ export function DepotModal({
                   className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Le numéro doit correspondre à celui dans le SMS de confirmation
+                  Le numéro de téléphone <b>depuis lequel vous avez envoyé l'argent</b> (pas le
+                  numéro admin ci-dessus). Obligatoire.
                 </p>
               </div>
 
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
                 <p className="text-xs text-amber-700 dark:text-amber-400 font-bold">
-                  ⚠️ Validation automatique
+                  ⚠️ Validation automatique — 3 critères obligatoires
                 </p>
+                <ul className="text-xs text-muted-foreground mt-1 list-disc pl-4 space-y-0.5">
+                  <li>Le <b>numéro</b> qui a envoyé l'argent</li>
+                  <li>La <b>référence</b> ({activeOp.refLabel})</li>
+                  <li>Le <b>montant exact</b> envoyé (tolérance de 200 Ar seulement)</li>
+                </ul>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Le système vérifie automatiquement 3 critères sur le SMS reçu :
-                  numéro de téléphone + {activeOp.refLabel} + montant.
-                  Tout doit correspondre pour valider le dépôt.
+                  Les 3 doivent correspondre exactement au SMS reçu après votre transfert.
                 </p>
               </div>
 
