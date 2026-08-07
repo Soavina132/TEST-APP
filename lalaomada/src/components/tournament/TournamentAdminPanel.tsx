@@ -12,9 +12,9 @@ const GAMES = [
 
 const SPLITS: Record<number, [number, number, number, number]> = {
   1: [100, 0, 0, 0],
-  2: [60, 40, 0, 0],
-  3: [50, 30, 20, 0],
-  4: [50, 30, 15, 5],
+  2: [70, 30, 0, 0],
+  3: [60, 20, 10, 0],  // 10% platform, 90% split 60/20/10
+  4: [50, 25, 10, 5],
 };
 
 export default function TournamentAdminPanel() {
@@ -59,7 +59,7 @@ export default function TournamentAdminPanel() {
     max_players: 16,
     entry_fee_ar: 0,
     admin_prize_pool_ar: 0,
-    winners_count: 1,
+    winners_count: 3,
     pool_size: 4,
     qualifiers_per_pool: 2,
     max_concurrent: 8,
@@ -68,6 +68,8 @@ export default function TournamentAdminPanel() {
     batch_gap_minutes: 0,
     max_match_duration_secs: 600,
     check_in_minutes: 15,
+    domino_scoring: "elimination" as "elimination" | "points",
+    target_score: 100,
     description: "",
   });
   const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
@@ -103,6 +105,8 @@ export default function TournamentAdminPanel() {
       _max_match_duration_secs: f.max_match_duration_secs,
       _check_in_minutes: f.check_in_minutes,
       _prize_4_pct: p4,
+      _domino_scoring: f.domino_scoring,
+      _target_score: f.target_score,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -369,19 +373,45 @@ export default function TournamentAdminPanel() {
             </div>
           )}
 
+          {/* Domino scoring mode */}
+          {f.game_slug === "domino" && (
+            <div className="rounded-2xl bg-secondary/30 p-3 space-y-2">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase">Mode de jeu Domino</div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => set("domino_scoring", "elimination")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${f.domino_scoring === "elimination" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                  Élimination
+                </button>
+                <button type="button" onClick={() => set("domino_scoring", "points")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${f.domino_scoring === "points" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                  Par points
+                </button>
+              </div>
+              {f.domino_scoring === "points" && (
+                <Num label="Score cible (points)" value={f.target_score} onChange={(v) => set("target_score", v)} min={50} max={500} />
+              )}
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                {f.domino_scoring === "elimination"
+                  ? "Le perdant de chaque match est éliminé. Le gagnant passe au tour suivant."
+                  : `Les joueurs accumulent des points. Le premier à atteindre ${f.target_score} pts remporte le match. Idéal pour les parties longues.`}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <Num label="Joueurs max" value={f.max_players} onChange={(v) => set("max_players", v)} min={2} max={256} />
-            <Num label="Matchs simultanés" value={f.max_concurrent} onChange={(v) => set("max_concurrent", v)} min={1} max={8} />
+            <Num label="Matchs simultanés" value={f.max_concurrent} onChange={(v) => set("max_concurrent", v)} min={1} max={f.game_slug === "ludo" ? 8 : 8} />
+            {f.game_slug === "ludo" && <p className="text-[10px] text-amber-600 mt-0.5">Ludo : max 8 matchs simultanés</p>}
             <Num label="Frais d'inscription (Ar)" value={f.entry_fee_ar} onChange={(v) => set("entry_fee_ar", v)} min={0} />
             <Num label="Cagnotte offerte (Ar)" value={f.admin_prize_pool_ar} onChange={(v) => set("admin_prize_pool_ar", v)} min={0} />
-            <Num label="Salle d'attente (min)" value={f.lobby_minutes} onChange={(v) => set("lobby_minutes", v)} min={1} max={60} />
+            <Num label="Salle d'attente (min)" value={f.lobby_minutes} onChange={(v) => set("lobby_minutes", v)} min={1} max={10} />
             <Field label="Nombre de vainqueurs">
               <select value={f.winners_count} onChange={(e) => set("winners_count", Number(e.target.value))}
                 className="w-full px-3 py-2 rounded-xl bg-secondary text-sm">
                 <option value={1}>1 vainqueur (100%)</option>
-                <option value={2}>2 vainqueurs (60/40)</option>
-                <option value={3}>3 vainqueurs (50/30/20)</option>
-                <option value={4}>4 vainqueurs (50/30/15/5)</option>
+                <option value={2}>2 vainqueurs (70/30)</option>
+                <option value={3}>3 vainqueurs (60/20/10) — + match 3e place</option>
+                <option value={4}>4 vainqueurs (50/25/10/5)</option>
               </select>
             </Field>
           </div>

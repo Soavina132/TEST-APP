@@ -7,7 +7,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import {
   ArrowLeft, Trophy, Users, Coins, Loader2, Play, LogOut, Crown, Medal,
-  Swords, ChevronRight, CheckCircle,
+  Swords, ChevronRight, CheckCircle, Clock, Calendar, BarChart3,
 } from "lucide-react";
 import { StatusPill } from "./tournaments";
 
@@ -61,7 +61,7 @@ function TournamentDetail() {
   const confirm = useConfirm();
   const [st, setSt] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"bracket" | "pools" | "players" | "rewards">("bracket");
+  const [tab, setTab] = useState<"bracket" | "pools" | "players" | "rewards" | "stats">("bracket");
 
   const load = useCallback(async () => {
     const { data } = await (supabase.rpc as any)("tournament_state", { _tid: id });
@@ -92,9 +92,33 @@ function TournamentDetail() {
     () => matches.find((m) => m.status === "running" && me && m.entrant_ids.includes(me.id)),
     [matches, me],
   );
+
+  // Auto-redirect to match page when it's our turn
+  useEffect(() => {
+    if (myMatch && myMatch.game_id) {
+      const target = t?.game_slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id";
+      navigate({ to: target, params: { id: myMatch.game_id } });
+    }
+  }, [myMatch?.id]);
   const netPrize = t
     ? Math.round(Number(t.prize_pool_ar) * (100 - Number(t.platform_pct)) / 100 + Number(t.admin_prize_pool_ar))
     : 0;
+
+  // My next scheduled match
+  const myNextMatch = useMemo(
+    () => matches.find((m) => m.status === "scheduled" && me && m.entrant_ids.includes(me.id)),
+    [matches, me],
+  );
+
+  // My stats in this tournament
+  const myStats = useMemo(() => {
+    if (!me || !matches.length) return null;
+    const myMatches = matches.filter((m) => me && m.entrant_ids.includes(me.id) && m.status === "finished");
+    const wins = myMatches.filter((m) => m.winner_id === me.id).length;
+    const losses = myMatches.filter((m) => m.loser_id === me.id).length;
+    const draws = myMatches.filter((m) => m.is_draw && m.entrant_ids.includes(me.id)).length;
+    return { played: myMatches.length, wins, losses, draws, rank: me.final_rank };
+  }, [me, matches]);
 
   const rpc = async (fn: string, args: any, ok: string) => {
     setBusy(true);
@@ -186,6 +210,73 @@ function TournamentDetail() {
           ))}
         </div>
 
+        {/* Étape actuelle du tournoi */}
+        {t.status === "running" && (
+          <div className="rounded-2xl bg-primary/10 p-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-primary">
+                {t.stage === "pools" ? "Phase de poules" : t.stage === "finals" ? "Phase finale" : t.stage === "done" ? "Terminé" : `Étape : ${t.stage}`}
+              </span>
+            </div>
+            {t.current_round > 0 && (
+              <div className="text-[11px] text-muted-foreground">
+                {t.format === "pools" && t.stage === "pools" ? `Poule en cours` : `Tour ${t.current_round}`}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mon prochain match */}
+        {myNextMatch && !myMatch && t.status === "running" && (
+          <div className="rounded-2xl bg-amber-100 dark:bg-amber-950/30 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                Votre prochain match
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              {myNextMatch.phase === "pool" ? "Match de poule" : myNextMatch.phase === "third_place" ? "Petite finale" : `Round ${myNextMatch.round}`}
+              {myNextMatch.scheduled_at && ` · prévu à ${new Date(myNextMatch.scheduled_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}
+            </div>
+            <div className="text-[11px] font-semibold">
+              Adversaire : {myNextMatch.entrant_ids
+                .filter((id: string) => id !== me.id)
+                .map((id: string) => byId[id]?.display_name ?? "En attente")
+                .join(" vs ")}
+            </div>
+          </div>
+        )}
+
+        {/* Mes résultats */}
+        {me && myStats && myStats.played > 0 && (
+          <div className="rounded-2xl bg-secondary/40 p-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <BarChart3 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-[11px] font-bold text-muted-foreground uppercase">Mes résultats</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div>
+                <div className="text-lg font-bold text-foreground">{myStats.played}</div>
+                <div className="text-[9px] text-muted-foreground">Matchs</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-emerald-600">{myStats.wins}</div>
+                <div className="text-[9px] text-muted-foreground">Victoires</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-destructive">{myStats.losses}</div>
+                <div className="text-[9px] text-muted-foreground">Défaites</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-amber-600">{myStats.rank ?? "-"}</div>
+                <div className="text-[9px] text-muted-foreground">Rang</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Phase en cours */}
         {t.status === "running" && <PhaseBanner t={t} matches={matches} entrants={entrants} />}
 
@@ -251,6 +342,7 @@ function TournamentDetail() {
           ...(isKnockout || hasMatches ? [["bracket", "Tableau"]] : []),
           ...(t.format === "pools" ? [["pools", "Poules"]] : []),
           ["players", "Participants"],
+          ["stats", "Stats"],
           ["rewards", "Récompenses"],
         ] as [any, string][]).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
@@ -266,6 +358,7 @@ function TournamentDetail() {
       {effectiveTab === "bracket" && <BracketView matches={matches} byId={byId} me={me} slug={t.game_slug} currentRound={t.current_round} />}
       {effectiveTab === "pools" && <PoolsView pools={st!.pools} byId={byId} me={me} />}
       {effectiveTab === "players" && <PlayersView entrants={entrants} waitlist={waitlist} />}
+      {effectiveTab === "stats" && <StatsView t={t} entrants={entrants} matches={matches} me={me} byId={byId} />}
       {effectiveTab === "rewards" && <RewardsView t={t} net={netPrize} byId={byId} />}
     </div>
   );
@@ -734,6 +827,116 @@ function RewardsView({ t, net }: { t: any; net: number; byId: Record<string, any
       </div>
     </div>
   );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATS VIEW — classement, résultats, ELO
+   ═══════════════════════════════════════════════════════════ */
+function StatsView({ t, entrants, matches, me, byId }: {
+  t: any; entrants: any[]; matches: any[]; me: any; byId: Record<string, any>;
+}) {
+  // Compute standings for pool matches
+  const poolMatches = matches.filter((m) => m.phase === "pool" && m.status === "finished");
+  const bracketMatches = matches.filter((m) => m.phase !== "pool" && m.status === "finished");
+
+  // Player match history
+  const myMatches = me ? matches.filter((m) => m.entrant_ids.includes(me.id) && m.status === "finished") : [];
+
+  // Top scorers (pool phase)
+  const scorerMap: Record<string, { name: string; w: number; l: number; d: number; pts: number }> = {};
+  poolMatches.forEach((m) => {
+    m.entrant_ids.forEach((id: string) => {
+      if (!scorerMap[id]) scorerMap[id] = { name: byId[id]?.display_name ?? "?", w: 0, l: 0, d: 0, pts: 0 };
+      if (m.winner_id === id) scorerMap[id].w++;
+      else if (m.loser_id === id) scorerMap[id].l++;
+      else if (m.is_draw) scorerMap[id].d++;
+    });
+  });
+  Object.values(scorerMap).forEach((s) => { s.pts = s.w * 3 + s.d * 1; });
+  const topScorers = Object.entries(scorerMap).sort(([,a],[,b]) => b.pts - a.pts).slice(0, 10);
+
+  return (
+    <div className="space-y-3">
+      {/* Commission info */}
+      <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)] space-y-2">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase">Règles du tournoi</h3>
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
+          <div className="flex justify-between"><span className="text-muted-foreground">Commission plateforme</span><span className="font-bold">{t.platform_pct}%</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Net distribué</span><span className="font-bold text-emerald-600">{Math.round(Number(t.prize_pool_ar || 0) * (100 - t.platform_pct) / 100 + Number(t.admin_prize_pool_ar || 0)).toLocaleString("fr-FR")} Ar</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Vainqueurs</span><span className="font-bold">{t.winners_count}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Matchs simultanés</span><span className="font-bold">{t.max_concurrent_matches}</span></div>
+          {t.game_slug === "domino" && (
+            <div className="flex justify-between"><span className="text-muted-foreground">Mode domino</span><span className="font-bold">{t.domino_scoring === "points" ? `Par points (${t.target_score} pts)` : "Élimination"}</span></div>
+          )}
+          <div className="flex justify-between"><span className="text-muted-foreground">Durée max match</span><span className="font-bold">{Math.floor(t.max_match_duration_secs / 60)} min</span></div>
+        </div>
+      </div>
+
+      {/* Prize distribution */}
+      <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)] space-y-2">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase">Répartition des gains</h3>
+        {[1, 2, 3].filter((r) => t.winners_count >= r).map((rank) => {
+          const pct = rank === 1 ? t.prize_1_pct : rank === 2 ? t.prize_2_pct : t.prize_3_pct;
+          const amount = Math.round(netPrize(t) * pct / 100);
+          const medals = ["ð¥", "ð¥", "ð¥"];
+          return (
+            <div key={rank} className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2">
+                <span>{medals[rank - 1]}</span>
+                <span className="font-semibold">{rank === 1 ? "Champion" : rank === 2 ? "Finaliste" : "3e place"}</span>
+              </span>
+              <span className="font-bold text-amber-600">{pct}% · {amount.toLocaleString("fr-FR")} Ar</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* My match history */}
+      {me && myMatches.length > 0 && (
+        <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)] space-y-2">
+          <h3 className="text-xs font-bold text-primary uppercase">Mes matchs ({myMatches.length})</h3>
+          <div className="space-y-1.5">
+            {myMatches.map((m) => {
+              const won = m.winner_id === me.id;
+              const opp = m.entrant_ids.filter((id: string) => id !== me.id).map((id: string) => byId[id]?.display_name ?? "?").join(" / ");
+              return (
+                <div key={m.id} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded-xl bg-secondary/40">
+                  <span className={`px-1.5 py-0.5 rounded-full font-bold ${won ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : m.is_draw ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"}`}>
+                    {won ? "GAGNÉ" : m.is_draw ? "NUL" : "PERDU"}
+                  </span>
+                  <span className="flex-1 truncate">vs {opp}</span>
+                  <span className="text-muted-foreground">{m.phase === "pool" ? "Poule" : m.phase === "third_place" ? "3e pl." : `R${m.round}`}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Top scorers (pool phase) */}
+      {topScorers.length > 0 && (
+        <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)] space-y-2">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase">Classement scorers (poules)</h3>
+          <div className="space-y-1">
+            {topScorers.map(([id, s], i) => (
+              <div key={id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl bg-secondary/40">
+                <span className={`w-5 text-xs font-bold ${i < 3 ? "text-amber-600" : "text-muted-foreground"}`}>{i + 1}</span>
+                <span className="flex-1 truncate font-medium">{s.name}</span>
+                <span className="text-[11px] text-emerald-600 font-bold">{s.w}V</span>
+                <span className="text-[11px] text-destructive">{s.l}D</span>
+                {s.d > 0 && <span className="text-[11px] text-amber-600">{s.d}N</span>}
+                <span className="text-[11px] font-bold text-primary">{s.pts} pts</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  function netPrize(t: any) {
+    return Math.round(Number(t.prize_pool_ar || 0) * (100 - t.platform_pct) / 100 + Number(t.admin_prize_pool_ar || 0));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
