@@ -250,7 +250,7 @@ function Lobby() {
     await supabase.rpc("ludo_set_auto_move" as any, { _game_id: gameId, _enabled: ludoAutoMove } as any);
   };
 
-  const goTo = (value: unknown) => {
+  const goTo = async (value: unknown) => {
     const id = extractGameId(value);
     if (!id) {
       toast("Partie créée, mais l'identifiant reçu est invalide. Réessayez depuis vos parties.");
@@ -638,6 +638,7 @@ function Lobby() {
                 <KeyRound className="w-3.5 h-3.5 shrink-0" />
                 <span>Un code d'invitation à 6 caractères sera généré.</span>
               </div>
+            )}
             {freeGameInfo && !freeGameInfo.isPremium && freeGameInfo.remaining <= 3 && freeGameInfo.remaining > 0 && (
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-600 flex items-center gap-2">
                 <span>⚡ {freeGameInfo.remaining} partie{freeGameInfo.remaining > 1 ? "s" : ""} gratuite{freeGameInfo.remaining > 1 ? "s" : ""} restante{freeGameInfo.remaining > 1 ? "s" : ""} aujourd'hui pour {meta.label}</span>
@@ -653,7 +654,6 @@ function Lobby() {
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[11px] text-emerald-600 flex items-center gap-2">
                 <span>👑 Premium actif — matchs {freeGameInfo.remaining === -1 ? "illimités" : `restants: ${freeGameInfo.remaining}`}</span>
               </div>
-            )}
             )}
             <button onClick={joinPublicOrCreate} disabled={busy}
               className="w-full py-3.5 rounded-full text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/40 active:scale-[0.98] transition-transform sticky bottom-2"
