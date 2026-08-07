@@ -10,10 +10,11 @@ const GAMES = [
   { slug: "domino", emoji: "🁣", label: "Domino" },
 ];
 
-const SPLITS: Record<number, [number, number, number]> = {
-  1: [100, 0, 0],
-  2: [60, 40, 0],
-  3: [50, 30, 20],
+const SPLITS: Record<number, [number, number, number, number]> = {
+  1: [100, 0, 0, 0],
+  2: [60, 40, 0, 0],
+  3: [50, 30, 20, 0],
+  4: [50, 30, 15, 5],
 };
 
 export default function TournamentAdminPanel() {
@@ -50,7 +51,6 @@ export default function TournamentAdminPanel() {
     load();
   };
 
-  // ── formulaire ──
   const [f, setF] = useState({
     name: "",
     game_slug: "ludo",
@@ -66,6 +66,8 @@ export default function TournamentAdminPanel() {
     lobby_minutes: 5,
     break_minutes: 3,
     batch_gap_minutes: 0,
+    max_match_duration_secs: 600,
+    check_in_minutes: 15,
     description: "",
   });
   const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
@@ -76,7 +78,7 @@ export default function TournamentAdminPanel() {
       const okGo = await confirm({ title: "Tournoi sans cagnotte ?", description: "Ni frais d'inscription ni cagnotte offerte : les gagnants ne recevront rien." });
       if (!okGo) return;
     }
-    const [p1, p2, p3] = SPLITS[f.winners_count];
+    const [p1, p2, p3, p4] = SPLITS[f.winners_count];
     const ppm = f.game_slug === "domino" ? 2 : f.players_per_match;
     setBusy(true);
     const { error } = await (supabase.rpc as any)("admin_tournament_create", {
@@ -98,6 +100,9 @@ export default function TournamentAdminPanel() {
       _starts_at: null,
       _break_seconds: f.break_minutes * 60,
       _batch_gap_seconds: f.batch_gap_minutes * 60,
+      _max_match_duration_secs: f.max_match_duration_secs,
+      _check_in_minutes: f.check_in_minutes,
+      _prize_4_pct: p4,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -107,7 +112,6 @@ export default function TournamentAdminPanel() {
     load();
   };
 
-  // ── auto-simulation ──
   const [sim, setSim] = useState({ game_slug: "domino", format: "pools" as "pools" | "knockout", players: 16, pool_size: 4, qualifiers_per_pool: 2 });
   const [simReport, setSimReport] = useState<any>(null);
 
@@ -179,6 +183,7 @@ export default function TournamentAdminPanel() {
                       <div className="text-[11px] text-muted-foreground">
                         {g?.label} · {t.format === "pools" ? "Poules" : "Élimination"} · {n}/{t.max_players} joueurs · {t.status}
                         {t.status === "running" && ` · étape : ${t.stage}`}
+                        {t.check_in_opened_at && !t.started_at && " · check-in ouvert"}
                       </div>
                     </div>
                     <Link to="/tournaments/$id" params={{ id: t.id }} className="text-primary shrink-0">
@@ -194,6 +199,14 @@ export default function TournamentAdminPanel() {
                       <>
                         <button disabled={busy} onClick={() => run("admin_tournament_add_bots", { _tid: t.id, _count: 4 }, "4 bots ajoutés")}
                           className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold">+4 bots</button>
+                        {!t.check_in_opened_at && (
+                          <button disabled={busy} onClick={() => run("admin_tournament_open_check_in", { _tid: t.id }, "Check-in ouvert")}
+                            className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 text-[11px] font-bold">✋ Ouvrir check-in</button>
+                        )}
+                        {t.check_in_opened_at && (
+                          <button disabled={busy} onClick={() => run("admin_tournament_close_check_in", { _tid: t.id }, "Check-in clôturé")}
+                            className="px-2.5 py-1 rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 text-[11px] font-bold">🔒 Fermer check-in</button>
+                        )}
                         <button disabled={busy} onClick={() => run("admin_tournament_start", { _tid: t.id }, "Tournoi démarré")}
                           className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold">▶ Démarrer</button>
                       </>
@@ -368,21 +381,27 @@ export default function TournamentAdminPanel() {
                 <option value={1}>1 vainqueur (100%)</option>
                 <option value={2}>2 vainqueurs (60/40)</option>
                 <option value={3}>3 vainqueurs (50/30/20)</option>
+                <option value={4}>4 vainqueurs (50/30/15/5)</option>
               </select>
             </Field>
           </div>
 
-          {/* ── Timing & lots ── */}
+          {/* Timing & lots */}
           <div className="rounded-2xl bg-secondary/30 p-3 space-y-2">
             <div className="text-[11px] font-bold text-muted-foreground uppercase">Timing des phases</div>
             <div className="grid grid-cols-2 gap-2">
               <Num label="Pause entre phases (min)" value={f.break_minutes} onChange={(v) => set("break_minutes", v)} min={0} max={60} />
-              <Num label="Délai entre lots de matchs (min)" value={f.batch_gap_minutes} onChange={(v) => set("batch_gap_minutes", v)} min={0} max={60} />
+              <Num label="Délai entre lots (min)" value={f.batch_gap_minutes} onChange={(v) => set("batch_gap_minutes", v)} min={0} max={60} />
+              <Num label="Durée max match (sec)" value={f.max_match_duration_secs} onChange={(v) => set("max_match_duration_secs", v)} min={60} max={3600} />
+              <Num label="Check-in avant début (min)" value={f.check_in_minutes} onChange={(v) => set("check_in_minutes", v)} min={1} max={60} />
             </div>
             <p className="text-[10px] text-muted-foreground leading-relaxed">
               {f.batch_gap_minutes > 0
                 ? `Les ${f.max_concurrent} matchs simultanés max sont lancés par lots. Entre chaque lot, le moteur attend ${f.batch_gap_minutes} min avant de lancer le suivant.`
                 : "Délai entre lots = 0 → lancement au fil de l'eau (dès qu'une place se libère). Mettez > 0 pour lancer par lots espacés."}
+            </p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              ⏱ Durée max match : un match qui dépasse cette limite est résolu automatiquement. Check-in : temps accordé aux joueurs pour confirmer leur présence avant le début.
             </p>
           </div>
 

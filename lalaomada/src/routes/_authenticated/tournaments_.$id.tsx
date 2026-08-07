@@ -7,7 +7,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import {
   ArrowLeft, Trophy, Users, Coins, Loader2, Play, LogOut, Crown, Medal,
-  Swords, ChevronRight,
+  Swords, ChevronRight, CheckCircle,
 } from "lucide-react";
 import { StatusPill } from "./tournaments";
 
@@ -49,6 +49,7 @@ function roundLabel(matchCount: number, phase: string): string {
 type State = {
   tournament: any;
   entrants: any[];
+  waitlist: any[];
   pools: { pool: any; players: any[] }[];
   matches: any[];
 };
@@ -85,6 +86,8 @@ function TournamentDetail() {
   const matches = st?.matches ?? [];
   const byId = useMemo(() => Object.fromEntries(entrants.map((e) => [e.id, e])), [entrants]);
   const me = useMemo(() => entrants.find((e) => e.user_id === user?.id), [entrants, user?.id]);
+  const waitlist = st?.waitlist ?? [];
+  const meWaitlist = useMemo(() => waitlist.find((w: any) => w.user_id === user?.id), [waitlist, user?.id]);
   const myMatch = useMemo(
     () => matches.find((m) => m.status === "running" && me && m.entrant_ids.includes(me.id)),
     [matches, me],
@@ -195,14 +198,35 @@ function TournamentDetail() {
           >
             <Play className="w-4 h-4" /> Rejoindre mon match
           </Link>
-        ) : t.status === "open" ? (
-          me ? (
+        ) : t.status === "open" && me ? (
+          <div className="space-y-2">
+            {/* Check-in button */}
+            {t.check_in_opened_at && !me.checked_in && me.status === "active" && (
+              <button
+                onClick={() => rpc("tournament_check_in", { _tid: id }, "✅ Check-in confirmé !")}
+                disabled={busy}
+                className="w-full py-3 rounded-2xl bg-amber-500 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                ✋ Je suis prêt !
+              </button>
+            )}
+            {t.check_in_opened_at && me.checked_in && me.status === "active" && (
+              <div className="w-full py-3 rounded-2xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-center text-sm font-bold">
+                ✅ Check-in confirmé — en attente du début
+              </div>
+            )}
             <button onClick={unregister} disabled={busy} className="w-full py-3 rounded-2xl bg-secondary text-secondary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               <LogOut className="w-4 h-4" /> Annuler mon inscription
             </button>
+          </div>
+        ) : t.status === "open" && !me ? (
+          meWaitlist ? (
+            <div className="w-full py-3 rounded-2xl bg-secondary text-center text-sm font-semibold text-muted-foreground">
+              ⏳ Liste d'attente — position {meWaitlist.position}
+            </div>
           ) : (
-            <button onClick={register} disabled={busy || entrants.length >= t.max_players} className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-60">
-              {entrants.length >= t.max_players ? "Tournoi complet" : "S'inscrire"}
+            <button onClick={register} disabled={busy} className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-60">
+              {entrants.length >= t.max_players ? "S'inscrire (liste d'attente)" : "S'inscrire"}
             </button>
           )
         ) : me && me.status === "active" && t.status === "running" ? (
@@ -210,6 +234,13 @@ function TournamentDetail() {
             ⏳ En attente de votre prochain match…
           </div>
         ) : null}
+
+        {/* Waitlist info */}
+        {waitlist.length > 0 && t.status === "open" && (
+          <div className="rounded-2xl bg-secondary/40 p-2.5 text-[11px] text-muted-foreground">
+            📋 {waitlist.length} joueur(s) en liste d'attente
+          </div>
+        )}
 
         {isAdmin && <AdminBar t={t} busy={busy} rpc={rpc} />}
       </section>
@@ -234,7 +265,7 @@ function TournamentDetail() {
       {/* ─────────────── Contenu des onglets ─────────────── */}
       {effectiveTab === "bracket" && <BracketView matches={matches} byId={byId} me={me} slug={t.game_slug} currentRound={t.current_round} />}
       {effectiveTab === "pools" && <PoolsView pools={st!.pools} byId={byId} me={me} />}
-      {effectiveTab === "players" && <PlayersView entrants={entrants} />}
+      {effectiveTab === "players" && <PlayersView entrants={entrants} waitlist={waitlist} />}
       {effectiveTab === "rewards" && <RewardsView t={t} net={netPrize} byId={byId} />}
     </div>
   );
@@ -494,6 +525,12 @@ function PhaseBanner({ t, matches, entrants }: { t: any; matches: any[]; entrant
   );
 }
 
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   ADMIN BAR
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    ADMIN BAR
    ═══════════════════════════════════════════════════════════ */
@@ -594,8 +631,8 @@ function PoolsView({ pools, byId, me }: { pools: { pool: any; players: any[] }[]
 /* ═══════════════════════════════════════════════════════════
    PARTICIPANTS
    ═══════════════════════════════════════════════════════════ */
-function PlayersView({ entrants }: { entrants: any[] }) {
-  if (!entrants.length) return <Empty text="Aucun inscrit pour l'instant." icon={<Users className="w-10 h-10 text-muted-foreground opacity-50" />} />;
+function PlayersView({ entrants, waitlist }: { entrants: any[]; waitlist: any[] }) {
+  if (!entrants.length && (!waitlist || !waitlist.length)) return <Empty text="Aucun inscrit pour l'instant." icon={<Users className="w-10 h-10 text-muted-foreground opacity-50" />} />;
 
   const active = entrants.filter((e) => e.status === "active");
   const eliminated = entrants.filter((e) => e.status === "eliminated");
@@ -630,7 +667,7 @@ function PlayersView({ entrants }: { entrants: any[] }) {
                 <span className="w-5 text-xs text-muted-foreground">{i + 1}</span>
                 <span className="flex-1 truncate">{e.display_name}</span>
                 {e.is_bot && <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-secondary">bot</span>}
-                {e.final_rank && e.final_rank <= 3 && (
+                {e.final_rank && e.final_rank <= 4 && (
                   <span className="text-[10px] font-bold text-amber-600">
                     {e.final_rank === 1 ? "🥇" : e.final_rank === 2 ? "🥈" : "🥉"}
                   </span>
