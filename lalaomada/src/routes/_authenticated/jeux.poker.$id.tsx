@@ -8,13 +8,14 @@ import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
-import { ArrowLeft, Copy, Check, Timer, Plus } from "lucide-react";
+import { ArrowLeft, Copy, Check, Timer, Plus, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
+import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 
 export const Route = createFileRoute("/_authenticated/jeux/poker/$id")({
   component: PokerPage,
@@ -158,6 +159,7 @@ function PokerPage() {
   const { user, profile, isAdmin, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const [soundOn, setSoundOn] = useState(!isSfxMuted());
 
   const [game, setGame] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
@@ -416,6 +418,9 @@ function PokerPage() {
               {copied ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>} {game.room_code}
             </button>
           )}
+          <button onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }} className="w-6 h-6 rounded-full bg-white/10 text-white flex items-center justify-center active:scale-90 transition">
+              {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            </button>
           <GameSocialFab gameId={id} gameSlug="poker" participants={enriched} />
         </div>
       </div>

@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight, Pause } from "lucide-react";
+import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
@@ -21,6 +21,7 @@ import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useLongPressDrag } from "@/hooks/use-long-press-drag";
 import ramiCover from "@/assets/games/rami.asset.json";
+import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 import feltAsset from "@/assets/rami/felt.jpg.asset.json";
 import cardBackAsset from "@/assets/rami/card-back.jpg.asset.json";
 
@@ -849,6 +850,7 @@ function RamiPage() {
   const { id } = Route.useParams();
   const { profile, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [game, setGame] = useState<any>(null);
   const [parts, setParts] = useState<any[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
@@ -1529,6 +1531,9 @@ function RamiPage() {
                 <Pause className="w-2.5 h-2.5" /> Pause
               </button>
             )}
+            <button onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }} className="w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center active:scale-90 transition">
+              {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            </button>
             <button onClick={forfeit} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
               <LogOut className="w-2.5 h-2.5" /> Quitter
             </button>
