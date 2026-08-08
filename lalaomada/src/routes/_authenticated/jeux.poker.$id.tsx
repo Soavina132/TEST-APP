@@ -12,6 +12,7 @@ import { ArrowLeft, Copy, Check, Timer, Plus, Volume2, VolumeX } from "lucide-re
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
+import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
@@ -242,13 +243,7 @@ function PokerPage() {
     return () => clearInterval(t);
   }, [game?.phase, id, load]);
 
-  // Auto-navigate cancelled
-  useEffect(() => {
-    if (game?.status !== "cancelled") return;
-    toast.info("Partie annulée — mise remboursée");
-    const t = setTimeout(() => navigate({ to: "/jeux/$slug", params: { slug: "poker" }, search: {} }), 1500);
-    return () => clearTimeout(t);
-  }, [game?.status, navigate]);
+  // cancelled state handled by GameStateMessage below
 
   if (!game) return <div className="p-8 text-center text-muted-foreground">Chargement…</div>;
 
@@ -319,6 +314,10 @@ function PokerPage() {
   };
 
   // ── Waiting room ─────────────────────────────────────────────────────────
+  if (game.status === "cancelled") {
+    return <GameStateMessage state="cancelled" gameLabel="Poker" slug="poker" />;
+  }
+
   if (game.status === "waiting") {
     const seatParts = enriched.map((p: any) => ({
       id: p.id,

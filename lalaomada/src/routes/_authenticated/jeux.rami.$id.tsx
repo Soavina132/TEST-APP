@@ -14,6 +14,7 @@ import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
+import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import GameBoardSkin from "@/components/game/GameBoardSkin";
 import TurnBanner from "@/components/game/TurnBanner";
@@ -972,13 +973,7 @@ function RamiPage() {
     }
   }, [game?.status, game?.state?.hands, game?.winner_id, parts, recordRound]);
 
-  useEffect(() => {
-    if (game?.status === "cancelled") {
-      toast.info("Invitation expirée — mise remboursée");
-      const t = setTimeout(() => navigate({ to: "/jeux/$slug", params: { slug: "rami" }, search: {} }), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [game?.status, navigate]);
+  // cancelled state handled by GameStateMessage below
 
   // ── Deal animation: trigger when game starts ──
   const prevStatusRef2 = useRef<string>("");
@@ -1607,6 +1602,10 @@ function RamiPage() {
     if (error) { toast.error(error.message); return; }
     navigate({ to: "/jeux/rami/$id", params: { id: data as string } });
   };
+
+  if (game.status === "cancelled") {
+    return <GameStateMessage state="cancelled" gameLabel="Rami" slug="rami" />;
+  }
 
   if (game.status === "open" || game.status === "waiting") {
     return (

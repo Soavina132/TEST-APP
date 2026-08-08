@@ -1,0 +1,159 @@
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { Trophy, LogOut, X, Eye } from "lucide-react";
+
+const ROUTE: Record<string, string> = {
+  ludo:     "/jeux/ludo/$id",
+  chess:    "/jeux/chess/$id",
+  domino:   "/jeux/domino/$id",
+  fanorona: "/jeux/fanorona/$id",
+  rami:     "/jeux/rami/$id",
+  poker:    "/jeux/poker/$id",
+};
+
+const EMOJI: Record<string, string> = {
+  ludo: "🎲", chess: "♜", domino: "🁣", fanorona: "♟", rami: "🂡", poker: "🃏",
+};
+
+const LABEL: Record<string, string> = {
+  ludo: "Ludo", chess: "Échecs", domino: "Domino", fanorona: "Fanorona", rami: "Rami", poker: "Poker",
+};
+
+// Tables for forfeit/quit operations
+const GAME_TABLE: Record<string, string> = {
+  ludo: "ludo_games", chess: "chess_games", domino: "domino_games",
+  fanorona: "fanorona_games", rami: "rami_games", poker: "poker_games",
+};
+
+const PART_TABLE: Record<string, string | null> = {
+  ludo: "ludo_participants", chess: null, domino: "domino_participants",
+  fanorona: "fanorona_participants", rami: "rami_participants", poker: "poker_players",
+};
+
+type OngoingGame = {
+  id: string;
+  game_type: string;
+  status: string;
+  stake: number;
+  pot: number;
+  eliminated: boolean;
+  players_count: number;
+  is_private?: boolean;
+  room_code?: string;
+  created_at: string;
+};
+
+export default function OngoingGameBanner() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [games, setGames] = useState<OngoingGame[]>([]);
+  const [dismissed, setDismissed] = useState(false);
+  const [quitting, setQuitting] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.rpc("my_ongoing_all" as any);
+    const list = Array.isArray(data) ? (data as any[]) : [];
+    // Only show games that are actively playing (not just open/waiting)
+    // and where the user is not eliminated
+    const active = list.filter((g: any) => !g.eliminated && g.status === "playing");
+    setGames(active);
+  }, [user]);
+
+  useEffect(() => {
+    load();
+    if (!user) return;
+    const ch = supabase.channel(`ongoing-banner-${user.id}`);
+    ["ludo_games", "domino_games", "fanorona_games", "chess_games", "rami_games", "poker_games"].forEach(t => {
+      ch.on("postgres_changes" as any, { event: "*", schema: "public", table: t }, load);
+    });
+    ch.subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, load]);
+
+  // Reset dismissed if games change
+  useEffect(() => {
+    if (games.length === 0) setDismissed(false);
+  }, [games.length]);
+
+  if (dismissed || games.length === 0) return null;
+
+  const rejoin = (g: OngoingGame) => {
+    const route = ROUTE[g.game_type];
+    if (route) navigate({ to: route as any, params: { id: g.id } as any });
+  };
+
+  const quitGame = async (g: OngoingGame) => {
+    setQuitting(g.id);
+    try {
+      const partTable = PART_TABLE[g.game_type];
+      if (partTable && user) {
+        await supabase.from(partTable as any)
+          .update({ forfeited: true })
+          .eq("game_id", g.id)
+          .eq("user_id", user.id);
+      }
+      // For chess, there's no participant table — mark as finished with opponent as winner
+      if (g.game_type === "chess" && user) {
+        const { data: cg } = await supabase.from("chess_games" as any)
+          .select("white_id, black_id").eq("id", g.id).single();
+        if (cg) {
+          const winner = cg.white_id === user.id ? cg.black_id : cg.white_id;
+          await supabase.from("chess_games" as any)
+            .update({ status: "finished", winner_id: winner, finished_at: new Date().toISOString() })
+            .eq("id", g.id);
+        }
+      }
+      setGames(prev => prev.filter(x => x.id !== g.id));
+    } catch (e) {
+      // ignore
+    } finally {
+      setQuitting(null);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+          <Trophy className="w-4 h-4" />
+          <span className="font-bold text-xs">Partie{games.length > 1 ? "s" : ""} en cours</span>
+        </div>
+        <button onClick={() => setDismissed(true)} className="text-muted-foreground hover:text-foreground p-1">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {games.map(g => (
+        <div key={g.id} className="flex items-center gap-2.5 bg-card rounded-xl p-2.5 border border-border/40">
+          <div className="w-9 h-9 rounded-lg bg-amber-500/15 grid place-items-center text-base shrink-0">
+            {EMOJI[g.game_type] ?? "🎮"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-sm">{LABEL[g.game_type] ?? g.game_type}</div>
+            <div className="text-[10px] text-muted-foreground">
+              {Number(g.stake || 0).toLocaleString("fr-FR")} Ar · {g.players_count} joueurs
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => rejoin(g)}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-[11px] shadow-sm active:scale-95 transition"
+            >
+              <Trophy className="w-3 h-3" /> Rejoindre
+            </button>
+            <button
+              onClick={() => quitGame(g)}
+              disabled={quitting === g.id}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-destructive/10 text-destructive font-bold text-[11px] active:scale-95 transition disabled:opacity-50"
+            >
+              {quitting === g.id ? "…" : <><LogOut className="w-3 h-3" /> Quitter</>}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

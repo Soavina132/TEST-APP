@@ -13,6 +13,7 @@ import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
+import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import DominoRoundBreak from "@/components/game/DominoRoundBreak";
 import DominoTable, { DominoTile, PlayerHeader } from "@/components/game/DominoTable";
@@ -268,13 +269,7 @@ function DominoPage() {
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
 
-  useEffect(() => {
-    if (game?.status === "cancelled") {
-      toast.info("Invitation expirée — mise remboursée");
-      const t = setTimeout(() => navigate({ to: "/jeux/$slug", params: { slug: "domino" }, search: {} }), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [game?.status, navigate]);
+  // cancelled state handled by GameStateMessage below
 
 
   const cfg = useGameConfig("domino");
@@ -450,6 +445,10 @@ function DominoPage() {
   };
 
   if (!game) return <div className="p-6 text-center">Chargement…</div>;
+
+  if (game.status === "cancelled") {
+    return <GameStateMessage state="cancelled" gameLabel="Domino" slug="domino" />;
+  }
 
   if (game.status === "open") {
     return (

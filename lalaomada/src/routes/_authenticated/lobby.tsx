@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { serverNow } from "@/lib/server-time";
 import MesPartiesSheet from "@/components/game/MesPartiesSheet";
+import OngoingGameBanner from "@/components/game/OngoingGameBanner";
 import MoneyOffersSection from "@/components/MoneyOffersSection";
 import BannerCarousel from "@/components/BannerCarousel";
 import { useMyOngoingCount } from "@/hooks/use-my-ongoing-count";
@@ -252,6 +253,8 @@ function LobbyPage() {
         </div>
       </div>
 
+
+      <OngoingGameBanner />
 
       {/* Raccourcis */}
       <div className="grid grid-cols-4 gap-2">
