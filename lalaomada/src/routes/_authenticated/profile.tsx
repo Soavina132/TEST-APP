@@ -43,25 +43,7 @@ function getBadge(level: number) {
   return b;
 }
 
-const ACHIEVEMENT_ICONS: Record<string, { icon: string; label: string }> = {
-  first_game:    { icon: "🎮", label: "1ère partie" },
-  first_win:     { icon: "🏆", label: "1ère victoire" },
-  streak_3:      { icon: "🔥", label: "3 victoires" },
-  streak_5:      { icon: "⚡", label: "5 d'affilée" },
-  high_roller:   { icon: "💰", label: "Gros joueur" },
-  first_deposit: { icon: "🏦", label: "1er dépôt" },
-  social:        { icon: "👥", label: "Social" },
-  champion:      { icon: "👑", label: "Champion" },
-};
-const ACHIEVEMENT_SLOTS = Object.keys(ACHIEVEMENT_ICONS);
 
-const GAMES = [
-  { k: "ludo",    icon: "🎲", name: "Ludo" },
-  { k: "domino",  icon: "🁣", name: "Domino" },
-  { k: "fanorona",icon: "♟️", name: "Fanorona" },
-  { k: "rami",    icon: "🃏", name: "Rami" },
-  { k: "chess",   icon: "♜", name: "Échecs" },
-];
 
 /* ────────────────────────────────────────────────────────────────────────────
    Transfer Dialog
@@ -248,12 +230,10 @@ function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [tx, setTx] = useState<any[]>([]);
   const [playerStats, setPlayerStats] = useState<any>(null);
-  const [gameStats, setGameStats] = useState<Record<string, { played: number; wins: number }>>({});
   const [myRank, setMyRank] = useState<number | null>(null);
   const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [achievements, setAchievements] = useState<any[]>([]);
   const [showTx, setShowTx] = useState(false);
   const [txTab, setTxTab] = useState<"deposits" | "withdrawals" | "transfers">("deposits");
   const [showTransfer, setShowTransfer] = useState(false);
@@ -274,42 +254,12 @@ function ProfilePage() {
     supabase.from("transactions").select("*").eq("user_id", uid).in("type", ["transfer_sent","transfer_received"]).order("created_at", { ascending: false }).limit(30).then(({ data }) => setTransfers(data || []));
     supabase.from("v_player_stats" as any).select("*").eq("id", uid).maybeSingle().then(({ data }: any) => { if (data) setPlayerStats(data); });
 
-    const fetchGameStats = async () => {
-      const stats: Record<string, { played: number; wins: number }> = {
-        ludo: { played: 0, wins: 0 }, domino: { played: 0, wins: 0 },
-        fanorona: { played: 0, wins: 0 }, rami: { played: 0, wins: 0 },
-        chess: { played: 0, wins: 0 },
-      };
-      const [ludo, domino, fanorona, rami, chessW, chessB, ludoWin, dominoWin, fanoronaWin, ramiWin, chessWin] = await Promise.all([
-        supabase.from("ludo_participants").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("is_bot", false),
-        supabase.from("domino_participants").select("id", { count: "exact", head: true }).eq("user_id", uid),
-        supabase.from("fanorona_participants").select("id", { count: "exact", head: true }).eq("user_id", uid),
-        supabase.from("rami_participants").select("id", { count: "exact", head: true }).eq("user_id", uid),
-        supabase.from("chess_games").select("id", { count: "exact", head: true }).eq("white_id", uid),
-        supabase.from("chess_games").select("id", { count: "exact", head: true }).eq("black_id", uid),
-        supabase.from("ludo_games").select("id", { count: "exact", head: true }).eq("winner_id", uid),
-        supabase.from("domino_games").select("id", { count: "exact", head: true }).eq("winner_id", uid),
-        supabase.from("fanorona_games").select("id", { count: "exact", head: true }).eq("winner_id", uid),
-        supabase.from("rami_games").select("id", { count: "exact", head: true }).eq("winner_id", uid),
-        supabase.from("chess_games").select("id", { count: "exact", head: true }).eq("winner_id", uid),
-      ]);
-      stats.ludo.played = ludo.count || 0; stats.domino.played = domino.count || 0;
-      stats.fanorona.played = fanorona.count || 0; stats.rami.played = rami.count || 0;
-      stats.chess.played = (chessW.count || 0) + (chessB.count || 0);
-      stats.ludo.wins = ludoWin.count || 0; stats.domino.wins = dominoWin.count || 0;
-      stats.fanorona.wins = fanoronaWin.count || 0; stats.rami.wins = ramiWin.count || 0;
-      stats.chess.wins = chessWin.count || 0;
-      setGameStats(stats);
-    };
-    fetchGameStats();
-
     supabase.rpc("leaderboard_winners" as any, { _limit: 200 } as any).then(({ data }: any) => {
       setRankLoaded(true);
       if (!data) return;
       const idx = (data as any[]).findIndex((r: any) => r.id === uid || (currentPseudo && r.name === currentPseudo));
       if (idx >= 0) setMyRank((data[idx] as any).rank);
     });
-    supabase.rpc("get_player_achievements" as any, { _uid: uid } as any).then(({ data }: any) => setAchievements(data || []));
   }, [user?.id, profile?.pseudo]);
 
   const savePseudo = async () => {
@@ -348,7 +298,6 @@ function ProfilePage() {
   const totalLosses = totalGames - totalWins;
   const memberDays = Math.max(1, Math.floor((Date.now() - new Date(p.created_at || (profile as any).created_at || Date.now()).getTime()) / 86400000));
   const badge = getBadge(level);
-  const unlockedSet = new Set(achievements.map((a: any) => a.slug || a.code || a.key));
 
   return (
     <main className="mx-auto max-w-md flex flex-col gap-3 p-3 pb-20 min-h-screen">
@@ -579,62 +528,6 @@ function ProfilePage() {
           <StatTile label="Niveau" value={level}
             icon={<span className="text-base">{badge.icon}</span>}
             accent="text-primary" />
-        </div>
-      </Section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-         3.  Game stats — per-game breakdown
-      ═══════════════════════════════════════════════════════════════════ */}
-      <Section icon={Gamepad2} title="Mes jeux">
-        <div className="space-y-2">
-          {GAMES.map(g => {
-            const played = gameStats[g.k]?.played || 0;
-            const wins = gameStats[g.k]?.wins || 0;
-            const rate = played > 0 ? Math.round((wins / played) * 100) : 0;
-            const active = played > 0;
-            return (
-              <div key={g.k}
-                className={`flex items-center gap-3 rounded-xl p-2.5 transition-colors ${active ? "bg-primary/5" : "bg-secondary/20"}`}>
-                <span className={`text-2xl leading-none ${active ? "" : "grayscale opacity-40"}`}>{g.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold">{g.name}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {active ? `${played} parties · ${wins} victoires` : "Non joué"}
-                  </div>
-                </div>
-                {active && (
-                  <div className="text-right shrink-0">
-                    <div className={`text-sm font-black tabular-nums ${rate >= 50 ? "text-emerald-500" : "text-amber-500"}`}>
-                      {rate}%
-                    </div>
-                    <div className="text-[10px] text-muted-foreground uppercase">Win rate</div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-         4.  Achievements — unlocked / locked grid
-      ═══════════════════════════════════════════════════════════════════ */}
-      <Section icon={Zap} title="Succès">
-        <div className="grid grid-cols-4 gap-2">
-          {ACHIEVEMENT_SLOTS.map(key => {
-            const meta = ACHIEVEMENT_ICONS[key];
-            const unlocked = unlockedSet.has(key);
-            return (
-              <div key={key}
-                className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center transition-all ${
-                  unlocked ? "bg-primary/10 border border-primary/30" : "bg-secondary/20 border border-border/20 opacity-50"
-                }`}>
-                <span className={`text-xl leading-none ${unlocked ? "" : "grayscale"}`}>{meta.icon}</span>
-                <span className="text-[9px] font-semibold text-muted-foreground leading-tight">{meta.label}</span>
-                {unlocked && <span className="text-[8px] text-emerald-500 font-bold">✓</span>}
-              </div>
-            );
-          })}
         </div>
       </Section>
 
