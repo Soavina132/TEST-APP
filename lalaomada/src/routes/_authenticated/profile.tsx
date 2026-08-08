@@ -364,18 +364,13 @@ function ProfilePage() {
   const ps: any = playerStats || {};
   const displayName = profile.pseudo || user?.email?.split("@")[0] || "Joueur";
   const initials = (displayName).slice(0, 2).toUpperCase();
-  const totalWins = ps.total_wins ?? 0;
-  const totalGames = ps.total_games ?? 0;
+  const totalWins = ps.total_wins ?? p.total_wins ?? 0;
+  const totalGames = ps.total_games ?? p.total_games ?? 0;
   const level = ps.player_level ?? 1;
   const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
   const totalLosses = totalGames - totalWins;
-  const memberDays = Math.floor((Date.now() - new Date((profile as any).created_at || Date.now()).getTime()) / 86400000);
+  const memberDays = Math.max(1, Math.floor((Date.now() - new Date(p.created_at || (profile as any).created_at || Date.now()).getTime()) / 86400000));
   const badge = getBadge(level);
-  const memberDays = Math.max(1, Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000));
-  const totalGames = ps.total_games ?? p.total_games ?? 0;
-  const totalWins = ps.total_wins ?? p.total_wins ?? 0;
-  const totalLosses = totalGames - totalWins;
-  const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
 
   const gameTx = tx.filter(tr => ["stake", "win", "refund", "forfeit", "transfer_sent", "transfer_received"].includes(tr.type));
 
@@ -390,7 +385,6 @@ function ProfilePage() {
     social: { icon: "👥", label: "Social" },
     champion: { icon: "👑", label: "Champion" },
   };
-  const ACHIEVEMENT_SLOTS = Object.keys(ACHIEVEMENT_ICONS);
 
   // gameTx moved to history page
 
