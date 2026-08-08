@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Camera, Copy, Coins, ShieldCheck, ShieldAlert, Mail, LogOut, Trash2,
-  Phone, Gamepad2,
+  Phone, Gamepad2, ArrowLeftRight, Send,
   ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings,
   Send,
@@ -277,11 +277,13 @@ function ProfilePage() {
   const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [achievements, setAchievements] = useState<any[]>([]);
-  const [showHistory, setShowHistory] = useState<"none" | "deposits" | "withdrawals" | "games">("none");
+    const [achievements, setAchievements] = useState<any[]>([]);
+  const [showTx, setShowTx] = useState(false);
+  const [txTab, setTxTab] = useState<"deposits" | "withdrawals" | "transfers">("deposits");
+  const [showTransfer, setShowTransfer] = useState(false);
   const [deps, setDeps] = useState<any[]>([]);
   const [withs, setWiths] = useState<any[]>([]);
-  const [showTransfer, setShowTransfer] = useState(false);
+  const [transfers, setTransfers] = useState<any[]>([]);
 
   useEffect(() => { setPseudo(profile?.pseudo || ""); }, [profile?.pseudo]);
 
@@ -293,6 +295,7 @@ function ProfilePage() {
     supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50).then(({ data }) => setTx(data || []));
     supabase.from("deposits").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setDeps(data || []));
     supabase.from("withdrawals").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setWiths(data || []));
+    supabase.from("transactions").select("*").eq("user_id", uid).in("type", ["transfer_sent","transfer_received"]).order("created_at", { ascending: false }).limit(30).then(({ data }) => setTransfers(data || []));
     supabase.from("v_player_stats" as any).select("*").eq("id", uid).maybeSingle().then(({ data }: any) => { if (data) setPlayerStats(data); });
 
     const fetchGameStats = async () => {
@@ -360,8 +363,14 @@ function ProfilePage() {
 
   const p: any = profile;
   const ps: any = playerStats || {};
-  const initials = (profile.pseudo || "?").slice(0, 2).toUpperCase();
-  const level = ps.player_level || p.level || 1;
+  const displayName = profile.pseudo || user?.email?.split("@")[0] || "Joueur";
+  const initials = (displayName).slice(0, 2).toUpperCase();
+  const totalWins = ps.total_wins ?? 0;
+  const totalGames = ps.total_games ?? 0;
+  const level = ps.player_level ?? 1;
+  const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+  const totalLosses = totalGames - totalWins;
+  const memberDays = Math.floor((Date.now() - new Date((profile as any).created_at || Date.now()).getTime()) / 86400000);
   const badge = getBadge(level);
   const memberDays = Math.max(1, Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000));
   const totalGames = ps.total_games ?? p.total_games ?? 0;
@@ -382,48 +391,112 @@ function ProfilePage() {
     social: { icon: "👥", label: "Social" },
     champion: { icon: "👑", label: "Champion" },
   };
+  const ACHIEVEMENT_SLOTS = Object.keys(ACHIEVEMENT_ICONS);
+
+  // gameTx moved to history page
 
   return (
     <main className="mx-auto max-w-md flex flex-col gap-2 p-3 pb-20 min-h-screen">
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
 
       {showDeleteDialog && <DeleteAccountDialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} />}
-
+      
+      {/* Transfer Dialog (reused component) */}
       <TransferDialog
         open={showTransfer}
         onClose={() => setShowTransfer(false)}
         balance={profile.balance_ar}
-        onSent={refreshProfile}
+        onSent={() => {
+          refreshProfile();
+          supabase.from("transactions").select("*").eq("user_id", user!.id)
+            .in("type", ["transfer_sent","transfer_received"])
+            .order("created_at", { ascending: false }).limit(30)
+            .then(({ data }) => setTransfers(data || []));
+        }}
       />
 
-      <HistoryDialog open={showHistory === "deposits"} onClose={() => setShowHistory("none")}
-        title="Dépôts" items={deps} emptyMsg="Aucun dépôt"
-        renderItem={d => (
-          <div key={d.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
-            <span className="text-muted-foreground">{new Date(d.created_at).toLocaleDateString("fr-FR")}</span>
-            <span className={`font-bold ${d.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>+{Math.round(Number(d.amount)).toLocaleString("fr-FR")} Ar</span>
+      {/* Unified Transactions Dialog */}
+      <Dialog open={showTx} onOpenChange={(v) => !v && setShowTx(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center">Transactions</DialogTitle>
+          </DialogHeader>
+          {/* Tab switcher */}
+          <div className="flex gap-1 p-1 rounded-xl bg-secondary/50">
+            {([
+              { key: "deposits",   label: "Dépôts",    icon: ArrowDownLeft },
+              { key: "withdrawals", label: "Retraits",  icon: ArrowUpRight },
+              { key: "transfers",   label: "Transferts", icon: ArrowLeftRight },
+            ] as const).map(tab => (
+              <button key={tab.key} onClick={() => setTxTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  txTab === tab.key ? "bg-card text-primary shadow-sm" : "text-muted-foreground"
+                }`}>
+                <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+              </button>
+            ))}
           </div>
-        )} />
-      <HistoryDialog open={showHistory === "withdrawals"} onClose={() => setShowHistory("none")}
-        title="Retraits" items={withs} emptyMsg="Aucun retrait"
-        renderItem={w => (
-          <div key={w.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
-            <span className="text-muted-foreground">{new Date(w.created_at).toLocaleDateString("fr-FR")}</span>
-            <span className={`font-bold ${w.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>-{Math.round(Number(w.amount)).toLocaleString("fr-FR")} Ar</span>
-          </div>
-        )} />
-      <HistoryDialog open={showHistory === "games"} onClose={() => setShowHistory("none")}
-        title="Parties récentes" items={gameTx} emptyMsg="Aucune partie"
-        renderItem={tr => (
-          <div key={tr.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
-            <span className="flex items-center gap-1.5">
-              {tr.type === "win" ? "🏆" : tr.type === "stake" ? "🎮" : tr.type === "transfer_sent" ? "📤" : tr.type === "transfer_received" ? "📥" : "↩️"} {labelType(tr.type, t)}
-            </span>
-            <span className={`font-bold ${Number(tr.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-              {Number(tr.amount) >= 0 ? "+" : ""}{Math.round(Number(tr.amount)).toLocaleString("fr-FR")} Ar
-            </span>
-          </div>
-        )} />
+
+          {/* ── Deposits tab ── */}
+          {txTab === "deposits" && (
+            <div className="pt-2 max-h-[45vh] overflow-y-auto">
+              {deps.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center">Aucun dépôt</div>
+              ) : deps.map(d => (
+                <div key={d.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
+                  <span className="text-muted-foreground">{new Date(d.created_at).toLocaleDateString("fr-FR")}</span>
+                  <span className={`font-bold ${d.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>+{Math.round(Number(d.amount)).toLocaleString("fr-FR")} Ar</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Withdrawals tab ── */}
+          {txTab === "withdrawals" && (
+            <div className="pt-2 max-h-[45vh] overflow-y-auto">
+              {withs.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center">Aucun retrait</div>
+              ) : withs.map(w => (
+                <div key={w.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
+                  <span className="text-muted-foreground">{new Date(w.created_at).toLocaleDateString("fr-FR")}</span>
+                  <span className={`font-bold ${w.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>-{Math.round(Number(w.amount)).toLocaleString("fr-FR")} Ar</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Transfers tab ── */}
+          {txTab === "transfers" && (
+            <div className="pt-2 space-y-2">
+              {/* New transfer button */}
+              <button
+                onClick={() => setShowTransfer(true)}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-transform"
+              >
+                <Send className="w-4 h-4" /> Nouveau transfert
+              </button>
+              <p className="text-[10px] text-muted-foreground text-center">Min 100 Ar · Max 500 000 Ar · Instantané</p>
+              {/* Transfer history */}
+              <div className="max-h-[35vh] overflow-y-auto">
+                {transfers.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-4 text-center">Aucun transfert</div>
+                ) : transfers.map(tr => (
+                  <div key={tr.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
+                    <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                      <span>{tr.type === "transfer_sent" ? "↗️" : "↘️"}</span>
+                      <span className="truncate">{tr.note || "Transfert"}</span>
+                      <span className="text-[10px] shrink-0">{new Date(tr.created_at).toLocaleDateString("fr-FR")}</span>
+                    </span>
+                    <span className={`font-bold shrink-0 ml-2 ${Number(tr.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                      {Number(tr.amount) >= 0 ? "+" : ""}{Math.round(Number(tr.amount)).toLocaleString("fr-FR")} Ar
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ════ SECTION 1: Profile Header — Modern Card ════ */}
       <div className="relative rounded-3xl overflow-hidden shrink-0 shadow-lg"
@@ -460,8 +533,8 @@ function ProfilePage() {
                   <button onClick={savePseudo} className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
                 </div>
               ) : (
-                <button onClick={() => setEditingName(true)} className="font-black text-base leading-tight hover:text-primary transition-colors text-left w-full truncate">
-                  {profile.pseudo}
+                <button onClick={() => setEditingName(true)} className="font-black text-lg leading-tight hover:text-primary transition-colors truncate block">
+                  {displayName}
                 </button>
               )}
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -560,14 +633,10 @@ function ProfilePage() {
       <div className="flex flex-col gap-2">
         {/* Menu grid 4x2 */}
         <div className="grid grid-cols-4 gap-1.5">
-          <MenuButton icon={ArrowDownLeft} label="Dépôts" color="text-emerald-500"
-            action={() => setShowHistory(showHistory === "deposits" ? "none" : "deposits")} />
-          <MenuButton icon={ArrowUpRight} label="Retraits" color="text-rose-500"
-            action={() => setShowHistory(showHistory === "withdrawals" ? "none" : "withdrawals")} />
+          <MenuButton icon={ArrowLeftRight} label="Transactions" color="text-primary"
+            action={() => setShowTx(true)} />
           <MenuButton icon={Gamepad2} label="Parties" color="text-primary"
-            action={() => setShowHistory(showHistory === "games" ? "none" : "games")} />
-          <MenuButton icon={Send} label="Transfert" color="text-primary"
-            action={() => setShowTransfer(true)} />
+            action={() => navigate({ to: "/history", search: {} })} />
           <MenuButton icon={Gift} label="Parrainage" color="text-fuchsia-500"
             action={() => navigate({ to: "/parrainage", search: {} })} />
           <MenuButton icon={Shield} label="Sécurité" color="text-emerald-500"
