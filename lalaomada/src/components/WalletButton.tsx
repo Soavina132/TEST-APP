@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import {
   Plus, ArrowDownLeft, ArrowUpRight, X, Copy, Check,
-  Loader2, Wallet,
+  Loader2, Wallet, Send,
 } from "lucide-react";
 
 // ─── Opérateurs ─────────────────────────────────────────────
@@ -452,12 +452,222 @@ export function RetraitModal({
   );
 }
 
+// ─── Modal Transfert ──────────────────────────────────────────
+export function TransferModal({
+  open, onClose, balance, onSuccess,
+}: {
+  open: boolean; onClose: () => void;
+  balance: number; onSuccess: () => void;
+}) {
+  const { user } = useAuth();
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState("");
+  const [sending, setSending] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (open) {
+      setRecipient("");
+      setAmount("");
+      setSearchResults([]);
+      setSelectedUser(null);
+      setSending(false);
+    }
+  }, [open]);
+
+  // Search users by phone, pseudo, or unique_code (debounced 300ms)
+  useEffect(() => {
+    if (!recipient.trim() || recipient.trim().length < 2) {
+      setSearchResults([]);
+      setSelectedUser(null);
+      return;
+    }
+    // If user selected from dropdown, don't re-search
+    if (selectedUser && (recipient === selectedUser.phone || recipient === selectedUser.pseudo)) return;
+
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      const q = recipient.trim();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, pseudo, phone, avatar_url, unique_code")
+        .or(`pseudo.ilike.%${q}%,phone.ilike.%${q}%,unique_code.ilike.%${q}%`)
+        .neq("id", user?.id || "")
+        .limit(5);
+      setSearchResults(data || []);
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [recipient, selectedUser, user?.id]);
+
+  const doTransfer = async () => {
+    const amt = parseInt(amount);
+    if (!recipient.trim()) return toast.error("Entrez le numéro, pseudo ou ID du destinataire");
+    if (!amt || amt < 100) return toast.error("Montant minimum: 100 Ar");
+    if (amt > balance) return toast.error("Solde insuffisant");
+    setSending(true);
+    try {
+      const { data, error } = await supabase.rpc("transfer_balance" as any, {
+        _recipient: recipient.trim(),
+        _amount: amt,
+      } as any);
+      if (error) throw error;
+      toast.success(`Transfert de ${amt.toLocaleString("fr-FR")} Ar envoyé à ${data?.recipient || recipient} !`);
+      onSuccess();
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors du transfert");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="relative w-full max-w-sm rounded-2xl bg-background shadow-2xl max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full bg-border mx-auto mt-3" />
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="min-w-0">
+              <h2 className="text-lg font-black flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-primary" /> Transférer
+              </h2>
+              <p className="text-xs text-muted-foreground">Solde : {fmtAr(balance)}</p>
+            </div>
+            <button onClick={onClose} className="shrink-0 w-9 h-9 rounded-full bg-secondary grid place-items-center">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Recipient input with live name search */}
+          <div className="space-y-3">
+            <div className="relative">
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">DESTINATAIRE</label>
+              <input
+                value={recipient}
+                onChange={(e) => { setRecipient(e.target.value); setSelectedUser(null); }}
+                placeholder="Numéro, pseudo ou ID"
+                className="w-full px-4 py-3 rounded-xl bg-secondary outline-none text-sm font-medium"
+                autoFocus
+              />
+
+              {/* Selected user badge */}
+              {selectedUser && (
+                <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
+                  {selectedUser.avatar_url ? (
+                    <img src={selectedUser.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+                      {(selectedUser.pseudo || "?").slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold truncate">{selectedUser.pseudo}</div>
+                    {selectedUser.phone && <div className="text-[10px] text-muted-foreground truncate">{selectedUser.phone}</div>}
+                  </div>
+                  <button
+                    onClick={() => { setRecipient(""); setSelectedUser(null); }}
+                    className="shrink-0 w-6 h-6 rounded-full bg-secondary grid place-items-center"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+
+              {/* Search results dropdown */}
+              {!selectedUser && searchResults.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full rounded-xl border border-border bg-popover shadow-lg overflow-hidden">
+                  {searchResults.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => {
+                        setRecipient(u.phone || u.pseudo);
+                        setSelectedUser(u);
+                        setSearchResults([]);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/30 transition-colors text-left border-b border-border/20 last:border-0"
+                    >
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                          {(u.pseudo || "?").slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate">{u.pseudo}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {u.phone && <span>{u.phone}</span>}
+                          {u.unique_code && <span> · ID: {u.unique_code}</span>}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!selectedUser && searching && (
+                <div className="absolute z-10 mt-1 w-full text-center text-xs text-muted-foreground py-1">Recherche…</div>
+              )}
+            </div>
+
+            {/* Amount input */}
+            <div>
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">MONTANT (Ar)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Min. 100 Ar"
+                min="100"
+                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none text-base font-bold"
+              />
+              <div className="flex gap-2 mt-2">
+                {[500, 1000, 5000, 10000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setAmount(String(amt))}
+                    className="flex-1 px-1 py-1.5 rounded-lg bg-secondary/60 text-xs font-bold hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
+                    {amt.toLocaleString("fr-FR")}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={doTransfer}
+              disabled={sending || !recipient.trim() || !amount}
+              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {sending ? "Envoi..." : "Envoyer"}
+            </button>
+
+            <p className="text-[10px] text-muted-foreground text-center leading-tight">
+              Transfert instantané · Min 100 Ar
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Bouton principal — pill "balance + bouton +" ─────────────
 export function WalletButton({ onNavigate }: { onNavigate?: (path: string) => void }) {
   const { profile, refreshProfile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const settings = useAppSettings();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -516,6 +726,15 @@ export function WalletButton({ onNavigate }: { onNavigate?: (path: string) => vo
               </span>
               Retrait
             </button>
+            <button
+              onClick={() => { setMenuOpen(false); setShowTransfer(true); }}
+              className="w-full px-3 py-2.5 flex items-center gap-3 text-sm font-medium hover:bg-accent/80 transition-colors"
+            >
+              <span className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center">
+                <Send className="w-4 h-4 text-blue-600" />
+              </span>
+              Transfert
+            </button>
             {onNavigate && (
               <button
                 onClick={() => { setMenuOpen(false); onNavigate("/history"); }}
@@ -548,6 +767,12 @@ export function WalletButton({ onNavigate }: { onNavigate?: (path: string) => vo
         onClose={() => setShowRetrait(false)}
         balance={profile.balance_ar || 0}
         minRetrait={2000}
+        onSuccess={refreshProfile}
+      />
+      <TransferModal
+        open={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        balance={profile.balance_ar || 0}
         onSuccess={refreshProfile}
       />
     </>
