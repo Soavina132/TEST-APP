@@ -80,9 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Realtime balance/profile sync — re-subscribed whenever the user changes,
   // plus a transactions INSERT safety net so any credit/debit flushes the profile
   // even if a profiles UPDATE event is missed.
+  // Also includes a 10s polling fallback for when realtime disconnects.
   useEffect(() => {
     if (!user?.id) return;
     const uid = user.id;
+
+    // Realtime channel
     const ch = supabase
       .channel(`profile-live:${uid}`)
       .on(
@@ -98,7 +101,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         () => { loadProfile(uid); }
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+
+    // Polling fallback: every 10s, reload profile to catch balance changes
+    // that might have been missed if realtime disconnected
+    const pollInterval = setInterval(() => {
+      loadProfile(uid);
+    }, 10000);
+
+    return () => {
+      supabase.removeChannel(ch);
+      clearInterval(pollInterval);
+    };
   }, [user?.id]);
 
 

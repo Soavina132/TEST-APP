@@ -317,7 +317,7 @@ export function DepotModal({
   );
 }
 
-// ─── Modal Retrait ────────────────────────────────────────────
+// ─── Modal Retrait (Mobile Money uniquement) ─────────────────
 export function RetraitModal({
   open, onClose, balance, minRetrait, onSuccess,
 }: {
@@ -327,11 +327,8 @@ export function RetraitModal({
   const { user, profile } = useAuth();
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
-  const [bankName, setBankName] = useState("");
-  const [bankNumber, setBankNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone || "");
-  const [withdrawMethod, setWithdrawMethod] = useState<"mvola" | "orange" | "airtel" | "bank">("mvola");
-  const [type, setType] = useState<"mobile" | "bank">("mobile");
+  const [withdrawMethod, setWithdrawMethod] = useState<"mvola" | "orange" | "airtel">("mvola");
 
   useEffect(() => { if (open) { setAmount(""); setBusy(false); } }, [open]);
 
@@ -340,14 +337,15 @@ export function RetraitModal({
     const amt = Number(amount);
     if (!amt || amt > balance) return toast.error("Solde insuffisant");
     if (amt < minRetrait) return toast.error(`Retrait minimum : ${fmtAr(minRetrait)}`);
+    if (!phoneNumber.trim() || phoneNumber.trim().length < 8) return toast.error("Numéro de téléphone requis");
     setBusy(true);
     try {
       const { error } = await supabase.rpc("create_withdrawal", {
         _amount: amt,
-        _method: type === "bank" ? "bank" : withdrawMethod,
-        _bank_name: type === "bank" ? bankName : null,
-        _bank_account_number: type === "bank" ? bankNumber : null,
-        _phone_number: type === "mobile" ? phoneNumber : null,
+        _method: withdrawMethod,
+        _bank_name: null,
+        _bank_account_number: null,
+        _phone_number: phoneNumber,
       });
       if (error) throw error;
       toast.success("Demande de retrait envoyée !");
@@ -371,7 +369,7 @@ export function RetraitModal({
         <div className="p-5">
           <div className="flex items-center justify-between mb-5">
             <div className="min-w-0">
-              <h2 className="text-lg font-black">Retrait</h2>
+              <h2 className="text-lg font-black">Retrait Mobile Money</h2>
               <p className="text-xs text-muted-foreground">Solde : {fmtAr(balance)}</p>
             </div>
             <button onClick={onClose} className="shrink-0 w-9 h-9 rounded-full bg-secondary grid place-items-center">
@@ -409,80 +407,35 @@ export function RetraitModal({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">MÉTHODE</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setType("mobile")}
-                  className={`py-2.5 rounded-xl text-xs font-bold border ${type === "mobile" ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border text-muted-foreground"}`}
-                >
-                  Mobile Money
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setType("bank")}
-                  className={`py-2.5 rounded-xl text-xs font-bold border ${type === "bank" ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border text-muted-foreground"}`}
-                >
-                  Banque
-                </button>
+              <label className="text-xs font-bold text-muted-foreground mb-2 block">OPÉRATEUR</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "mvola", label: "MVola", color: "bg-red-500" },
+                  { id: "orange", label: "Orange", color: "bg-orange-500" },
+                  { id: "airtel", label: "Airtel", color: "bg-rose-600" },
+                ].map((op) => (
+                  <button
+                    key={op.id}
+                    type="button"
+                    onClick={() => setWithdrawMethod(op.id as any)}
+                    className={`py-2.5 rounded-xl text-white text-xs font-bold ${op.color} ${withdrawMethod === op.id ? "" : "opacity-50"}`}
+                  >
+                    {op.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {type === "mobile" ? (
-              <>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground mb-2 block">OPÉRATEUR</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: "mvola", label: "MVola", color: "bg-red-500" },
-                      { id: "orange", label: "Orange", color: "bg-orange-500" },
-                      { id: "airtel", label: "Airtel", color: "bg-rose-600" },
-                    ].map((op) => (
-                      <button
-                        key={op.id}
-                        type="button"
-                        onClick={() => setWithdrawMethod(op.id as any)}
-                        className={`py-2.5 rounded-xl text-white text-xs font-bold ${op.color} ${withdrawMethod === op.id ? "" : "opacity-50"}`}
-                      >
-                        {op.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground mb-2 block">NUMÉRO</label>
-                  <input
-                    inputMode="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+261 34 00 000 00"
-                    className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground mb-2 block">NOM DE LA BANQUE</label>
-                  <input
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    placeholder="Ex: BNI, BOA, BFV..."
-                    className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground mb-2 block">NUMÉRO DE COMPTE</label>
-                  <input
-                    value={bankNumber}
-                    onChange={(e) => setBankNumber(e.target.value)}
-                    placeholder="00000 000 0000000000"
-                    className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
-                  />
-                </div>
-              </>
-            )}
+            <div>
+              <label className="text-xs font-bold text-muted-foreground mb-2 block">NUMÉRO</label>
+              <input
+                inputMode="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+261 34 00 000 00"
+                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
+              />
+            </div>
 
             <button
               type="submit"
@@ -501,7 +454,7 @@ export function RetraitModal({
 
 // ─── Bouton principal — pill "balance + bouton +" ─────────────
 export function WalletButton({ onNavigate }: { onNavigate?: (path: string) => void }) {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
@@ -588,14 +541,14 @@ export function WalletButton({ onNavigate }: { onNavigate?: (path: string) => vo
         airtelPhone={settings.airtelPhone}
         airtelName={settings.airtelName}
         minDeposit={settings.minDeposit}
-        onSuccess={() => {}}
+        onSuccess={refreshProfile}
       />
       <RetraitModal
         open={showRetrait}
         onClose={() => setShowRetrait(false)}
         balance={profile.balance_ar || 0}
         minRetrait={2000}
-        onSuccess={() => {}}
+        onSuccess={refreshProfile}
       />
     </>
   );
