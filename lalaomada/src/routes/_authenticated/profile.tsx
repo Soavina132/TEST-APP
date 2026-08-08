@@ -437,7 +437,7 @@ function ProfilePage() {
 
         {/* Avatar overlapping the banner */}
         <div className="px-4 -mt-8 pb-3">
-          <div className="flex items-end gap-3">
+          <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               <div className={`w-16 h-16 rounded-2xl p-[3px] bg-gradient-to-br ${badge.color} shadow-lg`}>
                 <div className="w-full h-full rounded-xl bg-card flex items-center justify-center text-xl font-black overflow-hidden ring-1 ring-card">
@@ -452,7 +452,7 @@ function ProfilePage() {
               </button>
             </div>
 
-            <div className="flex-1 min-w-0 pb-1">
+            <div className="flex-1 min-w-0">
               {editingName ? (
                 <div className="flex gap-1">
                   <input value={pseudo} onChange={e => setPseudo(e.target.value)} onKeyDown={e => e.key === "Enter" && savePseudo()} autoFocus
@@ -460,11 +460,11 @@ function ProfilePage() {
                   <button onClick={savePseudo} className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
                 </div>
               ) : (
-                <button onClick={() => setEditingName(true)} className="font-black text-lg leading-tight hover:text-primary transition-colors break-words text-left w-full line-clamp-2">
+                <button onClick={() => setEditingName(true)} className="font-black text-base leading-tight hover:text-primary transition-colors text-left w-full truncate">
                   {profile.pseudo}
                 </button>
               )}
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 {p.phone_verified ? (
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-500">
                     <ShieldCheck className="w-3 h-3" /> Vérifié
