@@ -11,6 +11,7 @@ import { LogOut, Eye, Plus, Pause, Volume2, VolumeX } from "lucide-react";
 import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 import { useT } from "@/lib/i18n";
 import GameEndScreen from "@/components/game/GameEndScreen";
+import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
@@ -195,6 +196,10 @@ function GamePage() {
         )}
       </main>
     );
+  }
+
+  if (game.status === "cancelled") {
+    return <GameStateMessage state="cancelled" gameLabel="Ludo" slug="ludo" />;
   }
 
   if (game.status === "finished") {

@@ -14,9 +14,11 @@ import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import pokerCover from "@/assets/games/poker.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
 import HelpPopover from "@/components/HelpPopover";
-import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
+import GameLeaderboardModal from "@/components/GameLeaderboardModal";
 import { DepotModal, useAppSettings } from "@/components/WalletButton";
+import PremiumSubscriptionModal from "@/components/PremiumSubscriptionModal";
 import { getLobbyHelp } from "@/lib/game-help-content";
+import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
 
 const COVER_BY_SLUG: Record<string, string> = {
   ludo: ludoCover.url, domino: dominoCover.url, fanorona: fanoronaCover.url,
@@ -34,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/jeux/$slug")({
 });
 
 type Slug = GameSlug;
-const STAKES = [100, 500, 1000, 2000, 5000];
+const STAKES = [200, 500, 1000, 2000, 5000];
 
 const COVER_PLACEHOLDER: Record<string, string> = {
   "chess": "data:image/webp;base64,UklGRl4DAABXRUJQVlA4WAoAAAAEAAAAEwAAEwAAVlA4IMYAAACQBQCdASoUABQAPu1urlIppiQiqAgBMB2JZgCdMoM8An/AQP4/O1m3SRtP5hc+S0w2el8JsAD+6U6Zy+QtijWclNMXaeu4ahVZfYIm9ULhxkALwvYeDhC8s0dU1+UJxS6oMPaM8Q2Gr8g14Erx3NECSpOL9/OSL29y2pRSYTOVXwDqEzYVRJjW7WVTTwRnWUPwAJq6V5ME5/8E9ZL+ht+DxAiFkPplz7B7hMtuMmalrygMYmeWI7/CGS+KuD0Zo+lQFV9/2ABYTVAgcQIAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IlhNUCBDb3JlIDUuNS4wIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6SXB0YzR4bXBFeHQ9Imh0dHA6Ly9pcHRjLm9yZy9zdGQvSXB0YzR4bXBFeHQvMjAwOC0wMi0yOS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgSXB0YzR4bXBFeHQ6RGlnaXRhbFNvdXJjZUZpbGVUeXBlPSJodHRwOi8vY3YuaXB0Yy5vcmcvbmV3c2NvZGVzL2RpZ2l0YWxzb3VyY2V0eXBlL3RyYWluZWRBbGdvcml0aG1pY01lZGlhIiBJcHRjNHhtcEV4dDpEaWdpdGFsU291cmNlVHlwZT0iaHR0cDovL2N2LmlwdGMub3JnL25ld3Njb2Rlcy9kaWdpdGFsc291cmNldHlwZS90cmFpbmVkQWxnb3JpdGhtaWNNZWRpYSIgcGhvdG9zaG9wOkNyZWRpdD0iTWFkZSB3aXRoIEdvb2dsZSBBSSIvPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiAgIDw/eHBhY2tldCBlbmQ9InciPz4A",
@@ -109,6 +111,7 @@ function Lobby() {
 
   const [tab, setTab] = useState<Tab>("public");
   const lobbyHelp = getLobbyHelp(slug, tab);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [publicGames, setPublicGames] = useState<any[]>([]);
   const [mine, setMine] = useState<{ ongoing: any[]; finished: any[] }>({ ongoing: [], finished: [] });
   const [mineTab, setMineTab] = useState<"ongoing" | "finished">("ongoing");
@@ -143,6 +146,8 @@ function Lobby() {
   const [pendingAction, setPendingAction] = useState<((name?: string) => Promise<void>) | null>(null);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [showDepositPopup, setShowDepositPopup] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [freeGameInfo, setFreeGameInfo] = useState<{ remaining: number; isPremium: boolean } | null>(null);
   const walletSettings = useAppSettings();
   const [sheet, setSheet] = useState<string | null>(null);
   const closeSheet = () => setSheet(null);
@@ -215,12 +220,30 @@ function Lobby() {
     });
   };
 
+  // Load free game usage info
+  const loadFreeGameInfo = async () => {
+    try {
+      const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug } as any);
+      if (!error && data) {
+        const result = data as any;
+        setFreeGameInfo({
+          remaining: result.is_premium ? (result.premium_remaining === -1 ? -1 : result.premium_remaining) : result.remaining_free,
+          isPremium: result.is_premium || false,
+        });
+      }
+    } catch (e) { /* fail silently */ }
+  };
+
   useEffect(() => {
-    loadPublic(); loadMine();
+    loadPublic(); loadMine(); loadFreeGameInfo();
+    let debounceTimer: ReturnType<typeof setTimeout>;
     const ch = supabase.channel("lobby-" + slug)
-      .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, () => { loadPublic(); loadMine(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { loadPublic(); loadMine(); }, 500);
+      })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, profile?.id]);
 
@@ -233,17 +256,49 @@ function Lobby() {
     await supabase.rpc("ludo_set_auto_move" as any, { _game_id: gameId, _enabled: ludoAutoMove } as any);
   };
 
-  const goTo = (value: unknown) => {
+  const goTo = async (value: unknown) => {
     const id = extractGameId(value);
     if (!id) {
       toast("Partie créée, mais l'identifiant reçu est invalide. Réessayez depuis vos parties.");
       loadMine();
       return;
     }
+    // Increment free/premium game usage counter
+    if (stake === 0) await incrementGameUsage();
     navigate({ to: ROUTE[slug], params: { id } as any });
   };
+  // ── Free game limit check ──
+  const checkFreeGameLimit = async (): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug } as any);
+    if (error) {
+      console.error("check_game_eligibility error:", error);
+      return true; // fail open — let them play
+    }
+    const result = data as any;
+    setFreeGameInfo({ remaining: result.remaining_free || 0, is_premium: result.is_premium || false });
+    if (!result.can_play) {
+      toast.error("Limite atteinte", {
+        description: result.reason || "Limite de jeux gratuits atteinte",
+        action: { label: "S'abonner", onClick: () => setShowPremiumModal(true) },
+        duration: 8000,
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const incrementGameUsage = async () => {
+    try {
+      await supabase.rpc("increment_game_usage" as any, { p_game_type: slug } as any);
+    } catch (e) {
+      console.error("increment_game_usage error:", e);
+    }
+  };
+
 
   const joinPublicOrCreate = withAdminRename(async (overrideName) => {
+    // Check free game limit before creating
+    if (!(await checkFreeGameLimit())) return;
     // Onglet Gratuit : mise forcée à 0, aucune vérification requise
     setBusy(true);
     try {
@@ -318,6 +373,8 @@ function Lobby() {
   });
 
   const createNewFree = async (priv: boolean) => {
+    // Free games need limit check
+    if (!(await checkFreeGameLimit())) return;
     const savedStake = stake;
     (stake as any); // no-op
     try {
@@ -356,7 +413,7 @@ function Lobby() {
         const { data, error } = await supabase.rpc("poker_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
         if (error) throw error; id = extractGameId(data);
       }
-      if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
+      if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
     } finally { void savedStake; }
   };
 
@@ -401,7 +458,7 @@ function Lobby() {
       const { data, error } = await supabase.rpc("poker_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
       if (error) throw error; id = extractGameId(data);
     }
-    if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
+    if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
   };
 
   const createPrivate = withAdminRename(async (overrideName) => {
@@ -487,7 +544,16 @@ function Lobby() {
           <div className="inline-block text-[9px] uppercase tracking-[0.18em] font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10 ring-1 ring-primary/20">Créer une partie</div>
           <div className="font-extrabold text-lg leading-tight truncate mt-0.5 text-foreground">{meta.label}</div>
         </div>
-        <HelpPopover trigger="Aide" title={lobbyHelp.title} html={lobbyHelp.html} variant="button" />
+        <div className="flex items-center gap-1.5">
+          <HelpPopover trigger="Aide" title={lobbyHelp.title} html={lobbyHelp.html} variant="button" />
+          <button
+            type="button"
+            onClick={() => setShowLeaderboard(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-card border border-amber-500/25 text-amber-600 font-semibold text-[11px] shadow-sm active:scale-95 transition-transform"
+          >
+            <Trophy className="w-3.5 h-3.5" /> Classement
+          </button>
+        </div>
       </div>
 
 
@@ -586,6 +652,22 @@ function Lobby() {
               <div className="rounded-xl bg-primary/8 border border-primary/20 px-3 py-2 text-[11px] text-primary/90 flex items-center gap-2">
                 <KeyRound className="w-3.5 h-3.5 shrink-0" />
                 <span>Un code d'invitation à 6 caractères sera généré.</span>
+              </div>
+            )}
+            {freeGameInfo && !freeGameInfo.isPremium && freeGameInfo.remaining <= 3 && freeGameInfo.remaining > 0 && (
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-600 flex items-center gap-2">
+                <span>⚡ {freeGameInfo.remaining} partie{freeGameInfo.remaining > 1 ? "s" : ""} gratuite{freeGameInfo.remaining > 1 ? "s" : ""} restante{freeGameInfo.remaining > 1 ? "s" : ""} aujourd'hui pour {meta.label}</span>
+              </div>
+            )}
+            {freeGameInfo && !freeGameInfo.isPremium && freeGameInfo.remaining === 0 && (
+              <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2 text-[11px] text-destructive flex items-center justify-between">
+                <span>🚫 Limite de 5 parties gratuites atteinte</span>
+                <button onClick={() => setShowPremiumModal(true)} className="font-bold underline">S'abonner</button>
+              </div>
+            )}
+            {freeGameInfo && freeGameInfo.isPremium && (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[11px] text-emerald-600 flex items-center gap-2">
+                <span>👑 Premium actif — matchs {freeGameInfo.remaining === -1 ? "illimités" : `restants: ${freeGameInfo.remaining}`}</span>
               </div>
             )}
             <button onClick={joinPublicOrCreate} disabled={busy}
@@ -890,6 +972,18 @@ function Lobby() {
         minDeposit={walletSettings.minDeposit}
         onSuccess={() => { refreshProfile(); }}
       />
+
+      <PremiumSubscriptionModal
+        open={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+      />
+      {showLeaderboard && (
+        <GameLeaderboardModal
+          slug={slug}
+          gameLabel={meta.label}
+          onClose={() => setShowLeaderboard(false)}
+        />
+      )}
     </main>
   );
 }
@@ -934,7 +1028,7 @@ function StakePicker({ stake, setStake, onDone }: { stake: number; setStake: (n:
         <button onClick={() => setCustom(c => !c)} className="text-[11px] font-semibold text-primary">{custom ? "Préréglages" : "Saisie libre"}</button>
       </div>
       {custom ? (
-        <input type="number" min={0} value={stake} onChange={e => setStake(Math.max(0, Number(e.target.value) || 0))}
+        <input type="number" min={200} value={stake} onChange={e => setStake(Math.max(200, Number(e.target.value) || 0))}
           placeholder="Montant en Ariary"
           className="w-full px-4 py-3 rounded-xl bg-secondary outline-none text-center font-bold text-lg" />
       ) : (
@@ -1058,7 +1152,7 @@ function SettingsPanel({ maxP, setMaxP, stake, setStake, commission, showMaxP, m
           <button onClick={() => setCustom((c: boolean) => !c)} className="text-[11px] font-semibold text-primary">{custom ? "Préréglages" : "Saisie libre"}</button>
         </div>
         {custom ? (
-          <input type="number" min={0} value={stake} onChange={e => setStake(Math.max(0, Number(e.target.value) || 0))}
+          <input type="number" min={200} value={stake} onChange={e => setStake(Math.max(200, Number(e.target.value) || 0))}
             placeholder="Montant en Ariary"
             className="w-full px-3 py-2 rounded-xl bg-secondary outline-none text-center font-bold text-base" />
         ) : (

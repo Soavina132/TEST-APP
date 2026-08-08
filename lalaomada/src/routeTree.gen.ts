@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as CguRouteImport } from './routes/cgu'
+import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as JeuxPublicsRouteImport } from './routes/jeux-publics'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -26,6 +28,7 @@ import { Route as AuthenticatedParametresRouteImport } from './routes/_authentic
 import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
+import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
 import { Route as AuthenticatedTutosRouteImport } from './routes/_authenticated/tutos'
 import { Route as ApiLinkPreviewRouteImport } from './routes/api/link-preview'
@@ -56,6 +59,16 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CguRoute = CguRouteImport.update({
+  id: '/cgu',
+  path: '/cgu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
+  id: '/confidentialite',
+  path: '/confidentialite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JeuxPublicsRoute = JeuxPublicsRouteImport.update({
@@ -134,6 +147,12 @@ const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
   path: '/rankings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedStatistiquesRoute =
+  AuthenticatedStatistiquesRouteImport.update({
+    id: '/statistiques',
+    path: '/statistiques',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedTournamentsRoute =
   AuthenticatedTournamentsRouteImport.update({
     id: '/tournaments',
@@ -255,6 +274,8 @@ const AuthenticatedJeuxRamiIdRoute = AuthenticatedJeuxRamiIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cgu': typeof CguRoute
+  '/confidentialite': typeof ConfidentialiteRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -270,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
@@ -295,6 +317,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cgu': typeof CguRoute
+  '/confidentialite': typeof ConfidentialiteRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -309,6 +333,7 @@ export interface FileRoutesByTo {
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
@@ -336,6 +361,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/cgu': typeof CguRoute
+  '/confidentialite': typeof ConfidentialiteRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -351,6 +378,7 @@ export interface FileRoutesById {
   '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
+  '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/tournaments': typeof AuthenticatedTournamentsRoute
   '/_authenticated/tutos': typeof AuthenticatedTutosRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
@@ -378,6 +406,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/cgu'
+    | '/confidentialite'
     | '/jeux-publics'
     | '/login'
     | '/reset-password'
@@ -393,6 +423,7 @@ export interface FileRouteTypes {
     | '/parrainage'
     | '/profile'
     | '/rankings'
+    | '/statistiques'
     | '/tournaments'
     | '/tutos'
     | '/api/link-preview'
@@ -418,6 +449,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/cgu'
+    | '/confidentialite'
     | '/jeux-publics'
     | '/login'
     | '/reset-password'
@@ -432,6 +465,7 @@ export interface FileRouteTypes {
     | '/parrainage'
     | '/profile'
     | '/rankings'
+    | '/statistiques'
     | '/tournaments'
     | '/tutos'
     | '/api/link-preview'
@@ -458,6 +492,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/cgu'
+    | '/confidentialite'
     | '/jeux-publics'
     | '/login'
     | '/reset-password'
@@ -473,6 +509,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parrainage'
     | '/_authenticated/profile'
     | '/_authenticated/rankings'
+    | '/_authenticated/statistiques'
     | '/_authenticated/tournaments'
     | '/_authenticated/tutos'
     | '/api/link-preview'
@@ -500,6 +537,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  CguRoute: typeof CguRoute
+  ConfidentialiteRoute: typeof ConfidentialiteRoute
   JeuxPublicsRoute: typeof JeuxPublicsRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -521,6 +560,20 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cgu': {
+      id: '/cgu'
+      path: '/cgu'
+      fullPath: '/cgu'
+      preLoaderRoute: typeof CguRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confidentialite': {
+      id: '/confidentialite'
+      path: '/confidentialite'
+      fullPath: '/confidentialite'
+      preLoaderRoute: typeof ConfidentialiteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jeux-publics': {
@@ -626,6 +679,13 @@ declare module '@tanstack/react-router' {
       path: '/rankings'
       fullPath: '/rankings'
       preLoaderRoute: typeof AuthenticatedRankingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/statistiques': {
+      id: '/_authenticated/statistiques'
+      path: '/statistiques'
+      fullPath: '/statistiques'
+      preLoaderRoute: typeof AuthenticatedStatistiquesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tournaments': {
@@ -825,6 +885,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
+  AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTournamentsRoute: typeof AuthenticatedTournamentsRoute
   AuthenticatedTutosRoute: typeof AuthenticatedTutosRoute
   AuthenticatedChessIdRoute: typeof AuthenticatedChessIdRoute
@@ -851,6 +912,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
+  AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTournamentsRoute: AuthenticatedTournamentsRoute,
   AuthenticatedTutosRoute: AuthenticatedTutosRoute,
   AuthenticatedChessIdRoute: AuthenticatedChessIdRoute,
@@ -871,6 +933,8 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  CguRoute: CguRoute,
+  ConfidentialiteRoute: ConfidentialiteRoute,
   JeuxPublicsRoute: JeuxPublicsRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ChessBoard } from "@/components/chess/ChessBoard";
 import { PlayerBar } from "@/components/chess/PlayerBar";
 import GameEndScreen from "@/components/game/GameEndScreen";
+import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { serverNow } from "@/lib/server-time";
@@ -509,6 +510,10 @@ function ChessPage() {
   }
 
   if (!game) return <div className="p-4">Chargement…</div>;
+
+  if (game.status === "cancelled") {
+    return <GameStateMessage state="cancelled" gameLabel="Échecs" slug="chess" />;
+  }
 
   if (game.status === "open" && !isActive) {
     const seatParts: any[] = [];

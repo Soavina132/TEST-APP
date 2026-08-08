@@ -1,35 +1,28 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState, useCallback, FormEvent } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { copyText } from "@/lib/clipboard";
 import {
   Coins, Loader2, Plus, ArrowDownLeft, ArrowUpRight,
   X, ChevronRight, RefreshCw, Trophy, Gamepad2,
-  History, Gift, Zap, Users, Copy, Check,
+  History, Gift, Zap, Users,
   Wallet, TrendingUp, Shield, ShieldCheck, ShieldAlert,
 } from "lucide-react";
 import { serverNow } from "@/lib/server-time";
 import MesPartiesSheet from "@/components/game/MesPartiesSheet";
+import OngoingGameBanner from "@/components/game/OngoingGameBanner";
 import MoneyOffersSection from "@/components/MoneyOffersSection";
 import BannerCarousel from "@/components/BannerCarousel";
 import { useMyOngoingCount } from "@/hooks/use-my-ongoing-count";
 import { useLiveAvailable } from "@/hooks/use-live-available";
 import { Radio } from "lucide-react";
+import { DepotModal, RetraitModal, useAppSettings } from "@/components/WalletButton";
 
 export const Route = createFileRoute("/_authenticated/lobby")({
   component: LobbyPage,
   head: () => ({ meta: [{ title: "Accueil — Lalao MADA" }] }),
 });
-
-// ─── Opérateurs ─────────────────────────────────────────────
-const OPERATORS = [
-  { id: "mvola",  label: "MVola",        color: "bg-red-500" },
-  { id: "orange", label: "Orange",       color: "bg-orange-500" },
-  { id: "airtel", label: "Airtel",       color: "bg-rose-600" },
-] as const;
-type Op = (typeof OPERATORS)[number]["id"];
 
 const GAME_DEFS: Record<string, { emoji: string; label: string }> = {
   ludo:     { emoji: "🎲", label: "Ludo" },
@@ -44,287 +37,6 @@ const fmtAr = (n: number) => Math.round(n).toLocaleString("fr-FR") + " Ar";
 const fmtDate = (d: string) =>
   new Date(d).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-// ─── Modal Dépôt ─────────────────────────────────────────────
-function DepotModal({
-  open, onClose, mvolaPhone, mvolaName, orangePhone, orangeName, airtelPhone, airtelName, minDeposit, onSuccess,
-}: {
-  open: boolean; onClose: () => void;
-  mvolaPhone: string; mvolaName: string;
-  orangePhone: string; orangeName: string;
-  airtelPhone: string; airtelName: string;
-  minDeposit: number; onSuccess: () => void;
-}) {
-  const { user, profile } = useAuth();
-  const [step, setStep] = useState<1 | 2>(1);
-  const [operator, setOperator] = useState<Op>("mvola");
-  const [amount, setAmount] = useState("");
-  const [reference, setReference] = useState("");
-  const [phone, setPhone] = useState(profile?.phone || "");
-  const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => { if (open) { setStep(1); setAmount(""); setReference(""); setBusy(false); setCopied(false); } }, [open]);
-  useEffect(() => { setCopied(false); }, [operator]);
-
-  const opData: Record<Op, { phone: string; name: string }> = {
-    mvola:  { phone: mvolaPhone,  name: mvolaName },
-    orange: { phone: orangePhone, name: orangeName },
-    airtel: { phone: airtelPhone, name: airtelName },
-  };
-  const active = opData[operator];
-
-  const copyPhone = () => {
-    if (!active.phone) return;
-    copyText(active.phone).then(ok => {
-      if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
-      else toast.error("Impossible de copier");
-    });
-  };
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const amt = Number(amount);
-    if (!amt || amt < minDeposit) return toast.error(`Minimum : ${fmtAr(minDeposit)}`);
-    if (!reference.trim()) return toast.error("Code de référence requis");
-    setBusy(true);
-    try {
-      const { error } = await (supabase.from("deposits") as any).insert({
-        user_id: user!.id, amount: amt, method: operator,
-        reference: reference.trim(), user_phone: phone.trim() || null,
-      });
-      if (error) throw error;
-      toast.success("Dépôt envoyé !");
-      onSuccess(); onClose();
-    } catch (e: any) { toast.error(e.message || "Erreur"); }
-    finally { setBusy(false); }
-  };
-
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="relative w-full max-w-md rounded-t-3xl bg-background shadow-2xl max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="w-10 h-1 rounded-full bg-border mx-auto mt-3" />
-        <div className="p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div className="min-w-0">
-              <h2 className="text-lg font-black">Dépôt Mobile Money</h2>
-              <p className="text-xs text-muted-foreground">Minimum : {fmtAr(minDeposit)}</p>
-            </div>
-            <button onClick={onClose} className="shrink-0 w-9 h-9 rounded-full bg-secondary grid place-items-center">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {step === 1 ? (
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-muted-foreground mb-2 block">OPÉRATEUR</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {OPERATORS.map(op => (
-                    <button key={op.id} type="button" onClick={() => setOperator(op.id)}
-                      className={`py-3 rounded-xl text-white text-xs font-bold ${op.color} ${operator === op.id ? "" : "opacity-50"}`}>
-                      {op.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-muted-foreground mb-2 block">MONTANT (Ar)</label>
-                <input type="number" inputMode="numeric" min={minDeposit} value={amount}
-                  onChange={e => setAmount(e.target.value)} placeholder={`Min. ${fmtAr(minDeposit)}`}
-                  className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none text-base font-bold" />
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {[2000, 5000, 10000, 20000, 50000].map(v => (
-                    <button key={v} type="button" onClick={() => setAmount(String(v))}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${amount === String(v) ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border text-muted-foreground"}`}>
-                      {v.toLocaleString("fr-FR")}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button onClick={() => {
-                if (!Number(amount) || Number(amount) < minDeposit) return toast.error(`Minimum : ${fmtAr(minDeposit)}`);
-                setStep(2);
-              }} className="w-full py-3.5 rounded-xl bg-emerald-500 text-white font-bold">
-                Continuer →
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
-              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 space-y-2">
-                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  Transférez {fmtAr(Number(amount))} via {OPERATORS.find(o => o.id === operator)?.label} :
-                </p>
-                {active.phone ? (
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xl font-black break-all">{active.phone}</p>
-                      {active.name && <p className="text-xs text-muted-foreground">{active.name}</p>}
-                    </div>
-                    <button type="button" onClick={copyPhone}
-                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
-                      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copied ? "Copié" : "Copier"}
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">Numéro non configuré.</p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-muted-foreground mb-2 block">CODE DE RÉFÉRENCE *</label>
-                <input required value={reference} onChange={e => setReference(e.target.value)}
-                  placeholder="Ex: TX123456789"
-                  className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none font-mono" />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-muted-foreground mb-2 block">VOTRE NUMÉRO (optionnel)</label>
-                <input inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="+261 34 00 000 00"
-                  className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none" />
-              </div>
-
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setStep(1)} className="flex-1 py-3.5 rounded-xl bg-secondary font-bold text-sm">
-                  ← Retour
-                </button>
-                <button type="submit" disabled={busy} className="flex-[2] py-3.5 rounded-xl bg-emerald-500 text-white font-bold disabled:opacity-60">
-                  {busy ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Soumettre"}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal Retrait ────────────────────────────────────────────
-function RetraitModal({ open, onClose, minWithdrawal, onSuccess }: {
-  open: boolean; onClose: () => void; minWithdrawal: number; onSuccess: () => void;
-}) {
-  const { user, profile } = useAuth();
-  const [operator, setOperator] = useState<Op>("mvola");
-  const [amount, setAmount] = useState("");
-  const [phone, setPhone] = useState(profile?.phone || "");
-  const [recipientName, setRecipientName] = useState(profile?.pseudo || "");
-  const [busy, setBusy] = useState(false);
-  const balance = profile?.balance_ar ?? 0;
-
-  useEffect(() => { if (open) { setAmount(""); setBusy(false); } }, [open]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const amt = Number(amount);
-    if (!amt || amt < minWithdrawal) return toast.error(`Minimum : ${fmtAr(minWithdrawal)}`);
-    if (amt > balance) return toast.error("Solde insuffisant");
-    if (!phone.trim()) return toast.error("Numéro requis");
-    setBusy(true);
-    try {
-      const { error } = await (supabase.rpc as any)("request_withdrawal", {
-        _amount: amt,
-        _method: operator,
-        _user_phone: phone.trim(),
-        _recipient_name: recipientName.trim() || null,
-      });
-      if (error) throw error;
-      toast.success("Demande de retrait envoyée !");
-      onSuccess(); onClose();
-    } catch (e: any) { toast.error(e.message || "Erreur"); }
-    finally { setBusy(false); }
-  };
-
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={onClose}>
-      <div className="relative w-full max-w-md rounded-t-3xl bg-background shadow-2xl max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}>
-        <div className="w-10 h-1 rounded-full bg-border mx-auto mt-3" />
-        <div className="p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div className="min-w-0">
-              <h2 className="text-lg font-black">Retrait Mobile Money</h2>
-              <p className="text-xs text-muted-foreground">
-                Solde : <span className="font-bold text-primary">{fmtAr(balance)}</span>
-              </p>
-            </div>
-            <button onClick={onClose} className="shrink-0 w-9 h-9 rounded-full bg-secondary grid place-items-center">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <form onSubmit={submit} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">OPÉRATEUR</label>
-              <div className="grid grid-cols-3 gap-2">
-                {OPERATORS.map(op => (
-                  <button key={op.id} type="button" onClick={() => setOperator(op.id)}
-                    className={`py-3 rounded-xl text-white text-xs font-bold ${op.color} ${operator === op.id ? "" : "opacity-50"}`}>
-                    {op.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">MONTANT (Ar)</label>
-              <input required type="number" inputMode="numeric" min={minWithdrawal} max={balance}
-                value={amount} onChange={e => setAmount(e.target.value)}
-                placeholder={`Min. ${fmtAr(minWithdrawal)}`}
-                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none text-base font-bold" />
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {[2000, 5000, 10000].filter(v => v <= balance).map(v => (
-                  <button key={v} type="button" onClick={() => setAmount(String(v))}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${amount === String(v) ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border text-muted-foreground"}`}>
-                    {v.toLocaleString("fr-FR")}
-                  </button>
-                ))}
-                {balance > 0 && (
-                  <button type="button" onClick={() => setAmount(String(Math.floor(balance)))}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-secondary border-border text-muted-foreground">
-                    Tout
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">VOTRE NUMÉRO *</label>
-              <input required inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                placeholder="+261 34 00 000 00"
-                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none" />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">NOM BÉNÉFICIAIRE</label>
-              <input value={recipientName} onChange={e => setRecipientName(e.target.value)}
-                placeholder="Votre nom complet"
-                className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none" />
-            </div>
-
-            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-xs text-amber-700 dark:text-amber-400 font-medium">
-              ⚠️ Retraits traités manuellement. Délai : 1–24h.
-            </div>
-
-            <button type="submit" disabled={busy || !amount || Number(amount) > balance}
-              className="w-full py-3.5 rounded-xl bg-rose-500 text-white font-bold disabled:opacity-50">
-              {busy ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `Retirer ${amount ? fmtAr(Number(amount)) : ""}`}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Page ────────────────────────────────────────────────────
 function LobbyPage() {
   const { user, profile, loading } = useAuth();
@@ -335,14 +47,8 @@ function LobbyPage() {
   const [myTrn, setMyTrn] = useState<Set<string>>(new Set());
   const [registeringTrn, setRegisteringTrn] = useState<string | null>(null);
   const [recentTx, setRecentTx] = useState<any[]>([]);
-  const [mvolaPhone, setMvolaPhone] = useState("");
-  const [mvolaName, setMvolaName] = useState("");
-  const [orangePhone, setOrangePhone] = useState("");
-  const [orangeName, setOrangeName] = useState("");
-  const [airtelPhone, setAirtelPhone] = useState("");
-  const [airtelName, setAirtelName] = useState("");
-  const [minDeposit, setMinDeposit] = useState(1000);
   const [minWithdrawal] = useState(2000);
+  const settings = useAppSettings();
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
   const [showMesParties, setShowMesParties] = useState(false);
@@ -351,21 +57,6 @@ function LobbyPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const reload = useCallback(() => setRefreshKey(k => k + 1), []);
-
-  useEffect(() => {
-    supabase.from("app_settings")
-      .select("mvola_phone, mvola_name, orange_phone, orange_name, airtel_phone, airtel_name, min_deposit")
-      .eq("id", 1).maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          const d = data as any;
-          setMvolaPhone(d.mvola_phone || ""); setMvolaName(d.mvola_name || "");
-          setOrangePhone(d.orange_phone || ""); setOrangeName(d.orange_name || "");
-          setAirtelPhone(d.airtel_phone || ""); setAirtelName(d.airtel_name || "");
-          setMinDeposit(Number(d.min_deposit) || 1000);
-        }
-      });
-  }, []);
 
   const loadGames = useCallback(async () => {
     const [openRes, liveRes] = await Promise.all([
@@ -524,7 +215,7 @@ function LobbyPage() {
     <main className="max-w-md mx-auto px-3 py-2 pb-24 space-y-2.5">
 
       {/* Solde */}
-      <div className="rounded-2xl bg-primary text-primary-foreground p-4 shadow-md shadow-primary/20">
+      <div className="rounded-2xl bg-zinc-900 text-white p-4 shadow-md shadow-zinc-900/30">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 mb-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">Solde disponible</p>
@@ -563,11 +254,13 @@ function LobbyPage() {
       </div>
 
 
+      <OngoingGameBanner />
+
       {/* Raccourcis */}
       <div className="grid grid-cols-4 gap-2">
         {[
           { icon: Gamepad2, label: "Jeux",       to: "/jeux" as const,       color: "text-primary" },
-          { icon: Trophy,   label: "Classement", to: "/rankings" as const,   color: "text-amber-500" },
+          { icon: Trophy,   label: "Tournois",  to: "/tournaments" as const, color: "text-amber-500" },
           { icon: History,  label: "Historique", to: "/history" as const,    color: "text-violet-500" },
           { icon: Gift,     label: "Parrainage", to: "/parrainage" as const, color: "text-emerald-500" },
         ].map(({ icon: Icon, label, to, color }) => (
@@ -657,14 +350,15 @@ function LobbyPage() {
       {/* Modals */}
       <DepotModal
         open={showDeposit} onClose={() => setShowDeposit(false)}
-        mvolaPhone={mvolaPhone} mvolaName={mvolaName}
-        orangePhone={orangePhone} orangeName={orangeName}
-        airtelPhone={airtelPhone} airtelName={airtelName}
-        minDeposit={minDeposit} onSuccess={reload}
+        mvolaPhone={settings.mvolaPhone} mvolaName={settings.mvolaName}
+        orangePhone={settings.orangePhone} orangeName={settings.orangeName}
+        airtelPhone={settings.airtelPhone} airtelName={settings.airtelName}
+        minDeposit={settings.minDeposit} onSuccess={reload}
       />
       <RetraitModal
         open={showRetrait} onClose={() => setShowRetrait(false)}
-        minWithdrawal={minWithdrawal} onSuccess={reload}
+        balance={profile.balance_ar ?? 0}
+        minRetrait={minWithdrawal} onSuccess={reload}
       />
       <MesPartiesSheet open={showMesParties} onClose={() => setShowMesParties(false)} />
 

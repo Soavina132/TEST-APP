@@ -7,7 +7,6 @@ import TermsModal from "@/components/TermsModal";
 import FloatingBackButton from "@/components/layout/BackButton";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import ContactFab from "@/components/ContactFab";
-import ShareAppCta from "@/components/ShareAppCta";
 import OnlineStatusBar from "@/components/OnlineStatusBar";
 import DesktopNav from "@/components/layout/DesktopNav";
 import { useLocation } from "@tanstack/react-router";
@@ -65,7 +64,6 @@ function AuthLayout() {
       <TermsModal />
       <AnnouncementsModal />
       {isHome && <ContactFab />}
-      {!inGame && !inChat && <ShareAppCta />}
       
     </>
   );

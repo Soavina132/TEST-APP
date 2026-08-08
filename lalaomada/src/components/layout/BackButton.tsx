@@ -2,6 +2,10 @@ import { useRouter, useLocation } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// Pages racines de la navigation du bas — la barre du bas suffit,
+// pas besoin d'un bouton retour flottant qui pourrait chevaucher le contenu.
+const ROOT_TAB_PATHS = new Set(["/", "/login", "/lobby", "/jeux", "/chat", "/live", "/profile"]);
+
 // Floating back button — draggable, default just below the header.
 export default function FloatingBackButton() {
   const router = useRouter();
@@ -10,17 +14,19 @@ export default function FloatingBackButton() {
   const moved = useRef(false);
   const start = useRef({ mx: 0, my: 0, bx: 0, by: 0 });
 
-  const DEFAULT = { x: 12, y: 64 };
+  // Positionné par défaut plus haut, collé sous le header, pour ne jamais
+  // chevaucher les cartes de contenu (ex: carte "Solde disponible").
+  const DEFAULT = { x: 12, y: 8 };
   const [pos, setPos] = useState<{ x: number; y: number }>(() => {
     if (typeof window === "undefined") return DEFAULT;
     try {
-      const raw = localStorage.getItem("backbtn_pos");
+      const raw = localStorage.getItem("backbtn_pos_v2");
       return raw ? JSON.parse(raw) : DEFAULT;
     } catch { return DEFAULT; }
   });
 
   useEffect(() => {
-    try { localStorage.setItem("backbtn_pos", JSON.stringify(pos)); } catch {}
+    try { localStorage.setItem("backbtn_pos_v2", JSON.stringify(pos)); } catch {}
   }, [pos]);
 
   const onDown = useCallback((e: React.PointerEvent) => {
@@ -42,7 +48,9 @@ export default function FloatingBackButton() {
 
   const onUp = useCallback(() => { dragging.current = false; }, []);
 
-  if (loc.pathname === "/" || loc.pathname === "/login") return null;
+  // Caché sur les pages racines des onglets (Accueil, Jeux, Discussion, Live, Profil)
+  // et sur login — la barre de navigation du bas y suffit déjà.
+  if (ROOT_TAB_PATHS.has(loc.pathname)) return null;
 
   return (
     <button

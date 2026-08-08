@@ -1,10 +1,14 @@
 import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { Capacitor } from "@capacitor/core";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // usePushNotifications — registers service worker, subscribes to web push,
 // and stores the subscription in the push_subscriptions table.
+//
+// On native (Capacitor) platforms, this is skipped — FCM push is handled
+// by useNativePush instead.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // VAPID public key (safe to expose — only used for subscription, not signing)
@@ -28,6 +32,9 @@ export function usePushNotifications() {
 
   const subscribe = useCallback(async () => {
     if (!user?.id) return;
+
+    // Skip web push on native platforms — FCM handles it via useNativePush
+    if (Capacitor.isNativePlatform()) return;
 
     try {
       // Register service worker

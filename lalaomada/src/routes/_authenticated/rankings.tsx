@@ -158,6 +158,7 @@ function RankingsPage() {
   const { t } = useT();
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>("all");
+  const [gameSlug, setGameSlug] = useState<string>("all");
   const [items, setItems] = useState<any[]>([]);
   const [seasons, setSeasons] = useState<any[]>([]);
   const [myRank, setMyRank] = useState<number | null>(null);
@@ -166,11 +167,15 @@ function RankingsPage() {
   useEffect(() => {
     setLoading(true);
     (async () => {
-      const { data } = await supabase.rpc("leaderboard_winners" as any, { _period: period, _limit: 100 } as any);
+      const { data } = await supabase.rpc("leaderboard_winners" as any, {
+        _period: period,
+        _limit: 100,
+        _slug: gameSlug === "all" ? null : gameSlug,
+      } as any);
       const list: any[] = (data as any[]) || [];
       setItems(list);
       if (user) {
-        const myIdx = list.findIndex(p => p.id === user.id);
+        const myIdx = list.findIndex(p => p.id === user.id || p.user_id === user.id);
         setMyRank(myIdx >= 0 ? myIdx + 1 : null);
       }
       setLoading(false);
@@ -178,7 +183,7 @@ function RankingsPage() {
     (supabase.from("seasons" as any) as any)
       .select("*").order("starts_at", { ascending: false }).limit(5)
       .then(({ data }: any) => setSeasons(data || []));
-  }, [period, user?.id]);
+  }, [period, gameSlug, user?.id]);
 
   const periods: { id: Period; label: string; icon: React.ReactNode }[] = [
     { id: "all",   label: t("period_all"),   icon: <Shield className="w-3.5 h-3.5" /> },
@@ -209,6 +214,31 @@ function RankingsPage() {
           <button key={p.id} onClick={() => setPeriod(p.id)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${period === p.id ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"}`}>
             {p.icon} {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Game filter */}
+      <div className="flex gap-1 overflow-x-auto pb-1 -mt-1 scrollbar-none">
+        {[
+          { slug: "all", label: "Tous", icon: "🎮" },
+          { slug: "ludo", label: "Ludo", icon: "🎲" },
+          { slug: "domino", label: "Domino", icon: "🁫" },
+          { slug: "fanorona", label: "Fanorona", icon: "🔴" },
+          { slug: "chess", label: "Échecs", icon: "♟️" },
+          { slug: "rami", label: "Rami", icon: "🃏" },
+          { slug: "poker", label: "Poker", icon: "♠️" },
+        ].map(g => (
+          <button
+            key={g.slug}
+            onClick={() => setGameSlug(g.slug)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+              gameSlug === g.slug
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card border border-border/40 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span>{g.icon}</span> {g.label}
           </button>
         ))}
       </div>

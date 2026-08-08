@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "lalaomada-push",
+    "storage_bucket": "lalaomada-push.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "com.lalaomada.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-placeholder-key-replace-with-real"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

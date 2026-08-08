@@ -82,7 +82,8 @@ interface GameState {
   power_tiles?: { type: string; cell: number; cd?: number }[];
   shields?: Record<string, boolean>;
   double_roll_pending?: number | null;
-  power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; at: string };
+  power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; cell?: number; at: string };
+  power_pending?: { tile_type: string; options: string[]; slot: number };
 }
 
 interface Props {
@@ -246,7 +247,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [afkMax, setAfkMax] = useState<{t1:number;t2:number;secs:number}>({ t1: 2, t2: 2, secs: 30 });
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
-  const [pawnPowerEffect, setPawnPowerEffect] = useState<{ slot: number; type: string; key: string } | null>(null);
+  const [pawnPowerEffect, setPawnPowerEffect] = useState<{ slot: number; type: string; key: string; pawn?: number } | null>(null);
   const [displayedPowerTiles, setDisplayedPowerTiles] = useState(state.power_tiles);
   const [doubleRollPhase, setDoubleRollPhase] = useState<{ slot: number; phase: "2x" | "1x" } | null>(null);
   const [boardPowerEffect, setBoardPowerEffect] = useState<{ cell: number; type: string; key: string } | null>(null);
@@ -550,13 +551,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }
     // Pawn visual effect based on power type
     const effectType = pe.reward || pe.type;
-    setPawnPowerEffect({ slot: pe.slot, type: effectType, key });
+    setPawnPowerEffect({ slot: pe.slot, type: effectType, key, pawn: pe.pawn });
     setTimeout(() => setPawnPowerEffect(null), 1500);
-    // Board-level effect: find the cell from displayedPowerTiles (old tiles before update)
-    const matchTileType = pe.type === "lucky_star" ? "lucky_star" : effectType;
-    const matchedTile = (displayedPowerTiles || []).find(t => t.type === matchTileType);
-    if (matchedTile) {
-      setBoardPowerEffect({ cell: matchedTile.cell, type: effectType, key });
+    // Board-level effect: BUG 3 FIX — use pe.cell from backend instead of searching by type
+    const eventCell = pe.cell;
+    if (eventCell !== undefined && eventCell !== null) {
+      setBoardPowerEffect({ cell: eventCell, type: effectType, key });
       setTimeout(() => setBoardPowerEffect(null), 1800);
     }
   }, [state.power_event]);
@@ -662,7 +662,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   const cellPx = boardSize / 15;
 
-  const renderPawns: { key: string; slot: number; idx: number; color: Color; row: number; col: number; movable: boolean }[] = [];
+  const renderPawns: { key: string; slot: number; idx: number; color: Color; row: number; col: number; movable: boolean; hasShield: boolean }[] = [];
   const cellGroups = new Map<string, number>();
   participants.forEach(part => {
     const arr = displayedPawns?.[String(part.slot)] || [];
@@ -698,6 +698,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         key: `${part.slot}-${i}`,
         slot: part.slot, idx: i, color: part.color, row, col,
         movable: part.slot === state.turn_slot && visibleMovable.has(i),
+        hasShield: state.shields?.[String(part.slot)] === true,
       });
     });
   });
@@ -712,6 +713,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   return (
     <div className="flex flex-col items-center gap-3">
+      <style dangerouslySetInnerHTML={{ __html: POWER_TILE_STYLES }} />
       <div className="w-full px-2"><GameInstructionsBanner slug="ludo" /></div>
       {/* Players: 2 on a single row, 4 in a 2x2 square */}
       {(() => {
@@ -985,7 +987,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                       style={{ animation: "shieldBadgeFloat 1s ease-in-out infinite" }}>🛡️</span>
                   </div>
                 )}
-                {pawnPowerEffect && pawnPowerEffect.slot === p.slot && (
+                {pawnPowerEffect && pawnPowerEffect.slot === p.slot && (pawnPowerEffect.type === "shield" || pawnPowerEffect.pawn === p.idx) && (
                   (() => {
                     const effType = pawnPowerEffect.type;
                     const effKey = pawnPowerEffect.key;
@@ -1053,6 +1055,19 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                         background: "radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)",
                         filter: "blur(0.5px)",
                       }} />
+                {p.hasShield && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
+                    style={{
+                      width: "42%", height: "42%",
+                      background: "rgba(34,197,94,0.95)",
+                      border: "2px solid white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                      fontSize: "60%",
+                      zIndex: 5,
+                    }}>
+                    🛡️
+                  </span>
+                )}
               </div>
             </button>
           );

@@ -35,7 +35,7 @@ function LivePage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "rami_games" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "game_spectators" }, load)
       .subscribe();
-    const t = setInterval(load, 10000);
+    const t = setInterval(load, 30000);
     return () => { supabase.removeChannel(ch); clearInterval(t); };
   }, []);
 

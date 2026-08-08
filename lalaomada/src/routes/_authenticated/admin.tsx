@@ -610,7 +610,7 @@ function DepositsList({ scope }: { scope: "pending" | "all" }) {
                 <div className="font-bold">{Number(d.amount).toLocaleString("fr-FR")} Ar <span className="text-xs font-normal text-muted-foreground">· {d.method}</span></div>
                 <div className="text-xs"><b>{d.profiles?.pseudo || "—"}</b> <span className="text-muted-foreground">({d.profiles?.email})</span></div>
                 <div className="text-xs text-muted-foreground font-mono">{d.profiles?.unique_code || "—"}</div>
-                <div className="text-xs">Réf payeur: <b className="font-mono text-primary">{d.reference}</b></div>
+                <div className="text-xs">Réf payeur: <b className="font-mono text-primary">{d.user_reference || d.reference}</b></div>
                 <div className="text-xs">Tel: <b>{d.user_phone || "—"}</b></div>
                 <div className="text-[10px] text-muted-foreground">{new Date(d.created_at).toLocaleString("fr-FR")}</div>
                 <div className="text-xs">Statut: <b className={d.status === "pending" ? "text-amber-600" : d.status === "approved" ? "text-emerald-600" : "text-destructive"}>{d.status}</b></div>
@@ -663,6 +663,12 @@ function WithdrawalsList({ scope }: { scope: "pending" | "all" }) {
                 <div className="text-xs"><b>{d.profiles?.pseudo || "—"}</b> <span className="text-muted-foreground">({d.profiles?.email})</span></div>
                 <div className="text-xs text-muted-foreground font-mono">{d.profiles?.unique_code || "—"}</div>
                 <div className="text-xs">📱 Tel destinataire: <b className="text-primary">{d.user_phone}</b></div>
+                {d.bank_name && (
+                  <div className="text-xs">🏦 Banque: <b className="text-primary">{d.bank_name}</b></div>
+                )}
+                {d.bank_account_number && (
+                  <div className="text-xs">💳 Compte: <b className="font-mono text-primary">{d.bank_account_number}</b></div>
+                )}
                 {d.recipient_name && (
                   <div className="text-xs">👤 Nom destinataire: <b className="text-foreground">{d.recipient_name}</b></div>
                 )}

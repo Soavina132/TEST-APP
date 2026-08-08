@@ -1,5 +1,5 @@
 // Supabase Edge Function: send-push
-// Sends web push notifications with encrypted payload (RFC 8291).
+// Sends BOTH web push (VAPID) AND native FCM (Firebase Cloud Messaging) notifications.
 // Uses fetch directly — no external imports.
 
 // ── Base64 helpers ──────────────────────────────────────────────────────────
@@ -80,45 +80,36 @@ async function encryptPayload(
   p256dhB64: string,
   authB64: string,
 ): Promise<Uint8Array> {
-  // 1. Decode subscriber keys
   const uaPublicKeyBytes = base64UrlDecode(p256dhB64);
   const authSecret = base64UrlDecode(authB64);
 
-  // 2. Import subscriber's public key (P-256, uncompressed)
   const uaPublicKey = await crypto.subtle.importKey(
     "raw", uaPublicKeyBytes,
     { name: "ECDH", namedCurve: "P-256" },
     false, [],
   );
 
-  // 3. Generate ephemeral server key pair
   const esKeyPair = await crypto.subtle.generateKey(
     { name: "ECDH", namedCurve: "P-256" },
     true, ["deriveBits"],
   );
 
-  // 4. Compute ECDH shared secret
   const ecdhSecret = new Uint8Array(await crypto.subtle.deriveBits(
     { name: "ECDH", public: uaPublicKey },
     esKeyPair.privateKey,
     256,
   ));
 
-  // 5. Export ephemeral public key (65 bytes, uncompressed: 0x04 || X || Y)
   const esPublicKey = new Uint8Array(await crypto.subtle.exportKey(
     "raw", esKeyPair.publicKey,
   ));
 
-  // 6. PRK_key = HMAC-SHA-256(auth_secret, ecdh_secret)
   const prkKey = await hmacSHA256(authSecret, ecdhSecret);
 
-  // 7. Generate random salt (16 bytes)
   const salt = crypto.getRandomValues(new Uint8Array(16));
 
-  // 8. PRK = HKDF-Extract(salt, PRK_key) = HMAC-SHA-256(salt, PRK_key)
   const prk = await hmacSHA256(salt, prkKey);
 
-  // 9. key_info = "WebPush: info" || 0x00 || ua_public_key || es_public_key
   const keyInfo = concat(
     new TextEncoder().encode("WebPush: info"),
     new Uint8Array([0]),
@@ -126,32 +117,26 @@ async function encryptPayload(
     esPublicKey,
   );
 
-  // 10. cek_info = "Content-Encoding: aes128gcm" || 0x00 || key_info
   const cekInfo = concat(
     new TextEncoder().encode("Content-Encoding: aes128gcm"),
     new Uint8Array([0]),
     keyInfo,
   );
 
-  // 11. CEK = HKDF-Expand(PRK, cek_info, 16) = HMAC-SHA-256(PRK, cek_info || 0x01)[0:16]
   const cekFull = await hmacSHA256(prk, concat(cekInfo, new Uint8Array([1])));
   const cek = cekFull.slice(0, 16);
 
-  // 12. nonce_info = "Content-Encoding: nonce" || 0x00 || key_info
   const nonceInfo = concat(
     new TextEncoder().encode("Content-Encoding: nonce"),
     new Uint8Array([0]),
     keyInfo,
   );
 
-  // 13. nonce = HKDF-Expand(PRK, nonce_info, 12) = HMAC-SHA-256(PRK, nonce_info || 0x01)[0:12]
   const nonceFull = await hmacSHA256(prk, concat(nonceInfo, new Uint8Array([1])));
   const nonce = nonceFull.slice(0, 12);
 
-  // 14. Import CEK for AES-GCM
   const cekKey = await crypto.subtle.importKey("raw", cek, { name: "AES-GCM" }, false, ["encrypt"]);
 
-  // 15. Encrypt: payload + padding (0x02 = last record marker for single record)
   const payloadBytes = new TextEncoder().encode(payload);
   const plaintext = concat(payloadBytes, new Uint8Array([2]));
 
@@ -161,11 +146,130 @@ async function encryptPayload(
     plaintext,
   ));
 
-  // 16. Construct aes128gcm binary: salt(16) + rs(4) + idlen(1) + keyid(65) + ciphertext
-  const rs = new Uint8Array([0, 0, 0x10, 0x00]); // 4096 big-endian
-  const idlen = new Uint8Array([esPublicKey.length]); // 65
+  const rs = new Uint8Array([0, 0, 0x10, 0x00]);
+  const idlen = new Uint8Array([esPublicKey.length]);
 
   return concat(salt, rs, idlen, esPublicKey, ciphertext);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FCM (Firebase Cloud Messaging) — native Android push notifications
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get an OAuth2 access token for Firebase Cloud Messaging using
+ * the service account credentials (JWT bearer flow).
+ */
+async function getFcmAccessToken(clientEmail: string, privateKeyPem: string, projectId: string): Promise<string> {
+  // Clean the private key — Supabase secrets may escape newlines
+  const cleanKey = privateKeyPem.replace(/\\n/g, "\n");
+
+  // Import the RSA private key
+  const keyContents = cleanKey
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\s/g, "");
+  const keyBytes = base64Decode(keyContents);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    keyBytes,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  // Create JWT
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  };
+
+  const enc = (o: object) => base64UrlEncode(new TextEncoder().encode(JSON.stringify(o)));
+  const signingInput = `${enc(header)}.${enc(payload)}`;
+  const sig = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    new TextEncoder().encode(signingInput),
+  );
+  const jwt = `${signingInput}.${base64UrlEncode(sig)}`;
+
+  // Exchange JWT for access token
+  const tokenResp = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  if (!tokenResp.ok) {
+    const errText = await tokenResp.text();
+    throw new Error(`FCM OAuth2 failed: ${tokenResp.status} ${errText}`);
+  }
+
+  const tokenData = await tokenResp.json();
+  return tokenData.access_token;
+}
+
+/**
+ * Send an FCM message to a device token.
+ */
+async function sendFcmMessage(
+  accessToken: string,
+  projectId: string,
+  token: string,
+  title: string,
+  body: string,
+  link: string,
+): Promise<{ ok: boolean; invalid: boolean }> {
+  const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+
+  const message = {
+    message: {
+      token,
+      notification: {
+        title: title || "Lalao MADA",
+        body: body || "",
+      },
+      data: {
+        link: link || "/",
+        title: title || "Lalao MADA",
+        body: body || "",
+      },
+      android: {
+        priority: "high",
+        notification: {
+          channel_id: "lalaomada_notifications",
+          icon: "ic_launcher",
+          color: "#f97316",
+        },
+      },
+    },
+  };
+
+  const resp = await fetch(fcmUrl, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(message),
+  });
+
+  if (resp.ok) return { ok: true, invalid: false };
+
+  const errText = await resp.text();
+  // 404 = UNREGISTERED, 410 = invalid token
+  if (resp.status === 404 || resp.status === 410 || errText.includes("UNREGISTERED")) {
+    return { ok: false, invalid: true };
+  }
+
+  console.warn(`[FCM] Send failed for token ${token.substring(0, 20)}...: ${resp.status} ${errText}`);
+  return { ok: false, invalid: false };
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -201,7 +305,7 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Query push_subscriptions including p256dh and auth for encryption
+    // ── WEB PUSH (VAPID) ────────────────────────────────────────────────────
     const resp = await fetch(
       `${supabaseUrl}/rest/v1/push_subscriptions?user_id=eq.${encodeURIComponent(user_id)}&select=id,endpoint,p256dh,auth`,
       {
@@ -213,19 +317,6 @@ Deno.serve(async (req: Request) => {
     );
     const subs = await resp.json();
 
-    if (!subs || subs.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, message: "No subscriptions" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Build the JSON payload to send.
-    // `tag` is UNIQUE per notification (based on notification_id) so that
-    // Android/Chrome NEVER replace a previous notification with a new one —
-    // instead, several notifications from the app stack/group together in
-    // the notification shade (title = sender, body = message), the same
-    // way native chat apps show multiple messages at once.
     const pushPayload = JSON.stringify({
       title: title || "Lalao MADA",
       body: body || "Nouvelle notification",
@@ -234,69 +325,140 @@ Deno.serve(async (req: Request) => {
     });
 
     const vapidKey = await importVapidKey(vapidPrivateKey);
-    let sent = 0;
-    let failed = 0;
+    let webSent = 0;
+    let webFailed = 0;
     const failedIds: string[] = [];
 
-    for (const sub of subs) {
-      try {
-        const url = new URL(sub.endpoint);
-        const aud = `${url.protocol}//${url.host}`;
-        const jwt = await createVapidJwt(aud, vapidSubject, vapidKey);
+    if (subs && subs.length > 0) {
+      for (const sub of subs) {
+        try {
+          const url = new URL(sub.endpoint);
+          const aud = `${url.protocol}//${url.host}`;
+          const jwt = await createVapidJwt(aud, vapidSubject, vapidKey);
 
-        let pushResp: Response;
+          let pushResp: Response;
 
-        // If we have p256dh and auth, send encrypted payload
-        if (sub.p256dh && sub.auth) {
-          const encrypted = await encryptPayload(pushPayload, sub.p256dh, sub.auth);
-          pushResp = await fetch(sub.endpoint, {
-            method: "POST",
-            headers: {
-              "TTL": "86400",
-              "Content-Encoding": "aes128gcm",
-              "Content-Type": "application/octet-stream",
-              "Authorization": `vapid t=${jwt}, k=${vapidPublicKey}`,
-            },
-            body: encrypted,
-          });
-        } else {
-          // Fallback: send a ping (no payload)
-          pushResp = await fetch(sub.endpoint, {
-            method: "POST",
-            headers: {
-              "TTL": "86400",
-              "Content-Length": "0",
-              "Authorization": `vapid t=${jwt}, k=${vapidPublicKey}`,
-            },
-          });
+          if (sub.p256dh && sub.auth) {
+            const encrypted = await encryptPayload(pushPayload, sub.p256dh, sub.auth);
+            pushResp = await fetch(sub.endpoint, {
+              method: "POST",
+              headers: {
+                "TTL": "86400",
+                "Content-Encoding": "aes128gcm",
+                "Content-Type": "application/octet-stream",
+                "Authorization": `vapid t=${jwt}, k=${vapidPublicKey}`,
+              },
+              body: encrypted,
+            });
+          } else {
+            pushResp = await fetch(sub.endpoint, {
+              method: "POST",
+              headers: {
+                "TTL": "86400",
+                "Content-Length": "0",
+                "Authorization": `vapid t=${jwt}, k=${vapidPublicKey}`,
+              },
+            });
+          }
+
+          if (pushResp.ok || pushResp.status === 201) {
+            webSent++;
+          } else if (pushResp.status === 404 || pushResp.status === 410) {
+            failedIds.push(sub.id);
+            webFailed++;
+          } else {
+            webFailed++;
+          }
+        } catch {
+          webFailed++;
         }
+      }
 
-        if (pushResp.ok || pushResp.status === 201) {
-          sent++;
-        } else if (pushResp.status === 404 || pushResp.status === 410) {
-          failedIds.push(sub.id);
-          failed++;
-        } else {
-          failed++;
-        }
-      } catch {
-        failed++;
+      // Clean up expired web push subscriptions
+      if (failedIds.length > 0) {
+        const ids = failedIds.map((id) => `"${id}"`).join(",");
+        await fetch(`${supabaseUrl}/rest/v1/push_subscriptions?id=in.(${ids})`, {
+          method: "DELETE",
+          headers: {
+            "apikey": serviceKey,
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+        });
       }
     }
 
-    // Clean up expired subscriptions via REST API
-    if (failedIds.length > 0) {
-      const ids = failedIds.map((id) => `"${id}"`).join(",");
-      await fetch(`${supabaseUrl}/rest/v1/push_subscriptions?id=in.(${ids})`, {
-        method: "DELETE",
-        headers: {
-          "apikey": serviceKey,
-          "Authorization": `Bearer ${serviceKey}`,
-        },
-      });
+    // ── FCM (Firebase Cloud Messaging) — native push ────────────────────────
+    let fcmSent = 0;
+    let fcmFailed = 0;
+    const failedTokenIds: string[] = [];
+
+    const fcmProjectId = Deno.env.get("FCM_PROJECT_ID");
+    const fcmClientEmail = Deno.env.get("FCM_CLIENT_EMAIL");
+    const fcmPrivateKey = Deno.env.get("FCM_PRIVATE_KEY");
+
+    if (fcmProjectId && fcmClientEmail && fcmPrivateKey) {
+      try {
+        // Query push_tokens for this user's FCM device tokens
+        const tokensResp = await fetch(
+          `${supabaseUrl}/rest/v1/push_tokens?user_id=eq.${encodeURIComponent(user_id)}&select=id,token`,
+          {
+            headers: {
+              "apikey": serviceKey,
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+          },
+        );
+        const tokens = await tokensResp.json();
+
+        if (tokens && tokens.length > 0) {
+          const accessToken = await getFcmAccessToken(fcmClientEmail, fcmPrivateKey, fcmProjectId);
+          const notifTitle = title || "Lalao MADA";
+          const notifBody = body || "Nouvelle notification";
+          const notifLink = link || "/";
+
+          for (const { id, token } of tokens) {
+            try {
+              const result = await sendFcmMessage(accessToken, fcmProjectId, token, notifTitle, notifBody, notifLink);
+              if (result.ok) {
+                fcmSent++;
+              } else if (result.invalid) {
+                failedTokenIds.push(id);
+                fcmFailed++;
+              } else {
+                fcmFailed++;
+              }
+            } catch {
+              fcmFailed++;
+            }
+          }
+
+          // Clean up invalid FCM tokens
+          if (failedTokenIds.length > 0) {
+            const ids = failedTokenIds.map((id) => `"${id}"`).join(",");
+            await fetch(`${supabaseUrl}/rest/v1/push_tokens?id=in.(${ids})`, {
+              method: "DELETE",
+              headers: {
+                "apikey": serviceKey,
+                "Authorization": `Bearer ${serviceKey}`,
+              },
+            });
+          }
+        }
+      } catch (fcmErr) {
+        console.warn("[FCM] Error:", fcmErr);
+      }
+    } else {
+      // FCM not configured — skip silently (web push still works)
+      console.log("[FCM] Not configured — skipping native push");
     }
 
-    return new Response(JSON.stringify({ sent, failed, total: subs.length }), {
+    return new Response(JSON.stringify({
+      web_push_sent: webSent,
+      web_push_failed: webFailed,
+      fcm_sent: fcmSent,
+      fcm_failed: fcmFailed,
+      total: webSent + fcmSent,
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
