@@ -433,10 +433,6 @@ function ProfilePage() {
         <div className={`h-16 bg-gradient-to-br ${badge.color} relative overflow-hidden`}>
           <div className="absolute inset-0 opacity-20"
             style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 30%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-          {/* Badge label */}
-          <div className="absolute top-2 right-3 flex items-center gap-1 text-white/90 text-[10px] font-bold uppercase tracking-wider">
-            {badge.icon} {badge.label}
-          </div>
         </div>
 
         {/* Avatar overlapping the banner */}
