@@ -95,8 +95,10 @@ function ParametresPage() {
   const [pendingVerify, setPendingVerify] = useState<{ phone: string; code: string; expiresAt: string } | null>(null);
   const [verifyCountdown, setVerifyCountdown] = useState("");
 
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOldPassword, setShowOldPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
@@ -213,13 +215,24 @@ function ParametresPage() {
   };
 
   const savePassword = async () => {
+    if (!oldPassword) return toast.error("Ancien mot de passe requis");
     if (newPassword.length < 8) return toast.error("Mot de passe : 8 caracteres minimum");
     if (newPassword !== confirmPassword) return toast.error("Les mots de passe ne correspondent pas");
+    if (newPassword === oldPassword) return toast.error("Le nouveau mot de passe doit etre different de l'ancien");
     setSavingPassword(true);
     try {
+      // Verifie l'ancien mot de passe avant tout changement
+      const currentEmail = user?.email || profile?.email;
+      if (!currentEmail) throw new Error("Impossible de verifier votre identite");
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: currentEmail, password: oldPassword,
+      });
+      if (verifyError) throw new Error("Ancien mot de passe incorrect");
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       toast.success("Mot de passe modifie");
+      setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (e: any) {
@@ -332,6 +345,22 @@ function ParametresPage() {
       <Section icon={Lock} title="Modifier le mot de passe">
         <div className="space-y-3">
           <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">Ancien mot de passe</label>
+            <div className="relative">
+              <input
+                type={showOldPassword ? "text" : "password"}
+                value={oldPassword}
+                onChange={e => setOldPassword(e.target.value)}
+                placeholder="Votre mot de passe actuel"
+                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40"
+              />
+              <button onClick={() => setShowOldPassword(s => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {showOldPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
             <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nouveau mot de passe</label>
             <div className="relative">
               <input
@@ -347,8 +376,9 @@ function ParametresPage() {
               </button>
             </div>
           </div>
-          <Field label="Confirmer le mot de passe" value={confirmPassword} onChange={setConfirmPassword} type={showPassword ? "text" : "password"} placeholder="Repter le mot de passe" />
-          <button onClick={savePassword} disabled={newPassword.length < 8 || newPassword !== confirmPassword || savingPassword}
+          <Field label="Confirmer le nouveau mot de passe" value={confirmPassword} onChange={setConfirmPassword} type={showPassword ? "text" : "password"} placeholder="Repeter le nouveau mot de passe" />
+          <button onClick={savePassword}
+            disabled={!oldPassword || newPassword.length < 8 || newPassword !== confirmPassword || savingPassword}
             className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-95 disabled:opacity-40 transition flex items-center justify-center gap-1.5">
             {savingPassword ? "Enregistrement…" : (<><Lock className="w-4 h-4" /> Changer le mot de passe</>)}
           </button>
