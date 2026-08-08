@@ -11,7 +11,6 @@ import {
   Phone, Gamepad2, ArrowLeftRight, Send,
   ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings,
-  Send,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
