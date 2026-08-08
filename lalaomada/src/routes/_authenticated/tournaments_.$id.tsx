@@ -101,7 +101,9 @@ function TournamentDetail() {
     }
   }, [myMatch?.id]);
   const netPrize = t
-    ? Math.round(Number(t.prize_pool_ar) * (100 - Number(t.platform_pct)) / 100 + Number(t.admin_prize_pool_ar))
+    ? Number(t.entry_fee_ar) > 0
+      ? Math.round(Number(t.prize_pool_ar) * (100 - Number(t.platform_pct)) / 100 + Number(t.admin_prize_pool_ar))
+      : Number(t.admin_prize_pool_ar)
     : 0;
 
   // My next scheduled match
@@ -783,13 +785,23 @@ function RewardsView({ t, net }: { t: any; net: number; byId: Record<string, any
   const pcts = [t.prize_1_pct, t.prize_2_pct, t.prize_3_pct].slice(0, t.winners_count);
   const medals = ["🥇", "🥈", "🥉"];
   const labels = ["1er", "2e", "3e"];
+  const isPaid = Number(t.entry_fee_ar) > 0;
 
   return (
     <div className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)] space-y-4">
+      {/* Mode badge */}
+      <div className="flex items-center justify-center gap-2">
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isPaid ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"}`}>
+          {isPaid ? "💰 Mode payant" : "🎁 Mode gratuit"}
+        </span>
+      </div>
+
       {/* Cagnotte totale */}
       <div className="text-center py-2">
         <div className="text-3xl font-extrabold text-amber-600">{net.toLocaleString("fr-FR")} Ar</div>
-        <div className="text-xs text-muted-foreground mt-1">Cagnotte totale nette (après commission plateforme)</div>
+        <div className="text-xs text-muted-foreground mt-1">
+          {isPaid ? "Cagnotte nette (après commission plateforme)" : "Récompense offerte par l'organisateur"}
+        </div>
       </div>
 
       {/* Répartition */}
@@ -810,18 +822,28 @@ function RewardsView({ t, net }: { t: any; net: number; byId: Record<string, any
 
       {/* Détail de la cagnotte */}
       <div className="rounded-2xl bg-secondary/40 p-3 space-y-1.5 text-[11px] text-muted-foreground">
-        <div className="flex justify-between">
-          <span>Frais d'inscription collectés</span>
-          <span className="font-semibold text-foreground">{Number(t.prize_pool_ar).toLocaleString("fr-FR")} Ar</span>
-        </div>
+        {isPaid && (
+          <div className="flex justify-between">
+            <span>Frais d'inscription collectés</span>
+            <span className="font-semibold text-foreground">{Number(t.prize_pool_ar).toLocaleString("fr-FR")} Ar</span>
+          </div>
+        )}
+        {!isPaid && (
+          <div className="flex justify-between">
+            <span>Inscription</span>
+            <span className="font-semibold text-emerald-600">Gratuite</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>Cagnotte offerte par l'admin</span>
           <span className="font-semibold text-foreground">{Number(t.admin_prize_pool_ar).toLocaleString("fr-FR")} Ar</span>
         </div>
-        <div className="flex justify-between">
-          <span>Commission plateforme ({t.platform_pct}%)</span>
-          <span className="font-semibold text-destructive">-{Math.round(Number(t.prize_pool_ar) * t.platform_pct / 100).toLocaleString("fr-FR")} Ar</span>
-        </div>
+        {isPaid && (
+          <div className="flex justify-between">
+            <span>Commission plateforme ({t.platform_pct}%)</span>
+            <span className="font-semibold text-destructive">-{Math.round(Number(t.prize_pool_ar) * Number(t.platform_pct) / 100).toLocaleString("fr-FR")} Ar</span>
+          </div>
+        )}
         <div className="flex justify-between pt-1 border-t border-border">
           <span className="font-bold">Net à distribuer</span>
           <span className="font-bold text-amber-600">{net.toLocaleString("fr-FR")} Ar</span>

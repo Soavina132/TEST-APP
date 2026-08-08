@@ -57,9 +57,10 @@ export default function TournamentAdminPanel() {
     format: "knockout" as "knockout" | "pools",
     players_per_match: 2,
     max_players: 16,
+    mode: "free" as "free" | "paid",
     entry_fee_ar: 0,
-    admin_prize_pool_ar: 0,
-    winners_count: 3,
+    admin_prize_pool_ar: 10000,
+    winners_count: 1,
     pool_size: 4,
     qualifiers_per_pool: 2,
     max_concurrent: 8,
@@ -76,9 +77,12 @@ export default function TournamentAdminPanel() {
 
   const create = async () => {
     if (!f.name.trim()) return toast.error("Le nom du tournoi est requis.");
-    if (f.entry_fee_ar <= 0 && f.admin_prize_pool_ar <= 0) {
-      const okGo = await confirm({ title: "Tournoi sans cagnotte ?", description: "Ni frais d'inscription ni cagnotte offerte : les gagnants ne recevront rien." });
+    if (f.mode === "free" && f.admin_prize_pool_ar <= 0) {
+      const okGo = await confirm({ title: "Tournoi sans récompense ?", description: "Aucune récompense n'est offerte. Les gagnants ne recevront rien." });
       if (!okGo) return;
+    }
+    if (f.mode === "paid" && f.entry_fee_ar < 100) {
+      return toast.error("Frais d'inscription minimum : 100 Ar");
     }
     const [p1, p2, p3, p4] = SPLITS[f.winners_count];
     const ppm = f.game_slug === "domino" ? 2 : f.players_per_match;
@@ -400,22 +404,61 @@ export default function TournamentAdminPanel() {
             </div>
           )}
 
+          {/* ═══ MODE: Gratuit vs Payant ═══ */}
+          <div className="rounded-2xl bg-secondary/30 p-3 space-y-3">
+            <div className="text-[11px] font-bold text-muted-foreground uppercase">Mode du tournoi</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => { set("mode", "free"); set("entry_fee_ar", 0); set("winners_count", 1); set("admin_prize_pool_ar", Math.max(f.admin_prize_pool_ar, 1000)); }}
+                className={`py-3 rounded-xl text-sm font-bold ${f.mode === "free" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                🎁 Gratuit
+              </button>
+              <button type="button" onClick={() => { set("mode", "paid"); set("entry_fee_ar", Math.max(f.entry_fee_ar, 500)); set("admin_prize_pool_ar", 0); set("winners_count", 3); }}
+                className={`py-3 rounded-xl text-sm font-bold ${f.mode === "paid" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                💰 Payant
+              </button>
+            </div>
+            {f.mode === "free" ? (
+              <div className="space-y-2">
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Inscription gratuite pour les joueurs. L'admin offre une récompense unique au gagnant (ou aux 3 premiers).
+                  Pas de commission plateforme. Pas de bots.
+                </p>
+                <Num label="Récompense offerte par l'admin (Ar)" value={f.admin_prize_pool_ar} onChange={(v) => set("admin_prize_pool_ar", v)} min={0} />
+                <Field label="Nombre de vainqueurs">
+                  <select value={f.winners_count} onChange={(e) => set("winners_count", Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-secondary text-sm">
+                    <option value={1}>1 vainqueur (100%)</option>
+                    <option value={2}>2 vainqueurs (70/30)</option>
+                    <option value={3}>3 vainqueurs (60/20/10)</option>
+                    <option value={4}>4 vainqueurs (50/25/10/5)</option>
+                  </select>
+                </Field>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Les joueurs paient pour s'inscrire. La cagnotte grandit avec chaque inscription.
+                  Commission plateforme : 10% sur les frais collectés. Pas de bots.
+                </p>
+                <Num label="Frais d'inscription par joueur (Ar)" value={f.entry_fee_ar} onChange={(v) => set("entry_fee_ar", v)} min={100} />
+                <Field label="Nombre de vainqueurs">
+                  <select value={f.winners_count} onChange={(e) => set("winners_count", Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-secondary text-sm">
+                    <option value={1}>1 vainqueur (100%)</option>
+                    <option value={2}>2 vainqueurs (70/30)</option>
+                    <option value={3}>3 vainqueurs (60/20/10) — + match 3e place</option>
+                    <option value={4}>4 vainqueurs (50/25/10/5)</option>
+                  </select>
+                </Field>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <Num label="Joueurs max" value={f.max_players} onChange={(v) => set("max_players", v)} min={2} max={256} />
             <Num label="Matchs simultanés" value={f.max_concurrent} onChange={(v) => set("max_concurrent", v)} min={1} max={f.game_slug === "ludo" ? 8 : 8} />
             {f.game_slug === "ludo" && <p className="text-[10px] text-amber-600 mt-0.5">Ludo : max 8 matchs simultanés</p>}
-            <Num label="Frais d'inscription (Ar)" value={f.entry_fee_ar} onChange={(v) => set("entry_fee_ar", v)} min={0} />
-            <Num label="Cagnotte offerte (Ar)" value={f.admin_prize_pool_ar} onChange={(v) => set("admin_prize_pool_ar", v)} min={0} />
             <Num label="Salle d'attente (min)" value={f.lobby_minutes} onChange={(v) => set("lobby_minutes", v)} min={1} max={10} />
-            <Field label="Nombre de vainqueurs">
-              <select value={f.winners_count} onChange={(e) => set("winners_count", Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl bg-secondary text-sm">
-                <option value={1}>1 vainqueur (100%)</option>
-                <option value={2}>2 vainqueurs (70/30)</option>
-                <option value={3}>3 vainqueurs (60/20/10) — + match 3e place</option>
-                <option value={4}>4 vainqueurs (50/25/10/5)</option>
-              </select>
-            </Field>
           </div>
 
           {/* Timing & lots */}
