@@ -280,7 +280,7 @@ export function DepotModal({
                   className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none font-mono"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  💡 Collez le SMS reçu — la référence est extraite automatiquement.
+                  Colléz le SMS reçu
                 </p>
               </div>
 
