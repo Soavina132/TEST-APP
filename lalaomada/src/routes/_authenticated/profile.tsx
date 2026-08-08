@@ -6,12 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Camera, Copy, ShieldCheck, ShieldAlert, LogOut, Trash2,
-  Phone, Gamepad2, ArrowDownLeft, ArrowUpRight, Gift,
-  HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap,
+  Phone, Gamepad2, ArrowDownLeft, ArrowUpRight, Gift, Send,
+  HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap, FileText,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
 import { DepotModal, RetraitModal, useAppSettings } from "@/components/WalletButton";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -40,6 +43,122 @@ function getBadge(level: number) {
 }
 
 const MIN_WITHDRAWAL = 2000;
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Transfer Dialog
+─────────────────────────────────────────────────────────────────────────────── */
+
+function TransferDialog({ open, onClose, balance, onSent }: {
+  open: boolean; onClose: () => void; balance: number; onSent: () => void;
+}) {
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState("");
+  const [sending, setSending] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!recipient.trim() || recipient.trim().length < 2) { setSearchResults([]); return; }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      const q = recipient.trim();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, pseudo, phone, avatar_url")
+        .or(`pseudo.ilike.%${q}%,phone.ilike.%${q}%`)
+        .limit(5);
+      setSearchResults(data || []);
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [recipient]);
+
+  const doTransfer = async () => {
+    const amt = parseInt(amount);
+    if (!recipient.trim()) return toast.error("Entrez le numéro ou pseudo du destinataire");
+    if (!amt || amt < 100) return toast.error("Montant minimum: 100 Ar");
+    if (amt > balance) return toast.error("Solde insuffisant");
+    setSending(true);
+    try {
+      const { data, error } = await supabase.rpc("transfer_balance" as any, {
+        _recipient: recipient.trim(), _amount: amt,
+      } as any);
+      if (error) throw error;
+      toast.success(`Transfert de ${amt.toLocaleString("fr-FR")} Ar envoyé à ${data?.recipient || recipient} !`);
+      setRecipient(""); setAmount(""); setSearchResults([]);
+      onSent(); onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors du transfert");
+    } finally { setSending(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-center flex items-center justify-center gap-1.5">
+            <Send className="w-4 h-4 text-primary" /> Transférer du solde
+          </DialogTitle>
+        </DialogHeader>
+        <div className="pt-2 space-y-3">
+          <div className="rounded-xl bg-primary/5 border border-primary/20 px-3 py-2 text-center">
+            <span className="text-[10px] text-muted-foreground uppercase font-semibold">Solde actuel</span>
+            <div className="text-xl font-black text-primary tabular-nums">
+              {Math.round(balance).toLocaleString("fr-FR")} <span className="text-xs">Ar</span>
+            </div>
+          </div>
+          <div className="relative">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Destinataire</label>
+            <input value={recipient} onChange={(e) => setRecipient(e.target.value)}
+              placeholder="Numéro de téléphone ou pseudo"
+              className="w-full mt-0.5 px-3 py-2 rounded-xl bg-card border border-border outline-none text-sm focus:border-primary/50 transition-colors"
+              autoFocus />
+            {searchResults.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full rounded-xl border border-border bg-popover shadow-lg overflow-hidden">
+                {searchResults.map((u) => (
+                  <button key={u.id} onClick={() => { setRecipient(u.phone || u.pseudo); setSearchResults([]); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/30 transition-colors text-left border-b border-border/20 last:border-0">
+                    {u.avatar_url
+                      ? <img src={u.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                      : <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                          {(u.pseudo || "?").slice(0, 2).toUpperCase()}
+                        </div>}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{u.pseudo}</div>
+                      {u.phone && <div className="text-[10px] text-muted-foreground truncate">{u.phone}</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searching && <div className="absolute z-10 mt-1 w-full text-center text-xs text-muted-foreground py-1">Recherche…</div>}
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Montant (Ar)</label>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+              placeholder="100" min="100"
+              className="w-full mt-0.5 px-3 py-2 rounded-xl bg-card border border-border outline-none text-sm focus:border-primary/50 transition-colors" />
+            <div className="flex gap-1.5 mt-1.5">
+              {[500, 1000, 5000, 10000].map(amt => (
+                <button key={amt} onClick={() => setAmount(String(amt))}
+                  className="flex-1 px-1 py-1 rounded-lg bg-secondary/60 text-xs font-semibold hover:bg-primary/10 hover:text-primary transition-colors">
+                  {amt.toLocaleString("fr-FR")}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button onClick={doTransfer} disabled={sending}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-transform disabled:opacity-50">
+            {sending ? "Envoi…" : <><Send className="w-3.5 h-3.5" /> Envoyer</>}
+          </button>
+          <p className="text-[10px] text-muted-foreground text-center leading-tight">
+            Transfert instantané · Min 100 Ar · Max 500 000 Ar
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
    Section wrapper
@@ -125,6 +244,7 @@ function ProfilePage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const appSettings = useAppSettings();
 
   useEffect(() => { setPseudo(profile?.pseudo || ""); }, [profile?.pseudo]);
@@ -265,12 +385,18 @@ function ProfilePage() {
       ═══════════════════════════════════════════════════════════════════ */}
       <div className="rounded-2xl overflow-hidden border border-primary/20"
         style={{ background: "linear-gradient(160deg, var(--primary) 0%, transparent 120%)", backgroundColor: "var(--card)" }}>
-        <div className="px-5 py-5" style={{ background: "linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, var(--card)) 0%, color-mix(in oklch, var(--primary) 4%, var(--card)) 100%)" }}>
-          <div className="text-[11px] font-bold uppercase tracking-wide text-primary/80">Solde disponible</div>
-          <div className="text-4xl font-black text-primary tabular-nums leading-tight mt-1">
-            {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
-            <span className="text-lg font-bold text-muted-foreground ml-1.5">Ar</span>
+        <div className="px-4 py-3 flex items-center justify-between gap-2" style={{ background: "linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, var(--card)) 0%, color-mix(in oklch, var(--primary) 4%, var(--card)) 100%)" }}>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Solde disponible</div>
+            <div className="text-2xl font-black text-primary tabular-nums leading-tight mt-0.5">
+              {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
+              <span className="text-sm font-bold text-muted-foreground ml-1">Ar</span>
+            </div>
           </div>
+          <button onClick={() => setShowTransfer(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold active:scale-95 transition-transform shadow-sm">
+            <Send className="w-3.5 h-3.5" /> Transférer
+          </button>
         </div>
         <div className="flex divide-x divide-primary/10 border-t border-primary/10">
           <BalanceAction icon={ArrowDownLeft} label="Dépôt" action={() => setShowDeposit(true)} />
@@ -279,6 +405,12 @@ function ProfilePage() {
           <BalanceAction icon={Gift} label="Parrainage" action={() => navigate({ to: "/parrainage", search: {} })} />
         </div>
       </div>
+      <TransferDialog
+        open={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        balance={Number(profile.balance_ar) || 0}
+        onSent={refreshProfile}
+      />
 
       {/* ═══════════════════════════════════════════════════════════════════
          3.  Statistics
@@ -309,7 +441,9 @@ function ProfilePage() {
       <Section icon={Settings} title="Plus">
         <div>
           <ListRow icon={Shield} label="Sécurité" color="text-emerald-500" action={() => navigate({ to: "/parametres", search: {} })} />
-          <ListRow icon={HelpCircle} label="Aide" color="text-orange-500 dark:text-neutral-300" action={() => navigate({ to: "/faq", search: {} })} />
+          <ListRow icon={HelpCircle} label="FAQ" color="text-orange-500 dark:text-neutral-300" action={() => navigate({ to: "/faq", search: {} })} />
+          <ListRow icon={FileText} label="Conditions d'utilisation" color="text-sky-500" action={() => navigate({ to: "/cgu", search: {} } as any)} />
+          <ListRow icon={ShieldCheck} label="Politique de confidentialité" color="text-sky-500" action={() => navigate({ to: "/confidentialite", search: {} } as any)} />
           <ListRow icon={Settings} label="Paramètres" color="text-muted-foreground" action={() => navigate({ to: "/parametres", search: {} })} />
         </div>
       </Section>
