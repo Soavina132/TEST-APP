@@ -14,6 +14,7 @@ import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import pokerCover from "@/assets/games/poker.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
 import HelpPopover from "@/components/HelpPopover";
+import GameLeaderboardModal from "@/components/GameLeaderboardModal";
 import { DepotModal, useAppSettings } from "@/components/WalletButton";
 import PremiumSubscriptionModal from "@/components/PremiumSubscriptionModal";
 import { getLobbyHelp } from "@/lib/game-help-content";
@@ -110,6 +111,7 @@ function Lobby() {
 
   const [tab, setTab] = useState<Tab>("public");
   const lobbyHelp = getLobbyHelp(slug, tab);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [publicGames, setPublicGames] = useState<any[]>([]);
   const [mine, setMine] = useState<{ ongoing: any[]; finished: any[] }>({ ongoing: [], finished: [] });
   const [mineTab, setMineTab] = useState<"ongoing" | "finished">("ongoing");
@@ -542,7 +544,16 @@ function Lobby() {
           <div className="inline-block text-[9px] uppercase tracking-[0.18em] font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10 ring-1 ring-primary/20">Créer une partie</div>
           <div className="font-extrabold text-lg leading-tight truncate mt-0.5 text-foreground">{meta.label}</div>
         </div>
-        <HelpPopover trigger="Aide" title={lobbyHelp.title} html={lobbyHelp.html} variant="button" />
+        <div className="flex items-center gap-1.5">
+          <HelpPopover trigger="Aide" title={lobbyHelp.title} html={lobbyHelp.html} variant="button" />
+          <button
+            type="button"
+            onClick={() => setShowLeaderboard(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-card border border-amber-500/25 text-amber-600 font-semibold text-[11px] shadow-sm active:scale-95 transition-transform"
+          >
+            <Trophy className="w-3.5 h-3.5" /> Classement
+          </button>
+        </div>
       </div>
 
 
@@ -966,6 +977,13 @@ function Lobby() {
         open={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
       />
+      {showLeaderboard && (
+        <GameLeaderboardModal
+          slug={slug}
+          gameLabel={meta.label}
+          onClose={() => setShowLeaderboard(false)}
+        />
+      )}
     </main>
   );
 }
