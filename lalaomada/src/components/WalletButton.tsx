@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import {
   Plus, ArrowDownLeft, ArrowUpRight, X, Copy, Check,
-  Loader2, Wallet, ChevronDown,
+  Loader2, Wallet,
 } from "lucide-react";
 
 // ─── Opérateurs ─────────────────────────────────────────────
@@ -521,80 +521,84 @@ export function RetraitModal({
   );
 }
 
-// ─── Bouton principal ────────────────────────────────────────
+// ─── Bouton principal — pill "balance + bouton +" ─────────────
 export function WalletButton({ onNavigate }: { onNavigate?: (path: string) => void }) {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
   const settings = useAppSettings();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   if (!profile) return null;
+  const balance = Math.round(profile.balance_ar || 0).toLocaleString("en-US");
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="relative" ref={ref}>
         <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary border border-border hover:bg-accent transition-colors"
+          onClick={() => setMenuOpen((o) => !o)}
+          className="flex items-center gap-1 py-1 pr-1 rounded-full transition-all duration-200 whitespace-nowrap shrink-0"
+          aria-label="Solde — Déposer / Retirer"
         >
-          <Wallet className="w-4 h-4 text-emerald-500" />
-          <span className="text-sm font-bold">{fmtAr(profile.balance_ar || 0)}</span>
-          <ChevronDown className="w-3 h-3 text-muted-foreground" />
-        </button>
-      </div>
+          {/* Balance text */}
+          <span className="text-xs font-bold tabular-nums text-foreground whitespace-nowrap">{balance}Ar</span>
 
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute top-full mt-2 right-0 z-50 w-64 rounded-2xl bg-background border border-border shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-border">
-              <p className="text-xs text-muted-foreground">Solde</p>
-              <p className="text-xl font-black text-emerald-500">{fmtAr(profile.balance_ar || 0)}</p>
+          {/* Plus button */}
+          <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <Plus className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+          </span>
+        </button>
+
+        {menuOpen && (
+          <div className="absolute right-0 mt-2 w-44 rounded-2xl bg-card shadow-2xl shadow-black/10 border border-border/60 overflow-hidden z-50 animate-pop-in">
+            <div className="px-3 py-2.5 border-b border-border/40">
+              <div className="flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Solde</span>
+                <span className="ml-auto text-sm font-bold tabular-nums whitespace-nowrap">{balance}Ar</span>
+              </div>
             </div>
-            <div className="p-2">
+            <button
+              onClick={() => { setMenuOpen(false); setShowDeposit(true); }}
+              className="w-full px-3 py-2.5 flex items-center gap-3 text-sm font-medium hover:bg-accent/80 transition-colors"
+            >
+              <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
+                <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
+              </span>
+              Dépôt
+            </button>
+            <button
+              onClick={() => { setMenuOpen(false); setShowRetrait(true); }}
+              className="w-full px-3 py-2.5 flex items-center gap-3 text-sm font-medium hover:bg-accent/80 transition-colors"
+            >
+              <span className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center">
+                <ArrowUpRight className="w-4 h-4 text-rose-600" />
+              </span>
+              Retrait
+            </button>
+            {onNavigate && (
               <button
-                onClick={() => { setMenuOpen(false); setShowDeposit(true); }}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-accent transition-colors text-left"
+                onClick={() => { setMenuOpen(false); onNavigate("/history"); }}
+                className="w-full px-3 py-2.5 flex items-center gap-3 text-sm font-medium hover:bg-accent/80 transition-colors"
               >
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 grid place-items-center">
-                  <Plus className="w-4 h-4 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold">Dépôt</p>
-                  <p className="text-xs text-muted-foreground">Mobile Money</p>
-                </div>
+                <span className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
+                  <ArrowDownLeft className="w-4 h-4 text-muted-foreground" />
+                </span>
+                Historique
               </button>
-              <button
-                onClick={() => { setMenuOpen(false); setShowRetrait(true); }}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-accent transition-colors text-left"
-              >
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 grid place-items-center">
-                  <ArrowUpRight className="w-4 h-4 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold">Retrait</p>
-                  <p className="text-xs text-muted-foreground">Mobile / Banque</p>
-                </div>
-              </button>
-              {onNavigate && (
-                <button
-                  onClick={() => { setMenuOpen(false); onNavigate("/history"); }}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-accent transition-colors text-left"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-muted grid place-items-center">
-                    <ArrowDownLeft className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold">Historique</p>
-                    <p className="text-xs text-muted-foreground">Transactions</p>
-                  </div>
-                </button>
-              )}
-            </div>
+            )}
           </div>
-        </>
-      )}
+        )}
+      </div>
 
       <DepotModal
         open={showDeposit}
