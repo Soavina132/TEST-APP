@@ -25,10 +25,10 @@ import { Route as AuthenticatedJeuxRouteImport } from './routes/_authenticated/j
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedLobbyRouteImport } from './routes/_authenticated/lobby'
 import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
-import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
+import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
 import { Route as AuthenticatedTutosRouteImport } from './routes/_authenticated/tutos'
 import { Route as ApiLinkPreviewRouteImport } from './routes/api/link-preview'
@@ -132,12 +132,6 @@ const AuthenticatedParametresRoute = AuthenticatedParametresRouteImport.update({
   path: '/parametres',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-
-const AuthenticatedStatistiquesRoute = AuthenticatedStatistiquesRouteImport.update({
-  id: '/statistiques',
-  path: '/statistiques',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedParrainageRoute = AuthenticatedParrainageRouteImport.update({
   id: '/parrainage',
   path: '/parrainage',
@@ -153,6 +147,12 @@ const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
   path: '/rankings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedStatistiquesRoute =
+  AuthenticatedStatistiquesRouteImport.update({
+    id: '/statistiques',
+    path: '/statistiques',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedTournamentsRoute =
   AuthenticatedTournamentsRouteImport.update({
     id: '/tournaments',
@@ -288,10 +288,10 @@ export interface FileRoutesByFullPath {
   '/live': typeof AuthenticatedLiveRoute
   '/lobby': typeof AuthenticatedLobbyRoute
   '/parametres': typeof AuthenticatedParametresRoute
-  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
@@ -330,10 +330,10 @@ export interface FileRoutesByTo {
   '/live': typeof AuthenticatedLiveRoute
   '/lobby': typeof AuthenticatedLobbyRoute
   '/parametres': typeof AuthenticatedParametresRoute
-  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
@@ -375,10 +375,10 @@ export interface FileRoutesById {
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/lobby': typeof AuthenticatedLobbyRoute
   '/_authenticated/parametres': typeof AuthenticatedParametresRoute
-  '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
+  '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/tournaments': typeof AuthenticatedTournamentsRoute
   '/_authenticated/tutos': typeof AuthenticatedTutosRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
@@ -420,10 +420,10 @@ export interface FileRouteTypes {
     | '/live'
     | '/lobby'
     | '/parametres'
-    | '/statistiques'
     | '/parrainage'
     | '/profile'
     | '/rankings'
+    | '/statistiques'
     | '/tournaments'
     | '/tutos'
     | '/api/link-preview'
@@ -462,10 +462,10 @@ export interface FileRouteTypes {
     | '/live'
     | '/lobby'
     | '/parametres'
-    | '/statistiques'
     | '/parrainage'
     | '/profile'
     | '/rankings'
+    | '/statistiques'
     | '/tournaments'
     | '/tutos'
     | '/api/link-preview'
@@ -509,6 +509,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parrainage'
     | '/_authenticated/profile'
     | '/_authenticated/rankings'
+    | '/_authenticated/statistiques'
     | '/_authenticated/tournaments'
     | '/_authenticated/tutos'
     | '/api/link-preview'
@@ -659,13 +660,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedParametresRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/statistiques': {
-      id: '/_authenticated/statistiques'
-      path: '/statistiques'
-      fullPath: '/statistiques'
-      preLoaderRoute: typeof AuthenticatedStatistiquesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/parrainage': {
       id: '/_authenticated/parrainage'
       path: '/parrainage'
@@ -685,6 +679,13 @@ declare module '@tanstack/react-router' {
       path: '/rankings'
       fullPath: '/rankings'
       preLoaderRoute: typeof AuthenticatedRankingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/statistiques': {
+      id: '/_authenticated/statistiques'
+      path: '/statistiques'
+      fullPath: '/statistiques'
+      preLoaderRoute: typeof AuthenticatedStatistiquesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tournaments': {
@@ -881,10 +882,10 @@ interface AuthenticatedRouteChildren {
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLobbyRoute: typeof AuthenticatedLobbyRoute
   AuthenticatedParametresRoute: typeof AuthenticatedParametresRoute
-  AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
+  AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTournamentsRoute: typeof AuthenticatedTournamentsRoute
   AuthenticatedTutosRoute: typeof AuthenticatedTutosRoute
   AuthenticatedChessIdRoute: typeof AuthenticatedChessIdRoute
@@ -908,10 +909,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLobbyRoute: AuthenticatedLobbyRoute,
   AuthenticatedParametresRoute: AuthenticatedParametresRoute,
-  AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
+  AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTournamentsRoute: AuthenticatedTournamentsRoute,
   AuthenticatedTutosRoute: AuthenticatedTutosRoute,
   AuthenticatedChessIdRoute: AuthenticatedChessIdRoute,

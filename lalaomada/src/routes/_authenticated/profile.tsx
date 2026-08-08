@@ -15,6 +15,7 @@ import { DepotModal, RetraitModal, useAppSettings } from "@/components/WalletBut
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { MatchListDialog, useAllMatches } from "@/components/game/MatchStatsDialog";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -246,6 +247,12 @@ function ProfilePage() {
   const [showRetrait, setShowRetrait] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const appSettings = useAppSettings();
+  const [statsDialog, setStatsDialog] = useState<"all" | "wins" | "losses" | null>(null);
+  const { matches, loaded: matchesLoaded, loading: matchesLoading, load: loadMatches } = useAllMatches(user?.id);
+  const openStats = (type: "all" | "wins" | "losses") => {
+    setStatsDialog(type);
+    if (!matchesLoaded) loadMatches();
+  };
 
   useEffect(() => { setPseudo(profile?.pseudo || ""); }, [profile?.pseudo]);
 
@@ -413,40 +420,47 @@ function ProfilePage() {
       />
 
       {/* ═══════════════════════════════════════════════════════════════════
-         3.  Statistics
+         3.  Statistics — tuiles cliquables directement (pas de page detail)
       ═══════════════════════════════════════════════════════════════════ */}
       <div className="rounded-2xl bg-card border border-border/40 overflow-hidden">
-        <button onClick={() => navigate({ to: "/statistiques", search: {} } as any)}
-          className="w-full flex items-center justify-between gap-2 px-4 py-3 border-b border-border/30 bg-secondary/30 active:opacity-70 transition">
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border/30 bg-secondary/30">
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-primary" />
             <span className="font-bold text-sm">Statistiques</span>
           </div>
-          <span className="flex items-center gap-0.5 text-[11px] font-semibold text-muted-foreground">
-            Voir en détail <ChevronRight className="w-3.5 h-3.5" />
+          <span className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground">
+            <span className="flex items-center gap-0.5">{badge.icon} Niv.{level}</span>
+            <span className="flex items-center gap-0.5">🥇 {rankLoaded ? (myRank ?? "—") : "…"}</span>
           </span>
-        </button>
-        <button onClick={() => navigate({ to: "/statistiques", search: {} } as any)}
-          className="w-full p-4 active:opacity-80 transition">
-          <div className="grid grid-cols-3 gap-2">
-            <StatTile label="Parties" value={totalGames}
-              icon={<Gamepad2 className="w-4 h-4" />} />
-            <StatTile label="Victoires" value={totalWins}
-              icon={<Trophy className="w-4 h-4" />} accent="text-emerald-500" />
-            <StatTile label="Défaites" value={totalLosses}
-              icon={<ChevronRight className="w-4 h-4 rotate-90" />} accent="text-destructive" />
-            <StatTile label="Win Rate" value={`${winRate}%`}
-              icon={<Zap className="w-4 h-4" />}
-              accent={winRate >= 50 ? "text-emerald-500" : "text-amber-500"} />
-            <StatTile label="Rang" value={rankLoaded ? (myRank ?? "—") : "…"}
-              icon={<span className="text-sm">🥇</span>}
-              accent={myRank && myRank <= 10 ? "text-amber-500" : "text-foreground"} />
-            <StatTile label="Niveau" value={level}
-              icon={<span className="text-sm">{badge.icon}</span>}
-              accent="text-primary" />
-          </div>
-        </button>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5 p-3">
+          <button onClick={() => openStats("all")}
+            className="flex flex-col items-center justify-center rounded-lg bg-secondary/40 p-1.5 text-center active:scale-95 transition-transform">
+            <Gamepad2 className="w-3.5 h-3.5 text-muted-foreground mb-0.5" />
+            <div className="text-sm font-black tabular-nums leading-none">{totalGames}</div>
+            <div className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">Parties</div>
+          </button>
+          <button onClick={() => openStats("wins")}
+            className="flex flex-col items-center justify-center rounded-lg bg-secondary/40 p-1.5 text-center active:scale-95 transition-transform">
+            <Trophy className="w-3.5 h-3.5 text-emerald-500 mb-0.5" />
+            <div className="text-sm font-black tabular-nums leading-none text-emerald-500">{totalWins}</div>
+            <div className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">Victoires</div>
+          </button>
+          <button onClick={() => openStats("losses")}
+            className="flex flex-col items-center justify-center rounded-lg bg-secondary/40 p-1.5 text-center active:scale-95 transition-transform">
+            <ChevronRight className="w-3.5 h-3.5 rotate-90 text-destructive mb-0.5" />
+            <div className="text-sm font-black tabular-nums leading-none text-destructive">{totalLosses}</div>
+            <div className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">Défaites</div>
+          </button>
+        </div>
       </div>
+      <MatchListDialog
+        open={statsDialog !== null}
+        onClose={() => setStatsDialog(null)}
+        dialogType={statsDialog}
+        matches={matches}
+        loading={matchesLoading}
+      />
 
       {/* ═══════════════════════════════════════════════════════════════════
          4.  Plus — simple list menu
