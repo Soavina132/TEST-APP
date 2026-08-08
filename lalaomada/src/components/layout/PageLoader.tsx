@@ -32,14 +32,6 @@ function LudoMark({ size = 48 }: { size?: number }) {
   );
 }
 
-function ProgressBar({ width = 140 }: { width?: number }) {
-  return (
-    <div className="lm-bar" style={{ width }}>
-      <div className="lm-bar__fill" />
-    </div>
-  );
-}
-
 function BrandText({ subtitle }: { subtitle?: string }) {
   return (
     <div className="lm-brand">
@@ -69,18 +61,16 @@ export function PageLoader({ variant = "overlay", label }: PageLoaderProps) {
     return (
       <div className="lm-inline">
         <LudoMark size={36} />
-        <ProgressBar width={100} />
       </div>
     );
   }
 
-  // overlay — used for route transitions
+  // overlay — used for route transitions (logo only, no progress bar)
   return (
     <div className="lm-overlay">
       <div className="lm-overlay__content">
         <LudoMark size={52} />
-        <BrandText />
-        <ProgressBar width={120} />
+        <BrandText subtitle={label} />
       </div>
     </div>
   );
