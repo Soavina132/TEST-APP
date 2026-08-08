@@ -19,6 +19,7 @@ import CmsEditor from "@/components/admin/CmsEditor";
 import AdminSecurityGate from "@/components/admin/AdminSecurityGate";
 import AdminSessionsPanel from "@/components/admin/AdminSessionsPanel";
 import TournamentAdminPanel from "@/components/tournament/TournamentAdminPanel";
+import SupportMessagesAdmin from "@/components/admin/SupportMessagesAdmin";
 
 
 // Bundled at build time — all migration SQL files
@@ -254,6 +255,9 @@ function AdminPage() {
               <AnnouncementsAdmin />
               <OffersAdmin />
             </AdminSection>
+            <AdminSection id="content-support" title="💬 Messages support" description="Messages des joueurs depuis le centre d'aide" accent="primary" icon={<MessageSquare className="w-4 h-4" />} defaultOpen>
+              <SupportMessagesAdmin />
+            </AdminSection>
             <AdminSection id="content-banners" title="🎨 Bannières d'accueil" description="Carousel promo sur la page d'accueil" accent="violet" icon={<ImagePlus className="w-4 h-4" />} defaultOpen>
               <BannersAdmin />
             </AdminSection>
@@ -312,6 +316,7 @@ const SEARCH_INDEX: AdminSearchEntry[] = [
   // Contenu
   { id: "content-pause", tab: "contenu", tabLabel: "Contenu", title: "🛑 Contrôle global", description: "Mettre l'app en pause", keywords: "pause maintenance stop app fermer" },
   { id: "content-comm", tab: "contenu", tabLabel: "Contenu", title: "📣 Communication", description: "Annonces, offres, messages", keywords: "annonce offre message notification broadcast push" },
+  { id: "content-support", tab: "contenu", tabLabel: "Contenu", title: "💬 Messages support", description: "Répondre aux joueurs", keywords: "support chat message repondre joueur aide centre" },
   { id: "content-banners", tab: "contenu", tabLabel: "Contenu", title: "🎨 Bannières d'accueil", description: "Carousel promo", keywords: "banniere carousel promo image accueil slider" },
   { id: "content-help", tab: "contenu", tabLabel: "Contenu", title: "📚 Aide & tutoriels", description: "CMS, FAQ, conditions", keywords: "tutoriel aide help faq cgu conditions cms markdown texte" },
   { id: "content-communities", tab: "contenu", tabLabel: "Contenu", title: "🌍 Communautés", description: "Réseaux et liens externes", keywords: "reseau social communaute facebook whatsapp telegram lien" },

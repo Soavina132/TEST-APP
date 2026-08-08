@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, HelpCircle, MessageSquare, Phone, Headphones, BookOpen } from "lucide-react";
+import { facebookTargets, openExternal } from "@/lib/open-external";
+import SupportChatPopup from "@/components/SupportChatPopup";
 import { supabase } from "@/integrations/supabase/client";
 import { useT } from "@/lib/i18n";
 import { useCmsContent } from "@/hooks/use-cms-content";
@@ -40,6 +42,8 @@ export default function FaqPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [adminPhone, setAdminPhone] = useState<string | null>(null);
+  const [tutoUrl, setTutoUrl] = useState<string | null>(null);
+  const [showSupportChat, setShowSupportChat] = useState(false);
   const { data: faq } = useCmsContent("faq", DEFAULT_FAQ);
 
   useEffect(() => {
@@ -48,6 +52,13 @@ export default function FaqPage() {
       .maybeSingle()
       .then(({ data }: any) => {
         if (data?.admin_phone) setAdminPhone(data.admin_phone);
+      });
+    supabase.from("app_settings" as any)
+      .select("tuto_url")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.tuto_url) setTutoUrl(data.tuto_url);
       });
   }, []);
 
@@ -115,23 +126,26 @@ export default function FaqPage() {
           Notre équipe est disponible pour vous aider directement.
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => navigate({ to: "/chat", search: { dm: undefined } })}
+          <button onClick={() => setShowSupportChat(true)}
             className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition-transform">
             <MessageSquare className="w-4 h-4" /> Support chat
           </button>
-          {adminPhone ? (
-            <a href={`tel:${adminPhone}`}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary font-bold text-sm">
-              <Phone className="w-4 h-4" /> Appeler l'admin
-            </a>
-          ) : (
-            <button onClick={() => navigate({ to: "/tutos", search: {} })}
-              className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary font-bold text-sm">
-              <BookOpen className="w-4 h-4" /> Tutoriels
-            </button>
-          )}
+          <button
+            onClick={() => {
+              if (tutoUrl) {
+                const target = facebookTargets(tutoUrl);
+                openExternal(target);
+              } else {
+                navigate({ to: "/tutos", search: {} });
+              }
+            }}
+            className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-secondary font-bold text-sm active:scale-95 transition-transform">
+            <BookOpen className="w-4 h-4" /> Tutoriels
+          </button>
         </div>
       </div>
+
+      {showSupportChat && <SupportChatPopup onClose={() => setShowSupportChat(false)} />}
     </main>
   );
 }

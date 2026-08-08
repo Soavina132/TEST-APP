@@ -28,6 +28,7 @@ import { Route as AuthenticatedParametresRouteImport } from './routes/_authentic
 import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
+import { Route as AuthenticatedSecuriteRouteImport } from './routes/_authenticated/securite'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
 import { Route as AuthenticatedTutosRouteImport } from './routes/_authenticated/tutos'
@@ -145,6 +146,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
 const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
   id: '/rankings',
   path: '/rankings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSecuriteRoute = AuthenticatedSecuriteRouteImport.update({
+  id: '/securite',
+  path: '/securite',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedStatistiquesRoute =
@@ -291,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/securite': typeof AuthenticatedSecuriteRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
@@ -333,6 +340,7 @@ export interface FileRoutesByTo {
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
+  '/securite': typeof AuthenticatedSecuriteRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
@@ -378,6 +386,7 @@ export interface FileRoutesById {
   '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
+  '/_authenticated/securite': typeof AuthenticatedSecuriteRoute
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/tournaments': typeof AuthenticatedTournamentsRoute
   '/_authenticated/tutos': typeof AuthenticatedTutosRoute
@@ -423,6 +432,7 @@ export interface FileRouteTypes {
     | '/parrainage'
     | '/profile'
     | '/rankings'
+    | '/securite'
     | '/statistiques'
     | '/tournaments'
     | '/tutos'
@@ -465,6 +475,7 @@ export interface FileRouteTypes {
     | '/parrainage'
     | '/profile'
     | '/rankings'
+    | '/securite'
     | '/statistiques'
     | '/tournaments'
     | '/tutos'
@@ -509,6 +520,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parrainage'
     | '/_authenticated/profile'
     | '/_authenticated/rankings'
+    | '/_authenticated/securite'
     | '/_authenticated/statistiques'
     | '/_authenticated/tournaments'
     | '/_authenticated/tutos'
@@ -679,6 +691,13 @@ declare module '@tanstack/react-router' {
       path: '/rankings'
       fullPath: '/rankings'
       preLoaderRoute: typeof AuthenticatedRankingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/securite': {
+      id: '/_authenticated/securite'
+      path: '/securite'
+      fullPath: '/securite'
+      preLoaderRoute: typeof AuthenticatedSecuriteRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/statistiques': {
@@ -885,6 +904,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
+  AuthenticatedSecuriteRoute: typeof AuthenticatedSecuriteRoute
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTournamentsRoute: typeof AuthenticatedTournamentsRoute
   AuthenticatedTutosRoute: typeof AuthenticatedTutosRoute
@@ -912,6 +932,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
+  AuthenticatedSecuriteRoute: AuthenticatedSecuriteRoute,
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTournamentsRoute: AuthenticatedTournamentsRoute,
   AuthenticatedTutosRoute: AuthenticatedTutosRoute,
