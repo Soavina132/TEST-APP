@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Phone, Lock, Check, Eye, EyeOff, Clock, Loader2, ShieldCheck,
+  ArrowLeft, Phone, Lock, Check, Eye, EyeOff, Clock, Loader2, ShieldCheck, KeyRound, X,
 } from "lucide-react";
+import { generateSecret, generateURI, verifySync } from "otplib";
+
 
 export const Route = createFileRoute("/_authenticated/securite")({
   component: SecuritePage,
@@ -72,9 +74,20 @@ function SecuritePage() {
   const [showPassword, setShowPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
+  // ── 2FA (Google Authenticator) ──
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [totpSecret, setTotpSecret] = useState("");
+  const [qrUrl, setQrUrl] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [verifying2FA, setVerifying2FA] = useState(false);
+  const [disabling2FA, setDisabling2FA] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
+
   useEffect(() => {
     if (profile) {
       setPhone(profile.phone || "");
+      setTwoFactorEnabled((profile as any).two_factor_enabled || false);
     }
   }, [profile?.id, profile?.phone]);
 
@@ -126,6 +139,71 @@ function SecuritePage() {
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, [pendingVerify]);
+
+  // ── 2FA: Generate secret + QR ──
+  const start2FASetup = async () => {
+    const newSecret = generateSecret();
+    setTotpSecret(newSecret);
+    const otpUrl = generateURI({
+      issuer: "LalaoMADA",
+      label: user?.email || profile?.email || "user",
+      secret: newSecret,
+    });
+    setQrUrl(otpUrl);
+    setShow2FASetup(true);
+    setOtpCode("");
+  };
+
+  // ── 2FA: Verify code and enable ──
+  const confirm2FA = async () => {
+    if (otpCode.length !== 6) return toast.error("Entrez le code a 6 chiffres");
+    const result = verifySync({ token: otpCode, secret: totpSecret });
+    if (!result?.valid) {
+      return toast.error("Code incorrect, reessayez");
+    }
+    setVerifying2FA(true);
+    try {
+      const { error } = await supabase.from("profiles").update({
+        totp_secret: totpSecret,
+        two_factor_enabled: true,
+      }).eq("id", user!.id);
+      if (error) throw error;
+      await refreshProfile();
+      setTwoFactorEnabled(true);
+      setShow2FASetup(false);
+      setOtpCode("");
+      toast.success("Authentification a 2 facteurs activee !");
+    } catch (e: any) {
+      toast.error(e?.message || "Erreur");
+    } finally {
+      setVerifying2FA(false);
+    }
+  };
+
+  // ── 2FA: Disable ──
+  const disable2FA = async () => {
+    if (disableCode.length !== 6) return toast.error("Entrez le code a 6 chiffres");
+    const result = verifySync({ token: disableCode, secret: (profile as any).totp_secret });
+    if (!result?.valid) {
+      return toast.error("Code incorrect");
+    }
+    setDisabling2FA(true);
+    try {
+      const { error } = await supabase.from("profiles").update({
+        totp_secret: null,
+        two_factor_enabled: false,
+      }).eq("id", user!.id);
+      if (error) throw error;
+      await refreshProfile();
+      setTwoFactorEnabled(false);
+      setDisableCode("");
+      toast.success("Authentification a 2 facteurs desactivee");
+    } catch (e: any) {
+      toast.error(e?.message || "Erreur");
+    } finally {
+      setDisabling2FA(false);
+    }
+  };
 
   const savePhone = async () => {
     const trimmed = phone.trim();
@@ -288,6 +366,86 @@ function SecuritePage() {
             {savingPassword ? "Enregistrement…" : (<><Lock className="w-4 h-4" /> Changer le mot de passe</>)}
           </button>
         </div>
+      </Section>
+
+      {/* Google Authenticator (2FA) */}
+      <Section icon={KeyRound} title="Authentification Google">
+        {twoFactorEnabled ? (
+          <div className="space-y-3">
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" /> 2FA active ✓
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Votre compte est protege par Google Authenticator. Un code a 6 chiffres est requis a la connexion.
+            </p>
+            <div className="rounded-xl bg-secondary/40 p-3 space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground">Code a 6 chiffres pour desactiver</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={disableCode}
+                onChange={e => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm font-mono font-bold tracking-[0.3em] text-center outline-none focus:ring-2 ring-primary/40"
+              />
+              <button onClick={disable2FA} disabled={disableCode.length !== 6 || disabling2FA}
+                className="w-full py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold active:scale-95 disabled:opacity-40 transition flex items-center justify-center gap-1.5">
+                {disabling2FA ? "Desactivation…" : (<><X className="w-4 h-4" /> Desactiver 2FA</>)}
+              </button>
+            </div>
+          </div>
+        ) : show2FASetup ? (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              1. Ouvrez Google Authenticator sur votre telephone<br />
+              2. Scannez le QR code ci-dessous<br />
+              3. Entrez le code a 6 chiffres genere
+            </p>
+            {qrUrl && (
+              <div className="flex justify-center bg-white p-3 rounded-xl">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`}
+                  alt="QR Code 2FA" width={180} height={180} />
+              </div>
+            )}
+            <div className="rounded-xl bg-secondary/40 p-2 text-center">
+              <p className="text-[10px] text-muted-foreground mb-1">Cle manuelle (si scan impossible)</p>
+              <p className="font-mono text-[11px] font-bold break-all">{totpSecret}</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Code de verification</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm font-mono font-bold tracking-[0.3em] text-center outline-none focus:ring-2 ring-primary/40"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShow2FASetup(false)}
+                className="flex-1 py-2.5 rounded-xl bg-secondary text-sm font-semibold active:scale-95 transition">
+                Annuler
+              </button>
+              <button onClick={confirm2FA} disabled={otpCode.length !== 6 || verifying2FA}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-95 disabled:opacity-40 transition flex items-center justify-center gap-1.5">
+                {verifying2FA ? "Verification…" : (<><Check className="w-4 h-4" /> Activer</>)}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[11px] text-muted-foreground">
+              Ajoutez une couche de securite supplementaire. Votre mot de passe + un code genere par Google Authenticator.
+            </p>
+            <button onClick={start2FASetup}
+              className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-95 transition flex items-center justify-center gap-1.5">
+              <KeyRound className="w-4 h-4" /> Configurer Google Authenticator
+            </button>
+          </div>
+        )}
       </Section>
 
       {showPhoneVerify && <PhoneVerifyPopup onClose={() => setShowPhoneVerify(false)} />}
