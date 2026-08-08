@@ -1006,7 +1006,7 @@ function StakePicker({ stake, setStake, onDone }: { stake: number; setStake: (n:
         <button onClick={() => setCustom(c => !c)} className="text-[11px] font-semibold text-primary">{custom ? "Préréglages" : "Saisie libre"}</button>
       </div>
       {custom ? (
-        <input type="number" min={0} value={stake} onChange={e => setStake(Math.max(0, Number(e.target.value) || 0))}
+        <input type="number" min={200} value={stake} onChange={e => setStake(Math.max(200, Number(e.target.value) || 0))}
           placeholder="Montant en Ariary"
           className="w-full px-4 py-3 rounded-xl bg-secondary outline-none text-center font-bold text-lg" />
       ) : (
@@ -1130,7 +1130,7 @@ function SettingsPanel({ maxP, setMaxP, stake, setStake, commission, showMaxP, m
           <button onClick={() => setCustom((c: boolean) => !c)} className="text-[11px] font-semibold text-primary">{custom ? "Préréglages" : "Saisie libre"}</button>
         </div>
         {custom ? (
-          <input type="number" min={0} value={stake} onChange={e => setStake(Math.max(0, Number(e.target.value) || 0))}
+          <input type="number" min={200} value={stake} onChange={e => setStake(Math.max(200, Number(e.target.value) || 0))}
             placeholder="Montant en Ariary"
             className="w-full px-3 py-2 rounded-xl bg-secondary outline-none text-center font-bold text-base" />
         ) : (

@@ -5,39 +5,17 @@ import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Crown, Check, Sparkles, Infinity as InfinityIcon } from "lucide-react";
-
-type Tier = "basic" | "unlimited";
-
-const TIER_INFO: Record<Tier, { price: number; label: string; icon: typeof Crown; color: string; bg: string; desc: string }> = {
-  basic: {
-    price: 5000,
-    label: "Premium 100",
-    icon: Crown,
-    color: "#3b82f6",
-    bg: "linear-gradient(135deg, #3b82f6, #2563eb)",
-    desc: "100 matchs par jeu / mois",
-  },
-  unlimited: {
-    price: 10000,
-    label: "Illimité",
-    icon: InfinityIcon,
-    color: "#f59e0b",
-    bg: "linear-gradient(135deg, #f59e0b, #d97706)",
-    desc: "Matchs illimités tous jeux",
-  },
-};
+import { Crown, Check, Gamepad2, Trophy } from "lucide-react";
 
 export default function PremiumSubscriptionModal({
-  open, onClose, defaultTier = "basic",
-}: { open: boolean; onClose: () => void; defaultTier?: Tier }) {
+  open, onClose,
+}: { open: boolean; onClose: () => void }) {
   const { profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [tier, setTier] = useState<Tier>(defaultTier);
   const [months, setMonths] = useState(1);
 
-  const info = TIER_INFO[tier];
-  const total = info.price * months;
+  const PRICE = 10000;
+  const total = PRICE * months;
   const balance = Number(profile?.balance_ar || 0);
   const canAfford = balance >= total;
 
@@ -45,7 +23,7 @@ export default function PremiumSubscriptionModal({
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("subscribe_premium" as any, {
-        p_months: months, p_tier: tier,
+        p_months: months, p_tier: "premium",
       } as any);
       if (error) throw error;
       if (data && !data.success) {
@@ -53,7 +31,7 @@ export default function PremiumSubscriptionModal({
         return;
       }
       toast.success("Abonnement activé ! 🎉", {
-        description: `${info.label} — ${months} mois — ${data?.tournament_passes || 2} accès tournoi offerts`,
+        description: `Premium — ${months} mois — ${data?.tournament_passes || 2} accès tournoi offerts`,
         duration: 5000,
       });
       refreshProfile();
@@ -75,53 +53,30 @@ export default function PremiumSubscriptionModal({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Tier selector */}
-          <div className="grid grid-cols-2 gap-2">
-            {(Object.keys(TIER_INFO) as Tier[]).map(t => {
-              const ti = TIER_INFO[t];
-              const Icon = ti.icon;
-              const active = tier === t;
-              return (
-                <button key={t} onClick={() => setTier(t)}
-                  className={`rounded-xl p-3 text-center transition-all border-2 ${
-                    active ? "border-primary shadow-md" : "border-border/40 opacity-70"
-                  }`}>
-                  <Icon className={`w-5 h-5 mx-auto mb-1 ${active ? "" : "text-muted-foreground"}`}
-                    style={active ? { color: ti.color } : {}} />
-                  <div className="text-sm font-bold">{ti.label}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{ti.desc}</div>
-                  <div className="text-sm font-extrabold mt-1" style={active ? { color: ti.color } : {}}>
-                    {ti.price.toLocaleString("fr-FR")} Ar<span className="text-[10px] font-normal text-muted-foreground">/mois</span>
-                  </div>
-                </button>
-              );
-            })}
+          {/* Price card */}
+          <div className="rounded-2xl p-4 text-center border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-card to-primary/10">
+            <Crown className="w-8 h-8 mx-auto text-amber-500 mb-2" />
+            <div className="text-lg font-extrabold">Premium</div>
+            <div className="text-3xl font-black text-amber-500 mt-1">
+              {PRICE.toLocaleString("fr-FR")} <span className="text-base font-bold">Ar/mois</span>
+            </div>
           </div>
 
           {/* Benefits */}
           <div className="space-y-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
-            <div className="text-sm font-bold text-amber-600">
-              Avantages {tier === "unlimited" ? "Illimité" : "Premium 100"}
-            </div>
+            <div className="text-sm font-bold text-amber-600">Avantages Premium</div>
             <div className="space-y-1.5">
-              {tier === "unlimited" ? (
-                <div className="flex items-start gap-2 text-xs">
-                  <InfinityIcon className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                  <span>Matchs illimités pour tous les jeux (Ludo, Domino, Échecs, Fanorona, Rami, Poker)</span>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2 text-xs">
-                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>100 matchs par jeu par mois (Ludo, Domino, Échecs, Fanorona, Rami, Poker)</span>
-                </div>
-              )}
               <div className="flex items-start gap-2 text-xs">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                <Gamepad2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                <span>100 matchs par jeu par mois (Ludo, Domino, Échecs, Fanorona, Rami, Poker)</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs">
+                <Trophy className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
                 <span>2 accès gratuits aux tournois par mois</span>
               </div>
               <div className="flex items-start gap-2 text-xs">
                 <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                <span>Badge Premium exclusif</span>
+                <span>Badge Premium exclusif 👑</span>
               </div>
               <div className="flex items-start gap-2 text-xs">
                 <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
@@ -140,7 +95,7 @@ export default function PremiumSubscriptionModal({
                     : "bg-secondary border-border/40 hover:bg-accent/30"
                 }`}>
                 <div className="text-sm font-bold">{m} mois</div>
-                <div className="text-[10px] opacity-80">{(info.price * m).toLocaleString("fr-FR")} Ar</div>
+                <div className="text-[10px] opacity-80">{(PRICE * m).toLocaleString("fr-FR")} Ar</div>
               </button>
             ))}
           </div>
@@ -160,10 +115,10 @@ export default function PremiumSubscriptionModal({
           {/* CTA */}
           <button onClick={subscribe} disabled={loading || !canAfford}
             className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 text-white"
-            style={{ background: info.bg }}>
+            style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
             {loading ? "…" : (
               <>
-                {tier === "unlimited" ? <Sparkles className="w-4 h-4" /> : <Crown className="w-4 h-4" />}
+                <Crown className="w-4 h-4" />
                 {canAfford ? "S'abonner maintenant" : "Solde insuffisant"}
               </>
             )}
