@@ -201,8 +201,10 @@ export default function TournamentAdminPanel() {
                     )}
                     {t.status === "open" && (
                       <>
-                        <button disabled={busy} onClick={() => run("admin_tournament_add_bots", { _tid: t.id, _count: 4 }, "4 bots ajoutés")}
-                          className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold">+4 bots</button>
+                        {Number(t.entry_fee_ar) === 0 && (
+                          <button disabled={busy} onClick={() => run("admin_tournament_add_bots", { _tid: t.id, _count: 4 }, "4 bots ajoutés")}
+                            className="px-2.5 py-1 rounded-lg bg-card text-[11px] font-bold">+4 bots</button>
+                        )}
                         {!t.check_in_opened_at && (
                           <button disabled={busy} onClick={() => run("admin_tournament_open_check_in", { _tid: t.id }, "Check-in ouvert")}
                             className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 text-[11px] font-bold">✋ Ouvrir check-in</button>

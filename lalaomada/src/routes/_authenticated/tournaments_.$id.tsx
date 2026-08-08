@@ -637,12 +637,14 @@ function AdminBar({ t, busy, rpc }: { t: any; busy: boolean; rpc: (fn: string, a
       <div className="flex flex-wrap gap-2">
         {t.status === "open" && (
           <>
-            <div className="flex items-center gap-1">
-              <input type="number" min={1} max={64} value={bots} onChange={(e) => setBots(Number(e.target.value))}
-                className="w-14 px-2 py-1.5 rounded-xl bg-secondary text-sm text-center" />
-              <button disabled={busy} onClick={() => rpc("admin_tournament_add_bots", { _tid: t.id, _count: bots }, `${bots} bots ajoutés`)}
-                className="px-3 py-1.5 rounded-xl bg-secondary text-xs font-bold">+ Bots</button>
-            </div>
+            {Number(t.entry_fee_ar) === 0 && (
+              <div className="flex items-center gap-1">
+                <input type="number" min={1} max={64} value={bots} onChange={(e) => setBots(Number(e.target.value))}
+                  className="w-14 px-2 py-1.5 rounded-xl bg-secondary text-sm text-center" />
+                <button disabled={busy} onClick={() => rpc("admin_tournament_add_bots", { _tid: t.id, _count: bots }, `${bots} bots ajoutés`)}
+                  className="px-3 py-1.5 rounded-xl bg-secondary text-xs font-bold">+ Bots</button>
+              </div>
+            )}
             <button disabled={busy} onClick={() => rpc("admin_tournament_start", { _tid: t.id }, "Tournoi démarré !")}
               className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold">▶ Démarrer</button>
           </>
