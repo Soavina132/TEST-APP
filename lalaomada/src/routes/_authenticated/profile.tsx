@@ -1,18 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
-import { useT } from "@/lib/i18n";
 import { copyText } from "@/lib/clipboard";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Camera, Copy, Coins, ShieldCheck, ShieldAlert, Mail, LogOut, Trash2,
+  Camera, Copy, ShieldCheck, ShieldAlert, LogOut, Trash2,
   Phone, Gamepad2, ArrowLeftRight, Send,
   ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
+import { DepotModal, RetraitModal, useAppSettings } from "@/components/WalletButton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,11 +30,11 @@ export const Route = createFileRoute("/_authenticated/profile")({
 ─────────────────────────────────────────────────────────────────────────────── */
 
 const BADGES = [
-  { min: 0, label: "Bronze", color: "from-amber-700 to-amber-500", ring: "ring-amber-600/40", icon: "🥉" },
-  { min: 2, label: "Argent", color: "from-slate-400 to-slate-300", ring: "ring-slate-400/40", icon: "🥈" },
-  { min: 3, label: "Or", color: "from-yellow-500 to-amber-400", ring: "ring-yellow-500/40", icon: "🥇" },
-  { min: 4, label: "Diamant", color: "from-cyan-400 to-blue-500", ring: "ring-cyan-400/40", icon: "💎" },
-  { min: 5, label: "Platine", color: "from-violet-500 to-fuchsia-500", ring: "ring-violet-500/40", icon: "👑" },
+  { min: 0, label: "Bronze", color: "from-amber-700 to-amber-500", icon: "🥉" },
+  { min: 2, label: "Argent", color: "from-slate-400 to-slate-300", icon: "🥈" },
+  { min: 3, label: "Or", color: "from-yellow-500 to-amber-400", icon: "🥇" },
+  { min: 4, label: "Diamant", color: "from-cyan-400 to-blue-500", icon: "💎" },
+  { min: 5, label: "Platine", color: "from-violet-500 to-fuchsia-500", icon: "👑" },
 ];
 
 function getBadge(level: number) {
@@ -43,7 +43,7 @@ function getBadge(level: number) {
   return b;
 }
 
-
+const MIN_WITHDRAWAL = 2000;
 
 /* ────────────────────────────────────────────────────────────────────────────
    Transfer Dialog
@@ -162,20 +162,17 @@ function TransferDialog({ open, onClose, balance, onSent }: {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Section wrapper — matches the app's design language (cf. parametres.tsx)
+   Section wrapper
 ─────────────────────────────────────────────────────────────────────────────── */
 
-function Section({ icon: Icon, title, children, action }: {
-  icon: any; title: string; children: React.ReactNode; action?: React.ReactNode;
+function Section({ icon: Icon, title, children }: {
+  icon: any; title: string; children: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl bg-card border border-border/40 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-secondary/30">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-primary" />
-          <span className="font-bold text-sm">{title}</span>
-        </div>
-        {action}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30 bg-secondary/30">
+        <Icon className="w-4 h-4 text-primary" />
+        <span className="font-bold text-sm">{title}</span>
       </div>
       <div className="p-4">{children}</div>
     </div>
@@ -186,34 +183,47 @@ function Section({ icon: Icon, title, children, action }: {
    Stat Tile
 ─────────────────────────────────────────────────────────────────────────────── */
 
-function StatTile({ label, value, sub, icon, accent }: {
-  label: string; value: string | number; sub?: string;
-  icon: React.ReactNode; accent?: string;
+function StatTile({ label, value, icon, accent }: {
+  label: string; value: string | number; icon: React.ReactNode; accent?: string;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl bg-secondary/40 p-3 text-center">
       <div className="mb-1 text-muted-foreground">{icon}</div>
       <div className={`text-xl font-black tabular-nums leading-none ${accent || "text-foreground"}`}>{value}</div>
       <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
-      {sub && <div className="text-[10px] text-muted-foreground/70 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Menu Button
+   Action button — used in the balance card row (icon over label, no box)
 ─────────────────────────────────────────────────────────────────────────────── */
 
-function MenuButton({ icon: Icon, label, action, color }: {
-  icon: any; label: string; action: () => void; color: string;
+function BalanceAction({ icon: Icon, label, action }: {
+  icon: any; label: string; action: () => void;
 }) {
   return (
     <button onClick={action}
-      className="flex flex-col items-center gap-2 px-2 py-3 rounded-2xl bg-card border border-border/40 hover:bg-accent/30 active:scale-95 transition-all">
-      <div className={`w-10 h-10 rounded-xl bg-secondary/60 flex items-center justify-center ${color}`}>
-        <Icon className="w-5 h-5" strokeWidth={2} />
-      </div>
-      <span className="text-[11px] font-semibold text-center leading-tight">{label}</span>
+      className="flex flex-col items-center gap-1.5 py-3 flex-1 hover:bg-primary/5 active:scale-95 transition-all">
+      <Icon className="w-5 h-5 text-primary" strokeWidth={2} />
+      <span className="text-[11px] font-semibold text-foreground/80">{label}</span>
+    </button>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   List row — simple menu row (icon + label + chevron)
+─────────────────────────────────────────────────────────────────────────────── */
+
+function ListRow({ icon: Icon, label, action, color, danger }: {
+  icon: any; label: string; action: () => void; color?: string; danger?: boolean;
+}) {
+  return (
+    <button onClick={action}
+      className={`w-full flex items-center gap-3 px-1 py-3 border-b border-border/20 last:border-0 hover:bg-accent/20 active:scale-[0.99] transition-all ${danger ? "text-destructive" : ""}`}>
+      <Icon className={`w-5 h-5 ${color || "text-primary"}`} strokeWidth={2} />
+      <span className="flex-1 text-left text-sm font-semibold">{label}</span>
+      {!danger && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
     </button>
   );
 }
@@ -228,7 +238,6 @@ function ProfilePage() {
   const [pseudo, setPseudo] = useState(profile?.pseudo || "");
   const [editingName, setEditingName] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [tx, setTx] = useState<any[]>([]);
   const [playerStats, setPlayerStats] = useState<any>(null);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [rankLoaded, setRankLoaded] = useState(false);
@@ -237,9 +246,12 @@ function ProfilePage() {
   const [showTx, setShowTx] = useState(false);
   const [txTab, setTxTab] = useState<"deposits" | "withdrawals" | "transfers">("deposits");
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showRetrait, setShowRetrait] = useState(false);
   const [deps, setDeps] = useState<any[]>([]);
   const [withs, setWiths] = useState<any[]>([]);
   const [transfers, setTransfers] = useState<any[]>([]);
+  const appSettings = useAppSettings();
 
   useEffect(() => { setPseudo(profile?.pseudo || ""); }, [profile?.pseudo]);
 
@@ -248,7 +260,6 @@ function ProfilePage() {
     const uid = user.id;
     const currentPseudo = profile?.pseudo;
 
-    supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50).then(({ data }) => setTx(data || []));
     supabase.from("deposits").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setDeps(data || []));
     supabase.from("withdrawals").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setWiths(data || []));
     supabase.from("transactions").select("*").eq("user_id", uid).in("type", ["transfer_sent","transfer_received"]).order("created_at", { ascending: false }).limit(30).then(({ data }) => setTransfers(data || []));
@@ -285,6 +296,14 @@ function ProfilePage() {
     toast.success("Photo mise à jour"); refreshProfile();
   };
 
+  const reloadTransferHistory = () => {
+    if (!user) return;
+    supabase.from("transactions").select("*").eq("user_id", user.id)
+      .in("type", ["transfer_sent","transfer_received"])
+      .order("created_at", { ascending: false }).limit(30)
+      .then(({ data }) => setTransfers(data || []));
+  };
+
   if (!profile) return <main className="p-8 text-center text-muted-foreground">Chargement…</main>;
 
   const p: any = profile;
@@ -296,7 +315,6 @@ function ProfilePage() {
   const level = ps.player_level ?? 1;
   const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
   const totalLosses = totalGames - totalWins;
-  const memberDays = Math.max(1, Math.floor((Date.now() - new Date(p.created_at || (profile as any).created_at || Date.now()).getTime()) / 86400000));
   const badge = getBadge(level);
 
   return (
@@ -311,13 +329,28 @@ function ProfilePage() {
         open={showTransfer}
         onClose={() => setShowTransfer(false)}
         balance={profile.balance_ar}
-        onSent={() => {
-          refreshProfile();
-          supabase.from("transactions").select("*").eq("user_id", user!.id)
-            .in("type", ["transfer_sent","transfer_received"])
-            .order("created_at", { ascending: false }).limit(30)
-            .then(({ data }) => setTransfers(data || []));
-        }}
+        onSent={() => { refreshProfile(); reloadTransferHistory(); }}
+      />
+
+      <DepotModal
+        open={showDeposit}
+        onClose={() => setShowDeposit(false)}
+        mvolaPhone={appSettings.mvolaPhone}
+        mvolaName={appSettings.mvolaName}
+        orangePhone={appSettings.orangePhone}
+        orangeName={appSettings.orangeName}
+        airtelPhone={appSettings.airtelPhone}
+        airtelName={appSettings.airtelName}
+        minDeposit={appSettings.minDeposit}
+        onSuccess={() => { refreshProfile(); }}
+      />
+
+      <RetraitModal
+        open={showRetrait}
+        onClose={() => setShowRetrait(false)}
+        balance={profile.balance_ar}
+        minRetrait={MIN_WITHDRAWAL}
+        onSuccess={() => { refreshProfile(); }}
       />
 
       {/* ════ Transactions Dialog ════ */}
@@ -403,113 +436,78 @@ function ProfilePage() {
       </Dialog>
 
       {/* ═══════════════════════════════════════════════════════════════════
-         1.  Profile Header — clean hero card
+         1.  Identity — simple card: avatar + name + verified badge + phone
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="relative rounded-3xl overflow-hidden shrink-0 shadow-lg"
-        style={{ background: "linear-gradient(135deg, var(--card) 0%, var(--secondary) 100%)" }}>
-
-        {/* Banner */}
-        <div className={`h-20 bg-gradient-to-br ${badge.color} relative overflow-hidden`}>
-          <div className="absolute inset-0 opacity-20"
-            style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 30%, white 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-          {/* Badge label top-right */}
-          <div className="absolute top-2 right-3 flex items-center gap-1 rounded-full bg-black/20 backdrop-blur-sm px-2.5 py-1 text-white text-xs font-bold">
-            <span>{badge.icon}</span> {badge.label}
+      <div className="rounded-2xl bg-card border border-border/40 p-4 flex items-center gap-3">
+        <div className="relative shrink-0">
+          <div className={`w-16 h-16 rounded-full p-[2px] bg-gradient-to-br ${badge.color}`}>
+            <div className="w-full h-full rounded-full bg-secondary flex items-center justify-center text-lg font-black overflow-hidden">
+              {profile.avatar_url
+                ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
+                : <span className="text-primary">{initials}</span>}
+            </div>
           </div>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-primary-foreground ring-2 ring-card active:scale-90 transition-transform shadow-md">
+            <Camera className="w-3 h-3" strokeWidth={2.5} />
+          </button>
         </div>
 
-        {/* Avatar + identity */}
-        <div className="px-4 -mt-10 pb-4">
-          <div className="flex items-end gap-3">
-            {/* Avatar */}
-            <div className="relative shrink-0">
-              <div className={`w-20 h-20 rounded-2xl p-[3px] bg-gradient-to-br ${badge.color} shadow-lg ring-2 ${badge.ring}`}>
-                <div className="w-full h-full rounded-xl bg-card flex items-center justify-center text-2xl font-black overflow-hidden">
-                  {profile.avatar_url
-                    ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover rounded-xl" />
-                    : <span className="text-primary">{initials}</span>}
-                </div>
-              </div>
-              <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-primary-foreground ring-2 ring-card active:scale-90 transition-transform shadow-md">
-                <Camera className="w-3.5 h-3.5" strokeWidth={2.5} />
-              </button>
+        <div className="flex-1 min-w-0">
+          {editingName ? (
+            <div className="flex gap-1">
+              <input value={pseudo} onChange={e => setPseudo(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && savePseudo()} autoFocus
+                className="flex-1 px-2 py-1 rounded-lg bg-card border border-border outline-none text-sm font-bold" />
+              <button onClick={savePseudo}
+                className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
             </div>
-
-            {/* Name + badges */}
-            <div className="flex-1 min-w-0 pb-1">
-              {editingName ? (
-                <div className="flex gap-1">
-                  <input value={pseudo} onChange={e => setPseudo(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && savePseudo()} autoFocus
-                    className="flex-1 px-2 py-1 rounded-lg bg-card border border-border outline-none text-sm font-bold" />
-                  <button onClick={savePseudo}
-                    className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold">OK</button>
-                </div>
-              ) : (
-                <button onClick={() => setEditingName(true)}
-                  className="font-black text-lg leading-tight hover:text-primary transition-colors truncate block">
-                  {displayName}
-                </button>
-              )}
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {p.phone_verified ? (
-                  <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-500">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Vérifié
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-500">
-                    <ShieldAlert className="w-3.5 h-3.5" /> Non vérifié
-                  </span>
-                )}
-                <span className="text-[11px] text-muted-foreground">· Membre depuis {memberDays}j</span>
-              </div>
-              {profile.unique_code && (
-                <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
-                  className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground font-mono hover:text-foreground transition-colors mt-0.5">
-                  ID: {profile.unique_code} <Copy className="w-3 h-3" />
-                </button>
-              )}
+          ) : (
+            <button onClick={() => setEditingName(true)}
+              className="flex items-center gap-1.5 hover:text-primary transition-colors">
+              <span className="font-black text-lg leading-tight truncate">{displayName}</span>
+              {p.phone_verified
+                ? <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                : <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />}
+            </button>
+          )}
+          {p.phone && (
+            <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
+              <Phone className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{p.phone}</span>
             </div>
-          </div>
-
-          {/* Contact info */}
-          <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
-            {profile.email && (
-              <span className="inline-flex items-center gap-1 truncate">
-                <Mail className="w-3.5 h-3.5 shrink-0 text-primary/60" />
-                <span className="truncate">{profile.email}</span>
-              </span>
-            )}
-            {p.phone && (
-              <span className="inline-flex items-center gap-1 truncate">
-                <Phone className="w-3.5 h-3.5 shrink-0 text-primary/60" />
-                <span className="truncate">{p.phone}</span>
-              </span>
-            )}
-          </div>
-
-          {/* Balance + Level — prominent */}
-          <div className="mt-3 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 px-4 py-3 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-                <Coins className="w-3 h-3 text-primary" /> Solde
-              </div>
-              <div className="text-2xl font-black text-primary tabular-nums leading-tight mt-0.5">
-                {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
-                <span className="text-sm font-bold text-muted-foreground ml-1">Ar</span>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Niveau</div>
-              <div className="text-2xl font-black leading-tight mt-0.5">{level}</div>
-            </div>
-          </div>
+          )}
+          {profile.unique_code && (
+            <button onClick={() => copyText(profile.unique_code!).then(ok => toast[ok ? "success" : "error"](ok ? "ID copié !" : "Erreur"))}
+              className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground font-mono hover:text-foreground transition-colors mt-0.5">
+              ID: {profile.unique_code} <Copy className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-         2.  Statistics — clear, readable tiles
+         2.  Balance — big, prominent, with quick actions row
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-2xl overflow-hidden border border-primary/20"
+        style={{ background: "linear-gradient(160deg, var(--primary) 0%, transparent 120%)", backgroundColor: "var(--card)" }}>
+        <div className="px-5 py-5" style={{ background: "linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, var(--card)) 0%, color-mix(in oklch, var(--primary) 4%, var(--card)) 100%)" }}>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-primary/80">Solde disponible</div>
+          <div className="text-4xl font-black text-primary tabular-nums leading-tight mt-1">
+            {Math.round(profile.balance_ar).toLocaleString("fr-FR")}
+            <span className="text-lg font-bold text-muted-foreground ml-1.5">Ar</span>
+          </div>
+        </div>
+        <div className="flex divide-x divide-primary/10 border-t border-primary/10">
+          <BalanceAction icon={ArrowDownLeft} label="Dépôt" action={() => setShowDeposit(true)} />
+          <BalanceAction icon={ArrowUpRight} label="Retrait" action={() => setShowRetrait(true)} />
+          <BalanceAction icon={Gamepad2} label="Historique" action={() => navigate({ to: "/history", search: {} })} />
+          <BalanceAction icon={Gift} label="Parrainage" action={() => navigate({ to: "/parrainage", search: {} })} />
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+         3.  Statistics
       ═══════════════════════════════════════════════════════════════════ */}
       <Section icon={Trophy} title="Statistiques">
         <div className="grid grid-cols-3 gap-2">
@@ -532,36 +530,29 @@ function ProfilePage() {
       </Section>
 
       {/* ═══════════════════════════════════════════════════════════════════
-         5.  Quick Actions — menu grid
+         4.  Plus — simple list menu
       ═══════════════════════════════════════════════════════════════════ */}
-      <Section icon={Settings} title="Actions rapides">
-        <div className="grid grid-cols-4 gap-2">
-          <MenuButton icon={ArrowLeftRight} label="Transactions" color="text-primary"
-            action={() => setShowTx(true)} />
-          <MenuButton icon={Gamepad2} label="Historique" color="text-primary"
-            action={() => navigate({ to: "/history", search: {} })} />
-          <MenuButton icon={Gift} label="Parrainage" color="text-fuchsia-500"
-            action={() => navigate({ to: "/parrainage", search: {} })} />
-          <MenuButton icon={Shield} label="Sécurité" color="text-emerald-500"
-            action={() => navigate({ to: "/parametres", search: {} })} />
-          <MenuButton icon={HelpCircle} label="Aide" color="text-orange-500 dark:text-neutral-300"
-            action={() => navigate({ to: "/faq", search: {} })} />
-          <MenuButton icon={Settings} label="Paramètres" color="text-muted-foreground"
-            action={() => navigate({ to: "/parametres", search: {} })} />
-        </div>
-
-        {/* Logout + delete */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/10 text-destructive text-xs font-bold active:scale-95 transition-transform">
-            <LogOut className="w-4 h-4" /> Déconnexion
-          </button>
-          <button onClick={() => setShowDeleteDialog(true)}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/5 text-destructive/80 text-xs font-bold active:scale-95 transition-transform">
-            <Trash2 className="w-4 h-4" /> Supprimer
-          </button>
+      <Section icon={Settings} title="Plus">
+        <div>
+          <ListRow icon={ArrowLeftRight} label="Transactions" action={() => setShowTx(true)} />
+          <ListRow icon={Send} label="Transférer du solde" action={() => setShowTransfer(true)} />
+          <ListRow icon={Shield} label="Sécurité" color="text-emerald-500" action={() => navigate({ to: "/parametres", search: {} })} />
+          <ListRow icon={HelpCircle} label="Aide" color="text-orange-500 dark:text-neutral-300" action={() => navigate({ to: "/faq", search: {} })} />
+          <ListRow icon={Settings} label="Paramètres" color="text-muted-foreground" action={() => navigate({ to: "/parametres", search: {} })} />
         </div>
       </Section>
+
+      {/* Logout + delete */}
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/10 text-destructive text-xs font-bold active:scale-95 transition-transform">
+          <LogOut className="w-4 h-4" /> Déconnexion
+        </button>
+        <button onClick={() => setShowDeleteDialog(true)}
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/5 text-destructive/80 text-xs font-bold active:scale-95 transition-transform">
+          <Trash2 className="w-4 h-4" /> Supprimer
+        </button>
+      </div>
 
     </main>
   );
