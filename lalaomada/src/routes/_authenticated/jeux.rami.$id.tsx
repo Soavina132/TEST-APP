@@ -262,14 +262,24 @@ function Card({
       <button
         onClick={onClick}
         disabled={!onClick}
-        style={styleOverride}
-        className={`${sizeClass} block transition-transform duration-100
+        style={{
+          ...styleOverride,
+          perspective: styleOverride?.width ? "200px" : undefined,
+        }}
+        className={`${sizeClass} block transition-all duration-150 ease-out
           ${selected ? "-translate-y-3 drop-shadow-lg" : ""}
           ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 scale-105" : ""}
-          ${onClick ? "hover:-translate-y-1 cursor-pointer active:scale-95" : "cursor-default"}`}
+          ${onClick ? "hover:-translate-y-1.5 cursor-pointer active:scale-95 hover:drop-shadow-[0_8px_14px_rgba(0,0,0,0.4)] hover:brightness-105" : "cursor-default"}`}
       >
 
         <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow">
+          <defs>
+            <linearGradient id={`gloss-${base}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(255,255,255,0)" stopOpacity="0.15" />
+              <stop offset="50%" stopColor="rgba(255,255,255,0)" stopOpacity="0" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0)" stopOpacity="0.08" />
+            </linearGradient>
+          </defs>
           <rect x="0.5" y="0.5" width="99" height="139" rx="6" fill="white" stroke="#d1d5db" strokeWidth="1" />
           {isJoker ? (
             <JokerFace idx={base - 52} />
@@ -288,8 +298,12 @@ function Card({
               {isFace ? <FacePortrait rank={rank} suit={suit} /> : <PipCard rank={rank} suit={suit} />}
             </>
           )}
+          <rect x="0.5" y="0.5" width="99" height="139" rx="6" fill={`url(#gloss-${base})`} pointerEvents="none" />
         </svg>
         {selected && <div className="absolute inset-0 rounded-md ring-2 ring-emerald-400 pointer-events-none" />}
+        {onClick && !selected && (
+          <div className="absolute inset-0 rounded-md opacity-0 hover:opacity-100 transition-opacity duration-200 pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)" }} />
+        )}
       </button>
 
       {onRemove && (
@@ -834,6 +848,29 @@ function ensureDealKeyframes() {
       20%  { opacity: 1; transform: translate(-50%, 20vh) scale(1.1) rotate(2deg); }
       100% { opacity: 0; transform: translate(-50%, -30vh) scale(0.7) rotate(-8deg); }
     }
+    @keyframes cardLift {
+      0%   { transform: translateY(0) rotateX(0) scale(1); }
+      100% { transform: translateY(-6px) rotateX(8deg) scale(1.04); }
+    }
+    @keyframes meldPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+      50%      { transform: scale(1.05); box-shadow: 0 0 20px 4px rgba(16,185,129,0.35); }
+    }
+    .meld-valid-badge { animation: meldPulse 0.8s ease-in-out 2; }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .action-toast { animation: slideInRight 0.3s ease-out; }
+    @keyframes glowPulse {
+      0%, 100% { opacity: 0.4; }
+      50%      { opacity: 0.8; }
+    }
+    .playable-glow { animation: glowPulse 1.2s ease-in-out infinite; }
+    @keyframes cardFlip3D {
+      0%   { transform: rotateY(180deg); }
+      100% { transform: rotateY(0deg); }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -841,22 +878,23 @@ function ensureDealKeyframes() {
 // Flying card overlay — animates from source rect to target rect
 function FlyingCard({ card, from, to }: { card: number | undefined; from: { x: number; y: number }; to: { x: number; y: number } }) {
   const [pos, setPos] = useState(from);
+  const [rot, setRot] = useState(-12);
   React.useEffect(() => {
-    const r = requestAnimationFrame(() => setPos(to));
+    const r = requestAnimationFrame(() => { setPos(to); setRot(0); });
     return () => cancelAnimationFrame(r);
   }, [to.x, to.y]);
   return (
     <div
-      className="fixed z-[60] pointer-events-none"
+      className="fixed z-[200] pointer-events-none"
       style={{
         left: 0,
         top: 0,
-        transform: `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%)`,
-        transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
-        filter: "drop-shadow(0 12px 18px rgba(0,0,0,0.45))",
+        transform: `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) rotate(${rot}deg)`,
+        transition: "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        filter: "drop-shadow(0 16px 24px rgba(0,0,0,0.55))",
       }}
     >
-      <Card c={card} faceDown={card === undefined} size="md" />
+      <Card c={card} faceDown={card === undefined} size="lg" styleOverride={{ width: 48, height: 68 }} />
     </div>
   );
 }
@@ -994,7 +1032,12 @@ function RamiPage() {
         }
         if (p?.is_bot && m.type !== "seven") {
           const kind = m.type === "run" ? "suite" : m.type === "set" ? "brelan/carré" : "combinaison";
-          toast.info(`🎯 ${p.display_name || "Bot"} a posé une ${kind} (${m.cards.length} cartes)`, { duration: 2500 });
+          toast.success(`🎯 ${p.display_name || "Bot"} a posé un ${kind} (${m.cards.length} cartes)`, { duration: 2800 });
+        }
+        // Also notify for human opponents
+        if (!p?.is_bot && p && m.type !== "seven") {
+          const kind = m.type === "run" ? "suite" : m.type === "set" ? "brelan/carré" : "combinaison";
+          toast.info(`🎯 ${p.display_name || "Joueur"} a posé un ${kind} (${m.cards.length} cartes)`, { duration: 2500 });
         }
       }
     }
@@ -1004,7 +1047,15 @@ function RamiPage() {
       newDiscardKeys.push(lastBy);
       const p = parts.find(pp => pp.user_id === lastBy);
       if (p?.is_bot) {
-        toast.info(`🎯 ${p.display_name || "Bot"} a défaussé une carte`, { duration: 2000 });
+        const cardLabel = top !== undefined ? (() => {
+          const b = top % 56;
+          if (b >= 52) return "Joker";
+          const s = Math.floor(b / 13);
+          const r = b % 13;
+          const suitSym = ["♠", "♥", "♦", "♣"][s];
+          return `${RANKS[r]}${suitSym}`;
+        })() : "une carte";
+        toast.info(`🎴 ${p.display_name || "Bot"} défausser: ${cardLabel}`, { duration: 2200 });
       }
     }
 
@@ -2272,6 +2323,11 @@ function RamiPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${selectionValidity === 'valid' ? 'bg-emerald-400' : selectionValidity === 'invalid' ? 'bg-destructive' : 'bg-primary'}`} />
+                      {selectionValidity === 'valid' && (
+                        <span className="meld-valid-badge px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black shadow-sm">
+                          ✓ {selectionKind ? MELD_LABEL[selectionKind] : 'Valide'} — prêt à poser
+                        </span>
+                      )}
                       <div className="text-xs font-bold">
                         {selected.length} carte{selected.length > 1 ? "s" : ""} sélectionnée{selected.length > 1 ? "s" : ""}
                       </div>
