@@ -82,7 +82,8 @@ interface GameState {
   power_tiles?: { type: string; cell: number; cd?: number }[];
   shields?: Record<string, boolean>;
   double_roll_pending?: number | null;
-  power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; at: string };
+  power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; cell?: number; at: string };
+  power_pending?: { tile_type: string; options: string[]; slot: number };
 }
 
 interface Props {
@@ -661,7 +662,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   const cellPx = boardSize / 15;
 
-  const renderPawns: { key: string; slot: number; idx: number; color: Color; row: number; col: number; movable: boolean }[] = [];
+  const renderPawns: { key: string; slot: number; idx: number; color: Color; row: number; col: number; movable: boolean; hasShield: boolean }[] = [];
   const cellGroups = new Map<string, number>();
   participants.forEach(part => {
     const arr = displayedPawns?.[String(part.slot)] || [];
@@ -697,6 +698,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         key: `${part.slot}-${i}`,
         slot: part.slot, idx: i, color: part.color, row, col,
         movable: part.slot === state.turn_slot && visibleMovable.has(i),
+        hasShield: state.shields?.[String(part.slot)] === true,
       });
     });
   });
@@ -1053,6 +1055,19 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                         background: "radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)",
                         filter: "blur(0.5px)",
                       }} />
+                {p.hasShield && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
+                    style={{
+                      width: "42%", height: "42%",
+                      background: "rgba(34,197,94,0.95)",
+                      border: "2px solid white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                      fontSize: "60%",
+                      zIndex: 5,
+                    }}>
+                    🛡️
+                  </span>
+                )}
               </div>
             </button>
           );
