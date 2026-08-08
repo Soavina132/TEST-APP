@@ -1142,6 +1142,19 @@ function RamiPage() {
   }, [phase, selected.length, newCard]);
 
   const selectionValidity = useMemo(() => validateMeld(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+
+  // Cards in hand that could complete a valid meld with current selection
+  const playableCards = useMemo(() => {
+    if (!isMyTurn || phase !== "play" || selected.length === 0 || selected.length >= 4) return new Set<number>();
+    const result = new Set<number>();
+    for (const c of handCards) {
+      if (selected.includes(c)) continue;
+      const test = [...selected, c];
+      const v = validateMeld(test, jokerMode, randomJoker);
+      if (v === "valid") result.add(c);
+    }
+    return result;
+  }, [selected, handCards, isMyTurn, phase, jokerMode, randomJoker]);
   const selectionKind = useMemo(() => meldKind(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
   const selectionFeedback = useMemo(() => getSelectionFeedback(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
   const stagedValidity = useMemo(() => staged.map(g => validateMeld(g, jokerMode, randomJoker)), [staged, jokerMode, randomJoker]);
@@ -1680,16 +1693,72 @@ function RamiPage() {
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
 
-        const NamePlate = ({ name, count, turn, vertical }: { name: string; count: number; turn: boolean; vertical?: boolean }) => (
-          <div
-            className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap border shadow-sm ${
-              turn ? "bg-yellow-300 text-black border-yellow-600" : "bg-white/95 text-emerald-950 border-emerald-700"
-            }`}
-            style={vertical ? { writingMode: "vertical-rl", transform: "rotate(180deg)" } : undefined}
-          >
-            {name} ({count})
+        const TimerRing = ({ seconds, total, turn }: { seconds: number; total: number; turn: boolean }) => {
+          if (!turn) return null;
+          const pct = Math.max(0, Math.min(1, seconds / total));
+          const r = 16;
+          const circ = 2 * Math.PI * r;
+          const offset = circ * (1 - pct);
+          const color = seconds <= 5 ? "#ef4444" : seconds <= 10 ? "#f59e0b" : "#22c55e";
+          return (
+            <svg className="absolute -inset-1 pointer-events-none" viewBox="0 0 40 40" style={{ width: "100%", height: "100%" }}>
+              <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="2.5" />
+              <circle
+                cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="2.5"
+                strokeDasharray={circ} strokeDashoffset={offset}
+                strokeLinecap="round"
+                transform="rotate(-90 20 20)"
+                style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s" }}
+              />
+            </svg>
+          );
+        };
+
+        const NamePlate = ({ name, count, turn, vertical, timerSec, timerTotal }: { name: string; count: number; turn: boolean; vertical?: boolean; timerSec?: number; timerTotal?: number }) => (
+          <div className="relative inline-block">
+            {turn && timerSec !== undefined && timerTotal !== undefined && !vertical && (
+              <TimerRing seconds={timerSec} total={timerTotal} turn={turn} />
+            )}
+            <div
+              className={`relative px-1.5 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap border shadow-sm ${
+                turn ? "bg-yellow-300 text-black border-yellow-600" : "bg-white/95 text-emerald-950 border-emerald-700"
+              }`}
+              style={vertical ? { writingMode: "vertical-rl", transform: "rotate(180deg)" } : undefined}
+            >
+              {name} ({count})
+            </div>
+            {turn && timerSec !== undefined && timerTotal !== undefined && vertical && (
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono font-bold px-1 rounded-full"
+                style={{ color: timerSec <= 5 ? "#ef4444" : timerSec <= 10 ? "#f59e0b" : "#22c55e", background: "rgba(0,0,0,0.6)" }}>
+                {timerSec}s
+              </div>
+            )}
           </div>
         );
+
+        const AvatarBadge = ({ name, isBot, meldCount, turn }: { name: string; isBot: boolean; meldCount: number; turn: boolean }) => {
+          const initial = name.charAt(0).toUpperCase();
+          const colors = ["#3b82f6", "#ef4444", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
+          const colorIdx = name.charCodeAt(0) % colors.length;
+          const bg = colors[colorIdx];
+          return (
+            <div className="flex flex-col items-center gap-0.5">
+              <div
+                className={`rounded-full flex items-center justify-center font-bold text-white shadow-md shrink-0 ${
+                  turn ? "ring-2 ring-yellow-300 ring-offset-1 ring-offset-emerald-900" : "ring-1 ring-white/20"
+                }`}
+                style={{ width: 28, height: 28, fontSize: 11, background: bg }}
+              >
+                {isBot ? "🤖" : initial}
+              </div>
+              {meldCount > 0 && (
+                <div className="text-[7px] font-bold text-amber-300 bg-black/50 px-1 rounded-full whitespace-nowrap">
+                  {meldCount} combo{meldCount > 1 ? "s" : ""}
+                </div>
+              )}
+            </div>
+          );
+        };
 
         const BackFan = ({ n, vertical }: { n: number; vertical?: boolean }) => (
           <div className={`flex ${vertical ? "flex-col" : "flex-row"}`}>
@@ -1784,21 +1853,30 @@ function RamiPage() {
               const turn = game.current_turn === p.slot;
               const n = handLenOf(keyOf(p));
               const name = (p.display_name || "Joueur").slice(0, 10);
+              const meldCountOf = (uid: string) => melds.filter(m => m.player === uid).length;
               if (seat === "top") {
                 return (
                   <div key={keyOf(p)} className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5">
-                    <BackFan n={n} />
-                    <NamePlate name={name} count={n} turn={turn} />
+                    <div className="flex items-center gap-1">
+                      <AvatarBadge name={name} isBot={!!p.is_bot} meldCount={meldCountOf(p.user_id || "")} turn={turn} />
+                      <BackFan n={n} />
+                    </div>
+                    {turn ? (
+                      <NamePlate name={name} count={n} turn={turn} timerSec={remaining} timerTotal={cfg.turn_timer_seconds} />
+                    ) : (
+                      <NamePlate name={name} count={n} turn={turn} />
+                    )}
                   </div>
                 );
               }
               return (
                 <div
                   key={keyOf(p)}
-                  className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-0.5 ${seat === "left" ? "left-1" : "right-1 flex-row-reverse"}`}
+                  className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${seat === "left" ? "left-1" : "right-1 flex-row-reverse"}`}
                 >
+                  <AvatarBadge name={name} isBot={!!p.is_bot} meldCount={meldCountOf(p.user_id || "")} turn={turn} />
                   <BackFan n={n} vertical />
-                  <NamePlate name={name} count={n} turn={turn} vertical />
+                  <NamePlate name={name} count={n} turn={turn} vertical timerSec={turn ? remaining : undefined} timerTotal={cfg.turn_timer_seconds} />
                 </div>
               );
             })}
@@ -1891,6 +1969,8 @@ function RamiPage() {
                   name={(profile?.pseudo as string) || "Moi"}
                   count={handCards.length}
                   turn={!!isMyTurn}
+                  timerSec={isMyTurn ? remaining : undefined}
+                  timerTotal={cfg.turn_timer_seconds}
                 />
                 {isMyTurn && (
                   <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold ${isUrgent ? "bg-destructive text-white" : "bg-black/70 text-white"}`}>
@@ -1973,7 +2053,45 @@ function RamiPage() {
       {/* ── MY HAND ── */}
       {me && (
         <div className="space-y-2">
-          {/* Optimal play panel supprimé */}
+          {/* Sort buttons */}
+          {handCards.length > 0 && !reorderMode && (
+            <div className="flex items-center gap-1.5 px-1">
+              <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider">Trier</span>
+              <button
+                onClick={() => { setSortMode(sortMode === "suit" ? "none" : "suit"); setCustomOrder(null); }}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all active:scale-90 ${
+                  sortMode === "suit" ? "bg-emerald-500 text-white shadow-md" : "bg-white/15 text-white/70 hover:bg-white/25"
+                }`}
+              >
+                ♠ Par couleur
+              </button>
+              <button
+                onClick={() => { setSortMode(sortMode === "rank" ? "none" : "rank"); setCustomOrder(null); }}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all active:scale-90 ${
+                  sortMode === "rank" ? "bg-emerald-500 text-white shadow-md" : "bg-white/15 text-white/70 hover:bg-white/25"
+                }`}
+              >
+                7 Par valeur
+              </button>
+              {sortMode !== "none" && (
+                <button
+                  onClick={() => { setSortMode("none"); setCustomOrder(null); }}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-white/50 hover:bg-white/20 active:scale-90"
+                >
+                  ✕ Annuler
+                </button>
+              )}
+              <div className="flex-1" />
+              <button
+                onClick={() => { setReorderMode(!reorderMode); if (reorderMode) setCustomOrder(null); }}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all active:scale-90 ${
+                  reorderMode ? "bg-violet-600 text-white shadow-md" : "bg-white/15 text-white/70 hover:bg-white/25"
+                }`}
+              >
+                {reorderMode ? "✓ Fini" : "✋ Réordonner"}
+              </button>
+            </div>
+          )}
 
           {/* Hand — 2 rows so cards stay large without overlap */}
           <div className={reorderMode ? "overflow-x-auto" : ""}>
@@ -2059,6 +2177,9 @@ function RamiPage() {
                             dealDelay={dealAnimating ? i * 80 : undefined}
                             styleOverride={{ width: `${cw}px`, height: `${ch}px`, pointerEvents: dnd.drag ? "none" : undefined }}
                           />
+                          {playableCards.has(c) && !isSel && (
+                            <div className="absolute inset-0 rounded-md ring-2 ring-amber-400/70 shadow-[0_0_10px_rgba(251,191,36,0.5)] pointer-events-none animate-pulse" style={{ width: `${cw}px`, height: `${ch}px` }} />
+                          )}
                           {newCard === c && (
                             <>
                               <div className="absolute inset-0 rounded-lg ring-2 ring-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.7)] pointer-events-none animate-pulse" />
