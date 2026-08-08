@@ -199,19 +199,16 @@ function JeuxPage() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  // ── Online player counts ──────────────────────────────────────────────
+  // ── Online player counts (batch RPC, 30s poll) ────────────────────────
   useEffect(() => {
     const active = GAMES.filter(g => getGameStatus(g.slug) === "active");
     if (!active.length) return;
     const load = async () => {
-      const entries = await Promise.all(active.map(async g => {
-        const { data } = await supabase.rpc("game_online_count" as any, { _slug: g.slug } as any);
-        return [g.slug, (data as number) || 0] as const;
-      }));
-      setOnlineCounts(Object.fromEntries(entries));
+      const { data } = await supabase.rpc("game_online_counts_all" as any);
+      if (data) setOnlineCounts(Object.fromEntries((data as any[]).map(r => [r.slug, r.online_count])));
     };
     load();
-    const t = setInterval(load, 8000);
+    const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, [disabled.join(",")]);
 

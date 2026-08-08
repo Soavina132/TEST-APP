@@ -234,10 +234,14 @@ function Lobby() {
 
   useEffect(() => {
     loadPublic(); loadMine(); loadFreeGameInfo();
+    let debounceTimer: ReturnType<typeof setTimeout>;
     const ch = supabase.channel("lobby-" + slug)
-      .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, () => { loadPublic(); loadMine(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { loadPublic(); loadMine(); }, 500);
+      })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, profile?.id]);
 
