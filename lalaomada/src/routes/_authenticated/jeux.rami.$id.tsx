@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX, Eye } from "lucide-react";
+import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX, Eye, Palette, Sparkles, Crown } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
