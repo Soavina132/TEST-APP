@@ -213,4 +213,51 @@ export const sfx = {
   noMove() {
     tone(200, 0.15, "sine", 0.2, 0, 100);
   },
+
+  // ── Rami Sound Effects ──────────────────────────────────────────────
+
+  /** Drawing a card from the deck */
+  ramiDraw() {
+    noise(0.15, 0.15, 1500);
+    tone(300, 0.08, "sine", 0.1, 0, 400);
+  },
+
+  /** Discarding a card */
+  ramiDiscard() {
+    tone(500, 0.06, "triangle", 0.15, 0, 300);
+    noise(0.05, 0.1, 2000);
+  },
+
+  /** Laying down a meld (3+ cards) */
+  ramiMeld() {
+    [523, 659, 784].forEach((f, i) => {
+      tone(f, 0.15, "triangle", 0.2, i * 0.06);
+    });
+  },
+
+  /** Adding cards to an existing meld */
+  ramiLayoff() {
+    tone(600, 0.04, "sine", 0.15);
+    tone(800, 0.04, "sine", 0.15, 0.05);
+  },
+
+  /** Winning the game */
+  ramiWin() {
+    [523, 659, 784, 1047, 1319].forEach((f, i) => {
+      tone(f, 0.25, "triangle", 0.25, i * 0.1);
+    });
+    chord([523, 659, 784], 0.8, "sine", 0.2, 0.5);
+  },
+
+  /** Turn change notification */
+  ramiTurnChange() {
+    tone(440, 0.08, "sine", 0.15);
+    tone(523, 0.1, "sine", 0.12, 0.06);
+  },
+
+  /** AFK / blocking warning */
+  ramiWarning() {
+    tone(800, 0.1, "square", 0.2);
+    tone(800, 0.1, "square", 0.2, 0.15);
+  },
 };

@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Copy, Timer, Layers, Trash2, Plus, X, Check, Lightbulb, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX, Eye } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
@@ -21,7 +21,7 @@ import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useLongPressDrag } from "@/hooks/use-long-press-drag";
 import ramiCover from "@/assets/games/rami.asset.json";
-import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
+import { setMuted as setSfxMuted, isMuted as isSfxMuted, sfx } from "@/lib/game-sounds";
 import feltAsset from "@/assets/rami/felt.jpg.asset.json";
 import cardBackAsset from "@/assets/rami/card-back.jpg.asset.json";
 
@@ -692,12 +692,13 @@ function RamiLeaderboard({ entries, meUserId, onReset }: { entries: LeaderboardE
 }
 
 // ── Score Summary with Ar gain/loss ───────────────────────────────────────
-function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct }: {
+function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct, melds }: {
   parts: any[];
   hands: Record<string, number[]>;
   winnerId: string | null;
   pot?: number;
   commissionPct?: number;
+  melds?: { player: string; cards: number[]; type?: string }[];
 }) {
   const commission = commissionPct ?? 10;
   const netPot = pot ? Math.round(pot * (1 - commission / 100)) : 0;
@@ -773,6 +774,21 @@ function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct }: {
                 </div>
               ) : (
                 <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Main vide — a posé toutes ses cartes !</div>
+              )}
+              {(melds || []).filter(m => m.player === p.user_id).length > 0 && (
+                <div className="mt-1.5 pt-1.5 border-t border-white/6">
+                  <div className="text-[10px] font-bold text-muted-foreground mb-1">Combinaisons posées :</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {(melds || []).filter(m => m.player === p.user_id).map((m, mi) => (
+                      <div key={mi} className="flex gap-0.5 px-1 py-0.5 rounded bg-primary/10 border border-primary/20">
+                        {m.cards.map((c, ci) => {
+                          const lbl = cardLabel(c);
+                          return <span key={ci} className="text-[9px] font-bold" style={{ color: lbl.color }}>{lbl.rank}{lbl.suit}</span>;
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           );
@@ -916,6 +932,36 @@ function RamiPage() {
     }
   }, [game?.status, navigate]);
 
+  // ── Turn change sound ──
+  const prevTurnSlot = useRef<number | null>(null);
+  useEffect(() => {
+    if (!game || game.status !== "playing") return;
+    const cur = game.current_turn;
+    if (prevTurnSlot.current !== null && prevTurnSlot.current !== cur) {
+      sfx.ramiTurnChange();
+    }
+    prevTurnSlot.current = cur;
+  }, [game?.current_turn, game?.status]);
+
+  // ── Win sound for opponent winning ──
+  const prevStatusRef = useRef<string>("");
+  useEffect(() => {
+    if (prevStatusRef.current === "playing" && game?.status === "finished") {
+      sfx.ramiWin();
+    }
+    if (game?.status) prevStatusRef.current = game.status;
+  }, [game?.status]);
+
+  // ── AFK warning state ──
+  const [afkWarning, setAfkWarning] = useState(false);
+  useEffect(() => {
+    if (!isMyTurn || remaining > 10) { setAfkWarning(false); return; }
+    if (remaining <= 10 && remaining > 0) {
+      if (remaining === 10 || remaining === 5) sfx.ramiWarning();
+      setAfkWarning(true);
+    }
+  }, [remaining, isMyTurn]);
+
   // ── Bot-action feedback: highlight new melds / discards + toast ──
   const [flashMelds, setFlashMelds] = useState<number[]>([]);
   const [flashDiscards, setFlashDiscards] = useState<string[]>([]);
@@ -979,6 +1025,42 @@ function RamiPage() {
 
   const me = parts.find(p => p.user_id === profile?.id);
   const isPlayer = !!me;
+  const [isSpectating, setIsSpectating] = useState(false);
+  const [spectateData, setSpectateData] = useState<any>(null);
+
+  // Spectator mode: if not a player and game is playing, allow spectating
+  useEffect(() => {
+    if (!isPlayer && game?.status === "playing" && !isSpectating && profile?.id) {
+      supabase.rpc("rami_spectate" as any, { _game_id: id } as any).then(({ data }: any) => {
+        if (data) {
+          setIsSpectating(true);
+          setSpectateData(data);
+          supabase.rpc("rami_spectate" as any, { _game_id: id } as any).then(({ data: d2 }: any) => {
+            if (d2) setSpectateData(d2);
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [isPlayer, game?.status, id, profile?.id, isSpectating]);
+
+  // Poll spectate data every 3s
+  useEffect(() => {
+    if (!isSpectating) return;
+    const t = setInterval(async () => {
+      const { data }: any = await supabase.rpc("rami_spectate" as any, { _game_id: id } as any);
+      if (data) setSpectateData(data);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [isSpectating, id]);
+
+  // Leave spectation on unmount
+  useEffect(() => {
+    return () => {
+      if (isSpectating) {
+        supabase.rpc("rami_spectate_leave" as any, { _game_id: id } as any).catch(() => {});
+      }
+    };
+  }, []);
   const isMyTurn = game?.status === "playing" && me && game.current_turn === me.slot;
   const phase = game?.turn_phase;
   const myHand: number[] = useMemo(() => {
@@ -1106,6 +1188,7 @@ function RamiPage() {
       const { error } = await supabase.rpc("rami_meld" as any, { _game_id: id, _cards: cards });
       if (error) throw error;
       setSelected([]);
+      sfx.ramiMeld();
       if (kind === 'seven') {
         setSevenFx(MELD_LABEL.seven);
         setTimeout(() => setSevenFx(null), 3500);
@@ -1190,6 +1273,7 @@ function RamiPage() {
     const from = centerOf(deckRef.current);
     const to = centerOf(handRef.current);
     setCardFx({ card: undefined, from, to });
+    sfx.ramiDraw();
     await call("rami_draw", { _game_id: id, _from: "deck" });
     setTimeout(() => setCardFx(null), 650);
   };
@@ -1199,6 +1283,7 @@ function RamiPage() {
     const from = centerOf(discardRefs.current[lastDiscardBy]);
     const to = centerOf(handRef.current);
     setCardFx({ card: top, from, to });
+    sfx.ramiDraw();
     await call("rami_draw", { _game_id: id, _from: "discard" });
     setTimeout(() => setCardFx(null), 650);
   };
@@ -1211,6 +1296,7 @@ function RamiPage() {
       const { error } = await supabase.rpc("rami_meld" as any, { _game_id: id, _cards: cards });
       if (error) throw error;
       setStaged(prev => prev.filter((_, i) => i !== groupIdx));
+      sfx.ramiMeld();
       toast.success("Combinaison posée !");
     } catch (e: any) { toast.error(e.message || "Combinaison invalide"); }
     finally { setBusy(false); }
@@ -1235,6 +1321,7 @@ function RamiPage() {
     const from = centerOf(handRef.current);
     const to = centerOf(discardRefs.current[myKey]);
     setCardFx({ card, from, to });
+    sfx.ramiDiscard();
     await call("rami_discard", { _game_id: id, _card: card });
     setTimeout(() => setCardFx(null), 650);
   };
@@ -1254,6 +1341,7 @@ function RamiPage() {
     setBusy(false);
     if (error) { toast.error(error.message || "Combinaisons invalides"); return; }
     toast.success("🏆 Bravo, tu gagnes la partie !");
+    sfx.ramiWin();
     setStaged([]); setSelected([]);
   };
 
@@ -1541,6 +1629,16 @@ function RamiPage() {
         )}
       </div>
 
+      {isSpectating && !isPlayer && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[140] px-4 py-1.5 rounded-full bg-blue-500/90 text-white text-xs font-bold flex items-center gap-2 shadow-lg">
+          <Eye className="w-3.5 h-3.5" /> Mode spectateur
+        </div>
+      )}
+      {afkWarning && isMyTurn && game?.status === "playing" && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full bg-destructive text-white text-xs font-bold flex items-center gap-2 animate-pulse shadow-lg">
+          <Timer className="w-3.5 h-3.5" /> Attention ! Plus que {remaining}s pour jouer
+        </div>
+      )}
       {cardFx && (
         <FlyingCard card={cardFx.card} from={cardFx.from} to={cardFx.to} />
       )}
@@ -1558,6 +1656,7 @@ function RamiPage() {
           winnerId={game.winner_id}
           pot={Number(game.pot)}
           commissionPct={Number(game.commission_pct) || 10}
+          melds={game.state?.melds as { player: string; cards: number[]; type?: string }[]}
         />
       )}
 
@@ -1718,7 +1817,12 @@ function RamiPage() {
                   >
                     <Card faceDown styleOverride={{ width: 38, height: 55 }} />
                   </button>
-                  <span className="text-[8px] font-mono font-bold text-white/90">Pioche · {deckCount}</span>
+                  <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[9px] font-mono font-bold text-white/90 bg-black/50 px-1.5 py-0.5 rounded-full">pioche · {deckCount}</span>
+                      <div className="w-10 h-1 rounded-full bg-black/40 overflow-hidden">
+                        <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${Math.min(100, (deckCount / 112) * 100)}%` }} />
+                      </div>
+                    </div>
                 </div>
 
                 <div className="flex flex-col items-center gap-0.5">
