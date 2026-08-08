@@ -11,6 +11,7 @@ import {
   Phone, Gamepad2,
   ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings,
+  Send,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
@@ -43,7 +44,7 @@ function getBadge(level: number) {
 }
 
 function labelType(type: string, t: (k: string) => string) {
-  return ({ deposit: t("tx_deposit"), withdraw: t("tx_withdraw"), stake: t("tx_stake"), win: t("tx_win"), bonus: t("tx_bonus"), referral: t("tx_referral"), admin_adjust: t("tx_admin_adjust"), refund: t("tx_refund") } as any)[type] || type;
+  return ({ deposit: t("tx_deposit"), withdraw: t("tx_withdraw"), stake: t("tx_stake"), win: t("tx_win"), bonus: t("tx_bonus"), referral: t("tx_referral"), admin_adjust: t("tx_admin_adjust"), refund: t("tx_refund"), transfer_sent: "Transfert envoyé", transfer_received: "Transfert reçu" } as any)[type] || type;
 }
 
 /* ── Mini stat tile ── */
@@ -99,6 +100,167 @@ function HistoryDialog({ open, onClose, title, items, emptyMsg, renderItem }: {
   );
 }
 
+/* ── Transfer Dialog ── */
+function TransferDialog({ open, onClose, balance, onSent }: {
+  open: boolean; onClose: () => void; balance: number; onSent: () => void;
+}) {
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState("");
+  const [sending, setSending] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  // Search users by phone or pseudo (debounced)
+  useEffect(() => {
+    if (!recipient.trim() || recipient.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      const q = recipient.trim();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, pseudo, phone, avatar_url")
+        .or(`pseudo.ilike.%${q}%,phone.ilike.%${q}%`)
+        .limit(5);
+      setSearchResults(data || []);
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [recipient]);
+
+  const doTransfer = async () => {
+    const amt = parseInt(amount);
+    if (!recipient.trim()) return toast.error("Entrez le numéro ou pseudo du destinataire");
+    if (!amt || amt < 100) return toast.error("Montant minimum: 100 Ar");
+    if (amt > balance) return toast.error("Solde insuffisant");
+    setSending(true);
+    try {
+      const { data, error } = await supabase.rpc("transfer_balance" as any, {
+        _recipient: recipient.trim(),
+        _amount: amt,
+      } as any);
+      if (error) throw error;
+      toast.success(`Transfert de ${amt.toLocaleString("fr-FR")} Ar envoyé à ${data?.recipient || recipient} !`);
+      setRecipient("");
+      setAmount("");
+      setSearchResults([]);
+      onSent();
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors du transfert");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-center flex items-center justify-center gap-1.5">
+            <Send className="w-4 h-4 text-primary" /> Transférer du solde
+          </DialogTitle>
+        </DialogHeader>
+        <div className="pt-2 space-y-3">
+          {/* Balance display */}
+          <div className="rounded-xl bg-primary/5 border border-primary/20 px-3 py-2 text-center">
+            <span className="text-[10px] text-muted-foreground uppercase font-semibold">Solde actuel</span>
+            <div className="text-xl font-black text-primary tabular-nums">
+              {Math.round(balance).toLocaleString("fr-FR")} <span className="text-xs">Ar</span>
+            </div>
+          </div>
+
+          {/* Recipient input */}
+          <div className="relative">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Destinataire</label>
+            <input
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="Numéro de téléphone ou pseudo"
+              className="w-full mt-0.5 px-3 py-2 rounded-xl bg-card border border-border outline-none text-sm focus:border-primary/50 transition-colors"
+              autoFocus
+            />
+            {/* Search results dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full rounded-xl border border-border bg-popover shadow-lg overflow-hidden">
+                {searchResults.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => {
+                      setRecipient(u.phone || u.pseudo);
+                      setSearchResults([]);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/30 transition-colors text-left border-b border-border/20 last:border-0"
+                  >
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                        {(u.pseudo || "?").slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{u.pseudo}</div>
+                      {u.phone && <div className="text-[10px] text-muted-foreground truncate">{u.phone}</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searching && (
+              <div className="absolute z-10 mt-1 w-full text-center text-xs text-muted-foreground py-1">Recherche…</div>
+            )}
+          </div>
+
+          {/* Amount input */}
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Montant (Ar)</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="100"
+              min="100"
+              className="w-full mt-0.5 px-3 py-2 rounded-xl bg-card border border-border outline-none text-sm focus:border-primary/50 transition-colors"
+            />
+            {/* Quick amounts */}
+            <div className="flex gap-1.5 mt-1.5">
+              {[500, 1000, 5000, 10000].map(amt => (
+                <button
+                  key={amt}
+                  onClick={() => setAmount(String(amt))}
+                  className="flex-1 px-1 py-1 rounded-lg bg-secondary/60 text-xs font-semibold hover:bg-primary/10 hover:text-primary transition-colors"
+                >
+                  {amt.toLocaleString("fr-FR")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Transfer button */}
+          <button
+            onClick={doTransfer}
+            disabled={sending || !recipient.trim() || !amount}
+            className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-transform disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-1.5"
+          >
+            {sending ? (
+              <span className="animate-pulse">Envoi en cours…</span>
+            ) : (
+              <><Send className="w-3.5 h-3.5" /> Envoyer</>
+            )}
+          </button>
+
+          <p className="text-[10px] text-muted-foreground text-center leading-tight">
+            Transfert instantané · Min 100 Ar · Max 500 000 Ar
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── Page ── */
 
 function ProfilePage() {
@@ -115,10 +277,11 @@ function ProfilePage() {
   const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [achievements, setAchievements] = useState<any[]>([]);
+  const [achievements, setAchievements] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState<"none" | "deposits" | "withdrawals" | "games">("none");
   const [deps, setDeps] = useState<any[]>([]);
   const [withs, setWiths] = useState<any[]>([]);
+  const [showTransfer, setShowTransfer] = useState(false);
 
   useEffect(() => { setPseudo(profile?.pseudo || ""); }, [profile?.pseudo]);
 
@@ -198,30 +361,41 @@ function ProfilePage() {
   const p: any = profile;
   const ps: any = playerStats || {};
   const initials = (profile.pseudo || "?").slice(0, 2).toUpperCase();
-  const totalWins = ps.total_wins ?? 0;
-  const totalGames = ps.total_games ?? 0;
-  const level = ps.player_level ?? 1;
-  const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
-  const totalLosses = totalGames - totalWins;
-  const memberDays = Math.floor((Date.now() - new Date((profile as any).created_at || Date.now()).getTime()) / 86400000);
+  const level = ps.player_level || p.level || 1;
   const badge = getBadge(level);
+  const memberDays = Math.max(1, Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000));
+  const totalGames = ps.total_games ?? p.total_games ?? 0;
+  const totalWins = ps.total_wins ?? p.total_wins ?? 0;
+  const totalLosses = totalGames - totalWins;
+  const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
 
+  const gameTx = tx.filter(tr => ["stake", "win", "refund", "forfeit", "transfer_sent", "transfer_received"].includes(tr.type));
+
+  const ACHIEVEMENT_SLOTS = ["first_game", "first_win", "streak_3", "streak_5", "high_roller", "first_deposit", "social", "champion"] as const;
   const ACHIEVEMENT_ICONS: Record<string, { icon: string; label: string }> = {
+    first_game: { icon: "🎮", label: "1ère partie" },
+    first_win: { icon: "🏆", label: "1ère victoire" },
+    streak_3: { icon: "🔥", label: "3 victoires" },
+    streak_5: { icon: "⚡", label: "5 d'affilée" },
+    high_roller: { icon: "💰", label: "Gros joueur" },
     first_deposit: { icon: "🏆", label: "1er dépôt" },
-    win_streak_10: { icon: "🔥", label: "10 victoires" },
-    games_100:     { icon: "👑", label: "100 parties" },
-    referral:      { icon: "⭐", label: "Parrain" },
+    social: { icon: "👥", label: "Social" },
+    champion: { icon: "👑", label: "Champion" },
   };
-  const ACHIEVEMENT_SLOTS = Object.keys(ACHIEVEMENT_ICONS);
-
-  const gameTx = tx.filter(tr => ["stake", "win", "refund"].includes(tr.type)).slice(0, 10);
 
   return (
-    <main className="max-w-2xl mx-auto w-full px-3 pt-1 pb-24 flex flex-col gap-2">
-      <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
+    <main className="mx-auto max-w-md flex flex-col gap-2 p-3 pb-20 min-h-screen">
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+
       {showDeleteDialog && <DeleteAccountDialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} />}
-      
-      {/* History dialogs */}
+
+      <TransferDialog
+        open={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        balance={profile.balance_ar}
+        onSent={refreshProfile}
+      />
+
       <HistoryDialog open={showHistory === "deposits"} onClose={() => setShowHistory("none")}
         title="Dépôts" items={deps} emptyMsg="Aucun dépôt"
         renderItem={d => (
@@ -243,7 +417,7 @@ function ProfilePage() {
         renderItem={tr => (
           <div key={tr.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
             <span className="flex items-center gap-1.5">
-              {tr.type === "win" ? "🏆" : tr.type === "stake" ? "🎮" : "↩️"} {labelType(tr.type, t)}
+              {tr.type === "win" ? "🏆" : tr.type === "stake" ? "🎮" : tr.type === "transfer_sent" ? "📤" : tr.type === "transfer_received" ? "📥" : "↩️"} {labelType(tr.type, t)}
             </span>
             <span className={`font-bold ${Number(tr.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
               {Number(tr.amount) >= 0 ? "+" : ""}{Math.round(Number(tr.amount)).toLocaleString("fr-FR")} Ar
@@ -410,6 +584,8 @@ function ProfilePage() {
             action={() => setShowHistory(showHistory === "withdrawals" ? "none" : "withdrawals")} />
           <MenuButton icon={Gamepad2} label="Parties" color="text-primary"
             action={() => setShowHistory(showHistory === "games" ? "none" : "games")} />
+          <MenuButton icon={Send} label="Transfert" color="text-primary"
+            action={() => setShowTransfer(true)} />
           <MenuButton icon={Gift} label="Parrainage" color="text-fuchsia-500"
             action={() => navigate({ to: "/parrainage", search: {} })} />
           <MenuButton icon={Shield} label="Sécurité" color="text-emerald-500"
@@ -418,14 +594,6 @@ function ProfilePage() {
             action={() => navigate({ to: "/faq", search: {} })} />
           <MenuButton icon={Settings} label="Paramètres" color="text-muted-foreground"
             action={() => navigate({ to: "/parametres", search: {} })} />
-          <MenuButton icon={Phone} label={p.phone_verified ? "Vérifié" : "Demander vérification"} color={p.phone_verified ? "text-emerald-500" : "text-amber-500"}
-            action={async () => {
-              if (p.phone_verified) return toast.info("Numéro vérifié ✓");
-              if (!p.phone) return toast.error("Ajoutez d'abord votre numéro dans Paramètres");
-              const { error } = await supabase.rpc("request_phone_verification", { _phone: p.phone });
-              if (error) return toast.error("Erreur: " + error.message);
-              toast.success("Demande envoyée — un admin vérifiera votre numéro");
-            }} />
         </div>
 
         {/* Logout + delete */}
