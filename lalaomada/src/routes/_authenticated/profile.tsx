@@ -6,16 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Camera, Copy, ShieldCheck, ShieldAlert, LogOut, Trash2,
-  Phone, Gamepad2, ArrowLeftRight, Send,
-  ArrowDownLeft, ArrowUpRight, Gift,
+  Phone, Gamepad2, ArrowDownLeft, ArrowUpRight, Gift,
   HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
 import { DepotModal, RetraitModal, useAppSettings } from "@/components/WalletButton";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -44,122 +40,6 @@ function getBadge(level: number) {
 }
 
 const MIN_WITHDRAWAL = 2000;
-
-/* ────────────────────────────────────────────────────────────────────────────
-   Transfer Dialog
-─────────────────────────────────────────────────────────────────────────────── */
-
-function TransferDialog({ open, onClose, balance, onSent }: {
-  open: boolean; onClose: () => void; balance: number; onSent: () => void;
-}) {
-  const [recipient, setRecipient] = useState("");
-  const [amount, setAmount] = useState("");
-  const [sending, setSending] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-
-  useEffect(() => {
-    if (!recipient.trim() || recipient.trim().length < 2) { setSearchResults([]); return; }
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      const q = recipient.trim();
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, pseudo, phone, avatar_url")
-        .or(`pseudo.ilike.%${q}%,phone.ilike.%${q}%`)
-        .limit(5);
-      setSearchResults(data || []);
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [recipient]);
-
-  const doTransfer = async () => {
-    const amt = parseInt(amount);
-    if (!recipient.trim()) return toast.error("Entrez le numéro ou pseudo du destinataire");
-    if (!amt || amt < 100) return toast.error("Montant minimum: 100 Ar");
-    if (amt > balance) return toast.error("Solde insuffisant");
-    setSending(true);
-    try {
-      const { data, error } = await supabase.rpc("transfer_balance" as any, {
-        _recipient: recipient.trim(), _amount: amt,
-      } as any);
-      if (error) throw error;
-      toast.success(`Transfert de ${amt.toLocaleString("fr-FR")} Ar envoyé à ${data?.recipient || recipient} !`);
-      setRecipient(""); setAmount(""); setSearchResults([]);
-      onSent(); onClose();
-    } catch (e: any) {
-      toast.error(e.message || "Erreur lors du transfert");
-    } finally { setSending(false); }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-center flex items-center justify-center gap-1.5">
-            <Send className="w-4 h-4 text-primary" /> Transférer du solde
-          </DialogTitle>
-        </DialogHeader>
-        <div className="pt-2 space-y-3">
-          <div className="rounded-xl bg-primary/5 border border-primary/20 px-3 py-2 text-center">
-            <span className="text-[10px] text-muted-foreground uppercase font-semibold">Solde actuel</span>
-            <div className="text-xl font-black text-primary tabular-nums">
-              {Math.round(balance).toLocaleString("fr-FR")} <span className="text-xs">Ar</span>
-            </div>
-          </div>
-          <div className="relative">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Destinataire</label>
-            <input value={recipient} onChange={(e) => setRecipient(e.target.value)}
-              placeholder="Numéro de téléphone ou pseudo"
-              className="w-full mt-0.5 px-3 py-2 rounded-xl bg-card border border-border outline-none text-sm focus:border-primary/50 transition-colors"
-              autoFocus />
-            {searchResults.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full rounded-xl border border-border bg-popover shadow-lg overflow-hidden">
-                {searchResults.map((u) => (
-                  <button key={u.id} onClick={() => { setRecipient(u.phone || u.pseudo); setSearchResults([]); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/30 transition-colors text-left border-b border-border/20 last:border-0">
-                    {u.avatar_url
-                      ? <img src={u.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-                      : <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                          {(u.pseudo || "?").slice(0, 2).toUpperCase()}
-                        </div>}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate">{u.pseudo}</div>
-                      {u.phone && <div className="text-[10px] text-muted-foreground truncate">{u.phone}</div>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-            {searching && <div className="absolute z-10 mt-1 w-full text-center text-xs text-muted-foreground py-1">Recherche…</div>}
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Montant (Ar)</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-              placeholder="100" min="100"
-              className="w-full mt-0.5 px-3 py-2 rounded-xl bg-card border border-border outline-none text-sm focus:border-primary/50 transition-colors" />
-            <div className="flex gap-1.5 mt-1.5">
-              {[500, 1000, 5000, 10000].map(amt => (
-                <button key={amt} onClick={() => setAmount(String(amt))}
-                  className="flex-1 px-1 py-1 rounded-lg bg-secondary/60 text-xs font-semibold hover:bg-primary/10 hover:text-primary transition-colors">
-                  {amt.toLocaleString("fr-FR")}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button onClick={doTransfer} disabled={sending}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-transform disabled:opacity-50">
-            {sending ? "Envoi…" : <><Send className="w-3.5 h-3.5" /> Envoyer</>}
-          </button>
-          <p className="text-[10px] text-muted-foreground text-center leading-tight">
-            Transfert instantané · Min 100 Ar · Max 500 000 Ar
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /* ────────────────────────────────────────────────────────────────────────────
    Section wrapper
@@ -243,14 +123,8 @@ function ProfilePage() {
   const [rankLoaded, setRankLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showTx, setShowTx] = useState(false);
-  const [txTab, setTxTab] = useState<"deposits" | "withdrawals" | "transfers">("deposits");
-  const [showTransfer, setShowTransfer] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
-  const [deps, setDeps] = useState<any[]>([]);
-  const [withs, setWiths] = useState<any[]>([]);
-  const [transfers, setTransfers] = useState<any[]>([]);
   const appSettings = useAppSettings();
 
   useEffect(() => { setPseudo(profile?.pseudo || ""); }, [profile?.pseudo]);
@@ -260,9 +134,6 @@ function ProfilePage() {
     const uid = user.id;
     const currentPseudo = profile?.pseudo;
 
-    supabase.from("deposits").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setDeps(data || []));
-    supabase.from("withdrawals").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30).then(({ data }) => setWiths(data || []));
-    supabase.from("transactions").select("*").eq("user_id", uid).in("type", ["transfer_sent","transfer_received"]).order("created_at", { ascending: false }).limit(30).then(({ data }) => setTransfers(data || []));
     supabase.from("v_player_stats" as any).select("*").eq("id", uid).maybeSingle().then(({ data }: any) => { if (data) setPlayerStats(data); });
 
     supabase.rpc("leaderboard_winners" as any, { _limit: 200 } as any).then(({ data }: any) => {
@@ -296,14 +167,6 @@ function ProfilePage() {
     toast.success("Photo mise à jour"); refreshProfile();
   };
 
-  const reloadTransferHistory = () => {
-    if (!user) return;
-    supabase.from("transactions").select("*").eq("user_id", user.id)
-      .in("type", ["transfer_sent","transfer_received"])
-      .order("created_at", { ascending: false }).limit(30)
-      .then(({ data }) => setTransfers(data || []));
-  };
-
   if (!profile) return <main className="p-8 text-center text-muted-foreground">Chargement…</main>;
 
   const p: any = profile;
@@ -325,13 +188,6 @@ function ProfilePage() {
 
       {showDeleteDialog && <DeleteAccountDialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} />}
 
-      <TransferDialog
-        open={showTransfer}
-        onClose={() => setShowTransfer(false)}
-        balance={profile.balance_ar}
-        onSent={() => { refreshProfile(); reloadTransferHistory(); }}
-      />
-
       <DepotModal
         open={showDeposit}
         onClose={() => setShowDeposit(false)}
@@ -352,88 +208,6 @@ function ProfilePage() {
         minRetrait={MIN_WITHDRAWAL}
         onSuccess={() => { refreshProfile(); }}
       />
-
-      {/* ════ Transactions Dialog ════ */}
-      <Dialog open={showTx} onOpenChange={(v) => !v && setShowTx(false)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-center">Transactions</DialogTitle>
-          </DialogHeader>
-          <div className="flex gap-1 p-1 rounded-xl bg-secondary/50">
-            {([
-              { key: "deposits",    label: "Dépôts",    icon: ArrowDownLeft },
-              { key: "withdrawals", label: "Retraits",  icon: ArrowUpRight },
-              { key: "transfers",    label: "Transferts", icon: ArrowLeftRight },
-            ] as const).map(tab => (
-              <button key={tab.key} onClick={() => setTxTab(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  txTab === tab.key ? "bg-card text-primary shadow-sm" : "text-muted-foreground"
-                }`}>
-                <tab.icon className="w-3.5 h-3.5" /> {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {txTab === "deposits" && (
-            <div className="pt-2 max-h-[50vh] overflow-y-auto">
-              {deps.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center">Aucun dépôt</div>
-              ) : deps.map(d => (
-                <div key={d.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
-                  <div className="min-w-0">
-                    <span className="text-muted-foreground block">{new Date(d.created_at).toLocaleDateString("fr-FR")}</span>
-                    <span className={`text-[10px] font-semibold ${d.status === "approved" ? "text-emerald-500" : d.status === "pending" ? "text-amber-500" : "text-destructive"}`}>
-                      {d.status === "approved" ? "Approuvé" : d.status === "pending" ? "En attente" : "Rejeté"}
-                    </span>
-                  </div>
-                  <span className="font-bold text-emerald-600">+{Math.round(Number(d.amount)).toLocaleString("fr-FR")} Ar</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {txTab === "withdrawals" && (
-            <div className="pt-2 max-h-[50vh] overflow-y-auto">
-              {withs.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center">Aucun retrait</div>
-              ) : withs.map(w => (
-                <div key={w.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
-                  <span className="text-muted-foreground">{new Date(w.created_at).toLocaleDateString("fr-FR")}</span>
-                  <span className={`font-bold ${w.status === "approved" ? "text-emerald-600" : "text-amber-500"}`}>
-                    -{Math.round(Number(w.amount)).toLocaleString("fr-FR")} Ar
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {txTab === "transfers" && (
-            <div className="pt-2 space-y-2">
-              <button onClick={() => setShowTransfer(true)}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-transform">
-                <Send className="w-4 h-4" /> Nouveau transfert
-              </button>
-              <p className="text-[10px] text-muted-foreground text-center">Min 100 Ar · Max 500 000 Ar · Instantané</p>
-              <div className="max-h-[35vh] overflow-y-auto">
-                {transfers.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-4 text-center">Aucun transfert</div>
-                ) : transfers.map(tr => (
-                  <div key={tr.id} className="flex items-center justify-between text-sm py-2 border-b border-border/20 last:border-0">
-                    <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
-                      <span>{tr.type === "transfer_sent" ? "↗️" : "↘️"}</span>
-                      <span className="truncate">{tr.note || "Transfert"}</span>
-                      <span className="text-[10px] shrink-0">{new Date(tr.created_at).toLocaleDateString("fr-FR")}</span>
-                    </span>
-                    <span className={`font-bold shrink-0 ml-2 ${Number(tr.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                      {Number(tr.amount) >= 0 ? "+" : ""}{Math.round(Number(tr.amount)).toLocaleString("fr-FR")} Ar
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* ═══════════════════════════════════════════════════════════════════
          1.  Identity — simple card: avatar + name + verified badge + phone
@@ -534,8 +308,6 @@ function ProfilePage() {
       ═══════════════════════════════════════════════════════════════════ */}
       <Section icon={Settings} title="Plus">
         <div>
-          <ListRow icon={ArrowLeftRight} label="Transactions" action={() => setShowTx(true)} />
-          <ListRow icon={Send} label="Transférer du solde" action={() => setShowTransfer(true)} />
           <ListRow icon={Shield} label="Sécurité" color="text-emerald-500" action={() => navigate({ to: "/parametres", search: {} })} />
           <ListRow icon={HelpCircle} label="Aide" color="text-orange-500 dark:text-neutral-300" action={() => navigate({ to: "/faq", search: {} })} />
           <ListRow icon={Settings} label="Paramètres" color="text-muted-foreground" action={() => navigate({ to: "/parametres", search: {} })} />
