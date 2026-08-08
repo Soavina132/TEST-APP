@@ -9,6 +9,7 @@ import {
   Share2, MessageCircle, Phone,
   CheckCircle2, Clock, Gamepad2, Sparkles,
 } from "lucide-react";
+import { PageLoader } from "@/components/layout/PageLoader";
 import {
   REWARD_PER_ACTIVE_AR,
   MIN_DEPOSIT_AR,
@@ -272,12 +273,7 @@ export default function ParrainagePage() {
   ];
 
   if (loading || referralEnabled === null)
-    return (
-      <main className="max-w-xl mx-auto px-4 py-10 text-center text-muted-foreground">
-        <div className="animate-pulse text-4xl mb-3">⏳</div>
-        Chargement du programme de parrainage…
-      </main>
-    );
+    return <PageLoader variant="overlay" label="Chargement du parrainage…" />;
 
   if (!referralEnabled)
     return (
