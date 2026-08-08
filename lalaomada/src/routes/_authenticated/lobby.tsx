@@ -257,7 +257,7 @@ function LobbyPage() {
       <div className="grid grid-cols-4 gap-2">
         {[
           { icon: Gamepad2, label: "Jeux",       to: "/jeux" as const,       color: "text-primary" },
-          { icon: Trophy,   label: "Classement", to: "/rankings" as const,   color: "text-amber-500" },
+          { icon: Trophy,   label: "Tournois",  to: "/tournaments" as const, color: "text-amber-500" },
           { icon: History,  label: "Historique", to: "/history" as const,    color: "text-violet-500" },
           { icon: Gift,     label: "Parrainage", to: "/parrainage" as const, color: "text-emerald-500" },
         ].map(({ icon: Icon, label, to, color }) => (
