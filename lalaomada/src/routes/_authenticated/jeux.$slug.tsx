@@ -14,10 +14,10 @@ import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import pokerCover from "@/assets/games/poker.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
 import HelpPopover from "@/components/HelpPopover";
-import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
 import { DepotModal, useAppSettings } from "@/components/WalletButton";
 import PremiumSubscriptionModal from "@/components/PremiumSubscriptionModal";
 import { getLobbyHelp } from "@/lib/game-help-content";
+import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
 
 const COVER_BY_SLUG: Record<string, string> = {
   ludo: ludoCover.url, domino: dominoCover.url, fanorona: fanoronaCover.url,
