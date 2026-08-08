@@ -117,12 +117,12 @@ export default function BannerCarousel() {
               {b.button_text && (
                 b.button_link?.startsWith("http") ? (
                   <a href={b.button_link} target="_blank" rel="noopener noreferrer"
-                    className="mt-1 self-start px-4 py-1.5 rounded-full bg-white text-foreground text-xs font-bold shadow">
+                    className="mt-1 self-start px-4 py-1.5 rounded-full bg-white text-neutral-900 text-xs font-bold shadow">
                     {b.button_text}
                   </a>
                 ) : (
                   <Link to={(b.button_link || "/lobby") as any}
-                    className="mt-1 self-start px-4 py-1.5 rounded-full bg-white text-foreground text-xs font-bold shadow">
+                    className="mt-1 self-start px-4 py-1.5 rounded-full bg-white text-neutral-900 text-xs font-bold shadow">
                     {b.button_text}
                   </Link>
                 )
