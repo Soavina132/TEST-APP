@@ -5,8 +5,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import {
   Mail, Lock, User, Gift, Eye, EyeOff, KeyRound, X, Loader2, CheckCircle2,
-  Sparkles, Phone, MessageCircle, ChevronDown, ChevronUp, HelpCircle,
+  Sparkles, Phone, MessageCircle, ChevronDown, ChevronUp, HelpCircle, ShieldCheck,
 } from "lucide-react";
+import { verifySync } from "otplib";
 import { Logo } from "@/components/layout/Header";
 import { COVER_COMPONENTS, GAME_DEFS } from "@/components/game/GameCovers";
 import DOMPurify from "dompurify";
@@ -86,6 +87,12 @@ function LoginPage() {
   const [otpResendIn, setOtpResendIn] = useState(0);
   const [showVerifyEmail, setShowVerifyEmail] = useState(false);
   const [verifyEmailAddr, setVerifyEmailAddr] = useState("");
+
+  // ── 2FA (Google Authenticator) ──
+  const [twoFAStep, setTwoFAStep] = useState(false);
+  const [twoFACode, setTwoFACode] = useState("");
+  const [twoFASecret, setTwoFASecret] = useState("");
+  const [verifying2FA, setVerifying2FA] = useState(false);
 
   // ── Real-time validation (signup) ──
   const [pseudoStatus, setPseudoStatus] = useState<"idle"|"checking"|"ok"|"taken">("idle");
@@ -178,6 +185,27 @@ function LoginPage() {
             throw error;
           }
         }
+
+        // ── Check 2FA: if enabled, intercept and ask for TOTP code ──
+        const { data: sess } = await supabase.auth.getSession();
+        const userId = sess.session?.user?.id;
+        if (userId) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("two_factor_enabled, totp_secret")
+            .eq("id", userId)
+            .single();
+          if (prof?.two_factor_enabled && prof?.totp_secret) {
+            // Sign out temporarily — user must verify 2FA before gaining access
+            await supabase.auth.signOut();
+            setTwoFASecret(prof.totp_secret);
+            setTwoFAStep(true);
+            if (rememberMe) localStorage.setItem("lalaomada_remembered_identifier", identifier.trim());
+            else localStorage.removeItem("lalaomada_remembered_identifier");
+            return; // Don't show success yet
+          }
+        }
+
         if (rememberMe) localStorage.setItem("lalaomada_remembered_identifier", identifier.trim());
         else localStorage.removeItem("lalaomada_remembered_identifier");
         toast.success("Bienvenue !");
@@ -245,6 +273,38 @@ function LoginPage() {
     }
   };
 
+  // ── 2FA verification: verify TOTP code, then sign in again ──
+  const onVerify2FA = async (e: FormEvent) => {
+    e.preventDefault();
+    if (twoFACode.length !== 6) return toast.error("Entrez le code à 6 chiffres");
+    const result = verifySync({ token: twoFACode, secret: twoFASecret });
+    if (!result?.valid) return toast.error("Code 2FA incorrect");
+    setVerifying2FA(true);
+    try {
+      // Re-authenticate with the original credentials
+      const email = identifier.trim().toLowerCase();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        // Try phone fallback again
+        if (isPhoneLike(identifier)) {
+          const phone = normalizePhone(identifier);
+          const { data: lookup } = await supabase.rpc("get_email_by_phone" as any, { _phone: phone } as any);
+          const legacyEmail = (lookup as string) || phoneToSyntheticEmail(phone);
+          const r = await supabase.auth.signInWithPassword({ email: legacyEmail, password });
+          if (r.error) throw error;
+        } else {
+          throw error;
+        }
+      }
+      toast.success("Bienvenue !");
+      setTwoFAStep(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur de connexion");
+    } finally {
+      setVerifying2FA(false);
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-6 sm:py-8">
       <div className="w-full max-w-md">
@@ -262,7 +322,45 @@ function LoginPage() {
 
         {/* Card */}
         <div className="bg-card border border-border rounded-2xl shadow-sm p-6">
-          {otpStep ? (
+          {twoFAStep ? (
+            <form onSubmit={onVerify2FA} className="space-y-4">
+              <div className="text-center space-y-1">
+                <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6 text-primary" />
+                </div>
+                <h2 className="text-lg font-bold">Authentification à 2 facteurs</h2>
+                <p className="text-xs text-muted-foreground">
+                  Entrez le code à 6 chiffres de votre application Google Authenticator
+                </p>
+              </div>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={twoFACode}
+                onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                className="w-full text-center text-2xl font-bold tracking-[0.5em] py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={busy || verifying2FA || twoFACode.length !== 6}
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {verifying2FA ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                Vérifier & se connecter
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTwoFAStep(false); setTwoFACode(""); setPassword(""); }}
+                className="w-full text-xs text-muted-foreground hover:text-foreground"
+              >
+                ← Annuler
+              </button>
+            </form>
+          ) : otpStep ? (
             <form onSubmit={onVerifyOtp} className="space-y-4">
               <div className="text-center space-y-1">
                 <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
