@@ -45,7 +45,7 @@ function Field({ label, value, onChange, type = "text", placeholder, disabled }:
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40 disabled:opacity-50"
+        className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40 placeholder:text-muted-foreground/40 disabled:opacity-50"
       />
     </div>
   );
@@ -257,7 +257,7 @@ function SecuritePage() {
                 value={oldPassword}
                 onChange={e => setOldPassword(e.target.value)}
                 placeholder="Votre mot de passe actuel"
-                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40"
+                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40 placeholder:text-muted-foreground/40"
               />
               <button onClick={() => setShowOldPassword(s => !s)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -273,7 +273,7 @@ function SecuritePage() {
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 placeholder="Minimum 8 caracteres"
-                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40"
+                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-secondary/40 border border-border/40 text-sm font-medium outline-none focus:ring-2 ring-primary/40 placeholder:text-muted-foreground/40"
               />
               <button onClick={() => setShowPassword(s => !s)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
