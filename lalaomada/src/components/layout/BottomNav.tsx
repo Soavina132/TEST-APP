@@ -110,8 +110,8 @@ export default function BottomNav() {
       <div className="h-20 md:h-0" aria-hidden />
       <div className="md:hidden fixed bottom-0 inset-x-0 z-40 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-3 mb-2.5">
-          <nav className="relative bg-card border border-border/50 rounded-2xl shadow-lg shadow-black/8 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent pointer-events-none" />
+          <nav className="relative bg-neutral-950 border border-white/10 rounded-2xl shadow-lg shadow-black/20 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
             <div className="relative flex items-center justify-around px-1 py-1.5">
               {items.map(it => {
                 const isChat = it.to === "/chat";
@@ -131,17 +131,17 @@ export default function BottomNav() {
                         : "group-active:bg-accent/80"
                     }`}>
                       <Icon className={`w-5 h-5 transition-all duration-200 ${
-                        active ? "text-primary scale-110" : "text-muted-foreground group-hover:text-foreground"
+                        active ? "text-primary scale-110" : "text-neutral-400 group-hover:text-neutral-200"
                       }`} />
                       {it.badge > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-md border-2 border-card animate-bounce">
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-md border-2 border-neutral-950 animate-bounce">
                           {it.badge > 99 ? "99+" : it.badge}
                         </span>
                       )}
                       {it.dot && (
                         <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive border-2 border-card" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive border-2 border-neutral-950" />
                         </span>
                       )}
                       {active && (
@@ -149,7 +149,7 @@ export default function BottomNav() {
                       )}
                     </div>
                     <span className={`text-[9px] font-semibold truncate w-full text-center transition-colors duration-200 ${
-                      active ? "text-primary" : "text-muted-foreground"
+                      active ? "text-primary" : "text-neutral-500"
                     }`}>
                       {it.label}
                     </span>
