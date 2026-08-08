@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
-import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock, History } from "lucide-react";
+import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock, History, LayoutDashboard } from "lucide-react";
 import GameConfigsSection from "@/components/admin/GameConfigsSection";
 import GameTimersQuick from "@/components/admin/GameTimersQuick";
 import { ValidatedField, useFormErrors } from "@/components/admin/ValidatedField";
@@ -20,6 +20,7 @@ import AdminSecurityGate from "@/components/admin/AdminSecurityGate";
 import AdminSessionsPanel from "@/components/admin/AdminSessionsPanel";
 import TournamentAdminPanel from "@/components/tournament/TournamentAdminPanel";
 import SupportMessagesAdmin from "@/components/admin/SupportMessagesAdmin";
+import DashboardSection from "@/components/admin/DashboardSection";
 
 
 // Bundled at build time — all migration SQL files
@@ -34,11 +35,11 @@ export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — Lalao MADA" }, { name: "robots", content: "noindex" }] }),
 });
 
-type Tab = "finance" | "stats" | "joueurs" | "parties" | "tournois" | "classement" | "contenu" | "config";
+type Tab = "dashboard" | "finance" | "stats" | "joueurs" | "parties" | "tournois" | "classement" | "jeux" | "contenu" | "config";
 
 function AdminPage() {
   const { isAdmin, loading } = useAuth();
-  const [tab, setTab] = useState<Tab>("finance");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [v, setV] = useState(0);
   const [pendingFinance, setPendingFinance] = useState<number | null>(null);
   const [pendingJoueurs, setPendingJoueurs] = useState<number | null>(null);
@@ -46,6 +47,15 @@ function AdminPage() {
   const [pendingContenu, setPendingContenu] = useState<number | null>(null);
 
   const refresh = () => setV(x => x + 1);
+
+  const goToTab = (t: string, sectionId?: string) => {
+    setTab(t as Tab);
+    if (sectionId) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("admin-section-open", { detail: { id: sectionId } }));
+      }, 80);
+    }
+  };
 
   // ── Export Cloud (JSON complet de toutes les tables accessibles) ──
   async function downloadCloudData() {
@@ -185,19 +195,17 @@ function AdminPage() {
 
       <div className="overflow-x-auto -mx-4 px-4">
         <div className="flex gap-1.5 bg-card rounded-2xl p-1.5 shadow-sm border border-border/60 w-max min-w-full">
+          <T icon={<LayoutDashboard className="w-4 h-4" />} active={tab === "dashboard"}   onClick={() => setTab("dashboard")}   label="Accueil"     badge={(pendingFinance ?? 0) + (pendingJoueurs ?? 0) + (pendingContenu ?? 0) + (pendingTournois ?? 0)} />
           <T icon={<Wallet className="w-4 h-4" />}        active={tab === "finance"}      onClick={() => setTab("finance")}      label="Finance"      badge={pendingFinance} />
-          <T icon={<BarChart3 className="w-4 h-4" />}     active={tab === "stats"}        onClick={() => setTab("stats")}        label="Stats" />
           <T icon={<Users className="w-4 h-4" />}         active={tab === "joueurs"}      onClick={() => setTab("joueurs")}      label="Joueurs"      badge={pendingJoueurs} />
-          <T icon={<Gamepad2 className="w-4 h-4" />}      active={tab === "parties"}      onClick={() => setTab("parties")}      label="Parties" />
-          <T icon={<Trophy className="w-4 h-4" />}        active={tab === "tournois"}     onClick={() => setTab("tournois")}     label="Tournois"     badge={pendingTournois} />
-          <T icon={<BarChart3 className="w-4 h-4" />}     active={tab === "classement"}   onClick={() => setTab("classement")}   label="Classement" />
-          
+          <T icon={<Gamepad2 className="w-4 h-4" />}      active={tab === "jeux"}         onClick={() => setTab("jeux")}         label="Jeux"        badge={pendingTournois} />
           <T icon={<MessageSquare className="w-4 h-4" />} active={tab === "contenu"}      onClick={() => setTab("contenu")}      label="Contenu"      badge={pendingContenu} />
           <T icon={<Settings className="w-4 h-4" />}      active={tab === "config"}       onClick={() => setTab("config")}       label="Config" />
         </div>
       </div>
 
       <div key={v}>
+        {tab === "dashboard" && <DashboardSection onGoToTab={goToTab} />}
         {tab === "finance"      && <FinanceSection />}
         {tab === "stats"        && <StatsSection />}
         {tab === "joueurs" && (
@@ -217,6 +225,39 @@ function AdminPage() {
             </AdminSection>
             <AdminSection id="players-history" title="📋 Historique joueur" description="Rechercher et consulter l'historique d'un joueur" accent="sky" icon={<History className="w-4 h-4" />}>
               <UserHistorySearch />
+            </AdminSection>
+          </div>
+        )}
+
+        {tab === "parties" && (
+          <div className="space-y-3">
+            <AdminSection id="games-live" title="🎮 Parties en cours" description="Suivi live et interventions" accent="primary" defaultOpen icon={<Gamepad2 className="w-4 h-4" />}>
+              <GamesList />
+              <GamesAdmin />
+            </AdminSection>
+            <AdminSection id="games-config" title="⚙️ Réglages par jeu" description="Règles, couvertures, badges, capacité" accent="sky" icon={<Settings className="w-4 h-4" />}>
+              <GameConfigsSection />
+            </AdminSection>
+          </div>
+        )}
+
+        {tab === "jeux" && (
+          <div className="space-y-3">
+            <AdminSection id="games-live" title="🎮 Parties en cours" description="Suivi live et interventions" accent="primary" defaultOpen icon={<Gamepad2 className="w-4 h-4" />}>
+              <GamesList />
+              <GamesAdmin />
+            </AdminSection>
+            <AdminSection id="games-config" title="⚙️ Réglages par jeu" description="Règles, couvertures, badges, capacité" accent="sky" icon={<Settings className="w-4 h-4" />}>
+              <GameConfigsSection />
+            </AdminSection>
+            <AdminSection id="tournaments-main" title="🏆 Tournois" description="Créer, arbitrer, suivre" accent="amber" defaultOpen icon={<Trophy className="w-4 h-4" />}>
+              <TournamentsSection />
+            </AdminSection>
+            <AdminSection id="tournaments-seasons" title="📅 Saisons" description="Cycles de compétition" accent="violet" icon={<BarChart3 className="w-4 h-4" />}>
+              <SeasonsAdmin />
+            </AdminSection>
+            <AdminSection id="classement" title="🥇 Classement" description="Podium et récompenses" accent="emerald" icon={<Trophy className="w-4 h-4" />}>
+              <LeaderboardAdmin />
             </AdminSection>
           </div>
         )}
@@ -296,6 +337,8 @@ function AdminPage() {
 
 
 const SEARCH_INDEX: AdminSearchEntry[] = [
+  // Dashboard
+  { id: "dashboard", tab: "dashboard", tabLabel: "Accueil", title: "🏠 Tableau de bord", description: "Vue d'ensemble, éléments en attente, stats rapides", keywords: "dashboard accueil overview stats pending attente resume" },
   // Finance
   { id: "finance", tab: "finance", tabLabel: "Finance", title: "💰 Finance", description: "Dépôts, retraits, transactions", keywords: "argent solde depot retrait commission mobile money" },
   // Stats
@@ -306,13 +349,13 @@ const SEARCH_INDEX: AdminSearchEntry[] = [
   { id: "players-chat-mod", tab: "joueurs", tabLabel: "Joueurs", title: "🗣️ Modération chat", description: "Mute / sourdine", keywords: "mute sourdine chat moderation ban" },
   { id: "players-persona", tab: "joueurs", tabLabel: "Joueurs", title: "🎭 Persona admin", description: "Alias public de l'admin", keywords: "alias persona apparence admin avatar" },
   // Parties
-  { id: "games-live", tab: "parties", tabLabel: "Parties", title: "🎮 Parties en cours", description: "Suivi live des parties", keywords: "live partie active jeu terminer annuler" },
-  { id: "games-config", tab: "parties", tabLabel: "Parties", title: "⚙️ Réglages par jeu", description: "Règles, couvertures, badges, capacité", keywords: "regles cover image badge capacite instructions ludo chess domino rami fanorona poker" },
+  { id: "games-live", tab: "jeux", tabLabel: "Jeux", title: "🎮 Parties en cours", description: "Suivi live des parties", keywords: "live partie active jeu terminer annuler" },
+  { id: "games-config", tab: "jeux", tabLabel: "Jeux", title: "⚙️ Réglages par jeu", description: "Règles, couvertures, badges, capacité", keywords: "regles cover image badge capacite instructions ludo chess domino rami fanorona poker" },
   // Tournois
-  { id: "tournaments-main", tab: "tournois", tabLabel: "Tournois", title: "🏆 Tournois", description: "Créer, arbitrer, suivre", keywords: "tournoi bracket inscription arbitrage forfait test bot" },
-  { id: "tournaments-seasons", tab: "tournois", tabLabel: "Tournois", title: "📅 Saisons & classements", description: "Cycles de compétition", keywords: "saison season leaderboard cycle" },
+  { id: "tournaments-main", tab: "jeux", tabLabel: "Jeux", title: "🏆 Tournois", description: "Créer, arbitrer, suivre", keywords: "tournoi bracket inscription arbitrage forfait test bot" },
+  { id: "tournaments-seasons", tab: "jeux", tabLabel: "Jeux", title: "📅 Saisons & classements", description: "Cycles de compétition", keywords: "saison season leaderboard cycle" },
   // Classement
-  { id: "classement", tab: "classement", tabLabel: "Classement", title: "🥇 Classement", description: "Podium et récompenses", keywords: "leaderboard classement trophee podium winners recompenses" },
+  { id: "classement", tab: "jeux", tabLabel: "Jeux", title: "🥇 Classement", description: "Podium et récompenses", keywords: "leaderboard classement trophee podium winners recompenses" },
   // Contenu
   { id: "content-pause", tab: "contenu", tabLabel: "Contenu", title: "🛑 Contrôle global", description: "Mettre l'app en pause", keywords: "pause maintenance stop app fermer" },
   { id: "content-comm", tab: "contenu", tabLabel: "Contenu", title: "📣 Communication", description: "Annonces, offres, messages", keywords: "annonce offre message notification broadcast push" },
@@ -2160,7 +2203,6 @@ function AppConfigForm() {
         afk_enabled: !!s.afk_enabled,
         afk_t1_max: Number(s.afk_t1_max) || 2,
         afk_t2_max: Number(s.afk_t2_max) || 2,
-        // Finance
         signup_bonus: Number(s.signup_bonus) || 0,
         game_commission_pct: Number(s.game_commission_pct) || 0,
         min_deposit: Number(s.min_deposit) || 0,
