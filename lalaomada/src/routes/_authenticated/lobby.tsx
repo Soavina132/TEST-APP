@@ -215,7 +215,7 @@ function LobbyPage() {
     <main className="max-w-md mx-auto px-3 py-2 pb-24 space-y-2.5">
 
       {/* Solde */}
-      <div className="rounded-2xl bg-primary text-primary-foreground p-4 shadow-md shadow-primary/20">
+      <div className="rounded-2xl bg-zinc-900 text-white p-4 shadow-md shadow-zinc-900/30">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 mb-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">Solde disponible</p>

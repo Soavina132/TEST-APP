@@ -194,7 +194,7 @@ export default function Header() {
 
                       <div className="mx-3 my-1 border-t border-border/40" />
                       <button
-                        onClick={() => { setOpen(false); navigate({ to: "/login" }); void signOut(); }}
+                        onClick={() => { setOpen(false); void signOut(); window.location.assign("/login"); }}
                         className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-destructive/10 flex items-center gap-3 text-sm font-medium transition-colors group"
                       >
                         <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/20 transition-colors">

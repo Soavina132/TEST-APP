@@ -477,7 +477,7 @@ function ProfilePage() {
 
       {/* Logout + delete */}
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => { navigate({ to: "/login" }); void signOut(); }}
+        <button onClick={() => { void signOut(); window.location.assign("/login"); }}
           className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-destructive/10 text-destructive text-xs font-bold active:scale-95 transition-transform">
           <LogOut className="w-4 h-4" /> Déconnexion
         </button>
