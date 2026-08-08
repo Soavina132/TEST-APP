@@ -531,46 +531,32 @@ function ProfilePage() {
         <MiniStat label="Rang" value={rankLoaded ? (myRank ?? "—") : "…"} icon="🥇" color={myRank && myRank <= 10 ? "text-amber-500" : "text-foreground"} />
       </div>
 
-      {/* ════ SECTION 3: Jeux & Succès ════ */}
-      <div className="grid grid-cols-2 gap-2 shrink-0">
-        {/* Favorite games */}
-        <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2">
-          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Jeux favoris</div>
-          <div className="flex flex-wrap gap-1">
-            {[
-              { k: "ludo", icon: "🎲", name: "Ludo" },
-              { k: "domino", icon: "🁣", name: "Domino" },
-              { k: "fanorona", icon: "♟", name: "Fanorona" },
-              { k: "rami", icon: "🃏", name: "Rami" },
-              { k: "chess", icon: "♜", name: "Échecs" },
-            ].map(g => {
-              const played = gameStats[g.k]?.played || 0;
-              return (
-                <span key={g.k} className={`px-1.5 py-0.5 rounded-lg text-[10px] font-semibold ${played > 0 ? "bg-primary/10 text-primary" : "bg-secondary/40 text-muted-foreground/60"}`}>
-                  {g.icon} {played > 0 ? played : "—"}
+      {/* ════ SECTION 3: Jeux favoris ════ */}
+      <div className="rounded-xl border border-border/40 bg-card px-3 py-2.5 shrink-0">
+        <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Jeux favoris</div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {[
+            { k: "ludo", icon: "🎲", name: "Ludo" },
+            { k: "domino", icon: "🁣", name: "Domino" },
+            { k: "fanorona", icon: "♟", name: "Fanorona" },
+            { k: "rami", icon: "🃏", name: "Rami" },
+            { k: "chess", icon: "♜", name: "Échecs" },
+          ].map(g => {
+            const played = gameStats[g.k]?.played || 0;
+            const active = played > 0;
+            return (
+              <div
+                key={g.k}
+                className={`flex flex-col items-center gap-0.5 rounded-lg py-1.5 transition-colors ${active ? "bg-primary/10" : "bg-secondary/30"}`}
+              >
+                <span className={`text-lg leading-none ${active ? "" : "grayscale opacity-40"}`}>{g.icon}</span>
+                <span className={`text-[13px] font-black tabular-nums leading-none ${active ? "text-primary" : "text-muted-foreground/50"}`}>
+                  {played}
                 </span>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Achievements */}
-        <div className="rounded-xl border border-border/40 bg-card px-2.5 py-2">
-          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-            Succès {achievements.length}/{ACHIEVEMENT_SLOTS.length}
-          </div>
-          <div className="flex gap-1.5">
-            {ACHIEVEMENT_SLOTS.map(key => {
-              const info = ACHIEVEMENT_ICONS[key];
-              const unlocked = achievements.find((a: any) => a.key === key);
-              return (
-                <div key={key} className="flex flex-col items-center gap-0.5 flex-1">
-                  <span className={`text-base ${unlocked ? "" : "grayscale opacity-30"}`}>{info.icon}</span>
-                  <span className="text-[7px] font-semibold text-center leading-tight text-muted-foreground">{info.label}</span>
-                </div>
-              );
-            })}
-          </div>
+                <span className="text-[8px] font-semibold text-muted-foreground truncate max-w-full leading-tight">{g.name}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
