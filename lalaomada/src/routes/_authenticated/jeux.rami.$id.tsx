@@ -830,8 +830,9 @@ function ensureDealKeyframes() {
   style.id = DEAL_STYLE_ID;
   style.textContent = `
     @keyframes dealCard {
-      from { opacity: 0; transform: translateY(-40px) scale(0.7) rotate(-8deg); }
-      to   { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+      0%   { opacity: 0; transform: translateY(-60px) translateX(20px) scale(0.5) rotate(-12deg); }
+      60%  { opacity: 1; transform: translateY(5px) translateX(0) scale(1.05) rotate(2deg); }
+      100% { opacity: 1; transform: translateY(0) translateX(0) scale(1) rotate(0deg); }
     }
     @keyframes timerUrgent {
       0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); }
@@ -911,6 +912,7 @@ function RamiPage() {
   const [sevenFx, setSevenFx] = useState<string | null>(null);
   const [staged, setStaged] = useState<number[][]>([]);
   const [sortMode, setSortMode] = useState<'none' | 'suit' | 'rank'>('none');
+  const [boardTheme, setBoardTheme] = useState<'green' | 'blue' | 'dark'>('green');
   // Custom hand order for drag-reorder
   const [customOrder, setCustomOrder] = useState<number[] | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
@@ -935,6 +937,14 @@ function RamiPage() {
 
   // Inject CSS keyframes once
   useEffect(() => { ensureDealKeyframes(); }, []);
+
+  // Board theme configuration
+  const BOARD_THEMES = {
+    green: { border: "#0b3a1f", overlay: "rgba(0,0,0,0.25)", tint: "rgba(15,61,32,0.3)" },
+    blue: { border: "#0c2742", overlay: "rgba(5,20,40,0.3)", tint: "rgba(12,39,66,0.35)" },
+    dark: { border: "#1a1a1a", overlay: "rgba(0,0,0,0.35)", tint: "rgba(10,10,10,0.4)" },
+  };
+  const activeTheme = BOARD_THEMES[boardTheme];
 
   const load = useCallback(async () => {
     const { data: g } = await supabase.from("rami_games" as any).select("*").eq("id", id).maybeSingle();
@@ -969,6 +979,17 @@ function RamiPage() {
       return () => clearTimeout(t);
     }
   }, [game?.status, navigate]);
+
+  // ── Deal animation: trigger when game starts ──
+  const prevStatusRef2 = useRef<string>("");
+  useEffect(() => {
+    if (prevStatusRef2.current !== "playing" && game?.status === "playing") {
+      setDealAnimating(true);
+      const t = setTimeout(() => setDealAnimating(false), 1200);
+      return () => clearTimeout(t);
+    }
+    prevStatusRef2.current = game?.status || "";
+  }, [game?.status]);
 
   // ── Turn change sound ──
   const prevTurnSlot = useRef<number | null>(null);
@@ -1683,6 +1704,9 @@ function RamiPage() {
                 <Pause className="w-2.5 h-2.5" /> Pause
               </button>
             )}
+            <button onClick={() => setBoardTheme(boardTheme === "green" ? "blue" : boardTheme === "blue" ? "dark" : "green")} className="w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center active:scale-90 transition" title="Changer le thème du plateau">
+              <Palette className="w-3 h-3" />
+            </button>
             <button onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }} className="w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center active:scale-90 transition">
               {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
             </button>
@@ -1726,6 +1750,39 @@ function RamiPage() {
 
       {lbEntries.length > 0 && (
         <RamiLeaderboard entries={lbEntries} meUserId={profile?.id} onReset={resetLb} />
+      )}
+
+      {/* ── PANEL SCORE FLOTTANT ── */}
+      {game?.status === "playing" && me && (
+        <div className="fixed top-16 right-3 z-50 pointer-events-none">
+          <div className="pointer-events-auto rounded-2xl bg-black/75 backdrop-blur-md border border-white/10 shadow-2xl p-2.5 space-y-1.5 w-[140px]">
+            <div className="flex items-center justify-between text-[9px] font-bold text-white/50 uppercase tracking-wider">
+              <span>Score</span>
+              <span className="text-amber-400">Partie</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/70 font-semibold">Pot</span>
+              <span className="text-xs font-black text-amber-400">{Math.round(Number(game.pot) * (100 - (Number((game as any).commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/70 font-semibold">Pioche</span>
+              <span className="text-[10px] font-bold text-emerald-400">{deckCount} cartes</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/70 font-semibold">Mes combos</span>
+              <span className="text-[10px] font-bold text-blue-400">{melds.filter(m => m.player === profile?.id).length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/70 font-semibold">Mes points</span>
+              <span className="text-[10px] font-bold text-white">{handPoints} pts</span>
+            </div>
+            <div className="h-px bg-white/10" />
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/70 font-semibold">Joueurs</span>
+              <span className="text-[10px] font-bold text-white">{parts.length}</span>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── PLATEAU FEUTRE (style classique) ── */}
@@ -1894,10 +1951,18 @@ function RamiPage() {
               backgroundImage: `url(${FELT_URL})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              boxShadow: "inset 0 0 70px rgba(0,0,0,0.5), 0 10px 26px rgba(0,0,0,0.35)",
-              border: "5px solid #0b3a1f",
+              boxShadow: "inset 0 0 70px rgba(0,0,0,0.55), inset 0 0 120px rgba(0,0,0,0.25), 0 10px 26px rgba(0,0,0,0.35)",
+              border: `5px solid ${activeTheme.border}`,
             }}
           >
+            {/* Engraved zone markings on the felt */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.12]" preserveAspectRatio="none">
+              <ellipse cx="50%" cy="50%" rx="32%" ry="36%" fill="none" stroke="white" strokeWidth="1.5" strokeDasharray="4 6" />
+              <circle cx="50%" cy="50%" r="30" fill="none" stroke="white" strokeWidth="1" />
+              <circle cx="50%" cy="50%" r="50" fill="none" stroke="white" strokeWidth="0.5" strokeDasharray="2 4" />
+            </svg>
+            {/* Subtle vignette overlay for depth */}
+            <div className="absolute inset-0 pointer-events-none rounded-[22px]" style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.25) 100%)" }} />
             {/* Adversaires sur les bords */}
             {others.map((p, i) => {
               const seat = seatFor(i);
@@ -2225,7 +2290,7 @@ function RamiPage() {
                             c={c}
                             selected={isSel}
                             onClick={() => { if (!dnd.drag) toggleSel(c); }}
-                            dealDelay={dealAnimating ? i * 80 : undefined}
+                            dealDelay={dealAnimating ? i * 100 : undefined}
                             styleOverride={{ width: `${cw}px`, height: `${ch}px`, pointerEvents: dnd.drag ? "none" : undefined }}
                           />
                           {playableCards.has(c) && !isSel && (
