@@ -87,9 +87,9 @@ export default function Header() {
           <div className="max-w-5xl mx-auto px-3 h-14 flex items-center justify-between gap-2">
 
             {/* Left: Logo + brand name — clean, fully visible */}
-            <Link to="/" className="flex items-center gap-2.5 group min-w-0" aria-label="Lalao MADA">
+            <Link to="/" className="flex items-center gap-2.5 group min-w-0 overflow-hidden" aria-label="Lalao MADA">
               <Logo />
-              <span className="hidden min-[360px]:inline font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent whitespace-nowrap">
+              <span className="hidden min-[360px]:inline font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent truncate">
                 Lalao MADA
               </span>
             </Link>
@@ -129,7 +129,6 @@ export default function Header() {
                     </div>
                     <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-400 border-2 border-card" />
                   </div>
-                  <span className="hidden min-[340px]:block text-xs font-semibold truncate max-w-[64px] sm:max-w-[80px]">{profile.pseudo}</span>
                   <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
                 </button>
 
