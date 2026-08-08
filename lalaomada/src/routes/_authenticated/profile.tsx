@@ -186,10 +186,10 @@ function StatTile({ label, value, icon, accent }: {
   label: string; value: string | number; icon: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl bg-secondary/40 p-3 text-center">
-      <div className="mb-1 text-muted-foreground">{icon}</div>
-      <div className={`text-xl font-black tabular-nums leading-none ${accent || "text-foreground"}`}>{value}</div>
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
+    <div className="flex flex-col items-center justify-center rounded-xl bg-secondary/40 p-2 text-center">
+      <div className="mb-0.5 text-muted-foreground [&>svg]:w-4 [&>svg]:h-4">{icon}</div>
+      <div className={`text-base font-black tabular-nums leading-none ${accent || "text-foreground"}`}>{value}</div>
+      <div className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">{label}</div>
     </div>
   );
 }
@@ -415,25 +415,38 @@ function ProfilePage() {
       {/* ═══════════════════════════════════════════════════════════════════
          3.  Statistics
       ═══════════════════════════════════════════════════════════════════ */}
-      <Section icon={Trophy} title="Statistiques">
-        <div className="grid grid-cols-3 gap-2">
-          <StatTile label="Parties" value={totalGames}
-            icon={<Gamepad2 className="w-5 h-5" />} />
-          <StatTile label="Victoires" value={totalWins}
-            icon={<Trophy className="w-5 h-5" />} accent="text-emerald-500" />
-          <StatTile label="Défaites" value={totalLosses}
-            icon={<ChevronRight className="w-5 h-5 rotate-90" />} accent="text-destructive" />
-          <StatTile label="Win Rate" value={`${winRate}%`}
-            icon={<Zap className="w-5 h-5" />}
-            accent={winRate >= 50 ? "text-emerald-500" : "text-amber-500"} />
-          <StatTile label="Rang" value={rankLoaded ? (myRank ?? "—") : "…"}
-            icon={<span className="text-base">🥇</span>}
-            accent={myRank && myRank <= 10 ? "text-amber-500" : "text-foreground"} />
-          <StatTile label="Niveau" value={level}
-            icon={<span className="text-base">{badge.icon}</span>}
-            accent="text-primary" />
-        </div>
-      </Section>
+      <div className="rounded-2xl bg-card border border-border/40 overflow-hidden">
+        <button onClick={() => navigate({ to: "/statistiques", search: {} } as any)}
+          className="w-full flex items-center justify-between gap-2 px-4 py-3 border-b border-border/30 bg-secondary/30 active:opacity-70 transition">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-primary" />
+            <span className="font-bold text-sm">Statistiques</span>
+          </div>
+          <span className="flex items-center gap-0.5 text-[11px] font-semibold text-muted-foreground">
+            Voir en détail <ChevronRight className="w-3.5 h-3.5" />
+          </span>
+        </button>
+        <button onClick={() => navigate({ to: "/statistiques", search: {} } as any)}
+          className="w-full p-4 active:opacity-80 transition">
+          <div className="grid grid-cols-3 gap-2">
+            <StatTile label="Parties" value={totalGames}
+              icon={<Gamepad2 className="w-4 h-4" />} />
+            <StatTile label="Victoires" value={totalWins}
+              icon={<Trophy className="w-4 h-4" />} accent="text-emerald-500" />
+            <StatTile label="Défaites" value={totalLosses}
+              icon={<ChevronRight className="w-4 h-4 rotate-90" />} accent="text-destructive" />
+            <StatTile label="Win Rate" value={`${winRate}%`}
+              icon={<Zap className="w-4 h-4" />}
+              accent={winRate >= 50 ? "text-emerald-500" : "text-amber-500"} />
+            <StatTile label="Rang" value={rankLoaded ? (myRank ?? "—") : "…"}
+              icon={<span className="text-sm">🥇</span>}
+              accent={myRank && myRank <= 10 ? "text-amber-500" : "text-foreground"} />
+            <StatTile label="Niveau" value={level}
+              icon={<span className="text-sm">{badge.icon}</span>}
+              accent="text-primary" />
+          </div>
+        </button>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
          4.  Plus — simple list menu
