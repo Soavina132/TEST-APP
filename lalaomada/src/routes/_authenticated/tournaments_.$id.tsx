@@ -35,6 +35,7 @@ function roundLabel(matchCount: number, phase: string): string {
   if (phase === "third_place") return "Petite finale";
   if (phase === "pool") return "Poules";
   const map: Record<number, string> = {
+    128: "128ème de finale",
     64: "64ème de finale",
     32: "32ème de finale",
     16: "16ème de finale",
@@ -43,7 +44,32 @@ function roundLabel(matchCount: number, phase: string): string {
     2: "Demi-finale",
     1: "Finale",
   };
-  return map[matchCount] ?? `Tour`;
+  // For match counts not in the map, compute from power of 2
+  if (!map[matchCount]) {
+    const exp = Math.log2(matchCount);
+    if (Number.isInteger(exp)) {
+      const playersInRound = matchCount * 2;
+      return playersInRound >= 256 ? `${playersInRound}ème de finale` : map[playersInRound] ?? `Tour`;
+    }
+    return `Tour`;
+  }
+  return map[matchCount];
+}
+
+/** Label for elimination round (used in player lists) */
+function eliminatedRoundLabel(round: number | null, format: string, totalRounds: number): string {
+  if (!round) return "Éliminé";
+  if (format === "pools" && round === 1) return "Élimé en poules";
+  const fromEnd = totalRounds - round;
+  const map: Record<number, string> = {
+    0: "Finaliste",
+    1: "Demi-finaliste",
+    2: "Quart de finaliste",
+    3: "8ème de finaliste",
+    4: "16ème de finaliste",
+    5: "32ème de finaliste",
+  };
+  return map[fromEnd] ?? `Éliminé au tour ${round}`;
 }
 
 type State = {
@@ -282,6 +308,56 @@ function TournamentDetail() {
         {/* Phase en cours */}
         {t.status === "running" && <PhaseBanner t={t} matches={matches} entrants={entrants} />}
 
+        {/* Champion (si terminé) */}
+        {t.status === "finished" && entrants.find((e) => e.final_rank === 1) && (
+          <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 p-4 space-y-2 text-center">
+            <Crown className="w-10 h-10 text-amber-500 mx-auto" />
+            <div>
+              <div className="text-lg font-extrabold text-amber-700 dark:text-amber-400">
+                {entrants.find((e) => e.final_rank === 1)?.display_name}
+              </div>
+              <div className="text-xs font-bold text-amber-600 uppercase">Champion du tournoi</div>
+            </div>
+            {netPrize > 0 && (
+              <div className="text-sm font-bold text-amber-700 dark:text-amber-400">
+                Gagne {netPrize.toLocaleString("fr-FR")} Ar
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mon statut (éliminé / classé) */}
+        {me && me.status === "eliminated" && t.status === "running" && (
+          <div className="rounded-2xl bg-secondary/60 p-3 text-center text-sm space-y-1">
+            <span className="text-destructive font-bold">Vous avez été éliminé</span>
+            {me.eliminated_round && (
+              <div className="text-[11px] text-muted-foreground">
+                {eliminatedRoundLabel(me.eliminated_round, t.format, t.total_rounds ?? 0)}
+                {me.final_rank ? ` — ${me.final_rank}e place` : ""}
+              </div>
+            )}
+            <div className="text-[11px] text-muted-foreground">
+              Vous pouvez continuer à suivre le tournoi en spectateur.
+            </div>
+          </div>
+        )}
+
+        {/* Mon résultat final (tournoi terminé) */}
+        {me && t.status === "finished" && me.final_rank && (
+          <div className={`rounded-2xl p-3 text-center text-sm space-y-1 ${
+            me.final_rank === 1 ? "bg-amber-100 dark:bg-amber-950/40" : "bg-secondary/60"
+          }`}>
+            <span className="font-bold">
+              {me.final_rank === 1 ? "🏆 Vous avez gagné le tournoi !" : `Vous terminez ${me.final_rank}e`}
+            </span>
+            {netPrize > 0 && me.final_rank <= t.winners_count && (
+              <div className="text-[11px] text-amber-600 font-semibold">
+                Gain : {Math.round(netPrize * (me.final_rank === 1 ? t.prize_1_pct : me.final_rank === 2 ? t.prize_2_pct : me.final_rank === 3 ? t.prize_3_pct : t.prize_4_pct ?? 0) / 100).toLocaleString("fr-FR")} Ar
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Bouton d'action principal */}
         {myMatch ? (
           <Link
@@ -358,8 +434,8 @@ function TournamentDetail() {
 
       {/* ─────────────── Contenu des onglets ─────────────── */}
       {effectiveTab === "bracket" && <BracketView matches={matches} byId={byId} me={me} slug={t.game_slug} currentRound={t.current_round} />}
-      {effectiveTab === "pools" && <PoolsView pools={st!.pools} byId={byId} me={me} />}
-      {effectiveTab === "players" && <PlayersView entrants={entrants} waitlist={waitlist} />}
+      {effectiveTab === "pools" && <PoolsView pools={st!.pools} byId={byId} me={me} matches={matches} />}
+      {effectiveTab === "players" && <PlayersView entrants={entrants} waitlist={waitlist} t={t} />}
       {effectiveTab === "stats" && <StatsView t={t} entrants={entrants} matches={matches} me={me} byId={byId} />}
       {effectiveTab === "rewards" && <RewardsView t={t} net={netPrize} byId={byId} />}
     </div>
@@ -467,7 +543,9 @@ function MatchCard({
   const players = m.entrant_ids.map((eid: string) => byId[eid]);
   const winnerId = m.winner_entrant_id;
   const isRunning = m.status === "running";
+  const isFinished = m.status === "finished";
   const isMyMatch = me && m.entrant_ids.includes(me.id);
+  const playerCount = m.entrant_ids.length;
 
   return (
     <div className={`rounded-2xl border p-2.5 transition-all ${
@@ -483,27 +561,38 @@ function MatchCard({
         <MatchPill m={m} />
       </div>
 
-      {/* Joueur 1 */}
-      <PlayerRow
-        name={players[0]?.display_name ?? "À déterminer"}
-        isWinner={winnerId && winnerId === players[0]?.id}
-        isLoser={winnerId && winnerId !== players[0]?.id && players[0]}
-        isMyRow={me?.id === players[0]?.id}
-      />
+      {/* Joueurs — 2, 3 ou 4 selon le match */}
+      {players.map((p: any, i: number) => (
+        <div key={i}>
+          {i > 0 && (
+            <div className="flex items-center gap-1 py-0.5">
+              <div className="flex-1 border-t border-dashed border-border" />
+              <span className="text-[9px] font-bold text-muted-foreground px-1">VS</span>
+              <div className="flex-1 border-t border-dashed border-border" />
+            </div>
+          )}
+          <PlayerRow
+            name={p?.display_name ?? "À déterminer"}
+            isWinner={winnerId && winnerId === p?.id}
+            isLoser={isFinished && winnerId && winnerId !== p?.id && p}
+            isMyRow={me?.id === p?.id}
+          />
+        </div>
+      ))}
 
-      <div className="flex items-center gap-1 py-0.5">
-        <div className="flex-1 border-t border-dashed border-border" />
-        <span className="text-[9px] font-bold text-muted-foreground px-1">VS</span>
-        <div className="flex-1 border-t border-dashed border-border" />
-      </div>
+      {/* Slots vides restants */}
+      {playerCount < 2 && (
+        <div className="text-[11px] text-muted-foreground italic px-1.5 py-1">
+          En attente du tirage...
+        </div>
+      )}
 
-      {/* Joueur 2 */}
-      <PlayerRow
-        name={players[1]?.display_name ?? "À déterminer"}
-        isWinner={winnerId && winnerId === players[1]?.id}
-        isLoser={winnerId && winnerId !== players[1]?.id && players[1]}
-        isMyRow={me?.id === players[1]?.id}
-      />
+      {/* Forfait / timeout */}
+      {isFinished && !winnerId && (
+        <div className="mt-1 text-[9px] text-muted-foreground italic text-center">
+          Match résolu (forfait/timeout)
+        </div>
+      )}
 
       {/* Lien rejoindre */}
       {isRunning && m.game_id && me && m.entrant_ids.includes(me.id) && (
@@ -685,42 +774,72 @@ function AdminBar({ t, busy, rpc }: { t: any; busy: boolean; rpc: (fn: string, a
 /* ═══════════════════════════════════════════════════════════
    POULES
    ═══════════════════════════════════════════════════════════ */
-function PoolsView({ pools, byId, me }: { pools: { pool: any; players: any[] }[]; byId: Record<string, any>; me: any }) {
+function PoolsView({ pools, byId, me, matches }: { pools: { pool: any; players: any[] }[]; byId: Record<string, any>; me: any; matches: any[] }) {
   if (!pools.length) return <Empty text="Le tirage des poules aura lieu au démarrage." icon={<Users className="w-10 h-10 text-muted-foreground opacity-50" />} />;
   return (
     <div className="space-y-3">
-      {pools.map(({ pool, players }) => (
-        <div key={pool.id} className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-sm flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg bg-primary/15 text-primary grid place-items-center text-xs font-extrabold">
-                {pool.label}
-              </span>
-              Poule {pool.label}
-            </h3>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              pool.status === "finished" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" :
-              pool.status === "running" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" :
-              "bg-secondary text-muted-foreground"
-            }`}>
-              {pool.status === "finished" ? "Terminée" : pool.status === "running" ? "En cours" : "À venir"}
-            </span>
-          </div>
-          <div className="space-y-1">
-            {players.map((p, i) => (
-              <div key={p.id} className={`flex items-center gap-2 text-sm px-2.5 py-2 rounded-xl ${
-                me && p.entrant_id === me.id ? "bg-primary/10 font-bold" : "bg-secondary/40"
+      {pools.map(({ pool, players }) => {
+        const poolMatches = matches.filter((m) => m.pool_id === pool.id);
+        return (
+          <div key={pool.id} className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-primary/15 text-primary grid place-items-center text-xs font-extrabold">
+                  {pool.label}
+                </span>
+                Poule {pool.label}
+              </h3>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                pool.status === "finished" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" :
+                pool.status === "running" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" :
+                "bg-secondary text-muted-foreground"
               }`}>
-                <span className="w-5 text-xs text-muted-foreground font-bold">{i + 1}.</span>
-                <span className="flex-1 truncate">{byId[p.entrant_id]?.display_name ?? "?"}</span>
-                {p.qualified && <span className="text-[10px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40">Qualifié</span>}
-                <span className="text-xs text-muted-foreground">{p.played}j · {p.wins}V</span>
-                <span className="text-xs font-bold w-10 text-right">{p.points} pts</span>
+                {pool.status === "finished" ? "Terminée" : pool.status === "running" ? "En cours" : "À venir"}
+              </span>
+            </div>
+            {/* Classement */}
+            <div className="space-y-1 mb-3">
+              {players.map((p, i) => (
+                <div key={p.id} className={`flex items-center gap-2 text-sm px-2.5 py-2 rounded-xl ${
+                  me && p.entrant_id === me.id ? "bg-primary/10 font-bold" : "bg-secondary/40"
+                }`}>
+                  <span className="w-5 text-xs text-muted-foreground font-bold">{i + 1}.</span>
+                  <span className="flex-1 truncate">{byId[p.entrant_id]?.display_name ?? "?"}</span>
+                  {p.qualified && <span className="text-[10px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40">Qualifié</span>}
+                  <span className="text-xs text-muted-foreground">{p.played}j · {p.wins}V</span>
+                  <span className="text-xs font-bold w-10 text-right">{p.points} pts</span>
+                </div>
+              ))}
+            </div>
+            {/* Matchs de la poule */}
+            {poolMatches.length > 0 && (
+              <div className="border-t border-border pt-2 space-y-1">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Matchs</div>
+                {poolMatches.map((m) => (
+                  <div key={m.id} className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg bg-secondary/30">
+                    {m.entrant_ids.map((eid: string, i: number) => {
+                      const p = byId[eid];
+                      const won = m.winner_entrant_id === eid;
+                      return (
+                        <span key={eid} className={`flex-1 truncate ${won ? "font-bold text-emerald-600" : m.status === "finished" ? "text-muted-foreground" : ""}`}>
+                          {p?.display_name ?? "?"}
+                        </span>
+                      );
+                    }).reduce((acc: any[], el: any, i: number) => {
+                      if (i > 0) acc.push(<span key={`sep-${i}`} className="text-[9px] text-muted-foreground font-bold">vs</span>);
+                      acc.push(el);
+                      return acc;
+                    }, [])}
+                    <span className="shrink-0">
+                      <MatchPill m={m} />
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -728,14 +847,30 @@ function PoolsView({ pools, byId, me }: { pools: { pool: any; players: any[] }[]
 /* ═══════════════════════════════════════════════════════════
    PARTICIPANTS
    ═══════════════════════════════════════════════════════════ */
-function PlayersView({ entrants, waitlist }: { entrants: any[]; waitlist: any[] }) {
+function PlayersView({ entrants, waitlist, t }: { entrants: any[]; waitlist: any[]; t: any }) {
   if (!entrants.length && (!waitlist || !waitlist.length)) return <Empty text="Aucun inscrit pour l'instant." icon={<Users className="w-10 h-10 text-muted-foreground opacity-50" />} />;
 
   const active = entrants.filter((e) => e.status === "active");
-  const eliminated = entrants.filter((e) => e.status === "eliminated");
+  const eliminated = entrants
+    .filter((e) => e.status === "eliminated")
+    .sort((a, b) => (b.eliminated_round ?? 0) - (a.eliminated_round ?? 0));
 
   return (
     <div className="space-y-3">
+      {/* Champion (si terminé) */}
+      {t.status === "finished" && (() => {
+        const champ = entrants.find((e) => e.final_rank === 1);
+        if (!champ) return null;
+        return (
+          <div className="rounded-3xl bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 p-4 shadow-[var(--shadow-soft)] text-center space-y-2">
+            <Crown className="w-8 h-8 text-amber-500 mx-auto" />
+            <div className="text-base font-extrabold text-amber-700 dark:text-amber-400">{champ.display_name}</div>
+            <div className="text-[10px] font-bold text-amber-600 uppercase">🏆 Champion du tournoi</div>
+          </div>
+        );
+      })()}
+
+      {/* En lice */}
       {active.length > 0 && (
         <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)]">
           <h3 className="text-xs font-bold text-emerald-600 uppercase mb-2 flex items-center gap-1">
@@ -753,6 +888,8 @@ function PlayersView({ entrants, waitlist }: { entrants: any[]; waitlist: any[] 
           </div>
         </div>
       )}
+
+      {/* Éliminés */}
       {eliminated.length > 0 && (
         <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)]">
           <h3 className="text-xs font-bold text-muted-foreground uppercase mb-2 flex items-center gap-1">
@@ -769,6 +906,28 @@ function PlayersView({ entrants, waitlist }: { entrants: any[]; waitlist: any[] 
                     {e.final_rank === 1 ? "🥇" : e.final_rank === 2 ? "🥈" : "🥉"}
                   </span>
                 )}
+                {e.eliminated_round && (
+                  <span className="text-[9px] text-muted-foreground shrink-0">
+                    {eliminatedRoundLabel(e.eliminated_round, t.format, t.total_rounds ?? 0)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Liste d'attente détaillée */}
+      {waitlist && waitlist.length > 0 && (
+        <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-amber-600 uppercase mb-2 flex items-center gap-1">
+            <Clock className="w-3 h-3" /> Liste d'attente ({waitlist.length})
+          </h3>
+          <div className="space-y-1">
+            {waitlist.map((w, i) => (
+              <div key={w.id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl bg-secondary/40">
+                <span className="w-5 text-xs font-bold text-amber-600">{w.position}</span>
+                <span className="flex-1 truncate">{w.display_name}</span>
               </div>
             ))}
           </div>
@@ -959,7 +1118,9 @@ function StatsView({ t, entrants, matches, me, byId }: {
   );
 
   function netPrize(t: any) {
-    return Math.round(Number(t.prize_pool_ar || 0) * (100 - t.platform_pct) / 100 + Number(t.admin_prize_pool_ar || 0));
+    return Number(t.entry_fee_ar) > 0
+      ? Math.round(Number(t.prize_pool_ar || 0) * (100 - t.platform_pct) / 100 + Number(t.admin_prize_pool_ar || 0))
+      : Number(t.admin_prize_pool_ar || 0);
   }
 }
 
