@@ -228,9 +228,6 @@ export function DepotModal({
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  ⚠️ Vous devrez envoyer <b>exactement</b> ce montant — c'est celui qui sera vérifié.
-                </p>
               </div>
 
               <button
@@ -248,7 +245,7 @@ export function DepotModal({
             <form onSubmit={submit} className="space-y-4">
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 space-y-2">
                 <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  Transférez exactement {fmtAr(Number(amount))} via {activeOp.label} :
+                  Envoyez {fmtAr(Number(amount))} à :
                 </p>
                 {active.phone ? (
                   <div className="flex items-center gap-3">
@@ -283,11 +280,7 @@ export function DepotModal({
                   className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none font-mono"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  💡 Vous pouvez <b>copier-coller le SMS entier</b> que vous avez reçu de{" "}
-                  {activeOp.label} — la référence en sera extraite automatiquement. Sinon,
-                  tapez juste le code qui suit{" "}
-                  {operator === "orange" ? '"Trans Id:"' : '"Ref"'} dans le SMS (le point n'est
-                  pas obligatoire, vous pouvez l'omettre).
+                  💡 Collez le SMS reçu — la référence est extraite automatiquement.
                 </p>
               </div>
 
@@ -303,25 +296,10 @@ export function DepotModal({
                   placeholder="+261 34 00 000 00"
                   className="w-full px-4 py-3.5 rounded-xl bg-secondary outline-none"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Le numéro de téléphone <b>depuis lequel vous avez envoyé l'argent</b> (pas le
-                  numéro admin ci-dessus). Obligatoire.
-                </p>
+
               </div>
 
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
-                <p className="text-xs text-amber-700 dark:text-amber-400 font-bold">
-                  ⚠️ Validation automatique — 3 critères obligatoires
-                </p>
-                <ul className="text-xs text-muted-foreground mt-1 list-disc pl-4 space-y-0.5">
-                  <li>Le <b>numéro</b> qui a envoyé l'argent</li>
-                  <li>La <b>référence</b> ({activeOp.refLabel})</li>
-                  <li>Le <b>montant exact</b> envoyé (tolérance de 200 Ar seulement)</li>
-                </ul>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Les 3 doivent correspondre exactement au SMS reçu après votre transfert.
-                </p>
-              </div>
+
 
               <button
                 type="submit"
@@ -329,7 +307,7 @@ export function DepotModal({
                 className="w-full py-3.5 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center gap-2"
               >
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {busy ? "Envoi..." : "Confirmer le dépôt"}
+                {busy ? "Envoi..." : "Confirmer"}
               </button>
             </form>
           )}
