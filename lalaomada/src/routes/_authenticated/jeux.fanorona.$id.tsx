@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Pause, Copy, Timer, RotateCw, SkipForward, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
@@ -141,41 +142,17 @@ function FanoronaPage() {
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
 
   // ALL HOOKS FIRST — before any early return
-  const [game, setGame] = useState<any>(null);
-  const [parts, setParts] = useState<any[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [captureChoice, setCaptureChoice] = useState<{ from: number; to: number; approach: number[]; withdrawal: number[] } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [rotated90, setRotated90] = useState(false);
-  const [lastMove, setLastMove] = useState<{ from: number; to: number; captured: number[] } | null>(null);
-  const [animatingCapture, setAnimatingCapture] = useState<number[]>([]);
-  // Clock state handled by cumulative timer below
-  const botTriggeredRef = useRef<number | string>(-1);
-  const lastBoardRef = useRef<string>("");
+const { game, parts, setGame, setParts, loading, connected, reload } = useFastRealtime({
+    gameTable: "fanorona_games",
+    participantTable: "fanorona_participants",
+    gameId: id,
+    enabled: !!profile?.id,
+    onFinished: refreshProfile,
+  }) as any;
 
-  const load = useCallback(async () => {
-    const { data: g, error } = await supabase.from("fanorona_games" as any).select("*").eq("id", id).maybeSingle();
-    if (error) setLoadError(error.message);
-    else if (!g) setLoadError("Partie introuvable ou accès refusé.");
-    else setLoadError(null);
-    setGame(g);
-    const { data: p } = await supabase.from("fanorona_participants" as any).select("*").eq("game_id", id).order("slot");
-    setParts((p as any[]) || []);
-    setLoaded(true);
-  }, [id, profile?.id]);
 
-  useEffect(() => {
-    load();
-    const ch = supabase.channel("fanorona-" + id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_games", filter: `id=eq.${id}` }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_participants", filter: `game_id=eq.${id}` }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [id, load]);
 
-  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
+  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
 
   // cancelled state handled by GameStateMessage below
 
