@@ -11,7 +11,6 @@ import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Pause, Copy, Timer, RotateCw, SkipForward, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
-import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
@@ -86,7 +85,7 @@ function countPieces(board: number[], color: number): number {
   return board.filter(v => v === color).length;
 }
 
-/** Compact single-line player bar (used above/below the board — mirrors the Ludo/Domino style). */
+/** Chess-style player bar with avatar, name, timer and piece count. */
 function fmtClock(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(s / 60);
@@ -95,31 +94,48 @@ function fmtClock(ms: number) {
 }
 
 function FanoronaPlayerBar({
-  p, isCurrent, isMe, pieceCount, timeMs,
+  p, isCurrent, isMe, pieceCount, timeMs, avatarUrl,
 }: {
-  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number;
+  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number; avatarUrl?: string | null;
 }) {
   const isWhite = p.color === "white";
   const low = timeMs < 30_000;
   const critical = timeMs < 10_000;
+  const name = p.display_name || "Joueur";
   return (
-    <div className={`relative flex items-center gap-2 rounded-lg px-2 py-1 border transition-colors duration-300 ${
-      isCurrent ? "bg-primary/8 border-primary/40" : "bg-card border-white/6"
+    <div className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-colors duration-300 ${
+      isCurrent ? "bg-card shadow-md border border-amber-400/40" : "bg-card/80 backdrop-blur border border-border"
     }`}>
-      {isCurrent && <span className="absolute left-0 top-1 bottom-1 w-1 rounded-full bg-primary" />}
-      <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ring-1 ${isWhite ? "bg-white text-gray-900 ring-white/30" : "bg-gray-900 text-white ring-white/10"}`}>
-        {isWhite ? "⚪" : "⚫"}
-      </div>
-      <span className="font-bold text-xs truncate">{p.display_name}</span>
-      {p.is_bot && <span className="text-[10px] text-violet-500 shrink-0">🎯</span>}
-      {isMe && <span className="text-[10px] text-primary/60 shrink-0">(vous)</span>}
-      <span className="text-[10px] font-semibold text-muted-foreground truncate ml-auto shrink-0">
-        {p.forfeited ? <span className="text-destructive">Forfait</span> : `${pieceCount} pions`}
-      </span>
       <div
-        className={`shrink-0 font-mono text-sm font-bold tabular-nums px-2 py-0.5 rounded-md transition-colors ${
-          critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : isCurrent ? "bg-primary/15 text-primary" : "text-muted-foreground"
+        className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 border-2"
+        style={{ borderColor: isWhite ? "#fafaf9" : "#1c1917" }}
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted text-sm font-bold">
+            {name.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-xs truncate flex items-center gap-1.5">
+          {name}
+          {p.is_bot && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
+          {isMe && <span className="text-[10px] text-primary/60 shrink-0">(vous)</span>}
+          {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[10px] font-semibold text-muted-foreground">
+            {p.forfeited ? <span className="text-destructive">Forfait</span> : `♟ ${pieceCount} pions`}
+          </span>
+        </div>
+      </div>
+      <div
+        className={`shrink-0 font-mono text-base font-bold tabular-nums px-2.5 py-1 rounded-md transition-colors ${
+          critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : ""
         }`}
+        style={!critical ? { background: isCurrent ? "rgba(251,191,36,0.12)" : undefined } : undefined}
       >
         {fmtClock(timeMs)}
       </div>
@@ -150,7 +166,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
     onFinished: refreshProfile,
   }) as any;
 
-  // ── State variables (restored after useFastRealtime refactor) ──────────
+  const [profiles, setProfiles] = useState<Record<string, { pseudo: string; avatar_url: string | null }>>({});
   const [selected, setSelected] = useState<number | null>(null);
   const [captureChoice, setCaptureChoice] = useState<{ from: number; to: number; approach: number[]; withdrawal: number[] } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -164,6 +180,19 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   // loaded / loadError derived from hook state
   const loaded = !loading;
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Load player profiles for avatars
+  useEffect(() => {
+    if (!parts.length) return;
+    const uids = parts.map(pt => pt.user_id).filter(Boolean);
+    if (!uids.length) return;
+    supabase.from("profiles").select("id,pseudo,avatar_url").in("id", uids).then(({ data }) => {
+      if (!data) return;
+      const map: Record<string, { pseudo: string; avatar_url: string | null }> = {};
+      (data as any[]).forEach(x => { map[x.id] = { pseudo: x.pseudo, avatar_url: x.avatar_url }; });
+      setProfiles(map);
+    });
+  }, [parts]);
 
   // Detect portrait orientation for board rotation on mobile
   useEffect(() => {
@@ -472,13 +501,13 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const cy = (r: number) => r * CELL_PX;
 
   return (
-    <main className="max-w-3xl mx-auto px-2 py-2 space-y-1.5 h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
+    <div className="h-full overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950 overscroll-none">
       <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
-      <GameInstructionsBanner slug="fanorona" />
 
-      {/* ── Header compact (aligné sur le style Ludo/Domino) ── */}
-            <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
+      {/* ── Header compact (aligné sur le style Échecs) ── */}
+      <div className="px-2 pt-1">
+      <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
         <div className="flex items-baseline gap-1 min-w-0">
           <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
           <span className="text-xs font-extrabold truncate">{Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar</span>
@@ -510,17 +539,20 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
           </div>
         )}
       </div>
+      </div>
 
-      {/* ── Carte adversaire, juste au-dessus du plateau ── */}
+      {/* ── Carte adversaire ── */}
+      <div className="px-3 mt-1">
       {(() => {
         const opponent = parts.find((p: any) => p.user_id !== me?.user_id) ?? (me ? undefined : parts[0]);
         if (!opponent) return <FanoronaWaitingBar />;
         const isCurrent = game.current_turn === opponent.slot && game.status === "playing";
         const pieceCount = opponent.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} timeMs={me?.color === "white" ? bTime : wTime} />
+          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} timeMs={me?.color === "white" ? bTime : wTime} avatarUrl={opponent.user_id ? profiles[opponent.user_id]?.avatar_url : null} />
         );
       })()}
+      </div>
 
       {game.status === "finished" && (
         <GameEndScreen slug="fanorona" meUserId={profile?.id} winnerId={game.winner_id}
@@ -528,6 +560,8 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
           commissionPct={Number(game.commission_pct) || 10} onReplay={replayFanorona} />
       )}
 
+      {/* ── Board (plein écran) ── */}
+      <div className="flex-1 flex items-center justify-center px-2 py-1 min-h-0">
       <GameBoardSkin coverUrl={fanoronaCover.url} compact>
         <div className={rotated90 ? "overflow-hidden mx-auto" : "overflow-x-auto"} style={rotated90 ? { width: "min(100%, 88vh)", aspectRatio: `${ROWS} / ${COLS}`, position: "relative" } : undefined}>
           <svg viewBox={`-24 -24 ${SIZE_W + 48} ${SIZE_H + 48}`} className={rotated90 ? "" : "w-full"} style={rotated90 ? {
@@ -632,15 +666,18 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
           )}
         </div>
       </GameBoardSkin>
+      </div>
 
-      {/* ── Carte "vous", juste sous le plateau ── */}
+      {/* ── Carte "vous" ── */}
+      <div className="px-3 pb-1">
       {me && (() => {
         const isCurrent = game.current_turn === me.slot && game.status === "playing";
         const pieceCount = me.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} />
+          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} avatarUrl={me.user_id ? profiles[me.user_id]?.avatar_url : null} />
         );
       })()}
+      </div>
 
       {captureChoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setCaptureChoice(null)}>
@@ -676,6 +713,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       <GamePauseControl slug="fanorona" gameId={id} game={game} remaining={Math.ceil((me?.color === "white" ? wTime : bTime) / 1000)} totalSeconds={cfg.turn_timer_seconds}
         isMyTurn={!!isMyTurn} isPlayer={isPlayer} myUserId={profile?.id ?? null} />
       <GameSocialFab gameId={id} gameSlug="fanorona" participants={parts} />
-    </main>
+    </div>
   );
 }
