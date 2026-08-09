@@ -16,6 +16,7 @@ import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 
 export const Route = createFileRoute("/_authenticated/jeux/ludo/$id")({
@@ -32,64 +33,49 @@ function GamePage() {
   const { profile, isAdmin, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const { t } = useT();
-  const [game, setGame] = useState<any>(null);
-  const [parts, setParts] = useState<any[]>([]);
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [now, setNowTick] = useState(serverNow());
-
   const [loadError, setLoadError] = useState(false);
   const [loadRetried, setLoadRetried] = useState(0);
 
-  const load = async () => {
-    try {
-      const { data: g, error: e1 } = await supabase.from("ludo_games").select("*").eq("id", id).maybeSingle();
-      if (e1 && !g) { console.warn("[game] load error:", e1); setLoadError(true); return; }
-      const { data: p, error: e2 } = await supabase.from("ludo_participants").select("*").eq("game_id", id).order("slot");
-      if (e2 && !p) { console.warn("[game] parts error:", e2); }
-      setGame(g); setParts(p || []);
-      setLoadError(false);
-      if (g?.status === "finished") refreshProfile();
-    } catch (err) {
-      console.error("[game] load exception:", err);
-      setLoadError(true);
-    }
-  };
+  const { game, parts, setGame, setParts, loading, connected, reload } = useFastRealtime({
+    gameTable: "ludo_games",
+    participantTable: "ludo_participants",
+    gameId: id,
+    enabled: !!profile?.id,
+    onFinished: refreshProfile,
+  });
 
-  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
-
-  // Initial load — fetch game data immediately, and retry when auth is ready
+  // Keep loadError in sync for the retry UI
   useEffect(() => {
-    load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, loadRetried]);
+    if (loading && !game) setLoadError(false);
+    else if (!loading && !game) setLoadError(true);
+    else setLoadError(false);
+  }, [loading, game]);
+
+  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
 
   // Retry load when profile becomes available (auth session restored)
   useEffect(() => {
     if (profile?.id && (!game || loadError)) {
-      load();
+      reload();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
-  // Realtime subscription — only after auth session is restored
-  // Waiting for profile?.id ensures the Supabase client has a valid auth token,
-  // so RLS policies allow realtime events to reach the client.
   useEffect(() => {
-    if (!profile?.id) return; // auth not ready yet — skip subscription
-    const ch = supabase.channel("game-" + id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games", filter: `id=eq.${id}` }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_participants", filter: `game_id=eq.${id}` }, () => load())
-      .subscribe((status: string) => {
-        if (status === "SUBSCRIBED") { /* connected */ }
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Retry: remove and re-subscribe after a short delay
-          setTimeout(() => { load(); }, 500);
-        }
-      });
-    return () => { supabase.removeChannel(ch); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!profile?.id) return;
+    const beat = () => { supabase.rpc("ludo_heartbeat" as any, { _game_id: id } as any); };
+    beat();
+    const timer = setInterval(beat, 15000);
+    return () => clearInterval(timer);
   }, [id, profile?.id]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(serverNow()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!profile?.id) return;
