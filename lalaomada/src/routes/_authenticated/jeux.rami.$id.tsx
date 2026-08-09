@@ -429,7 +429,7 @@ function JokerFace({ idx }: { idx: number }) {
 }
 
 
-function Card({
+const Card = React.memo(function Card({
   c, selected, onClick, size = "md", faceDown, onRemove, highlight, dealDelay, styleOverride,
 }: {
   c?: number; selected?: boolean; onClick?: () => void;
@@ -493,16 +493,13 @@ function Card({
         <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <defs>
             <linearGradient id={`gloss-${base}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.25)" stopOpacity="0.25" />
+              <stop offset="0%" stopColor="rgba(255,255,255,0.18)" stopOpacity="0.18" />
               <stop offset="45%" stopColor="rgba(255,255,255,0)" stopOpacity="0" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0.08)" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.06)" stopOpacity="0.06" />
             </linearGradient>
-            <filter id={`sh-${base}`}>
-              <feDropShadow dx="0" dy="1" stdDeviation="0.5" floodColor="#000" floodOpacity="0.12" />
-            </filter>
           </defs>
           {/* Card base — white with subtle warm tint like real card stock */}
-          <rect x="0.5" y="0.5" width="99" height="139" rx="7" fill="#fefefe" stroke="#c8c8c8" strokeWidth="0.8" filter={`url(#sh-${base})`} />
+          <rect x="0.5" y="0.5" width="99" height="139" rx="7" fill="#fefefe" stroke="#c8c8c8" strokeWidth="0.8" />
           <rect x="2" y="2" width="96" height="136" rx="5" fill="none" stroke="#e8e8e8" strokeWidth="0.4" opacity="0.5" />
           {isJoker ? (
             <JokerFace idx={base - 52} />
@@ -520,8 +517,9 @@ function Card({
                 const _rankNames = {10:'jack',11:'queen',12:'king'};
                 const _imgSrc = `/cards/${_suitNames[suit]}_${_rankNames[rank]}.png`;
                 return (
-                  <image href={_imgSrc} x="0.5" y="0.5" width="99" height="139"
-                    preserveAspectRatio="xMidYMid meet" opacity="0.98" />
+                  <foreignObject x="2" y="2" width="96" height="136" pointerEvents="none">
+                    <div style={{ width: '100%', height: '100%', backgroundImage: `url(${_imgSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '5px', opacity: 0.98 }} />
+                  </foreignObject>
                 );
               })() : <PipCard rank={rank} suit={suit} />}
             </>
@@ -543,7 +541,7 @@ function Card({
       )}
     </div>
   );
-}
+});
 
 
 // ── Optimal play suggester ────────────────────────────────────────────────
@@ -1184,11 +1182,16 @@ function RamiPage() {
 
   useEffect(() => {
     load();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedLoad = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => load(), 300);
+    };
     const ch = supabase.channel("rami-" + id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rami_games", filter: `id=eq.${id}` }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "rami_participants", filter: `game_id=eq.${id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rami_games", filter: `id=eq.${id}` }, debouncedLoad)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rami_participants", filter: `game_id=eq.${id}` }, debouncedLoad)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { supabase.removeChannel(ch); if (debounceTimer) clearTimeout(debounceTimer); };
   }, [id, load]);
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
@@ -1334,7 +1337,7 @@ function RamiPage() {
     const t = setInterval(async () => {
       const { data }: any = await supabase.rpc("rami_spectate" as any, { _game_id: id } as any);
       if (data) setSpectateData(data);
-    }, 3000);
+    }, 5000);
     return () => clearInterval(t);
   }, [isSpectating, id]);
 
@@ -1404,10 +1407,14 @@ function RamiPage() {
     return cards;
   }, [handCards, sortMode, reorderMode, customOrder]);
 
-  // Reset custom order when hand changes
+  // Reset custom order when hand size changes (not on every game state update)
+  const prevHandLenRef = useRef(0);
   useEffect(() => {
-    setCustomOrder(handCards.length > 0 ? [...handCards] : null);
-  }, [myHand.length]);
+    if (prevHandLenRef.current !== myHand.length) {
+      prevHandLenRef.current = myHand.length;
+      setCustomOrder(handCards.length > 0 ? [...handCards] : null);
+    }
+  }, [myHand.length, handCards]);
 
   // Detect newly drawn card to show a "NEW" mark
   useEffect(() => {
@@ -1466,7 +1473,7 @@ function RamiPage() {
       }
     };
     tick();
-    const t = setInterval(tick, 500);
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
 
