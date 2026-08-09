@@ -22,6 +22,7 @@ import { playChessMove, playChessCapture, playChessCastle, playChessCheck, playC
 import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 
 export const Route = createFileRoute("/_authenticated/jeux/chess/$id")({
@@ -230,13 +231,28 @@ function ChessPage() {
   /* -------- Realtime -------- */
   useEffect(() => {
     if (!isValidGameId) return;
-    const ch = supabase.channel(`chess-${id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "chess_games", filter: `id=eq.${id}` }, () => { void load(); })
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const debouncedLoad = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => { void load(); }, 300);
+  };
+  const ch = supabase.channel(`chess-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "chess_games", filter: `id=eq.${id}` }, (payload: any) => {
+        if (payload.new) {
+          setGame(payload.new as any);
+          if (payload.new.status === "finished") { void load(); }
+        } else { debouncedLoad(); }
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chess_moves", filter: `game_id=eq.${id}` }, (p) => {
         const u = (p.new as any).uci as string;
         if (u) setLastMove({ from: u.slice(0, 2), to: u.slice(2, 4) });
-        // Reload to get updated move history
-        void load();
+        if (p.new) {
+          setMoveHistory(prev => {
+            const newMove = { san: (p.new as any).san, ply: (p.new as any).ply };
+            if (prev.some(m => m.ply === newMove.ply)) return prev;
+            return [...prev, newMove];
+          });
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
