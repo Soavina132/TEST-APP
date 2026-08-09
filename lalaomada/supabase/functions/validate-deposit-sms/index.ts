@@ -240,6 +240,8 @@ if (!DEPOSIT_SECRET) {
 
 // FIX v3: CORS restreint au domaine de l'app
 const ALLOWED_ORIGINS = [
+  "https://lalaomada.vercel.app",
+  "https://lalaomada-gules.vercel.app",
   "https://test-app.vercel.app",
   "https://gifwfjgciwbsottztzoc.supabase.co",
   "http://localhost:5173",
