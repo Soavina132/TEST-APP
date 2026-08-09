@@ -40,7 +40,7 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
   useEffect(() => {
     if (!enabled || !gameId) return;
     reload();
-    const ch = supabase.channel(`rt-${gameTable}-${gameId}`)
+    const ch: any = supabase.channel(`rt-${gameTable}-${gameId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: gameTable, filter: `id=eq.${gameId}` }, (payload: any) => {
         if (payload.eventType === "DELETE") { debouncedReload(); return; }
         if (payload.new) { setGame(payload.new as TGame); if (payload.new.status === "finished" && onFinished) onFinished(); }

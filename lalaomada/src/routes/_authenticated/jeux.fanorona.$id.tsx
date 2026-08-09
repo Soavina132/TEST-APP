@@ -150,7 +150,34 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
     onFinished: refreshProfile,
   }) as any;
 
+  // ── State variables (restored after useFastRealtime refactor) ──────────
+  const [selected, setSelected] = useState<number | null>(null);
+  const [captureChoice, setCaptureChoice] = useState<{ from: number; to: number; approach: number[]; withdrawal: number[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [rotated90, setRotated90] = useState(false);
+  const [lastMove, setLastMove] = useState<{ from: number; to: number; captured: number[] } | null>(null);
+  const [animatingCapture, setAnimatingCapture] = useState<number[]>([]);
+  const botTriggeredRef = useRef<number | string>(-1);
+  const lastBoardRef = useRef<string>("");
+  // load alias for use in timeout callbacks (maps to useFastRealtime reload)
+  const load = reload;
+  // loaded / loadError derived from hook state
+  const loaded = !loading;
+  const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Detect portrait orientation for board rotation on mobile
+  useEffect(() => {
+    const check = () => {
+      setRotated90(window.innerHeight > window.innerWidth && window.innerWidth < 500);
+    };
+    check();
+    window.addEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
+    };
+  }, []);
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
 
@@ -206,7 +233,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   // Win/lose sounds
   useEffect(() => {
     if (game?.status === "finished" && game?.winner_id) {
-      const myPart = parts.find(p => p.user_id === profile?.id);
+      const myPart = parts.find((p: any) => p.user_id === profile?.id);
       if (myPart && !myPart.forfeited) {
         if (game.winner_id === profile?.id) playFanoronaWin();
         else playFanoronaLose();
@@ -218,7 +245,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const ROWS: number = (game?.rows as number) || 5;
   const { idx, neighbors, legalTargets } = useMemo(() => makeHelpers(COLS, ROWS), [COLS, ROWS]);
 
-  const me = parts.find(p => p.user_id === profile?.id);
+  const me = parts.find((p: any) => p.user_id === profile?.id);
   const isPlayer = !!me;
   const myColor = me?.color === "white" ? 1 : me?.color === "black" ? 2 : 0;
   const isMyTurn = !!(game && me && game.current_turn === me.slot && game.status === "playing");
@@ -366,7 +393,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   partsRef.current = parts;
   useEffect(() => {
     if (!game || game.status !== "playing") return;
-    const botPart = partsRef.current.find(p => p.is_bot);
+    const botPart = partsRef.current.find((p: any) => p.is_bot);
     if (!botPart) return;
     if (game.current_turn !== botPart.slot) return;
     const triggerKey = `${game.current_turn}:${moveCount}:${botChainFrom}`;
@@ -392,7 +419,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   );
 
   const replayFanorona = async () => {
-    const isSolo = parts.some(p => p.is_bot);
+    const isSolo = parts.some((p: any) => p.is_bot);
     if (isSolo) {
       const { data, error } = await supabase.rpc("fanorona_create_solo" as any, {
         _stake: 0, _variant: game.variant || "tsivy",
@@ -486,7 +513,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
 
       {/* ── Carte adversaire, juste au-dessus du plateau ── */}
       {(() => {
-        const opponent = parts.find(p => p.user_id !== me?.user_id) ?? (me ? undefined : parts[0]);
+        const opponent = parts.find((p: any) => p.user_id !== me?.user_id) ?? (me ? undefined : parts[0]);
         if (!opponent) return <FanoronaWaitingBar />;
         const isCurrent = game.current_turn === opponent.slot && game.status === "playing";
         const pieceCount = opponent.color === "white" ? whiteCount : blackCount;

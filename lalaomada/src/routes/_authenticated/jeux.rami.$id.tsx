@@ -516,7 +516,7 @@ const Card = React.memo(function Card({
               {isFace ? (() => {
                 const _suitNames = ['spade','heart','diamond','club'];
                 const _rankNames = {10:'jack',11:'queen',12:'king'};
-                const _imgSrc = `/cards/${_suitNames[suit]}_${_rankNames[rank]}.png`;
+                const _imgSrc = `/cards/${_suitNames[suit]}_${(_rankNames as any)[rank]}.png`;
                 return (
                   <foreignObject x="2" y="2" width="96" height="136" pointerEvents="none">
                     <div style={{ width: '100%', height: '100%', backgroundImage: `url(${_imgSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '5px', opacity: 0.98 }} />

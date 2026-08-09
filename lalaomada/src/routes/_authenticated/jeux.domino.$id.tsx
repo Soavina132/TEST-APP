@@ -218,6 +218,31 @@ function DominoPage() {
     onFinished: refreshProfile,
   }) as any;
 
+  // ── State variables (restored after useFastRealtime refactor) ──────────
+  const [selectedTile, setSelectedTile] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  // Tracks which opponent's hand has no playable tile (via realtime broadcast),
+  // so a red frame can be shown to all players before the auto-pass completes.
+  const [remoteNoMoveSlot, setRemoteNoMoveSlot] = useState<number | null>(null);
+  const noMoveChRef = useRef<any>(null);
+  // Available width for the hand row; tile width is derived from it and from
+  // the number of tiles held (a player can hold more than 7 after drawing).
+  const [handAvail, setHandAvail] = useState<number>(190);
+  useEffect(() => {
+    const update = () => {
+      const vw = typeof window !== "undefined" ? window.innerWidth : 360;
+      // Reserve ~170px for the PlayerHeader block + gaps/padding.
+      setHandAvail(Math.max(140, vw - 170));
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
   // ── Sound effects ──────────────────────────────────────────────────────
   useDominoSounds({ game, parts, myUserId: profile?.id });
 
@@ -278,7 +303,7 @@ function DominoPage() {
     return () => clearTimeout(t);
   }, [game?.state?.bot_think_until, game?.status, id]);
 
-  const me = parts.find(p => p.user_id === profile?.id);
+  const me = parts.find((p: any) => p.user_id === profile?.id);
   const isPlayer = !!me;
   const isMyTurn = game && me && game.current_turn === me.slot && game.status === "playing" && !isRoundTransition;
   const myHand: Tile[] = (game?.state?.hands?.[String(me?.slot)] as Tile[]) || [];
@@ -307,9 +332,9 @@ function DominoPage() {
   const noMove = !!(isMyTurn && board.length > 0 && !canPlay && (drawMode === "without" || stockSize === 0));
   const passSlot = game?.state?.last_pass_by;
   const passCount = Number(game?.state?.passes) || 0;
-  const activePlayers = parts.filter(p => !p.forfeited).length;
+  const activePlayers = parts.filter((p: any) => !p.forfeited).length;
   const isBlocked = passCount >= activePlayers && activePlayers > 0;
-  const passPart = typeof passSlot === "number" ? parts.find(p => p.slot === passSlot) : null;
+  const passPart = typeof passSlot === "number" ? parts.find((p: any) => p.slot === passSlot) : null;
   const oppNoMove = !!(!isMyTurn && passSlot !== undefined && passSlot !== me?.slot);
 
   const draw = async () => {
@@ -509,7 +534,7 @@ function DominoPage() {
       <PhoneVerifyBanner stake={Number(game.stake) || 0} />
       <div className="flex-1 min-h-0 flex flex-col">
         <DominoTable
-          seats={parts.map(p => ({
+          seats={parts.map((p: any) => ({
             user_id: p.user_id,
             display_name: p.display_name,
             avatar_url: p.avatar_url,
@@ -534,7 +559,7 @@ function DominoPage() {
           statusMessage={(() => {
             if (game.status !== "playing") return undefined;
             const passName = passPart ? (passPart.user_id === profile?.id ? "Vous" : passPart.display_name) : null;
-            const currentPart = parts.find(p => p.slot === game.current_turn);
+            const currentPart = parts.find((p: any) => p.slot === game.current_turn);
             const currentName = currentPart ? (currentPart.user_id === profile?.id ? "Vous" : currentPart.display_name) : null;
             if (isBlocked) return "🚫 Domino bloqué ! Fin de la manche";
             if (noMove) return "Aucun domino jouable — vous passez votre tour";
@@ -561,7 +586,7 @@ function DominoPage() {
 
       {game.status === "finished" && (() => {
         const winnerSlot = game.state?.winner_slot;
-        const winnerPart = typeof winnerSlot === "number" ? parts.find(p => p.slot === winnerSlot) : null;
+        const winnerPart = typeof winnerSlot === "number" ? parts.find((p: any) => p.slot === winnerSlot) : null;
         const effectiveWinnerId = game.winner_id ?? winnerPart?.user_id ?? null;
         return (
           <GameEndScreen
@@ -589,7 +614,7 @@ function DominoPage() {
             extra={Number(game.target_score) > 0 && game.scores ? (
               <div className="text-left rounded-xl bg-secondary/50 p-3 space-y-1.5">
                 <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold">Scores (objectif {game.target_score})</div>
-                {parts.map(p => (
+                {parts.map((p: any) => (
                   <div key={p.user_id} className="flex justify-between text-sm">
                     <span className="truncate">{p.display_name}</span>
                     <span className="font-mono font-bold">{Number(game.scores?.[p.user_id] || 0)} pts</span>

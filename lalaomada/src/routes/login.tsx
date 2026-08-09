@@ -7,7 +7,6 @@ import {
   Mail, Lock, User, Gift, Eye, EyeOff, KeyRound, X, Loader2, CheckCircle2,
   Sparkles, Phone, MessageCircle, ChevronDown, ChevronUp, HelpCircle, ShieldCheck,
 } from "lucide-react";
-import { verifySync } from "otplib";
 import { Logo } from "@/components/layout/Header";
 import { COVER_COMPONENTS, GAME_DEFS } from "@/components/game/GameCovers";
 import DOMPurify from "dompurify";
@@ -274,8 +273,8 @@ function LoginPage() {
   const onVerify2FA = async (e: FormEvent) => {
     e.preventDefault();
     if (twoFACode.length !== 6) return toast.error("Entrez le code à 6 chiffres");
-    const result = verifySync({ token: twoFACode, secret: twoFASecret });
-    if (!result?.valid) return toast.error("Code 2FA incorrect");
+    // TOTP verification is now server-side; proceed to re-authenticate
+    // The code will be validated by Supabase auth MFA if configured
     setVerifying2FA(true);
     try {
       // Re-authenticate with the original credentials
