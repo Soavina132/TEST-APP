@@ -144,6 +144,10 @@ function TournamentDetail() {
   const load = useCallback(async () => {
     const { data } = await (supabase.rpc as any)("tournament_state", { _tid: id });
     if (data) setSt(data as State);
+    // Poll the engine to keep the tournament flowing (launch matches, check timeouts, advance phases)
+    if (data?.tournament?.status === "running") {
+      (supabase.rpc as any)("poll_tournament_engine", { _tid: id });
+    }
   }, [id]);
 
   useEffect(() => {
