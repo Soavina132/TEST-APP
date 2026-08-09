@@ -27,7 +27,7 @@ import feltAsset from "@/assets/rami/felt.jpg.asset.json";
 import cardBackAsset from "@/assets/rami/card-back.jpg.asset.json";
 
 const FELT_URL = feltAsset.url;
-const CARD_BACK_URL = cardBackAsset.url;
+const _CARD_BACK_URL = cardBackAsset.url; // kept for potential future use
 
 export const Route = createFileRoute("/_authenticated/jeux/rami/$id")({
   component: RamiPage,
@@ -35,45 +35,53 @@ export const Route = createFileRoute("/_authenticated/jeux/rami/$id")({
 });
 
 // ── Playing Card SVG Renderer ─────────────────────────────────────────────
+// Realistic playing card design with proper suit shapes, ornate court cards,
+// and decorative card back pattern.
 
+/** Render a realistic suit symbol (♠♥♦♣) as SVG paths. */
 function Pip({ suit, size = 7, flip = false }: { suit: number; size?: number; flip?: boolean }) {
   const s = size;
   const t = flip ? " rotate(180)" : "";
   if (suit === 0) {
-    return <g transform={t} fill="#111827">
-      <path d={`M0,${-s} C${s*.6},${-s*.3} ${s},${s*.4} ${s*.45},${s*.55} C${s*.8},${s*.55} ${s*.9},${s*.85} ${s*.65},${s} L${-s*.65},${s} C${-s*.9},${s*.85} ${-s*.8},${s*.55} ${-s*.45},${s*.55} C${-s},${s*.4} ${-s*.6},${-s*.3} 0,${-s}Z`} />
+    // Spade — refined teardrop + stem
+    return <g transform={t} fill="#1a1a2e">
+      <path d={`M0,${-s} C${s*0.75},${-s*0.35} ${s*0.95},${s*0.25} ${s*0.3},${s*0.72} C${s*0.18},${s*0.78} ${s*0.08},${s*0.7} ${s*0.12},${s*0.58} C${s*0.16},${s*0.46} ${s*0.3},${s*0.44} ${s*0.4},${s*0.55} L${s*0.4},${s*0.55} C${s*0.35},${s*0.65} ${s*0.22},${s*0.72} ${s*0.1},${s*0.7} L${-s*0.1},${s*0.7} C${-s*0.22},${s*0.72} ${-s*0.35},${s*0.65} ${-s*0.4},${s*0.55} C${-s*0.3},${s*0.44} ${-s*0.16},${s*0.46} ${-s*0.12},${s*0.58} C${-s*0.08},${s*0.7} ${-s*0.18},${s*0.78} ${-s*0.3},${s*0.72} C${-s*0.95},${s*0.25} ${-s*0.75},${-s*0.35} 0,${-s}Z`} />
+      <path d={`M${-s*0.14},${s*0.55} L${s*0.14},${s*0.55} L${s*0.08},${s*0.95} L${-s*0.08},${s*0.95} Z`} />
     </g>;
   }
   if (suit === 1) {
-    return <g transform={t} fill="#dc2626">
-      <path d={`M0,${s} C${-s*.9},${s*.1} ${-s},${-s*.55} ${-s*.55},${-s*.8} Q${-s*.15},${-s} 0,${-s*.45} Q${s*.15},${-s} ${s*.55},${-s*.8} C${s},${-s*.55} ${s*.9},${s*.1} 0,${s}Z`} />
+    // Heart — smooth scalloped top
+    return <g transform={t} fill="#c41e3a">
+      <path d={`M0,${s*0.95} C${-s*0.92},${s*0.12} ${-s*0.98},${-s*0.52} ${-s*0.5},${-s*0.78} C${-s*0.25},${-s*0.92} ${-s*0.05},${-s*0.82} 0,${-s*0.5} C${s*0.05},${-s*0.82} ${s*0.25},${-s*0.92} ${s*0.5},${-s*0.78} C${s*0.98},${-s*0.52} ${s*0.92},${s*0.12} 0,${s*0.95}Z`} />
     </g>;
   }
   if (suit === 2) {
-    return <g transform={t} fill="#dc2626">
-      <path d={`M0,${-s} L${s*.72},0 L0,${s} L${-s*.72},0Z`} />
+    // Diamond — slightly rounded rhombus
+    return <g transform={t} fill="#c41e3a">
+      <path d={`M0,${-s*0.98} L${s*0.62},0 L0,${s*0.98} L${-s*0.62},0 Z`} />
     </g>;
   }
-  return <g transform={t} fill="#111827">
-    <circle r={s*.41} cy={-s*.48}/>
-    <circle r={s*.41} cx={-s*.44} cy={s*.2}/>
-    <circle r={s*.41} cx={s*.44} cy={s*.2}/>
-    <rect x={-s*.14} y={s*.38} width={s*.28} height={s*.62}/>
-    <rect x={-s*.48} y={s*.92} width={s*.96} height={s*.15}/>
+  // Club — three circles + stem
+  return <g transform={t} fill="#1a1a2e">
+    <circle r={s*0.38} cy={-s*0.46} />
+    <circle r={s*0.38} cx={-s*0.42} cy={s*0.18} />
+    <circle r={s*0.38} cx={s*0.42} cy={s*0.18} />
+    <path d={`M${-s*0.12},${s*0.45} L${s*0.12},${s*0.45} L${s*0.08},${s*0.95} L${-s*0.08},${s*0.95} Z`} />
   </g>;
 }
 
+// Standard pip positions on a playing card (0=Ace, 1=2, ... 9=10)
 const PIP_POS: [number, number, boolean][][] = [
-  [[50, 70, false]],
-  [[50, 31, false], [50, 109, true]],
-  [[50, 31, false], [50, 70, false], [50, 109, true]],
-  [[33, 31, false], [67, 31, false], [33, 109, true], [67, 109, true]],
-  [[33, 31, false], [67, 31, false], [50, 70, false], [33, 109, true], [67, 109, true]],
-  [[33, 31, false], [67, 31, false], [33, 70, false], [67, 70, false], [33, 109, true], [67, 109, true]],
-  [[33, 31, false], [67, 31, false], [50, 49, false], [33, 70, false], [67, 70, false], [33, 109, true], [67, 109, true]],
-  [[33, 31, false], [67, 31, false], [50, 49, false], [33, 70, false], [67, 70, false], [50, 91, true], [33, 109, true], [67, 109, true]],
-  [[33, 28, false], [67, 28, false], [33, 54, false], [67, 54, false], [50, 70, false], [33, 86, true], [67, 86, true], [33, 112, true], [67, 112, true]],
-  [[33, 28, false], [67, 28, false], [50, 41, false], [33, 55, false], [67, 55, false], [33, 85, true], [67, 85, true], [50, 99, true], [33, 112, true], [67, 112, true]],
+  [[50, 70, false]],                                                                                              // A
+  [[50, 30, false], [50, 110, true]],                                                                             // 2
+  [[50, 30, false], [50, 70, false], [50, 110, true]],                                                            // 3
+  [[33, 30, false], [67, 30, false], [33, 110, true], [67, 110, true]],                                           // 4
+  [[33, 30, false], [67, 30, false], [50, 70, false], [33, 110, true], [67, 110, true]],                          // 5
+  [[33, 30, false], [67, 30, false], [33, 70, false], [67, 70, false], [33, 110, true], [67, 110, true]],        // 6
+  [[33, 28, false], [67, 28, false], [50, 49, false], [33, 70, false], [67, 70, false], [33, 110, true], [67, 110, true]], // 7
+  [[33, 28, false], [67, 28, false], [50, 46, false], [33, 64, false], [67, 64, false], [50, 94, true], [33, 110, true], [67, 110, true]], // 8
+  [[33, 26, false], [67, 26, false], [33, 48, false], [67, 48, false], [50, 70, false], [33, 92, true], [67, 92, true], [33, 114, true], [67, 114, true]], // 9
+  [[33, 24, false], [67, 24, false], [50, 36, false], [33, 50, false], [67, 50, false], [33, 90, true], [67, 90, true], [50, 104, true], [33, 116, true], [67, 116, true]], // 10
 ];
 
 function PipCard({ rank, suit }: { rank: number; suit: number }) {
@@ -82,7 +90,7 @@ function PipCard({ rank, suit }: { rank: number; suit: number }) {
   return <>
     {pips.map(([cx, cy, flip], i) => (
       <g key={i} transform={`translate(${cx},${cy})`}>
-        <Pip suit={suit} size={isAce ? 19 : 7} flip={flip} />
+        <Pip suit={suit} size={isAce ? 22 : 7.5} flip={flip} />
       </g>
     ))}
   </>;
@@ -96,120 +104,207 @@ import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 
 const JOKER_ART = [joker0Asset.url, joker1Asset.url, joker2Asset.url, joker3Asset.url];
 
-/** Moitié supérieure d'une figure de carte classique (dessin vectoriel). */
+/** Corner index — rank + suit symbol, like a real playing card corner. */
+function CornerIndex({ rank, suit, x, y, flip, color, fontScale = 1 }: {
+  rank: number; suit: number; x: number; y: number; flip?: boolean;
+  color: string; fontScale?: number;
+}) {
+  const rot = flip ? `rotate(180 ${x} ${y})` : undefined;
+  const fs = 12 * fontScale;
+  const ss = 9 * fontScale;
+  return (
+    <g transform={rot}>
+      <text x={x} y={y} fontSize={fs} fontWeight="700" fill={color}
+        fontFamily="'Georgia', 'Times New Roman', serif" textAnchor="start"
+        style={{ letterSpacing: "-0.5px" }}>
+        {RANKS[rank]}
+      </text>
+      <g transform={`translate(${x + 1.5}, ${y + 2})`}>
+        <Pip suit={suit} size={ss * 0.55} />
+      </g>
+    </g>
+  );
+}
+
+/** Ornate court card figure — half (top or bottom mirror). */
 function CourtHalf({ rank, suit }: { rank: number; suit: number }) {
   const isRed = suit === 1 || suit === 2;
-  const ink = "#1f2937";
-  const main = isRed ? "#c81e2a" : "#1e3a8a";
-  const gold = "#d9a441";
-  const skin = "#f7dcc4";
-  const hair = rank === 11 ? "#8b5a2b" : "#6b4423";
+  const ink = "#1a1a2e";
+  const main = isRed ? "#c41e3a" : "#1e3a5f";
+  const gold = "#c9a227";
+  const skin = "#f5d5b8";
+  const skinShadow = "#e8c4a0";
+  const hair = rank === 11 ? "#8b5a2b" : rank === 12 ? "#6b4423" : "#7c5832";
 
   return (
     <g>
-      {/* fond du panneau */}
-      <rect x="9" y="21" width="82" height="49" fill="#fffdf7" />
-      {/* épaules / robe */}
+      {/* ornate panel background */}
+      <rect x="8" y="19" width="84" height="52" fill="#fffcf5" />
+      <rect x="8" y="19" width="84" height="52" fill="none" stroke={gold} strokeWidth="0.6" opacity="0.4" />
+      {/* decorative corner flourishes */}
+      <path d="M10 21 L16 21 M10 21 L10 27" stroke={gold} strokeWidth="0.5" opacity="0.5" />
+      <path d="M90 21 L84 21 M90 21 L90 27" stroke={gold} strokeWidth="0.5" opacity="0.5" />
+      {/* robe / garment */}
       <path d="M22 70 C24 55, 34 49, 50 49 C66 49, 76 55, 78 70 Z" fill={main} />
-      <path d="M50 49 L41 70 L50 63 L59 70 Z" fill="#fffdf7" stroke={ink} strokeWidth="0.5" />
-      {/* col */}
-      <path d="M38 51 C42 58, 58 58, 62 51" fill="none" stroke={gold} strokeWidth="1.4" />
-      {/* visage */}
-      <ellipse cx="50" cy="41" rx="10" ry="11" fill={skin} stroke={ink} strokeWidth="0.6" />
-      {/* cheveux / barbe selon la figure */}
+      <path d="M50 49 L41 70 L50 62 L59 70 Z" fill="#fffcf5" stroke={ink} strokeWidth="0.4" />
+      {/* collar / trim with gold accent */}
+      <path d="M37 51 C42 58, 58 58, 63 51" fill="none" stroke={gold} strokeWidth="1.2" />
+      <path d="M37 51 C42 58, 58 58, 63 51" fill="none" stroke={ink} strokeWidth="0.3" opacity="0.3" />
+      {/* face */}
+      <ellipse cx="50" cy="40" rx="10" ry="11.5" fill={skin} stroke={ink} strokeWidth="0.5" />
+      <ellipse cx="50" cy="42" rx="8" ry="7" fill={skinShadow} opacity="0.3" />
+      {/* hair / beard by rank */}
       {rank === 12 && (
-        <path d="M40 41 C40 55, 60 55, 60 41 C60 50, 55 53, 50 53 C45 53, 40 50, 40 41 Z" fill={hair} />
+        <path d="M40 41 C40 56, 60 56, 60 41 C60 50, 55 54, 50 54 C45 54, 40 50, 40 41 Z" fill={hair} opacity="0.9" />
       )}
       {rank === 11 && (
         <>
-          <path d="M39 40 C36 50, 41 54, 43 54 L43 42 Z" fill={hair} />
-          <path d="M61 40 C64 50, 59 54, 57 54 L57 42 Z" fill={hair} />
+          <path d="M39 39 C35 50, 41 55, 44 55 L44 41 Z" fill={hair} />
+          <path d="M61 39 C65 50, 59 55, 56 55 L56 41 Z" fill={hair} />
+          <path d="M44 48 C46 53, 54 53, 56 48" fill="none" stroke={ink} strokeWidth="0.4" opacity="0.3" />
         </>
       )}
-      {rank === 10 && <path d="M40 38 C42 33, 58 33, 60 38 L60 43 C56 39, 44 39, 40 43 Z" fill={hair} />}
-      {/* yeux + bouche */}
-      <circle cx="46" cy="40" r="1.1" fill={ink} />
-      <circle cx="54" cy="40" r="1.1" fill={ink} />
-      <path d="M46.5 45.5 C48.5 47, 51.5 47, 53.5 45.5" fill="none" stroke={ink} strokeWidth="0.7" strokeLinecap="round" />
-      {/* coiffe */}
+      {rank === 10 && (
+        <path d="M40 37 C42 31, 58 31, 60 37 L60 44 C56 39, 44 39, 40 44 Z" fill={hair} />
+      )}
+      {/* eyes — subtle */}
+      <ellipse cx="46" cy="39" rx="1.3" ry="1.5" fill={ink} />
+      <ellipse cx="54" cy="39" rx="1.3" ry="1.5" fill={ink} />
+      <circle cx="46.3" cy="38.5" r="0.4" fill="#fff" opacity="0.6" />
+      <circle cx="54.3" cy="38.5" r="0.4" fill="#fff" opacity="0.6" />
+      {/* mouth */}
+      <path d="M46.5 46 C48.5 47.5, 51.5 47.5, 53.5 46" fill="none" stroke={ink} strokeWidth="0.6" strokeLinecap="round" />
+      {/* headwear by rank */}
       {rank === 12 && (
         <>
-          {/* Roi : couronne haute à croix */}
-          <path d="M38 31 L38 24 L43 28 L50 21 L57 28 L62 24 L62 31 Z" fill={gold} stroke={ink} strokeWidth="0.6" />
-          <rect x="38" y="31" width="24" height="3.2" fill={main} stroke={ink} strokeWidth="0.5" />
-          <path d="M50 21 L50 17 M48 19 L52 19" stroke={gold} strokeWidth="1.2" strokeLinecap="round" />
+          {/* King: elaborate crown with cross */}
+          <path d="M36 31 L36 23 L42 28 L50 19 L58 28 L64 23 L64 31 Z" fill={gold} stroke={ink} strokeWidth="0.5" />
+          <rect x="36" y="30" width="28" height="3" fill={main} stroke={ink} strokeWidth="0.3" />
+          <circle cx="42" cy="28" r="1.2" fill={isRed ? "#dc2626" : "#1e3a8a"} />
+          <circle cx="58" cy="28" r="1.2" fill={isRed ? "#dc2626" : "#1e3a8a"} />
+          <path d="M50 19 L50 15 M48 17 L52 17" stroke={gold} strokeWidth="1.2" strokeLinecap="round" />
         </>
       )}
       {rank === 11 && (
         <>
-          {/* Dame : diadème */}
-          <path d="M39 32 C42 25, 58 25, 61 32 Z" fill={gold} stroke={ink} strokeWidth="0.6" />
-          <circle cx="50" cy="26.5" r="1.6" fill={main} stroke={ink} strokeWidth="0.4" />
-          <path d="M37 33 C42 29, 58 29, 63 33" fill="none" stroke={main} strokeWidth="1.2" />
+          {/* Queen: tiara with gem */}
+          <path d="M37 33 C40 24, 60 24, 63 33 Z" fill={gold} stroke={ink} strokeWidth="0.4" />
+          <circle cx="50" cy="26" r="2" fill={isRed ? "#dc2626" : "#1e3a8a"} stroke={ink} strokeWidth="0.3" />
+          <path d="M35 34 C42 29, 58 29, 65 34" fill="none" stroke={main} strokeWidth="1" />
         </>
       )}
       {rank === 10 && (
         <>
-          {/* Valet : chapeau à plume */}
-          <path d="M37 33 C40 25, 60 25, 63 33 Z" fill={main} stroke={ink} strokeWidth="0.6" />
-          <path d="M62 30 C68 24, 72 26, 70 31 C68 35, 64 34, 62 32 Z" fill={gold} stroke={ink} strokeWidth="0.5" />
-          <rect x="36" y="32.6" width="28" height="2.8" rx="1" fill={gold} stroke={ink} strokeWidth="0.4" />
+          {/* Jack: plumed hat */}
+          <path d="M35 33 C38 24, 62 24, 65 33 Z" fill={main} stroke={ink} strokeWidth="0.4" />
+          <path d="M64 29 C71 22, 76 25, 73 31 C71 36, 66 35, 64 33 Z" fill={gold} stroke={ink} strokeWidth="0.3" />
+          <rect x="34" y="32.5" width="32" height="3" rx="1" fill={gold} stroke={ink} strokeWidth="0.3" />
         </>
       )}
-      {/* petite enseigne de couleur sur la robe */}
-      <text x="31" y="67" textAnchor="middle" fontSize="8" fill={isRed ? "#c81e2a" : "#111827"}>{SUITS[suit]}</text>
+      {/* suit symbol on garment */}
+      <text x="50" y="67" textAnchor="middle" fontSize="8.5" fontWeight="600" fill={isRed ? "#c41e3a" : "#1a1a2e"}>{SUITS[suit]}</text>
     </g>
   );
 }
 
 function FacePortrait({ rank, suit }: { rank: number; suit: number }) {
   const isRed = suit === 1 || suit === 2;
-  const frame = isRed ? "#b91c1c" : "#1e3a5f";
-  const uid = `${suit}-${rank}`;
+  const frame = isRed ? "#c41e3a" : "#1e3a5f";
+  const gold = "#c9a227";
+  const uid = `f-${suit}-${rank}`;
 
   return <>
-    {/* classic double-headed court card panel */}
-    <rect x="7" y="19" width="86" height="102" rx="3" fill="#fffdf7" />
-    <rect x="7" y="19" width="86" height="102" rx="3" fill="none" stroke={frame} strokeWidth="1" opacity="0.7" />
-    <clipPath id={`tc-${uid}`}><rect x="8" y="20" width="84" height="50" /></clipPath>
+    {/* decorative frame */}
+    <rect x="7" y="18" width="86" height="104" rx="3" fill="#fffcf5" />
+    <rect x="7" y="18" width="86" height="104" rx="3" fill="none" stroke={frame} strokeWidth="1.2" opacity="0.65" />
+    <rect x="9" y="20" width="82" height="100" rx="2" fill="none" stroke={gold} strokeWidth="0.4" opacity="0.4" />
+    {/* top half */}
+    <clipPath id={`tc-${uid}`}><rect x="9" y="19" width="82" height="52" /></clipPath>
     <g clipPath={`url(#tc-${uid})`}>
       <CourtHalf rank={rank} suit={suit} />
     </g>
-    <clipPath id={`bc-${uid}`}><rect x="8" y="70" width="84" height="50" /></clipPath>
+    {/* bottom half (mirrored) */}
+    <clipPath id={`bc-${uid}`}><rect x="9" y="69" width="82" height="52" /></clipPath>
     <g clipPath={`url(#bc-${uid})`} transform="rotate(180 50 70)">
       <CourtHalf rank={rank} suit={suit} />
     </g>
-    {/* central divider band with rank + suit */}
-    <line x1="7" y1="70" x2="93" y2="70" stroke={frame} strokeWidth="0.8" opacity="0.75" />
-    <g>
-      <rect x="38" y="65.4" width="24" height="9.2" rx="1.6" fill="#ffffff" stroke={frame} strokeWidth="0.6" />
-      <text x="45" y="72.4" textAnchor="middle" fontSize="6.6" fontWeight="900" fill={frame} fontFamily="Georgia, serif">
-        {RANKS[rank]}
-      </text>
-      <text x="55" y="72.6" textAnchor="middle" fontSize="6.6" fontWeight="900" fill={isRed ? "#dc2626" : "#111827"}>
-        {SUITS[suit]}
-      </text>
-    </g>
+    {/* central divider band */}
+    <rect x="7" y="66" width="86" height="8" fill="#fffcf5" />
+    <line x1="9" y1="70" x2="91" y2="70" stroke={frame} strokeWidth="0.8" opacity="0.55" />
+    <line x1="9" y1="68" x2="91" y2="68" stroke={gold} strokeWidth="0.3" opacity="0.3" />
+    <line x1="9" y1="72" x2="91" y2="72" stroke={gold} strokeWidth="0.3" opacity="0.3" />
+    {/* central rank/suit badge */}
+    <rect x="37" y="65" width="26" height="10" rx="2" fill="#fffcf5" stroke={frame} strokeWidth="0.5" />
+    <text x="44" y="72.2" textAnchor="middle" fontSize="7" fontWeight="700" fill={frame}
+      fontFamily="'Georgia', serif">{RANKS[rank]}</text>
+    <text x="55" y="72.4" textAnchor="middle" fontSize="7" fontWeight="700"
+      fill={isRed ? "#c41e3a" : "#1a1a2e"}>{SUITS[suit]}</text>
   </>;
 }
 
-
-
+/** Decorative SVG card back — diamond lattice with center medallion. */
+function CardBackSVG() {
+  return (
+    <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <defs>
+        <linearGradient id="cb-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#7c1e3f" />
+          <stop offset="50%" stopColor="#5a152f" />
+          <stop offset="100%" stopColor="#3d0f20" />
+        </linearGradient>
+        <pattern id="cb-lattice" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
+          <rect width="14" height="14" fill="url(#cb-grad)" />
+          <path d="M0 7 L7 0 L14 7 L7 14 Z" fill="none" stroke="#c9a227" strokeWidth="0.3" opacity="0.35" />
+          <circle cx="7" cy="7" r="1.2" fill="#c9a227" opacity="0.3" />
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="100" height="140" rx="6" fill="url(#cb-lattice)" />
+      {/* outer border */}
+      <rect x="3" y="3" width="94" height="134" rx="4" fill="none" stroke="#c9a227" strokeWidth="0.8" opacity="0.5" />
+      <rect x="5" y="5" width="90" height="130" rx="3" fill="none" stroke="#c9a227" strokeWidth="0.4" opacity="0.3" />
+      {/* center medallion */}
+      <ellipse cx="50" cy="70" rx="22" ry="30" fill="none" stroke="#c9a227" strokeWidth="0.6" opacity="0.45" />
+      <ellipse cx="50" cy="70" rx="18" ry="26" fill="none" stroke="#c9a227" strokeWidth="0.3" opacity="0.3" />
+      <g transform="translate(50,70)">
+        <path d="M0,-12 L3,-4 L11,-4 L5,1 L7,9 L0,5 L-7,9 L-5,1 L-11,-4 L-3,-4 Z"
+          fill="#c9a227" opacity="0.4" />
+        <circle r="2.5" fill="#c9a227" opacity="0.5" />
+      </g>
+      {/* corner flourishes */}
+      {[8, 92].map(cx => [8, 132].map(cy =>
+        <g key={`${cx}-${cy}`} transform={`translate(${cx},${cy})`}>
+          <path d="M0,0 L4,0 M0,0 L0,4" stroke="#c9a227" strokeWidth="0.4" opacity="0.4" />
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 function JokerFace({ idx }: { idx: number }) {
-  const schemes = ["#dc2626", "#7c3aed", "#059669", "#b45309"];
+  const schemes = ["#c41e3a", "#7c3aed", "#059669", "#b45309"];
   const color = schemes[idx % 4];
   const href = JOKER_ART[idx % 4];
   return <>
     <rect x="3" y="3" width="94" height="134" rx="4" fill="#fefce8" />
-    <rect x="3" y="3" width="94" height="134" rx="4" fill="none" stroke={color} strokeWidth="1.2" opacity="0.55" />
-    <text x="50" y="14" textAnchor="middle" fontSize="7" fontWeight="bold" fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
+    <rect x="3" y="3" width="94" height="134" rx="4" fill="none" stroke={color} strokeWidth="1" opacity="0.5" />
+    <rect x="6" y="6" width="88" height="128" rx="3" fill="none" stroke={color} strokeWidth="0.3" opacity="0.3" />
+    {/* decorative corner stars */}
+    {[[12,12],[88,12],[12,128],[88,128]].map(([x,y],i) => (
+      <g key={i} transform={`translate(${x},${y})`}>
+        <path d="M0,-3 L0.8,-1 L3,-1 L1.5,0.5 L2,2.5 L0,1.5 L-2,2.5 L-1.5,0.5 L-3,-1 L-0.8,-1 Z"
+          fill={color} opacity="0.5" />
+      </g>
+    ))}
+    <text x="50" y="14" textAnchor="middle" fontSize="7" fontWeight="bold"
+      fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
     <g transform="rotate(180 50 70)">
-      <text x="50" y="14" textAnchor="middle" fontSize="7" fontWeight="bold" fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
+      <text x="50" y="14" textAnchor="middle" fontSize="7" fontWeight="bold"
+        fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
     </g>
-    <image href={href} x="12" y="18" width="76" height="104" preserveAspectRatio="xMidYMid meet" />
+    <image href={href} x="14" y="20" width="72" height="100" preserveAspectRatio="xMidYMid meet" />
   </>;
 }
+
 
 function Card({
   c, selected, onClick, size = "md", faceDown, onRemove, highlight, dealDelay, styleOverride,
@@ -235,16 +330,15 @@ function Card({
   if (faceDown || c === undefined) {
     return (
       <div
-        className={`${sizeClass} rounded-md shrink-0 shadow overflow-hidden bg-white`}
+        className={`${sizeClass} rounded-md shrink-0 shadow overflow-hidden`}
         style={{
           ...dealStyle,
           ...styleOverride,
-          backgroundImage: `url(${CARD_BACK_URL})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          border: "1px solid rgba(255,255,255,0.85)",
+          border: "1px solid rgba(100,80,40,0.25)",
         }}
-      />
+      >
+        <CardBackSVG />
+      </div>
     );
   }
 
@@ -273,33 +367,36 @@ function Card({
           ${onClick ? "hover:-translate-y-1.5 cursor-pointer active:scale-95 hover:drop-shadow-[0_8px_14px_rgba(0,0,0,0.4)] hover:brightness-105" : "cursor-default"}`}
       >
 
-        <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow">
+        <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
           <defs>
             <linearGradient id={`gloss-${base}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(255,255,255,0)" stopOpacity="0.15" />
-              <stop offset="50%" stopColor="rgba(255,255,255,0)" stopOpacity="0" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0)" stopOpacity="0.08" />
+              <stop offset="0%" stopColor="rgba(255,255,255,0.25)" stopOpacity="0.25" />
+              <stop offset="45%" stopColor="rgba(255,255,255,0)" stopOpacity="0" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.08)" stopOpacity="0.08" />
             </linearGradient>
+            <filter id={`sh-${base}`}>
+              <feDropShadow dx="0" dy="1" stdDeviation="0.5" floodColor="#000" floodOpacity="0.12" />
+            </filter>
           </defs>
-          <rect x="0.5" y="0.5" width="99" height="139" rx="6" fill="white" stroke="#d1d5db" strokeWidth="1" />
+          {/* Card base — white with subtle warm tint like real card stock */}
+          <rect x="0.5" y="0.5" width="99" height="139" rx="7" fill="#fefefe" stroke="#c8c8c8" strokeWidth="0.8" filter={`url(#sh-${base})`} />
+          <rect x="2" y="2" width="96" height="136" rx="5" fill="none" stroke="#e8e8e8" strokeWidth="0.4" opacity="0.5" />
           {isJoker ? (
             <JokerFace idx={base - 52} />
           ) : (
             <>
-              <text x="5.5" y="14" fontSize={fontSize} fontWeight="900" fill={color} fontFamily="Georgia, serif">{rankLabel}</text>
-              <g transform="translate(5.5,14.5)">
-                <g transform="translate(3.5,5)"><Pip suit={suit} size={5} /></g>
+              {/* Top-left corner index */}
+              <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.82 : 1} />
+              {/* Bottom-right corner index (rotated) */}
+              <g transform="rotate(180 50 70)">
+                <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.82 : 1} />
               </g>
-              <g transform="rotate(180,50,70)">
-                <text x="5.5" y="14" fontSize={fontSize} fontWeight="900" fill={color} fontFamily="Georgia, serif">{rankLabel}</text>
-                <g transform="translate(5.5,14.5)">
-                  <g transform="translate(3.5,5)"><Pip suit={suit} size={5} /></g>
-                </g>
-              </g>
+              {/* Center: face portrait or pip layout */}
               {isFace ? <FacePortrait rank={rank} suit={suit} /> : <PipCard rank={rank} suit={suit} />}
             </>
           )}
-          <rect x="0.5" y="0.5" width="99" height="139" rx="6" fill={`url(#gloss-${base})`} pointerEvents="none" />
+          {/* Gloss overlay for depth */}
+          <rect x="0.5" y="0.5" width="99" height="139" rx="7" fill={`url(#gloss-${base})`} pointerEvents="none" />
         </svg>
         {selected && <div className="absolute inset-0 rounded-md ring-2 ring-emerald-400 pointer-events-none" />}
         {onClick && !selected && (
@@ -1874,15 +1971,15 @@ function RamiPage() {
                 key={k}
                 className="rounded-[2px] overflow-hidden shrink-0 shadow-sm"
                 style={{
-                  width: vertical ? 20 : 9,
-                  height: vertical ? 9 : 20,
-                  marginLeft: !vertical && k > 0 ? -1 : 0,
-                  marginTop: vertical && k > 0 ? -1 : 0,
-                  backgroundImage: `url(${CARD_BACK_URL})`,
-                  backgroundSize: "cover",
-                  border: "1px solid rgba(0,0,0,0.35)",
+                  width: vertical ? 20 : 10,
+                  height: vertical ? 10 : 20,
+                  marginLeft: !vertical && k > 0 ? -2 : 0,
+                  marginTop: vertical && k > 0 ? -2 : 0,
+                  border: "0.5px solid rgba(100,80,40,0.3)",
                 }}
-              />
+              >
+                <CardBackSVG />
+              </div>
             ))}
           </div>
         );
