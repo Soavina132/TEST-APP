@@ -242,7 +242,8 @@ function ListRow({ icon: Icon, label, action, color, danger }: {
 ─────────────────────────────────────────────────────────────────────────────── */
 
 const TIER_INFO: Record<string, { label: string; price: number; matches: number; color: string; icon: string }> = {
-  basic:    { label: "Basic",    price: 1000, matches: 10,  color: "#3b82f6", icon: "⭐" },
+  starter:  { label: "Starter",  price: 500,  matches: 50,  color: "#10b981", icon: "🌱" },
+  basic:    { label: "Basic",    price: 1000, matches: 100, color: "#3b82f6", icon: "⭐" },
   standard: { label: "Standard", price: 2000, matches: 200, color: "#8b5cf6", icon: "🚀" },
   premium:  { label: "Premium",  price: 5000, matches: 500, color: "#f59e0b", icon: "👑" },
 };
