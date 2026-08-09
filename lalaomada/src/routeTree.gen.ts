@@ -11,27 +11,23 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as CguRouteImport } from './routes/cgu'
-import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as JeuxPublicsRouteImport } from './routes/jeux-publics'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdminBugReportsRouteImport } from './routes/_authenticated/admin-bug-reports'
+import { Route as AuthenticatedAdminExtraRouteImport } from './routes/_authenticated/admin-extra'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedFaqRouteImport } from './routes/_authenticated/faq'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedJeuxRouteImport } from './routes/_authenticated/jeux'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedLobbyRouteImport } from './routes/_authenticated/lobby'
-import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
 import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedRankingsRouteImport } from './routes/_authenticated/rankings'
-import { Route as AuthenticatedSecuriteRouteImport } from './routes/_authenticated/securite'
-import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedTournamentsRouteImport } from './routes/_authenticated/tournaments'
 import { Route as AuthenticatedTutosRouteImport } from './routes/_authenticated/tutos'
+import { Route as ApiAiChatRouteImport } from './routes/api/ai-chat'
 import { Route as ApiLinkPreviewRouteImport } from './routes/api/link-preview'
 import { Route as ApiTranslateRouteImport } from './routes/api/translate'
 import { Route as AuthenticatedChessIdRouteImport } from './routes/_authenticated/chess.$id'
@@ -42,16 +38,11 @@ import { Route as AuthenticatedGameIdRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedJeuxIndexRouteImport } from './routes/_authenticated/jeux.index'
 import { Route as AuthenticatedJeuxSlugRouteImport } from './routes/_authenticated/jeux.$slug'
 import { Route as AuthenticatedJoueurIdRouteImport } from './routes/_authenticated/joueur.$id'
+import { Route as AuthenticatedPetanqueIdRouteImport } from './routes/_authenticated/petanque.$id'
 import { Route as AuthenticatedPokerIdRouteImport } from './routes/_authenticated/poker.$id'
 import { Route as AuthenticatedRamiIdRouteImport } from './routes/_authenticated/rami.$id'
 import { Route as AuthenticatedTournamentsIdRouteImport } from './routes/_authenticated/tournaments_.$id'
-import { Route as AuthenticatedJeuxChessIdRouteImport } from './routes/_authenticated/jeux.chess.$id'
-import { Route as AuthenticatedJeuxDominoIdRouteImport } from './routes/_authenticated/jeux.domino.$id'
-import { Route as AuthenticatedJeuxFanoronaIdRouteImport } from './routes/_authenticated/jeux.fanorona.$id'
-import { Route as AuthenticatedJeuxLudoIdRouteImport } from './routes/_authenticated/jeux.ludo.$id'
 import { Route as AuthenticatedJeuxNouveauSlugRouteImport } from './routes/_authenticated/jeux.nouveau.$slug'
-import { Route as AuthenticatedJeuxPokerIdRouteImport } from './routes/_authenticated/jeux.poker.$id'
-import { Route as AuthenticatedJeuxRamiIdRouteImport } from './routes/_authenticated/jeux.rami.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -62,16 +53,6 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CguRoute = CguRouteImport.update({
-  id: '/cgu',
-  path: '/cgu',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
-  id: '/confidentialite',
-  path: '/confidentialite',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const JeuxPublicsRoute = JeuxPublicsRouteImport.update({
   id: '/jeux-publics',
   path: '/jeux-publics',
@@ -80,11 +61,6 @@ const JeuxPublicsRoute = JeuxPublicsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -98,6 +74,11 @@ const AuthenticatedAdminBugReportsRoute =
     path: '/admin-bug-reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminExtraRoute = AuthenticatedAdminExtraRouteImport.update({
+  id: '/admin-extra',
+  path: '/admin-extra',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -128,11 +109,6 @@ const AuthenticatedLobbyRoute = AuthenticatedLobbyRouteImport.update({
   path: '/lobby',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedParametresRoute = AuthenticatedParametresRouteImport.update({
-  id: '/parametres',
-  path: '/parametres',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedParrainageRoute = AuthenticatedParrainageRouteImport.update({
   id: '/parrainage',
   path: '/parrainage',
@@ -148,17 +124,6 @@ const AuthenticatedRankingsRoute = AuthenticatedRankingsRouteImport.update({
   path: '/rankings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSecuriteRoute = AuthenticatedSecuriteRouteImport.update({
-  id: '/securite',
-  path: '/securite',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedStatistiquesRoute =
-  AuthenticatedStatistiquesRouteImport.update({
-    id: '/statistiques',
-    path: '/statistiques',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedTournamentsRoute =
   AuthenticatedTournamentsRouteImport.update({
     id: '/tournaments',
@@ -169,6 +134,11 @@ const AuthenticatedTutosRoute = AuthenticatedTutosRouteImport.update({
   id: '/tutos',
   path: '/tutos',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiAiChatRoute = ApiAiChatRouteImport.update({
+  id: '/api/ai-chat',
+  path: '/api/ai-chat',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLinkPreviewRoute = ApiLinkPreviewRouteImport.update({
   id: '/api/link-preview',
@@ -221,6 +191,11 @@ const AuthenticatedJoueurIdRoute = AuthenticatedJoueurIdRouteImport.update({
   path: '/joueur/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPetanqueIdRoute = AuthenticatedPetanqueIdRouteImport.update({
+  id: '/petanque/$id',
+  path: '/petanque/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedPokerIdRoute = AuthenticatedPokerIdRouteImport.update({
   id: '/poker/$id',
   path: '/poker/$id',
@@ -237,70 +212,32 @@ const AuthenticatedTournamentsIdRoute =
     path: '/tournaments/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedJeuxChessIdRoute =
-  AuthenticatedJeuxChessIdRouteImport.update({
-    id: '/chess/$id',
-    path: '/chess/$id',
-    getParentRoute: () => AuthenticatedJeuxRoute,
-  } as any)
-const AuthenticatedJeuxDominoIdRoute =
-  AuthenticatedJeuxDominoIdRouteImport.update({
-    id: '/domino/$id',
-    path: '/domino/$id',
-    getParentRoute: () => AuthenticatedJeuxRoute,
-  } as any)
-const AuthenticatedJeuxFanoronaIdRoute =
-  AuthenticatedJeuxFanoronaIdRouteImport.update({
-    id: '/fanorona/$id',
-    path: '/fanorona/$id',
-    getParentRoute: () => AuthenticatedJeuxRoute,
-  } as any)
-const AuthenticatedJeuxLudoIdRoute = AuthenticatedJeuxLudoIdRouteImport.update({
-  id: '/ludo/$id',
-  path: '/ludo/$id',
-  getParentRoute: () => AuthenticatedJeuxRoute,
-} as any)
 const AuthenticatedJeuxNouveauSlugRoute =
   AuthenticatedJeuxNouveauSlugRouteImport.update({
     id: '/nouveau/$slug',
     path: '/nouveau/$slug',
     getParentRoute: () => AuthenticatedJeuxRoute,
   } as any)
-const AuthenticatedJeuxPokerIdRoute =
-  AuthenticatedJeuxPokerIdRouteImport.update({
-    id: '/poker/$id',
-    path: '/poker/$id',
-    getParentRoute: () => AuthenticatedJeuxRoute,
-  } as any)
-const AuthenticatedJeuxRamiIdRoute = AuthenticatedJeuxRamiIdRouteImport.update({
-  id: '/rami/$id',
-  path: '/rami/$id',
-  getParentRoute: () => AuthenticatedJeuxRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/cgu': typeof CguRoute
-  '/confidentialite': typeof ConfidentialiteRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
+  '/admin-extra': typeof AuthenticatedAdminExtraRoute
   '/chat': typeof AuthenticatedChatRoute
   '/faq': typeof AuthenticatedFaqRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/jeux': typeof AuthenticatedJeuxRouteWithChildren
   '/live': typeof AuthenticatedLiveRoute
   '/lobby': typeof AuthenticatedLobbyRoute
-  '/parametres': typeof AuthenticatedParametresRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
-  '/securite': typeof AuthenticatedSecuriteRoute
-  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
+  '/api/ai-chat': typeof ApiAiChatRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
   '/api/translate': typeof ApiTranslateRoute
   '/chess/$id': typeof AuthenticatedChessIdRoute
@@ -310,40 +247,31 @@ export interface FileRoutesByFullPath {
   '/game/$id': typeof AuthenticatedGameIdRoute
   '/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/joueur/$id': typeof AuthenticatedJoueurIdRoute
+  '/petanque/$id': typeof AuthenticatedPetanqueIdRoute
   '/poker/$id': typeof AuthenticatedPokerIdRoute
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux/': typeof AuthenticatedJeuxIndexRoute
-  '/jeux/chess/$id': typeof AuthenticatedJeuxChessIdRoute
-  '/jeux/domino/$id': typeof AuthenticatedJeuxDominoIdRoute
-  '/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
-  '/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
-  '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
-  '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/cgu': typeof CguRoute
-  '/confidentialite': typeof ConfidentialiteRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
+  '/admin-extra': typeof AuthenticatedAdminExtraRoute
   '/chat': typeof AuthenticatedChatRoute
   '/faq': typeof AuthenticatedFaqRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/live': typeof AuthenticatedLiveRoute
   '/lobby': typeof AuthenticatedLobbyRoute
-  '/parametres': typeof AuthenticatedParametresRoute
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rankings': typeof AuthenticatedRankingsRoute
-  '/securite': typeof AuthenticatedSecuriteRoute
-  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/tournaments': typeof AuthenticatedTournamentsRoute
   '/tutos': typeof AuthenticatedTutosRoute
+  '/api/ai-chat': typeof ApiAiChatRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
   '/api/translate': typeof ApiTranslateRoute
   '/chess/$id': typeof AuthenticatedChessIdRoute
@@ -353,43 +281,34 @@ export interface FileRoutesByTo {
   '/game/$id': typeof AuthenticatedGameIdRoute
   '/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/joueur/$id': typeof AuthenticatedJoueurIdRoute
+  '/petanque/$id': typeof AuthenticatedPetanqueIdRoute
   '/poker/$id': typeof AuthenticatedPokerIdRoute
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux': typeof AuthenticatedJeuxIndexRoute
-  '/jeux/chess/$id': typeof AuthenticatedJeuxChessIdRoute
-  '/jeux/domino/$id': typeof AuthenticatedJeuxDominoIdRoute
-  '/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
-  '/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
-  '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
-  '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/cgu': typeof CguRoute
-  '/confidentialite': typeof ConfidentialiteRoute
   '/jeux-publics': typeof JeuxPublicsRoute
   '/login': typeof LoginRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-bug-reports': typeof AuthenticatedAdminBugReportsRoute
+  '/_authenticated/admin-extra': typeof AuthenticatedAdminExtraRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/faq': typeof AuthenticatedFaqRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/jeux': typeof AuthenticatedJeuxRouteWithChildren
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/lobby': typeof AuthenticatedLobbyRoute
-  '/_authenticated/parametres': typeof AuthenticatedParametresRoute
   '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rankings': typeof AuthenticatedRankingsRoute
-  '/_authenticated/securite': typeof AuthenticatedSecuriteRoute
-  '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/tournaments': typeof AuthenticatedTournamentsRoute
   '/_authenticated/tutos': typeof AuthenticatedTutosRoute
+  '/api/ai-chat': typeof ApiAiChatRoute
   '/api/link-preview': typeof ApiLinkPreviewRoute
   '/api/translate': typeof ApiTranslateRoute
   '/_authenticated/chess/$id': typeof AuthenticatedChessIdRoute
@@ -399,43 +318,34 @@ export interface FileRoutesById {
   '/_authenticated/game/$id': typeof AuthenticatedGameIdRoute
   '/_authenticated/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/_authenticated/joueur/$id': typeof AuthenticatedJoueurIdRoute
+  '/_authenticated/petanque/$id': typeof AuthenticatedPetanqueIdRoute
   '/_authenticated/poker/$id': typeof AuthenticatedPokerIdRoute
   '/_authenticated/rami/$id': typeof AuthenticatedRamiIdRoute
   '/_authenticated/tournaments_/$id': typeof AuthenticatedTournamentsIdRoute
   '/_authenticated/jeux/': typeof AuthenticatedJeuxIndexRoute
-  '/_authenticated/jeux/chess/$id': typeof AuthenticatedJeuxChessIdRoute
-  '/_authenticated/jeux/domino/$id': typeof AuthenticatedJeuxDominoIdRoute
-  '/_authenticated/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
-  '/_authenticated/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/_authenticated/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
-  '/_authenticated/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
-  '/_authenticated/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/cgu'
-    | '/confidentialite'
     | '/jeux-publics'
     | '/login'
-    | '/reset-password'
     | '/admin'
     | '/admin-bug-reports'
+    | '/admin-extra'
     | '/chat'
     | '/faq'
     | '/history'
     | '/jeux'
     | '/live'
     | '/lobby'
-    | '/parametres'
     | '/parrainage'
     | '/profile'
     | '/rankings'
-    | '/securite'
-    | '/statistiques'
     | '/tournaments'
     | '/tutos'
+    | '/api/ai-chat'
     | '/api/link-preview'
     | '/api/translate'
     | '/chess/$id'
@@ -445,40 +355,31 @@ export interface FileRouteTypes {
     | '/game/$id'
     | '/jeux/$slug'
     | '/joueur/$id'
+    | '/petanque/$id'
     | '/poker/$id'
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux/'
-    | '/jeux/chess/$id'
-    | '/jeux/domino/$id'
-    | '/jeux/fanorona/$id'
-    | '/jeux/ludo/$id'
     | '/jeux/nouveau/$slug'
-    | '/jeux/poker/$id'
-    | '/jeux/rami/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/cgu'
-    | '/confidentialite'
     | '/jeux-publics'
     | '/login'
-    | '/reset-password'
     | '/admin'
     | '/admin-bug-reports'
+    | '/admin-extra'
     | '/chat'
     | '/faq'
     | '/history'
     | '/live'
     | '/lobby'
-    | '/parametres'
     | '/parrainage'
     | '/profile'
     | '/rankings'
-    | '/securite'
-    | '/statistiques'
     | '/tournaments'
     | '/tutos'
+    | '/api/ai-chat'
     | '/api/link-preview'
     | '/api/translate'
     | '/chess/$id'
@@ -488,42 +389,33 @@ export interface FileRouteTypes {
     | '/game/$id'
     | '/jeux/$slug'
     | '/joueur/$id'
+    | '/petanque/$id'
     | '/poker/$id'
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux'
-    | '/jeux/chess/$id'
-    | '/jeux/domino/$id'
-    | '/jeux/fanorona/$id'
-    | '/jeux/ludo/$id'
     | '/jeux/nouveau/$slug'
-    | '/jeux/poker/$id'
-    | '/jeux/rami/$id'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
-    | '/cgu'
-    | '/confidentialite'
     | '/jeux-publics'
     | '/login'
-    | '/reset-password'
     | '/_authenticated/admin'
     | '/_authenticated/admin-bug-reports'
+    | '/_authenticated/admin-extra'
     | '/_authenticated/chat'
     | '/_authenticated/faq'
     | '/_authenticated/history'
     | '/_authenticated/jeux'
     | '/_authenticated/live'
     | '/_authenticated/lobby'
-    | '/_authenticated/parametres'
     | '/_authenticated/parrainage'
     | '/_authenticated/profile'
     | '/_authenticated/rankings'
-    | '/_authenticated/securite'
-    | '/_authenticated/statistiques'
     | '/_authenticated/tournaments'
     | '/_authenticated/tutos'
+    | '/api/ai-chat'
     | '/api/link-preview'
     | '/api/translate'
     | '/_authenticated/chess/$id'
@@ -533,27 +425,20 @@ export interface FileRouteTypes {
     | '/_authenticated/game/$id'
     | '/_authenticated/jeux/$slug'
     | '/_authenticated/joueur/$id'
+    | '/_authenticated/petanque/$id'
     | '/_authenticated/poker/$id'
     | '/_authenticated/rami/$id'
     | '/_authenticated/tournaments_/$id'
     | '/_authenticated/jeux/'
-    | '/_authenticated/jeux/chess/$id'
-    | '/_authenticated/jeux/domino/$id'
-    | '/_authenticated/jeux/fanorona/$id'
-    | '/_authenticated/jeux/ludo/$id'
     | '/_authenticated/jeux/nouveau/$slug'
-    | '/_authenticated/jeux/poker/$id'
-    | '/_authenticated/jeux/rami/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  CguRoute: typeof CguRoute
-  ConfidentialiteRoute: typeof ConfidentialiteRoute
   JeuxPublicsRoute: typeof JeuxPublicsRoute
   LoginRoute: typeof LoginRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiAiChatRoute: typeof ApiAiChatRoute
   ApiLinkPreviewRoute: typeof ApiLinkPreviewRoute
   ApiTranslateRoute: typeof ApiTranslateRoute
 }
@@ -574,20 +459,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/cgu': {
-      id: '/cgu'
-      path: '/cgu'
-      fullPath: '/cgu'
-      preLoaderRoute: typeof CguRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/confidentialite': {
-      id: '/confidentialite'
-      path: '/confidentialite'
-      fullPath: '/confidentialite'
-      preLoaderRoute: typeof ConfidentialiteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/jeux-publics': {
       id: '/jeux-publics'
       path: '/jeux-publics'
@@ -602,13 +473,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -621,6 +485,13 @@ declare module '@tanstack/react-router' {
       path: '/admin-bug-reports'
       fullPath: '/admin-bug-reports'
       preLoaderRoute: typeof AuthenticatedAdminBugReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin-extra': {
+      id: '/_authenticated/admin-extra'
+      path: '/admin-extra'
+      fullPath: '/admin-extra'
+      preLoaderRoute: typeof AuthenticatedAdminExtraRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/chat': {
@@ -665,13 +536,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLobbyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/parametres': {
-      id: '/_authenticated/parametres'
-      path: '/parametres'
-      fullPath: '/parametres'
-      preLoaderRoute: typeof AuthenticatedParametresRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/parrainage': {
       id: '/_authenticated/parrainage'
       path: '/parrainage'
@@ -693,20 +557,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRankingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/securite': {
-      id: '/_authenticated/securite'
-      path: '/securite'
-      fullPath: '/securite'
-      preLoaderRoute: typeof AuthenticatedSecuriteRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/statistiques': {
-      id: '/_authenticated/statistiques'
-      path: '/statistiques'
-      fullPath: '/statistiques'
-      preLoaderRoute: typeof AuthenticatedStatistiquesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/tournaments': {
       id: '/_authenticated/tournaments'
       path: '/tournaments'
@@ -720,6 +570,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tutos'
       preLoaderRoute: typeof AuthenticatedTutosRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/ai-chat': {
+      id: '/api/ai-chat'
+      path: '/api/ai-chat'
+      fullPath: '/api/ai-chat'
+      preLoaderRoute: typeof ApiAiChatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/link-preview': {
       id: '/api/link-preview'
@@ -791,6 +648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJoueurIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/petanque/$id': {
+      id: '/_authenticated/petanque/$id'
+      path: '/petanque/$id'
+      fullPath: '/petanque/$id'
+      preLoaderRoute: typeof AuthenticatedPetanqueIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/poker/$id': {
       id: '/_authenticated/poker/$id'
       path: '/poker/$id'
@@ -812,53 +676,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTournamentsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/jeux/chess/$id': {
-      id: '/_authenticated/jeux/chess/$id'
-      path: '/chess/$id'
-      fullPath: '/jeux/chess/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxChessIdRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
-    '/_authenticated/jeux/domino/$id': {
-      id: '/_authenticated/jeux/domino/$id'
-      path: '/domino/$id'
-      fullPath: '/jeux/domino/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxDominoIdRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
-    '/_authenticated/jeux/fanorona/$id': {
-      id: '/_authenticated/jeux/fanorona/$id'
-      path: '/fanorona/$id'
-      fullPath: '/jeux/fanorona/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxFanoronaIdRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
-    '/_authenticated/jeux/ludo/$id': {
-      id: '/_authenticated/jeux/ludo/$id'
-      path: '/ludo/$id'
-      fullPath: '/jeux/ludo/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxLudoIdRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
     '/_authenticated/jeux/nouveau/$slug': {
       id: '/_authenticated/jeux/nouveau/$slug'
       path: '/nouveau/$slug'
       fullPath: '/jeux/nouveau/$slug'
       preLoaderRoute: typeof AuthenticatedJeuxNouveauSlugRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
-    '/_authenticated/jeux/poker/$id': {
-      id: '/_authenticated/jeux/poker/$id'
-      path: '/poker/$id'
-      fullPath: '/jeux/poker/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxPokerIdRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
-    '/_authenticated/jeux/rami/$id': {
-      id: '/_authenticated/jeux/rami/$id'
-      path: '/rami/$id'
-      fullPath: '/jeux/rami/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxRamiIdRouteImport
       parentRoute: typeof AuthenticatedJeuxRoute
     }
   }
@@ -867,25 +689,13 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedJeuxRouteChildren {
   AuthenticatedJeuxSlugRoute: typeof AuthenticatedJeuxSlugRoute
   AuthenticatedJeuxIndexRoute: typeof AuthenticatedJeuxIndexRoute
-  AuthenticatedJeuxChessIdRoute: typeof AuthenticatedJeuxChessIdRoute
-  AuthenticatedJeuxDominoIdRoute: typeof AuthenticatedJeuxDominoIdRoute
-  AuthenticatedJeuxFanoronaIdRoute: typeof AuthenticatedJeuxFanoronaIdRoute
-  AuthenticatedJeuxLudoIdRoute: typeof AuthenticatedJeuxLudoIdRoute
   AuthenticatedJeuxNouveauSlugRoute: typeof AuthenticatedJeuxNouveauSlugRoute
-  AuthenticatedJeuxPokerIdRoute: typeof AuthenticatedJeuxPokerIdRoute
-  AuthenticatedJeuxRamiIdRoute: typeof AuthenticatedJeuxRamiIdRoute
 }
 
 const AuthenticatedJeuxRouteChildren: AuthenticatedJeuxRouteChildren = {
   AuthenticatedJeuxSlugRoute: AuthenticatedJeuxSlugRoute,
   AuthenticatedJeuxIndexRoute: AuthenticatedJeuxIndexRoute,
-  AuthenticatedJeuxChessIdRoute: AuthenticatedJeuxChessIdRoute,
-  AuthenticatedJeuxDominoIdRoute: AuthenticatedJeuxDominoIdRoute,
-  AuthenticatedJeuxFanoronaIdRoute: AuthenticatedJeuxFanoronaIdRoute,
-  AuthenticatedJeuxLudoIdRoute: AuthenticatedJeuxLudoIdRoute,
   AuthenticatedJeuxNouveauSlugRoute: AuthenticatedJeuxNouveauSlugRoute,
-  AuthenticatedJeuxPokerIdRoute: AuthenticatedJeuxPokerIdRoute,
-  AuthenticatedJeuxRamiIdRoute: AuthenticatedJeuxRamiIdRoute,
 }
 
 const AuthenticatedJeuxRouteWithChildren =
@@ -894,18 +704,16 @@ const AuthenticatedJeuxRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAdminBugReportsRoute: typeof AuthenticatedAdminBugReportsRoute
+  AuthenticatedAdminExtraRoute: typeof AuthenticatedAdminExtraRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedFaqRoute: typeof AuthenticatedFaqRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedJeuxRoute: typeof AuthenticatedJeuxRouteWithChildren
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLobbyRoute: typeof AuthenticatedLobbyRoute
-  AuthenticatedParametresRoute: typeof AuthenticatedParametresRoute
   AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRankingsRoute: typeof AuthenticatedRankingsRoute
-  AuthenticatedSecuriteRoute: typeof AuthenticatedSecuriteRoute
-  AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTournamentsRoute: typeof AuthenticatedTournamentsRoute
   AuthenticatedTutosRoute: typeof AuthenticatedTutosRoute
   AuthenticatedChessIdRoute: typeof AuthenticatedChessIdRoute
@@ -914,6 +722,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFanoronaIdRoute: typeof AuthenticatedFanoronaIdRoute
   AuthenticatedGameIdRoute: typeof AuthenticatedGameIdRoute
   AuthenticatedJoueurIdRoute: typeof AuthenticatedJoueurIdRoute
+  AuthenticatedPetanqueIdRoute: typeof AuthenticatedPetanqueIdRoute
   AuthenticatedPokerIdRoute: typeof AuthenticatedPokerIdRoute
   AuthenticatedRamiIdRoute: typeof AuthenticatedRamiIdRoute
   AuthenticatedTournamentsIdRoute: typeof AuthenticatedTournamentsIdRoute
@@ -922,18 +731,16 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAdminBugReportsRoute: AuthenticatedAdminBugReportsRoute,
+  AuthenticatedAdminExtraRoute: AuthenticatedAdminExtraRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedFaqRoute: AuthenticatedFaqRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedJeuxRoute: AuthenticatedJeuxRouteWithChildren,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLobbyRoute: AuthenticatedLobbyRoute,
-  AuthenticatedParametresRoute: AuthenticatedParametresRoute,
   AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRankingsRoute: AuthenticatedRankingsRoute,
-  AuthenticatedSecuriteRoute: AuthenticatedSecuriteRoute,
-  AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTournamentsRoute: AuthenticatedTournamentsRoute,
   AuthenticatedTutosRoute: AuthenticatedTutosRoute,
   AuthenticatedChessIdRoute: AuthenticatedChessIdRoute,
@@ -942,6 +749,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFanoronaIdRoute: AuthenticatedFanoronaIdRoute,
   AuthenticatedGameIdRoute: AuthenticatedGameIdRoute,
   AuthenticatedJoueurIdRoute: AuthenticatedJoueurIdRoute,
+  AuthenticatedPetanqueIdRoute: AuthenticatedPetanqueIdRoute,
   AuthenticatedPokerIdRoute: AuthenticatedPokerIdRoute,
   AuthenticatedRamiIdRoute: AuthenticatedRamiIdRoute,
   AuthenticatedTournamentsIdRoute: AuthenticatedTournamentsIdRoute,
@@ -954,11 +762,9 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  CguRoute: CguRoute,
-  ConfidentialiteRoute: ConfidentialiteRoute,
   JeuxPublicsRoute: JeuxPublicsRoute,
   LoginRoute: LoginRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
+  ApiAiChatRoute: ApiAiChatRoute,
   ApiLinkPreviewRoute: ApiLinkPreviewRoute,
   ApiTranslateRoute: ApiTranslateRoute,
 }
