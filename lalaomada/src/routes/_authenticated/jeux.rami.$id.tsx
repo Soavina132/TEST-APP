@@ -1006,16 +1006,6 @@ function RamiPage() {
     if (game?.status) prevStatusRef.current = game.status;
   }, [game?.status]);
 
-  // ── AFK warning state ──
-  const [afkWarning, setAfkWarning] = useState(false);
-  useEffect(() => {
-    if (!isMyTurn || remaining > 10) { setAfkWarning(false); return; }
-    if (remaining <= 10 && remaining > 0) {
-      if (remaining === 10 || remaining === 5) sfx.ramiWarning();
-      setAfkWarning(true);
-    }
-  }, [remaining, isMyTurn]);
-
   // ── Bot-action feedback: highlight new melds / discards + toast ──
   const [flashMelds, setFlashMelds] = useState<number[]>([]);
   const [flashDiscards, setFlashDiscards] = useState<string[]>([]);
@@ -1098,15 +1088,15 @@ function RamiPage() {
   // Spectator mode: if not a player and game is playing, allow spectating
   useEffect(() => {
     if (!isPlayer && game?.status === "playing" && !isSpectating && profile?.id) {
-      supabase.rpc("rami_spectate" as any, { _game_id: id } as any).then(({ data }: any) => {
+      void supabase.rpc("rami_spectate" as any, { _game_id: id } as any).then(({ data }: any) => {
         if (data) {
           setIsSpectating(true);
           setSpectateData(data);
-          supabase.rpc("rami_spectate" as any, { _game_id: id } as any).then(({ data: d2 }: any) => {
+          void supabase.rpc("rami_spectate" as any, { _game_id: id } as any).then(({ data: d2 }: any) => {
             if (d2) setSpectateData(d2);
-          });
+          }, () => {});
         }
-      }).catch(() => {});
+      }, () => {});
     }
   }, [isPlayer, game?.status, id, profile?.id, isSpectating]);
 
@@ -1124,7 +1114,7 @@ function RamiPage() {
   useEffect(() => {
     return () => {
       if (isSpectating) {
-        supabase.rpc("rami_spectate_leave" as any, { _game_id: id } as any).catch(() => {});
+        void supabase.rpc("rami_spectate_leave" as any, { _game_id: id } as any).then(() => {}, () => {});
       }
     };
   }, []);
@@ -1253,6 +1243,16 @@ function RamiPage() {
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
 
   const isUrgent = remaining <= 10 && isMyTurn;
+
+  // ── AFK warning state ──
+  const [afkWarning, setAfkWarning] = useState(false);
+  useEffect(() => {
+    if (!isMyTurn || remaining > 10) { setAfkWarning(false); return; }
+    if (remaining <= 10 && remaining > 0) {
+      if (remaining === 10 || remaining === 5) sfx.ramiWarning();
+      setAfkWarning(true);
+    }
+  }, [remaining, isMyTurn]);
 
   const toggleSel = (c: number) => {
     setSelected(s => s.includes(c) ? s.filter(x => x !== c) : [...s, c]);
