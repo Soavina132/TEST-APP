@@ -333,7 +333,12 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
     if (from === null || board[from] !== myColor) return new Map();
     const targets = legalTargets(board, from, myColor, chainFrom, visited, lastAxis);
     const map = new Map<number, { approach: number[]; withdrawal: number[] }>();
-    for (const t of targets) map.set(t.to, { approach: t.approach, withdrawal: t.withdrawal });
+    for (const t of targets) {
+      // During a chain, continuation is mandatory-capture only (server enforces
+      // "must capture during chain") — don't offer non-capturing continuations.
+      if (chainFrom !== null && t.approach.length === 0 && t.withdrawal.length === 0) continue;
+      map.set(t.to, { approach: t.approach, withdrawal: t.withdrawal });
+    }
     return map;
   }, [isMyTurn, selected, chainFrom, board, myColor, visited, lastAxis, legalTargets]);
 
@@ -367,6 +372,12 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const onCellClick = useCallback((cell: number) => {
     if (!isMyTurn || busy) return;
     unlockAudio();
+    if (captureChoice) {
+      // A capture choice is pending — resolve it via the on-board arrows only.
+      // Any board tap here just cancels back to piece selection.
+      setCaptureChoice(null);
+      return;
+    }
     const effectiveSelected = chainFrom !== null ? chainFrom : selected;
     if (effectiveSelected === null) {
       if (board[cell] === myColor) setSelected(cell);
@@ -386,7 +397,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
     }
     const captured = approach.length > 0 ? approach : withdrawal;
     sendMove({ from: effectiveSelected, to: cell, captured, chain: false });
-  }, [isMyTurn, busy, chainFrom, selected, board, myColor, validTargets, sendMove]);
+  }, [isMyTurn, busy, captureChoice, chainFrom, selected, board, myColor, validTargets, sendMove]);
 
   const confirm = useConfirm();
   const forfeit = useCallback(async () => {
@@ -498,13 +509,39 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const cx = (c: number) => c * CELL_PX;
   const cy = (r: number) => r * CELL_PX;
 
+  // Geometry for the on-board capture-choice arrows (replaces the old modal).
+  let captureGeom: null | {
+    approachPos: { x: number; y: number }; withdrawalPos: { x: number; y: number };
+    angleApproach: number; angleWithdrawal: number;
+  } = null;
+  if (captureChoice) {
+    const fr = Math.floor(captureChoice.from / COLS), fc = captureChoice.from % COLS;
+    const tr = Math.floor(captureChoice.to / COLS), tc = captureChoice.to % COLS;
+    const ddr = tr - fr, ddc = tc - fc;
+    const angleApproach = Math.atan2(ddr, ddc) * 180 / Math.PI;
+    const angleWithdrawal = angleApproach + 180;
+    const midOf = (cells: number[]) => {
+      const pts = cells.map((i) => ({ x: cx(i % COLS), y: cy(Math.floor(i / COLS)) }));
+      return { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length };
+    };
+    const perpLen = Math.hypot(ddc, ddr) || 1;
+    const ux = (-ddc / perpLen) * 20, uy = (ddr / perpLen) * 20;
+    const approachMid = midOf(captureChoice.approach);
+    const withdrawalMid = midOf(captureChoice.withdrawal);
+    captureGeom = {
+      approachPos: { x: approachMid.x + ux, y: approachMid.y + uy },
+      withdrawalPos: { x: withdrawalMid.x + ux, y: withdrawalMid.y + uy },
+      angleApproach, angleWithdrawal,
+    };
+  }
+
   return (
     <div className="h-full overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950 overscroll-none">
       <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
 
       {/* ── Header compact (aligné sur le style Échecs) ── */}
-      <div className="px-2 pt-1">
+      <div className="px-1.5 pt-0.5">
       <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
         <div className="flex items-baseline gap-1 min-w-0">
           <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
@@ -540,7 +577,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       </div>
 
       {/* ── Carte adversaire ── */}
-      <div className="px-3 mt-1">
+      <div className="px-1.5 mt-0.5">
       {(() => {
         const opponent = parts.find((p: any) => p.user_id !== me?.user_id) ?? (me ? undefined : parts[0]);
         if (!opponent) return <FanoronaWaitingBar />;
@@ -559,7 +596,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       )}
 
       {/* ── Board (plein écran) ── */}
-      <div className="flex-1 flex items-center justify-center px-1 py-1 min-h-0 w-full">
+      <div className="flex-1 flex items-center justify-center px-0.5 py-0.5 min-h-0 w-full">
       <div
         className="h-full max-w-full rounded-md overflow-hidden"
         style={{
@@ -567,7 +604,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         }}
       >
         <div className="overflow-hidden w-full h-full" style={{ position: "relative" }}>
-          <svg viewBox={`-14 -14 ${SIZE_W + 28} ${SIZE_H + 28}`} className="" style={rotated90 ? {
+          <svg viewBox={`-18 -18 ${SIZE_W + 36} ${SIZE_H + 36}`} className="" style={rotated90 ? {
             position: "absolute", width: `${(COLS / ROWS) * 100}%`, height: `${(ROWS / COLS) * 100}%`,
             top: "50%", left: "50%", transform: `translate(-50%, -50%) rotate(${flipped ? 270 : 90}deg)`, transformOrigin: "center",
           } : { width: "100%", height: "100%", transform: flipped ? "rotate(180deg)" : undefined }}>
@@ -588,7 +625,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
                 <feGaussianBlur stdDeviation="3" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
             </defs>
-            <rect x={-12} y={-12} width={SIZE_W + 24} height={SIZE_H + 24} rx={8} fill="url(#wood-inner)" />
+            <rect x={-16} y={-16} width={SIZE_W + 32} height={SIZE_H + 32} rx={8} fill="url(#wood-inner)" />
             {Array.from({ length: ROWS }).map((_, r) => Array.from({ length: COLS }).map((_, c) => {
               const here = idx(r, c);
               return neighbors(r, c).map(([dr, dc]) => {
@@ -612,7 +649,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
                 <circle cx={cx(lastMove.to % COLS)} cy={cy(Math.floor(lastMove.to / COLS))} r={16} fill="rgba(255,235,59,0.35)" />
               </>
             )}
-            {isMyTurn && validTargets.size > 0 && Array.from(validTargets.entries()).map(([to, info]) => {
+            {isMyTurn && !captureChoice && validTargets.size > 0 && Array.from(validTargets.entries()).map(([to, info]) => {
               const r = Math.floor(to / COLS), c = to % COLS;
               const hasCapture = info.approach.length > 0 || info.withdrawal.length > 0;
               return (
@@ -652,19 +689,55 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
                 </g>
               );
             })}
+            {captureChoice && (
+              <g>
+                {/* Pending destination */}
+                <circle cx={cx(captureChoice.to % COLS)} cy={cy(Math.floor(captureChoice.to / COLS))} r={13} fill="none" stroke="#fbbf24" strokeWidth={2} opacity={0.85} strokeDasharray="3 2" />
+                {/* Approach group highlight (orange) */}
+                {captureChoice.approach.map((i) => (
+                  <circle key={`appr-${i}`} cx={cx(i % COLS)} cy={cy(Math.floor(i / COLS))} r={15} fill="rgba(249,115,22,0.18)" stroke="#f97316" strokeWidth={3} opacity={0.95}>
+                    <animate attributeName="r" values="13;17;13" dur="0.9s" repeatCount="indefinite" />
+                  </circle>
+                ))}
+                {/* Withdrawal group highlight (blue) */}
+                {captureChoice.withdrawal.map((i) => (
+                  <circle key={`wd-${i}`} cx={cx(i % COLS)} cy={cy(Math.floor(i / COLS))} r={15} fill="rgba(56,189,248,0.18)" stroke="#38bdf8" strokeWidth={3} opacity={0.95}>
+                    <animate attributeName="r" values="13;17;13" dur="0.9s" repeatCount="indefinite" />
+                  </circle>
+                ))}
+                {/* Small clickable arrows to confirm which capture to take */}
+                {captureGeom && (
+                  <g onClick={() => sendMove({ from: captureChoice.from, to: captureChoice.to, captured: captureChoice.approach, chain: false })} style={{ cursor: "pointer" }}>
+                    <circle cx={captureGeom.approachPos.x} cy={captureGeom.approachPos.y} r={13} fill="#f97316" stroke="#fff" strokeWidth={1.5} />
+                    <path d="M -4,-4.5 L 5.5,0 L -4,4.5 Z" fill="#fff" transform={`translate(${captureGeom.approachPos.x},${captureGeom.approachPos.y}) rotate(${captureGeom.angleApproach})`} />
+                  </g>
+                )}
+                {captureGeom && (
+                  <g onClick={() => sendMove({ from: captureChoice.from, to: captureChoice.to, captured: captureChoice.withdrawal, chain: false })} style={{ cursor: "pointer" }}>
+                    <circle cx={captureGeom.withdrawalPos.x} cy={captureGeom.withdrawalPos.y} r={13} fill="#38bdf8" stroke="#fff" strokeWidth={1.5} />
+                    <path d="M -4,-4.5 L 5.5,0 L -4,4.5 Z" fill="#fff" transform={`translate(${captureGeom.withdrawalPos.x},${captureGeom.withdrawalPos.y}) rotate(${captureGeom.angleWithdrawal})`} />
+                  </g>
+                )}
+              </g>
+            )}
           </svg>
           {/* Astuce contextuelle : seulement quand elle apporte une info utile
               (le tour actif est déjà visible via les cartes joueurs) */}
-          {isMyTurn && chainFrom !== null && (
-            <div className="text-xs text-center mt-3 font-semibold text-amber-400">
-              ⛓ Chaîne en cours — continue ou termine
+          {isMyTurn && captureChoice && (
+            <div className="text-xs text-center mt-3 font-semibold">
+              <span style={{ color: "#f97316" }}>● Approche</span> ou <span style={{ color: "#38bdf8" }}>● Éloignement</span> — touche la flèche de ton choix
             </div>
           )}
-          {isMyTurn && (chainFrom !== null || !(canCapture && mandatoryCapture)) && (
+          {isMyTurn && !captureChoice && chainFrom !== null && (
+            <div className="text-xs text-center mt-3 font-semibold text-amber-400">
+              ⛓ Enchaînement obligatoire — joue la suite de la capture
+            </div>
+          )}
+          {isMyTurn && chainFrom === null && !(canCapture && mandatoryCapture) && (
             <button onClick={endTurn}
-              className={`mt-3 w-full py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${chainFrom !== null ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-amber-100 text-amber-950 hover:bg-amber-200"}`}>
+              className="mt-3 w-full py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 bg-amber-100 text-amber-950 hover:bg-amber-200">
               <SkipForward className="w-4 h-4" />
-              {chainFrom !== null ? "Terminer la chaîne" : "Passer mon tour"}
+              Passer mon tour
             </button>
           )}
         </div>
@@ -672,7 +745,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       </div>
 
       {/* ── Carte "vous" ── */}
-      <div className="px-3 pb-1">
+      <div className="px-1.5 pb-0.5">
       {me && (() => {
         const isCurrent = game.current_turn === me.slot && game.status === "playing";
         const pieceCount = me.color === "white" ? whiteCount : blackCount;
@@ -681,26 +754,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         );
       })()}
       </div>
-
-      {captureChoice && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setCaptureChoice(null)}>
-          <div className="bg-card rounded-3xl p-5 max-w-sm w-full space-y-3 border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="font-bold text-center text-lg">Choisir le type de capture</div>
-            <p className="text-xs text-muted-foreground text-center">Les deux options capturent des pièces adverses.</p>
-            <button onClick={() => { sendMove({ from: captureChoice.from, to: captureChoice.to, captured: captureChoice.approach, chain: false }); }}
-              className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-              <span>⚡ Approche</span>
-              <span className="text-sm opacity-80">({captureChoice.approach.length} pion{captureChoice.approach.length > 1 ? "s" : ""})</span>
-            </button>
-            <button onClick={() => { sendMove({ from: captureChoice.from, to: captureChoice.to, captured: captureChoice.withdrawal, chain: false }); }}
-              className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-              <span>↩ Éloignement</span>
-              <span className="text-sm opacity-80">({captureChoice.withdrawal.length} pion{captureChoice.withdrawal.length > 1 ? "s" : ""})</span>
-            </button>
-            <button onClick={() => setCaptureChoice(null)} className="w-full py-2 rounded-full bg-secondary text-sm hover:bg-secondary/80 transition-colors">Annuler</button>
-          </div>
-        </div>
-      )}
 
       {/* Global game timer banner */}
       {game?.status === "playing" && globalTimer.enabled && globalTimer.remainingMs !== null && (
