@@ -1038,9 +1038,9 @@ function RamiPage() {
 
   // Board theme configuration
   const BOARD_THEMES = {
-    green: { border: "#0b3a1f", overlay: "rgba(0,0,0,0.25)", tint: "rgba(15,61,32,0.3)" },
-    blue: { border: "#0c2742", overlay: "rgba(5,20,40,0.3)", tint: "rgba(12,39,66,0.35)" },
-    dark: { border: "#1a1a1a", overlay: "rgba(0,0,0,0.35)", tint: "rgba(10,10,10,0.4)" },
+    green: { border: "#0b3a1f", overlay: "rgba(0,0,0,0.25)", tint: "rgba(15,61,32,0.3)", feltCenter: "#1a6b3a", feltEdge: "#0d4525" },
+    blue: { border: "#0c2742", overlay: "rgba(5,20,40,0.3)", tint: "rgba(12,39,66,0.35)", feltCenter: "#1a3a6b", feltEdge: "#0c2742" },
+    dark: { border: "#1a1a1a", overlay: "rgba(0,0,0,0.35)", tint: "rgba(10,10,10,0.4)", feltCenter: "#2a2a2a", feltEdge: "#141414" },
   };
   const activeTheme = BOARD_THEMES[boardTheme];
 
@@ -1948,8 +1948,8 @@ function RamiPage() {
           return (
             <div className="flex flex-col items-center gap-0.5">
               <div
-                className={`rounded-full flex items-center justify-center font-bold text-white shadow-md shrink-0 ${
-                  turn ? "ring-2 ring-yellow-300 ring-offset-1 ring-offset-emerald-900" : "ring-1 ring-white/20"
+                className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 transition-all duration-300 ${
+                  turn ? "ring-2 ring-yellow-300 ring-offset-1 ring-offset-emerald-900 shadow-[0_0_12px_rgba(253,224,71,0.6)]" : "ring-1 ring-white/20 shadow-sm"
                 }`}
                 style={{ width: 28, height: 28, fontSize: 11, background: bg }}
               >
@@ -2044,18 +2044,15 @@ function RamiPage() {
             style={{
               height: "46vh",
               minHeight: 300,
-              backgroundImage: `url(${FELT_URL})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              boxShadow: "inset 0 0 70px rgba(0,0,0,0.55), inset 0 0 120px rgba(0,0,0,0.25), 0 10px 26px rgba(0,0,0,0.35)",
-              border: `5px solid ${activeTheme.border}`,
+              background: `radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 70%, ${activeTheme.border} 100%)`,
+              boxShadow: "inset 0 0 60px rgba(0,0,0,0.45), inset 0 0 100px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.3)",
+              border: `4px solid ${activeTheme.border}`,
             }}
           >
-            {/* Engraved zone markings on the felt */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.12]" preserveAspectRatio="none">
-              <ellipse cx="50%" cy="50%" rx="32%" ry="36%" fill="none" stroke="white" strokeWidth="1.5" strokeDasharray="4 6" />
-              <circle cx="50%" cy="50%" r="30" fill="none" stroke="white" strokeWidth="1" />
-              <circle cx="50%" cy="50%" r="50" fill="none" stroke="white" strokeWidth="0.5" strokeDasharray="2 4" />
+            {/* Subtle felt markings */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.08]" preserveAspectRatio="none">
+              <ellipse cx="50%" cy="50%" rx="35%" ry="38%" fill="none" stroke="white" strokeWidth="1" />
+              <circle cx="50%" cy="50%" r="40" fill="none" stroke="white" strokeWidth="0.5" strokeDasharray="3 5" />
             </svg>
             {/* Subtle vignette overlay for depth */}
             <div className="absolute inset-0 pointer-events-none rounded-[22px]" style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.25) 100%)" }} />
@@ -2108,9 +2105,9 @@ function RamiPage() {
                     <Card faceDown styleOverride={{ width: 38, height: 55 }} />
                   </button>
                   <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[9px] font-mono font-bold text-white/90 bg-black/50 px-1.5 py-0.5 rounded-full">pioche · {deckCount}</span>
-                      <div className="w-10 h-1 rounded-full bg-black/40 overflow-hidden">
-                        <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${Math.min(100, (deckCount / 112) * 100)}%` }} />
+                      <span className="text-[9px] font-semibold text-white/95 bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">Pioche · {deckCount}</span>
+                      <div className="w-12 h-1 rounded-full bg-black/40 overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, (deckCount / 112) * 100)}%` }} />
                       </div>
                     </div>
                 </div>
@@ -2138,13 +2135,13 @@ function RamiPage() {
                       ⋯
                     </button>
                   </div>
-                  <span className="text-[8px] font-mono font-bold text-white/90">Défausse</span>
+                  <span className="text-[9px] font-semibold text-white/95 bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">Défausse</span>
                 </div>
 
                 {randomJoker !== null && (
                   <div className="flex flex-col items-center gap-0.5">
                     <Card c={randomJoker} styleOverride={{ width: 38, height: 55 }} />
-                    <span className="text-[8px] font-mono font-bold text-amber-300">Joker</span>
+                    <span className="text-[9px] font-semibold text-amber-300 bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">Joker</span>
                   </div>
                 )}
               </div>
