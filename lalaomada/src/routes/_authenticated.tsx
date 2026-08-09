@@ -34,6 +34,9 @@ function AuthLayout() {
   const inGameRoute = /^\/(jeux\/)?(chess|domino|fanorona|rami|poker|ludo|game)\//.test(path);
   const inGame = inGameRoute && !waiting;
   const inChat = path === "/chat" || path.startsWith("/discussion/");
+  // Tournament detail page has its own bottom tab bar (Joueurs/Résultats/Matchs suivants)
+  // — hide the global bottom nav there so the two bars don't stack/overlap.
+  const inTournamentDetail = /^\/tournaments\/.+/.test(path);
   const isHome = path === "/lobby" || path === "/";
 
   if (loading) return <AppSplash />;
@@ -60,7 +63,7 @@ function AuthLayout() {
       >
         <Outlet />
       </div>
-      {!inGame && <BottomNav />}
+      {!inGame && !inTournamentDetail && <BottomNav />}
       <TermsModal />
       <AnnouncementsModal />
       {isHome && <ContactFab />}

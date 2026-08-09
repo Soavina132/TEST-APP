@@ -375,7 +375,7 @@ function TournamentDetail() {
       </div>
 
       {/* ─────────────── BOTTOM NAV — 3 TABS ─────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
         <div className="flex">
           <TabButton active={tab === "players"} onClick={() => setTab("players")}
             icon={<Users className="w-5 h-5" />} label="Joueurs" />
