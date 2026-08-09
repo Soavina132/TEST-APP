@@ -12,7 +12,6 @@ import { LogOut, Copy, Plus, Pause, Ban, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import GamePauseControl from "@/components/game/GamePauseControl";
-import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
@@ -20,10 +19,9 @@ import DominoRoundBreak from "@/components/game/DominoRoundBreak";
 import DominoTable, { DominoTile, PlayerHeader } from "@/components/game/DominoTable";
 import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
-import TurnBanner from "@/components/game/TurnBanner";
 import { useDominoSounds } from "@/hooks/game/use-domino-sounds";
 import { playClack, playDraw, playPass } from "@/lib/sounds/game-sounds";
-import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
+import { setSfxMuted, isSfxMuted } from "@/lib/sounds/game-sounds";
 
 
 export const Route = createFileRoute("/_authenticated/jeux/domino/$id")({
@@ -225,6 +223,8 @@ function DominoPage() {
   // so a red frame can be shown to all players before the auto-pass completes.
   const [remoteNoMoveSlot, setRemoteNoMoveSlot] = useState<number | null>(null);
   const noMoveChRef = useRef<any>(null);
+  // Prevents auto-pass from firing repeatedly while waiting for server state update.
+  const passAttemptedRef = useRef(false);
   // Available width for the hand row; tile width is derived from it and from
   // the number of tiles held (a player can hold more than 7 after drawing).
   const [handAvail, setHandAvail] = useState<number>(190);
@@ -308,7 +308,7 @@ function DominoPage() {
   const isMyTurn = game && me && game.current_turn === me.slot && game.status === "playing" && !isRoundTransition;
   const myHand: Tile[] = (game?.state?.hands?.[String(me?.slot)] as Tile[]) || [];
   // Tiles per row: 7 minimum, up to 10 when the hand grew from drawing.
-  const handCols = Math.max(7, Math.min(myHand.length, 10));
+  const handCols = myHand.length === 0 ? 0 : Math.max(7, Math.min(myHand.length, 10));
   const handTileW = Math.max(13, Math.min(28, Math.floor(handAvail / handCols) - 4));
   const normalizedBoard = normalizeDominoBoard(game?.state?.board || [], game?.state?.left_end, game?.state?.right_end);
   const board: { tile: Tile; flipped: boolean }[] = normalizedBoard.board;
@@ -401,8 +401,10 @@ function DominoPage() {
   // server confirms the pass (noMove flips back to false once state updates).
   // Errors are silent here to avoid toast spam on repeated retries.
   useEffect(() => {
-    if (!noMove || busy) return;
+    if (!noMove) { passAttemptedRef.current = false; return; }
+    if (busy || passAttemptedRef.current) return;
     const t = setTimeout(() => {
+      passAttemptedRef.current = true;
       pass({ silent: true });
     }, 2000);
     return () => clearTimeout(t);
@@ -692,7 +694,7 @@ function DominoPage() {
                       } : undefined}
                       draggable={playable}
                       onDragStart={() => setSelectedTile(i)}
-                      onDragEnd={() => { /* keep selection until drop completes */ }}
+                      onDragEnd={() => { setTimeout(() => setSelectedTile(null), 300); }}
                       selected={selectedTile === i} />
                   </div>
                 );
@@ -714,8 +716,10 @@ function DominoPage() {
         myUserId={profile?.id ?? null}
         simplePause={parts.some((p: any) => p.is_bot)}
       />
-      
-      <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
+
+      {game.status !== "open" && (
+        <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
+      )}
     </main>
   );
 }

@@ -4,6 +4,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 let _ctx: AudioContext | null = null;
+let _muted = false;
+
+/** Check if sounds are muted (shared with game-sounds.ts). */
+export function isSfxMuted() {
+  return _muted;
+}
+
+/** Mute / unmute all sound effects in this module. */
+export function setSfxMuted(m: boolean) {
+  _muted = m;
+}
 
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -28,6 +39,7 @@ export function unlockAudio() {
 
 /** Domino tile hitting the table — short percussive clack. */
 export function playClack() {
+  if (_muted) return;
   const ctx = getCtx();
   if (!ctx) return;
   try {
@@ -69,6 +81,7 @@ export function playClack() {
 
 /** Drawing a tile from the stock — quick slide / swoosh. */
 export function playDraw() {
+  if (_muted) return;
   const ctx = getCtx();
   if (!ctx) return;
   try {
@@ -96,6 +109,7 @@ export function playDraw() {
 
 /** Passing a turn — soft thud. */
 export function playPass() {
+  if (_muted) return;
   const ctx = getCtx();
   if (!ctx) return;
   try {
@@ -115,6 +129,7 @@ export function playPass() {
 
 /** Your turn notification — gentle two-tone ping. */
 export function playYourTurn() {
+  if (_muted) return;
   const ctx = getCtx();
   if (!ctx) return;
   try {
@@ -136,6 +151,7 @@ export function playYourTurn() {
 
 /** Win — ascending arpeggio. */
 export function playWin() {
+  if (_muted) return;
   const ctx = getCtx();
   if (!ctx) return;
   try {
@@ -157,6 +173,7 @@ export function playWin() {
 
 /** Lose — descending tone. */
 export function playLose() {
+  if (_muted) return;
   const ctx = getCtx();
   if (!ctx) return;
   try {

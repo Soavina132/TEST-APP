@@ -53,7 +53,10 @@ export default function DominoRoundBreak({
   // so we do the same fallback here to correctly match the actual winner.
   const winnerKey = lastRound.winner_uid || (lastRound.winner_slot != null ? `bot_${lastRound.winner_slot}` : null);
   const isTie = !winnerKey;
-  const winnerName = participants.find(p => p.user_id === winnerKey)?.display_name || "Match nul";
+  // Try matching by user_id first, then by slot (for bots whose user_id may not match "bot_X")
+  const winnerParticipant = participants.find(p => p.user_id === winnerKey)
+    || (lastRound.winner_slot != null ? participants.find(p => (p as any).slot === lastRound.winner_slot) : null);
+  const winnerName = winnerParticipant?.display_name || "Match nul";
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3">

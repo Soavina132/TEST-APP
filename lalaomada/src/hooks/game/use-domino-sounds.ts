@@ -7,6 +7,7 @@ import {
   playWin,
   playLose,
   unlockAudio,
+  isSfxMuted,
 } from "@/lib/sounds/game-sounds";
 
 /**
@@ -37,6 +38,23 @@ export function useDominoSounds(opts: {
 
   useEffect(() => {
     if (!game) return;
+    if (isSfxMuted()) {
+      // Still update refs so we don't burst sounds when unmuting
+      const board = game?.state?.board;
+      const boardLen = Array.isArray(board) ? board.length : 0;
+      const stockSize = (game?.state?.stock || []).length;
+      const passes = Number(game?.state?.passes || 0);
+      const currentTurn = game?.current_turn ?? null;
+      const status = game?.status ?? "open";
+      const phase = game?.state?.phase ?? "";
+      prevBoardLen.current = boardLen;
+      prevStockSize.current = stockSize;
+      prevPasses.current = passes;
+      prevTurn.current = currentTurn;
+      prevStatus.current = status;
+      prevPhase.current = phase;
+      return;
+    }
 
     // Unlock audio on first interaction
     unlockAudio();
