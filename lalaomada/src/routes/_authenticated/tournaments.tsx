@@ -51,14 +51,16 @@ function TournamentsPage() {
   }, [tab]);
 
   useEffect(() => {
+    let dt: ReturnType<typeof setTimeout>;
+    const debouncedLoad = () => { clearTimeout(dt); dt = setTimeout(load, 800); };
     setLoading(true);
     load();
     const ch = supabase
       .channel("tournaments-list")
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournaments" }, () => load())
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_entrants" }, () => load())
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournaments" }, debouncedLoad)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_entrants" }, debouncedLoad)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(dt); supabase.removeChannel(ch); };
   }, [load]);
 
   const tabConfig: [Tab, string, string][] = [

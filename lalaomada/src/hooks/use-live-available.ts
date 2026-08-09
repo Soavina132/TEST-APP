@@ -22,7 +22,7 @@ export function useLiveAvailable(): number {
 
     try {
       channel = supabase
-        .channel(`live-available-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+        .channel('live-available')
         .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games" }, load)
         .on("postgres_changes", { event: "*", schema: "public", table: "domino_games" }, load)
         .on("postgres_changes", { event: "*", schema: "public", table: "chess_games" }, load)
@@ -34,7 +34,7 @@ export function useLiveAvailable(): number {
       console.warn("Live realtime subscription unavailable; using polling fallback.", error);
     }
 
-    const t = setInterval(load, 15000);
+    const t = setInterval(load, 30000);
 
     return () => {
       cancelled = true;

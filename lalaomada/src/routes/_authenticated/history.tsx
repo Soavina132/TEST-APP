@@ -93,16 +93,18 @@ export default function HistoryPage() {
   }
 
   useEffect(() => {
+    let dt: ReturnType<typeof setTimeout>;
+    const debouncedLoad = () => { clearTimeout(dt); dt = setTimeout(load, 800); };
     setLoading(true);
     load();
     if (!user) return;
     const ch = supabase
       .channel(`finance:${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "deposits", filter: `user_id=eq.${user.id}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposits", filter: `user_id=eq.${user.id}` }, debouncedLoad)
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, debouncedLoad)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` }, debouncedLoad)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(dt); supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 

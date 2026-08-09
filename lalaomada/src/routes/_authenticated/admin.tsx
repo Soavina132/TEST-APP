@@ -1634,11 +1634,13 @@ function GamesAdmin() {
   const [games, setGames] = useState<any[]>([]);
   const load = () => supabase.rpc("admin_list_games" as any).then(({ data }: any) => setGames(data || []));
   useEffect(() => {
+    let dt: ReturnType<typeof setTimeout>;
+    const debouncedLoad = () => { clearTimeout(dt); dt = setTimeout(load, 1000); };
     load();
     const ch = supabase.channel("admin-games-extra")
-      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games" }, debouncedLoad)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(dt); supabase.removeChannel(ch); };
   }, []);
   const del = async (id: string) => {
     if (!(await confirm({ title: "Supprimer cette partie et rembourser ?", destructive: true }))) return;

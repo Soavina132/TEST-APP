@@ -163,11 +163,15 @@ function LobbyPage() {
     loadTx();
     loadTournaments();
 
+    let gamesDebounce: ReturnType<typeof setTimeout>;
     const gamesTables = ["ludo_games", "domino_games", "fanorona_games", "chess_games", "poker_games", "rami_games"];
     const gamesChannel = supabase.channel("lobby-games");
     gamesTables.forEach(table => {
       gamesChannel.on("postgres_changes" as any,
-        { event: "*", schema: "public", table }, () => { loadGames(); });
+        { event: "*", schema: "public", table }, () => {
+          clearTimeout(gamesDebounce);
+          gamesDebounce = setTimeout(() => loadGames(), 600);
+        });
     });
     gamesChannel.subscribe();
 
@@ -183,6 +187,7 @@ function LobbyPage() {
       .subscribe();
 
     return () => {
+      clearTimeout(gamesDebounce);
       supabase.removeChannel(gamesChannel);
       supabase.removeChannel(trnChannel);
       supabase.removeChannel(txChannel);

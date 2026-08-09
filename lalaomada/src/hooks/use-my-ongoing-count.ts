@@ -33,7 +33,7 @@ export function useMyOngoingCount(): number {
     });
     ch.subscribe();
 
-    const timer = setInterval(load, 20000);
+    const timer = setInterval(load, 45000);
 
     return () => {
       cancelled = true;

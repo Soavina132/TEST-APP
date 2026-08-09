@@ -30,7 +30,7 @@ export default function AdminSessionsPanel() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15_000);
+    const t = setInterval(load, 30_000);
     return () => clearInterval(t);
   }, [load]);
 

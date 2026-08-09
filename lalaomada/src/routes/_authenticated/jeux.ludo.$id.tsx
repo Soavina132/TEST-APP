@@ -95,7 +95,7 @@ function GamePage() {
     if (!profile?.id) return;
     const beat = () => { supabase.rpc("ludo_heartbeat" as any, { _game_id: id } as any); };
     beat();
-    const timer = setInterval(beat, 10000);
+    const timer = setInterval(beat, 15000);
     return () => clearInterval(timer);
   }, [id, profile?.id]);
 

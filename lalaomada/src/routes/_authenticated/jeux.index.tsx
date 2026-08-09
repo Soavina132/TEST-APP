@@ -215,67 +215,19 @@ function JeuxPage() {
   // ── Open public games ─────────────────────────────────────────────────
   const loadOpenGames = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!opts.silent) setLoadingGames(true);
-    const active = ALL_DISPLAYED_SLUGS.filter(s => getGameStatus(s) === "active");
-    const PARTS_TABLE: Record<Slug, string | null> = {
-      ludo: "ludo_participants", domino: "domino_participants",
-      fanorona: "fanorona_participants", rami: "rami_participants",
-      chess: null, poker: "poker_players"};
-    const FIXED_MAX: Partial<Record<Slug, number>> = { chess: 2, fanorona: 2 };
-    const results = await Promise.all(
-      active.map(async (slug) => {
-        const extraCols: string[] = [HOST_COL[slug]];
-        if (slug === "domino") extraCols.push("state", "target_score");
-        const hasMax = !FIXED_MAX[slug];
-        const cols = ["id", "stake", "pot", "created_at", "is_private", hasMax ? "max_players" : null, ...extraCols]
-          .filter(Boolean).join(", ");
-        const { data } = await supabase
-          .from(GAME_TABLE[slug] as any)
-          .select(cols)
-          .eq("status", "open")
-          .eq("is_private", false)
-          .order("created_at", { ascending: false })
-          .limit(20);
-        const rows = (data as any[]) || [];
-        const partsTable = PARTS_TABLE[slug];
-        const counts = await Promise.all(rows.map(async (g: any) => {
-          if (slug === "chess") {
-            const { data: c } = await supabase.from("chess_games" as any)
-              .select("white_id, black_id").eq("id", g.id).maybeSingle();
-            return ((c as any)?.white_id ? 1 : 0) + ((c as any)?.black_id ? 1 : 0);
-          }
-          if (!partsTable) return 0;
-          const { count } = await supabase.from(partsTable as any)
-            .select("*", { count: "exact", head: true }).eq("game_id", g.id);
-          return count || 0;
-        }));
-        return rows.map((g: any, i: number) => ({
-          id: g.id, stake: g.stake, pot: g.pot, created_at: g.created_at,
-          is_private: g.is_private, slug,
-          max_players: FIXED_MAX[slug] ?? g.max_players ?? 2,
-          players_count: counts[i],
-          host_id: g[HOST_COL[slug]] || null,
-          target_score: slug === "domino" ? (g.target_score ?? null) : null,
-          draw_mode: slug === "domino" ? (g.state?.draw_mode ?? "with") : null}));
-      })
-    );
-    const flat: OpenGame[] = results
-      .flat()
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    // Batch-fetch host pseudos
-    const hostIds = Array.from(new Set(flat.map(g => g.host_id).filter(Boolean))) as string[];
-    let nameMap: Record<string, string> = {};
-    if (hostIds.length) {
-      const { data: profs } = await supabase
-        .from("profiles" as any)
-        .select("id, pseudo")
-        .in("id", hostIds);
-      nameMap = Object.fromEntries(((profs as any[]) || []).map(p => [p.id, p.pseudo || "Joueur"]));
-    }
-    for (const g of flat) {
-      if (g.host_id) g.host_name = nameMap[g.host_id] || "Joueur";
-    }
-
+    // Single batch RPC — replaces 6+N queries with 1
+    const { data, error } = await supabase.rpc("list_all_open_games" as any);
+    if (error) { setLoadingGames(false); return; }
+    const rows = (data as any[]) || [];
+    const flat: OpenGame[] = rows
+      .filter((r: any) => getGameStatus(r.slug) === "active")
+      .map((r: any) => ({
+        id: r.game_id, slug: r.slug as Slug, stake: r.stake, pot: r.pot,
+        created_at: r.created_at, is_private: false,
+        max_players: r.max_players ?? 2, players_count: r.players_count ?? 0,
+        host_id: r.host_id || null, host_name: r.host_name || "Joueur",
+        target_score: r.target_score ?? null,
+      }));
     setOpenGames(flat);
     setLoadingGames(false);
   }, [disabled.join(",")]);
@@ -283,15 +235,19 @@ function JeuxPage() {
 
   useEffect(() => { loadOpenGames(); }, [loadOpenGames]);
 
-  // Real-time refresh (silent — don't wipe the list)
+  // Real-time refresh (single channel, debounced)
   useEffect(() => {
-    const refresh = () => loadOpenGames({ silent: true });
-    const channels = ALL_DISPLAYED_SLUGS.map(slug =>
-      supabase.channel(`open-games-${slug}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, refresh)
-        .subscribe()
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadOpenGames({ silent: true }), 800);
+    };
+    const ch = supabase.channel("open-games-all");
+    ALL_DISPLAYED_SLUGS.forEach(slug =>
+      ch.on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, refresh)
     );
-    return () => { channels.forEach(c => supabase.removeChannel(c)); };
+    ch.subscribe();
+    return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
   }, [loadOpenGames]);
 
 

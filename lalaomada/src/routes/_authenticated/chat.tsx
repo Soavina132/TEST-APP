@@ -185,14 +185,18 @@ function ChatHub() {
   // Real-time unread refresh
   useEffect(() => {
     if (!user) return;
+    let dt: ReturnType<typeof setTimeout>;
     const ch = supabase
       .channel("chat-hub-unread-" + user.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, () => {
-        const allRooms = [...rooms, ...dms];
-        if (allRooms.length) refreshUnread(allRooms.map(r => r.id));
+        clearTimeout(dt);
+        dt = setTimeout(() => {
+          const allRooms = [...rooms, ...dms];
+          if (allRooms.length) refreshUnread(allRooms.map(r => r.id));
+        }, 500);
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(dt); supabase.removeChannel(ch); };
   }, [user?.id, rooms.length, dms.length, refreshUnread]);
 
   const openRoom = (r: any) => {

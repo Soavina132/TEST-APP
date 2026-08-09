@@ -236,15 +236,18 @@ export default function ParrainagePage() {
     setLoading(true);
     refresh();
 
+    let dt: ReturnType<typeof setTimeout>;
+    const debouncedRefresh = () => { clearTimeout(dt); dt = setTimeout(refresh, 800); };
     const ch = supabase
       .channel(`ref-dash-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "referral_events", filter: `referrer_id=eq.${user.id}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "referrals", filter: `referrer_id=eq.${user.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "referral_events", filter: `referrer_id=eq.${user.id}` }, debouncedRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "referrals", filter: `referrer_id=eq.${user.id}` }, debouncedRefresh)
       .subscribe();
 
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
     return () => {
+      clearTimeout(dt);
       supabase.removeChannel(ch);
       window.removeEventListener("focus", onFocus);
     };

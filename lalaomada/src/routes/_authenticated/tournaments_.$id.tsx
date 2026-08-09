@@ -151,16 +151,18 @@ function TournamentDetail() {
   }, [id]);
 
   useEffect(() => {
+    let dt: ReturnType<typeof setTimeout>;
+    const debouncedLoad = () => { clearTimeout(dt); dt = setTimeout(load, 800); };
     load();
     const ch = supabase
       .channel(`tournament-${id}`)
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournaments", filter: `id=eq.${id}` }, () => load())
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_entrants", filter: `tournament_id=eq.${id}` }, () => load())
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_matches", filter: `tournament_id=eq.${id}` }, () => load())
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_pool_entrants" }, () => load())
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournaments", filter: `id=eq.${id}` }, debouncedLoad)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_entrants", filter: `tournament_id=eq.${id}` }, debouncedLoad)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_matches", filter: `tournament_id=eq.${id}` }, debouncedLoad)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tournament_pool_entrants" }, debouncedLoad)
       .subscribe();
-    const iv = setInterval(load, 10000);
-    return () => { supabase.removeChannel(ch); clearInterval(iv); };
+    const iv = setInterval(load, 30000);
+    return () => { clearTimeout(dt); supabase.removeChannel(ch); clearInterval(iv); };
   }, [id, load]);
 
   const t = st?.tournament;
