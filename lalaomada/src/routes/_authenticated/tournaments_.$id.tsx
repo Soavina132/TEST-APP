@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, Trophy, Users, Coins, Loader2, Play, LogOut, Crown,
   ChevronRight, Clock, Calendar, BarChart3, Timer, UserCheck,
-  Hourglass, AlertCircle,
+  Hourglass, AlertCircle, ListOrdered, CalendarClock, Settings,
 } from "lucide-react";
 import { StatusPill } from "./tournaments";
 
@@ -31,45 +31,97 @@ const GAMES: Record<string, { emoji: string; label: string }> = {
   domino: { emoji: "🁣", label: "Domino" },
 };
 
-/** Label lisible pour un round de phase finale, basé sur le nombre de matchs. */
 function roundLabel(matchCount: number, phase: string): string {
   if (phase === "third_place") return "Petite finale";
   if (phase === "pool") return "Poules";
   const map: Record<number, string> = {
-    128: "128ème de finale",
-    64: "64ème de finale",
-    32: "32ème de finale",
-    16: "16ème de finale",
-    8: "8ème de finale",
-    4: "Quart de finale",
-    2: "Demi-finale",
-    1: "Finale",
+    128: "128ème de finale", 64: "64ème de finale", 32: "32ème de finale",
+    16: "16ème de finale", 8: "8ème de finale",
+    4: "Quart de finale", 2: "Demi-finale", 1: "Finale",
   };
   if (!map[matchCount]) {
     const exp = Math.log2(matchCount);
     if (Number.isInteger(exp)) {
-      const playersInRound = matchCount * 2;
-      return playersInRound >= 256 ? `${playersInRound}ème de finale` : map[playersInRound] ?? `Tour`;
+      const p = matchCount * 2;
+      return p >= 256 ? `${p}ème de finale` : map[p] ?? `Tour`;
     }
     return `Tour`;
   }
   return map[matchCount];
 }
 
-/** Label for elimination round */
 function eliminatedRoundLabel(round: number | null, format: string, totalRounds: number): string {
   if (!round) return "Éliminé";
   if (format === "pools" && round === 1) return "Élimé en poules";
   const fromEnd = totalRounds - round;
   const map: Record<number, string> = {
-    0: "Finaliste",
-    1: "Demi-finaliste",
-    2: "Quart de finaliste",
-    3: "8ème de finaliste",
-    4: "16ème de finaliste",
-    5: "32ème de finaliste",
+    0: "Finaliste", 1: "Demi-finaliste", 2: "Quart de finaliste",
+    3: "8ème de finaliste", 4: "16ème de finaliste", 5: "32ème de finaliste",
   };
   return map[fromEnd] ?? `Éliminé au tour ${round}`;
+}
+
+/** Compute estimated start time for a scheduled match */
+function estimateMatchStart(
+  m: any,
+  allMatches: any[],
+  t: any,
+  now: number,
+): Date | null {
+  // Already running or finished — no estimate needed
+  if (m.status !== "scheduled") return null;
+
+  const matchDur = (t.max_match_duration_secs ?? 1800) * 1000;
+  const breakMs = (t.break_seconds ?? 600) * 1000;
+  const lobbyMs = (t.lobby_minutes ?? 5) * 60 * 1000;
+
+  // Matches in the same round
+  const sameRound = allMatches.filter((mm) => mm.round === m.round && mm.phase === m.phase);
+  const running = sameRound.filter((mm) => mm.status === "running");
+  const maxConcurrent = t.max_concurrent_matches ?? 8;
+
+  // If there are free slots, this match starts now
+  if (running.length < maxConcurrent) return new Date(now);
+
+  // All slots busy → estimate when the earliest running match finishes
+  const earliestFinish = running
+    .map((mm) => {
+      const started = mm.started_at ? new Date(mm.started_at).getTime() : now;
+      return started + matchDur;
+    })
+    .sort((a, b) => a - b)[0];
+
+  return new Date(earliestFinish ?? now);
+}
+
+/** Estimate when the next round will start */
+function estimateNextRoundStart(t: any, matches: any[], now: number): Date | null {
+  const matchDur = (t.max_match_duration_secs ?? 1800) * 1000;
+  const breakMs = (t.break_seconds ?? 600) * 1000;
+  const lobbyMs = (t.lobby_minutes ?? 5) * 60 * 1000;
+
+  const currentRoundMatches = matches.filter((m) => m.round === t.current_round && m.phase !== "pool");
+  const running = currentRoundMatches.filter((m) => m.status === "running");
+  const scheduled = currentRoundMatches.filter((m) => m.status === "scheduled");
+
+  if (running.length === 0 && scheduled.length === 0) {
+    // Round is done — next round starts after break + lobby
+    return new Date(now + breakMs + lobbyMs);
+  }
+
+  // Find when all current round matches will finish
+  const finishTimes: number[] = [];
+  running.forEach((m) => {
+    const started = m.started_at ? new Date(m.started_at).getTime() : now;
+    finishTimes.push(started + matchDur);
+  });
+  scheduled.forEach((m) => {
+    const est = estimateMatchStart(m, matches, t, now);
+    if (est) finishTimes.push(est.getTime() + matchDur);
+  });
+
+  const lastFinish = Math.max(...finishTimes, now);
+  return new Date(lastFinish + breakMs + lobbyMs);
 }
 
 type State = {
@@ -87,6 +139,7 @@ function TournamentDetail() {
   const confirm = useConfirm();
   const [st, setSt] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"players" | "results" | "next">("players");
 
   const load = useCallback(async () => {
     const { data } = await (supabase.rpc as any)("tournament_state", { _tid: id });
@@ -136,15 +189,6 @@ function TournamentDetail() {
     [matches, me],
   );
 
-  const myStats = useMemo(() => {
-    if (!me || !matches.length) return null;
-    const myMatches = matches.filter((m) => me && m.entrant_ids.includes(me.id) && m.status === "finished");
-    const wins = myMatches.filter((m) => m.winner_id === me.id).length;
-    const losses = myMatches.filter((m) => m.loser_id === me.id).length;
-    const draws = myMatches.filter((m) => m.is_draw && m.entrant_ids.includes(me.id)).length;
-    return { played: myMatches.length, wins, losses, draws, rank: me.final_rank };
-  }, [me, matches]);
-
   const rpc = async (fn: string, args: any, ok: string) => {
     setBusy(true);
     const { error } = await (supabase.rpc as any)(fn, args);
@@ -181,165 +225,74 @@ function TournamentDetail() {
   }
 
   const g = GAMES[t.game_slug] ?? { emoji: "🏆", label: t.game_slug };
-  const steps: [string, boolean, boolean][] = [
-    ["Inscriptions", t.stage !== "registration", t.stage === "registration"],
-    ["Poules", ["finals", "done"].includes(t.stage), t.stage === "pools"],
-    ["Phase finale", t.stage === "done", t.stage === "finals"],
-    ["Terminé", t.stage === "done", false],
-  ];
-  const visibleSteps = t.format === "pools" ? steps : steps.filter((s) => s[0] !== "Poules");
-  const isKnockout = t.format !== "pools";
-  const hasMatches = matches.length > 0;
   const isPaid = Number(t.entry_fee_ar) > 0;
+  const hasMatches = matches.length > 0;
+  const now = Date.now();
+
+  // Current stage label (big subtitle)
+  const stageLabel = (() => {
+    if (t.status === "open") return "Inscriptions en cours";
+    if (t.status === "finished") return "Tournoi terminé";
+    if (t.status === "cancelled") return "Tournoi annulé";
+    if (t.status === "paused") return "Tournoi en pause";
+    if (t.stage === "pools") return "Phase de poules";
+    if (t.stage === "finals") {
+      const roundMatches = matches.filter((m) => m.round === t.current_round && m.phase !== "pool");
+      return roundLabel(roundMatches.length, roundMatches[0]?.phase ?? "final");
+    }
+    return "En cours";
+  })();
 
   return (
-    <div className="p-4 space-y-4 pb-24">
-      <button onClick={() => navigate({ to: "/tournaments" })} className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground">
-        <ArrowLeft className="w-4 h-4" /> Tournois
-      </button>
+    <div className="min-h-screen flex flex-col pb-20">
+      {/* ─────────────── HEADER — Tournament name + stage ─────────────── */}
+      <div className="px-4 pt-4 pb-3">
+        <button onClick={() => navigate({ to: "/tournaments" })}
+          className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground mb-3">
+          <ArrowLeft className="w-4 h-4" /> Tournois
+        </button>
 
-      {/* ─────────────── Carte principale ─────────────── */}
-      <section className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)] space-y-3">
-        {/* En-tête */}
+        {/* Game badge + name */}
         <div className="flex items-start gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-secondary grid place-items-center text-3xl shrink-0">{g.emoji}</div>
+          <div className="w-12 h-12 rounded-2xl bg-secondary grid place-items-center text-2xl shrink-0">{g.emoji}</div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-extrabold truncate">{t.name}</h1>
+              <h1 className="text-xl font-extrabold truncate">{t.name}</h1>
               <StatusPill status={t.status} />
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {g.label} · {t.format === "pools" ? "Poules + phase finale" : "Élimination directe"} · {t.players_per_match} joueurs/match
-            </p>
             <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-muted-foreground">{g.label}</span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPaid ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"}`}>
                 {isPaid ? "💰 Payant" : "🎁 Gratuit"}
               </span>
+              <span className="text-xs text-muted-foreground">{t.format === "pools" ? "Poules + finale" : "Élimination directe"}</span>
             </div>
           </div>
         </div>
 
-        {t.description && <p className="text-sm text-muted-foreground">{t.description}</p>}
+        {/* Big stage subtitle */}
+        <div className="mt-3 rounded-2xl bg-primary/10 px-4 py-3 text-center">
+          <div className="text-lg font-extrabold text-primary">{stageLabel}</div>
+          {t.status === "running" && t.current_round > 0 && (
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {entrants.filter((e) => e.status === "active").length} joueur(s) encore en lice
+            </div>
+          )}
+        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-2">
+        {/* Quick stats row */}
+        <div className="grid grid-cols-3 gap-2 mt-3">
           <Info icon={<Trophy className="w-4 h-4" />} label="Cagnotte" value={`${netPrize.toLocaleString("fr-FR")} Ar`} />
           <Info icon={<Coins className="w-4 h-4" />} label="Inscription" value={isPaid ? `${Number(t.entry_fee_ar).toLocaleString("fr-FR")} Ar` : "Gratuit"} />
           <Info icon={<Users className="w-4 h-4" />} label="Joueurs" value={`${entrants.length}/${t.max_players}`} />
         </div>
+      </div>
 
-        {/* Barre de progression */}
-        <div className="flex items-center gap-1">
-          {visibleSteps.map(([label, done, current]) => (
-            <div key={label} className="flex-1 text-center">
-              <div className={`h-2 rounded-full transition-colors ${done ? "bg-emerald-500" : current ? "bg-amber-500" : "bg-secondary"}`} />
-              <span className={`text-[10px] font-semibold mt-1 block ${current ? "text-amber-600" : done ? "text-emerald-600" : "text-muted-foreground"}`}>{label}</span>
-            </div>
-          ))}
-        </div>
+      {/* ─────────────── TIMER PANEL ─────────────── */}
+      <TimerPanel t={t} myMatch={myMatch} me={me} matches={matches} now={now} />
 
-        {/* ─────────────── TIMER PANEL ─────────────── */}
-        <TimerPanel t={t} myMatch={myMatch} me={me} />
-
-        {/* Étape actuelle */}
-        {t.status === "running" && (
-          <div className="rounded-2xl bg-primary/10 p-3 space-y-1">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span className="text-xs font-bold text-primary">
-                {t.stage === "pools" ? "Phase de poules" : t.stage === "finals" ? "Phase finale" : t.stage === "done" ? "Terminé" : `Étape : ${t.stage}`}
-              </span>
-            </div>
-            {t.current_round > 0 && (
-              <div className="text-[11px] text-muted-foreground">
-                {t.format === "pools" && t.stage === "pools" ? `Poule en cours` : roundLabel(matches.filter((m) => m.round === t.current_round && m.phase !== "pool").length, "final")}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Champion (si terminé) */}
-        {t.status === "finished" && entrants.find((e) => e.final_rank === 1) && (
-          <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 p-4 space-y-2 text-center">
-            <Crown className="w-10 h-10 text-amber-500 mx-auto" />
-            <div>
-              <div className="text-lg font-extrabold text-amber-700 dark:text-amber-400">
-                {entrants.find((e) => e.final_rank === 1)?.display_name}
-              </div>
-              <div className="text-xs font-bold text-amber-600 uppercase">Champion du tournoi</div>
-            </div>
-            {netPrize > 0 && (
-              <div className="text-sm font-bold text-amber-700 dark:text-amber-400">
-                Gagne {netPrize.toLocaleString("fr-FR")} Ar
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Mon statut (éliminé) */}
-        {me && me.status === "eliminated" && t.status === "running" && (
-          <div className="rounded-2xl bg-secondary/60 p-3 text-center text-sm space-y-1">
-            <span className="text-destructive font-bold">Vous avez été éliminé</span>
-            {me.eliminated_round && (
-              <div className="text-[11px] text-muted-foreground">
-                {eliminatedRoundLabel(me.eliminated_round, t.format, t.total_rounds ?? 0)}
-                {me.final_rank ? ` — ${me.final_rank}e place` : ""}
-              </div>
-            )}
-            <div className="text-[11px] text-muted-foreground">Vous pouvez continuer à suivre le tournoi en spectateur.</div>
-          </div>
-        )}
-
-        {/* Mon résultat final */}
-        {me && t.status === "finished" && me.final_rank && (
-          <div className={`rounded-2xl p-3 text-center text-sm space-y-1 ${me.final_rank === 1 ? "bg-amber-100 dark:bg-amber-950/40" : "bg-secondary/60"}`}>
-            <span className="font-bold">
-              {me.final_rank === 1 ? "🏆 Vous avez gagné le tournoi !" : `Vous terminez ${me.final_rank}e`}
-            </span>
-            {netPrize > 0 && me.final_rank <= t.winners_count && (
-              <div className="text-[11px] text-amber-600 font-semibold">
-                Gain : {Math.round(netPrize * (me.final_rank === 1 ? t.prize_1_pct : me.final_rank === 2 ? t.prize_2_pct : me.final_rank === 3 ? t.prize_3_pct : t.prize_4_pct ?? 0) / 100).toLocaleString("fr-FR")} Ar
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Mon prochain match */}
-        {myNextMatch && !myMatch && t.status === "running" && (
-          <div className="rounded-2xl bg-amber-100 dark:bg-amber-950/30 p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" />
-              <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Votre prochain match</span>
-            </div>
-            <div className="text-[11px] text-muted-foreground">
-              {myNextMatch.phase === "pool" ? "Match de poule" : myNextMatch.phase === "third_place" ? "Petite finale" : roundLabel(matches.filter((m) => m.round === myNextMatch.round && m.phase !== "pool").length, myNextMatch.phase)}
-            </div>
-            <div className="text-[11px] font-semibold">
-              Adversaire : {myNextMatch.entrant_ids.filter((eid: string) => eid !== me.id).map((eid: string) => byId[eid]?.display_name ?? "En attente").join(" vs ")}
-            </div>
-          </div>
-        )}
-
-        {/* Mes résultats */}
-        {me && myStats && myStats.played > 0 && (
-          <div className="rounded-2xl bg-secondary/40 p-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <BarChart3 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-[11px] font-bold text-muted-foreground uppercase">Mes résultats</span>
-            </div>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <Stat n={myStats.played} label="Matchs" />
-              <Stat n={myStats.wins} label="Victoires" color="text-emerald-600" />
-              <Stat n={myStats.losses} label="Défaites" color="text-destructive" />
-              <Stat n={myStats.rank ?? "-"} label="Rang" color="text-amber-600" />
-            </div>
-          </div>
-        )}
-
-        {/* Phase en cours */}
-        {t.status === "running" && <PhaseBanner t={t} matches={matches} entrants={entrants} />}
-
-        {/* Bouton d'action principal */}
+      {/* ─────────────── ACTION BUTTON ─────────────── */}
+      <div className="px-4 py-2">
         {myMatch ? (
           <Link to={t.game_slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"}
             params={{ id: myMatch.game_id }}
@@ -359,7 +312,8 @@ function TournamentDetail() {
                 ✅ Check-in confirmé — en attente du début
               </div>
             )}
-            <button onClick={unregister} disabled={busy} className="w-full py-3 rounded-2xl bg-secondary text-secondary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+            <button onClick={unregister} disabled={busy}
+              className="w-full py-3 rounded-2xl bg-secondary text-secondary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
               <LogOut className="w-4 h-4" /> Annuler mon inscription
             </button>
           </div>
@@ -369,7 +323,8 @@ function TournamentDetail() {
               ⏳ Liste d'attente — position {meWaitlist.position}
             </div>
           ) : (
-            <button onClick={register} disabled={busy} className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-60">
+            <button onClick={register} disabled={busy}
+              className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-60">
               {entrants.length >= t.max_players ? "S'inscrire (liste d'attente)" : "S'inscrire"}
             </button>
           )
@@ -378,150 +333,142 @@ function TournamentDetail() {
             ⏳ En attente de votre prochain match…
           </div>
         ) : null}
+      </div>
 
-        {waitlist.length > 0 && t.status === "open" && (
-          <div className="rounded-2xl bg-secondary/40 p-2.5 text-[11px] text-muted-foreground">
-            📋 {waitlist.length} joueur(s) en liste d'attente
+      {/* ─────────────── MY STATUS ─────────────── */}
+      {me && me.status === "eliminated" && t.status === "running" && (
+        <div className="mx-4 mb-2 rounded-2xl bg-secondary/60 p-3 text-center text-sm">
+          <span className="text-destructive font-bold">Vous avez été éliminé</span>
+          {me.eliminated_round && (
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {eliminatedRoundLabel(me.eliminated_round, t.format, t.total_rounds ?? 0)}
+              {me.final_rank ? ` — ${me.final_rank}e place` : ""}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Champion banner */}
+      {t.status === "finished" && entrants.find((e) => e.final_rank === 1) && (
+        <div className="mx-4 mb-2 rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 p-4 text-center space-y-2">
+          <Crown className="w-10 h-10 text-amber-500 mx-auto" />
+          <div className="text-lg font-extrabold text-amber-700 dark:text-amber-400">
+            {entrants.find((e) => e.final_rank === 1)?.display_name}
           </div>
-        )}
+          <div className="text-xs font-bold text-amber-600 uppercase">Champion</div>
+          {netPrize > 0 && <div className="text-sm font-bold text-amber-700 dark:text-amber-400">Gagne {netPrize.toLocaleString("fr-FR")} Ar</div>}
+        </div>
+      )}
 
-        {isAdmin && <AdminBar t={t} busy={busy} rpc={rpc} />}
-      </section>
+      {/* Admin controls */}
+      {isAdmin && <AdminBar t={t} busy={busy} rpc={rpc} />}
 
-      {/* ═══════════════════════════════════════════════════
-          VUE UNIFIÉE — TOUT SUR UNE SEULE PAGE
-          Bracket + Poules + Joueurs + Récompenses + Stats
-          ═══════════════════════════════════════════════════ */}
-      <div className="space-y-4">
-        {/* POULES (si format pools) */}
-        {t.format === "pools" && st?.pools && st.pools.length > 0 && (
-          <UnifiedSection title="🏊 Poules" icon={<span className="text-base">🏊</span>}>
-            <PoolsView pools={st.pools} byId={byId} me={me} matches={matches} />
-          </UnifiedSection>
-        )}
+      {/* ─────────────── CONTENT AREA — 3 TABS ─────────────── */}
+      <div className="flex-1 px-4 pt-2">
+        {tab === "players" && <PlayersTab entrants={entrants} waitlist={waitlist} t={t} byId={byId} me={me} matches={matches} hasMatches={hasMatches} />}
+        {tab === "results" && <ResultsTab matches={matches} byId={byId} me={me} t={t} />}
+        {tab === "next" && <NextMatchesTab matches={matches} byId={byId} me={me} t={t} now={now} />}
+      </div>
 
-        {/* BRACKET — TOUS LES TOURS EN UNE VUE */}
-        {hasMatches && (
-          <UnifiedSection title="🏆 Tableau des tours" icon={<Trophy className="w-4 h-4" />}>
-            <BracketView matches={matches} byId={byId} me={me} slug={t.game_slug} currentRound={t.current_round} />
-          </UnifiedSection>
-        )}
-
-        {/* JOUEURS — QUALIFIÉS / ÉLIMINÉS / LISTE D'ATTENTE */}
-        <UnifiedSection title="👥 Participants" icon={<Users className="w-4 h-4" />}>
-          <PlayersView entrants={entrants} waitlist={waitlist} t={t} />
-        </UnifiedSection>
-
-        {/* RÉCOMPENSES */}
-        <UnifiedSection title="💰 Récompenses" icon={<Trophy className="w-4 h-4" />}>
-          <RewardsView t={t} net={netPrize} byId={byId} />
-        </UnifiedSection>
-
-        {/* STATS */}
-        <UnifiedSection title="📊 Statistiques" icon={<BarChart3 className="w-4 h-4" />}>
-          <StatsView t={t} entrants={entrants} matches={matches} me={me} byId={byId} />
-        </UnifiedSection>
+      {/* ─────────────── BOTTOM NAV — 3 TABS ─────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
+        <div className="flex">
+          <TabButton active={tab === "players"} onClick={() => setTab("players")}
+            icon={<Users className="w-5 h-5" />} label="Joueurs" />
+          <TabButton active={tab === "results"} onClick={() => setTab("results")}
+            icon={<ListOrdered className="w-5 h-5" />} label="Résultats" />
+          <TabButton active={tab === "next"} onClick={() => setTab("next")}
+            icon={<CalendarClock className="w-5 h-5" />} label="Matchs suivants" />
+        </div>
       </div>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════
-   UNIFIED SECTION — carte repliable pour la vue une-page
+   BOTTOM TAB BUTTON
    ═══════════════════════════════════════════════════════════ */
-function UnifiedSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  const [open, setOpen] = useState(true);
+function TabButton({ active, onClick, icon, label }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: string;
+}) {
   return (
-    <div className="rounded-3xl bg-card shadow-[var(--shadow-soft)] overflow-hidden">
-      <button onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left">
-        <span className="text-muted-foreground">{icon}</span>
-        <span className="text-sm font-bold flex-1">{title}</span>
-        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
-      </button>
-      {open && <div className="px-4 pb-4">{children}</div>}
-    </div>
+    <button onClick={onClick}
+      className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors ${active ? "text-primary" : "text-muted-foreground"}`}>
+      {icon}
+      <span className="text-[10px] font-bold">{label}</span>
+    </button>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════
-   TIMER PANEL — tous les timers du tournoi en un seul panneau
+   TIMER PANEL — all active timers
    ═══════════════════════════════════════════════════════════ */
-function TimerPanel({ t, myMatch, me }: { t: any; myMatch: any; me: any }) {
-  // 1. Check-in timer
-  const checkInLeft = useCountdown(
-    t.check_in_opened_at
-      ? new Date(new Date(t.check_in_opened_at).getTime() + t.check_in_minutes * 60000).toISOString()
-      : null
-  );
+function TimerPanel({ t, myMatch, me, matches, now }: {
+  t: any; myMatch: any; me: any; matches: any[]; now: number;
+}) {
+  const checkInDeadline = t.check_in_opened_at
+    ? new Date(new Date(t.check_in_opened_at).getTime() + (t.check_in_minutes ?? 15) * 60000).toISOString()
+    : null;
+  const checkInLeft = useCountdown(checkInDeadline);
   const checkInActive = t.check_in_opened_at && t.status === "open" && checkInLeft > 0;
 
-  // 2. Break timer
   const breakLeft = useCountdown(t.break_until);
   const breakActive = t.break_until && breakLeft > 0;
 
-  // 3. My match lobby/deadline timer
   const matchDeadlineLeft = useCountdown(myMatch?.deadline_at);
   const matchActive = myMatch && myMatch.status === "running" && matchDeadlineLeft > 0;
 
-  // 4. Next round start (if break is active, show when next round starts)
-  const anyTimers = checkInActive || breakActive || matchActive;
-  if (!anyTimers) return null;
+  // Next round estimate
+  const nextRoundStart = useMemo(() => {
+    if (t.status !== "running" || breakActive || matchActive) return null;
+    return estimateNextRoundStart(t, matches, now);
+  }, [t, matches, now, breakActive, matchActive]);
+
+  const nextRoundLeft = useCountdown(nextRoundStart?.toISOString());
+  const nextRoundVisible = t.status === "running" && !breakActive && !matchActive && nextRoundLeft > 0 && matches.some((m) => m.status === "running" || m.status === "scheduled");
+
+  if (!checkInActive && !breakActive && !matchActive && !nextRoundVisible) return null;
 
   return (
-    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+    <div className="mx-4 my-2 rounded-2xl border border-primary/30 bg-primary/5 p-3 space-y-2">
       <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary uppercase">
-        <Timer className="w-3.5 h-3.5" /> Chronomètres en cours
+        <Timer className="w-3.5 h-3.5" /> Chronomètres
       </div>
 
-      {/* Check-in countdown */}
       {checkInActive && (
-        <TimerRow
-          icon={<UserCheck className="w-4 h-4 text-amber-600" />}
-          label="Check-in ouvert"
-          sub={`${t.check_in_minutes} min pour confirmer`}
-          seconds={checkInLeft}
-          color="amber"
-        />
+        <TimerRow icon={<UserCheck className="w-4 h-4 text-amber-600" />} label="Check-in ouvert"
+          sub={`${t.check_in_minutes ?? 15} min pour confirmer`} seconds={checkInLeft} color="amber" />
       )}
-
-      {/* Break countdown */}
       {breakActive && (
-        <TimerRow
-          icon={<Hourglass className="w-4 h-4 text-blue-600" />}
-          label="Pause entre les phases"
-          sub={`Prochaine phase dans ${fmt(breakLeft)}`}
-          seconds={breakLeft}
-          color="blue"
-        />
+        <TimerRow icon={<Hourglass className="w-4 h-4 text-blue-600" />} label="Pause entre les phases"
+          sub={`Prochaine phase dans ${fmt(breakLeft)}`} seconds={breakLeft} color="blue" />
       )}
-
-      {/* My match lobby countdown */}
       {matchActive && (
-        <TimerRow
-          icon={<AlertCircle className="w-4 h-4 text-red-600" />}
-          label="Votre match est en cours !"
+        <TimerRow icon={<AlertCircle className="w-4 h-4 text-red-600" />} label="Votre match est en cours !"
           sub={matchDeadlineLeft < 60 ? "⚠ Dernières secondes !" : `Temps restant : ${fmt(matchDeadlineLeft)}`}
-          seconds={matchDeadlineLeft}
-          color="red"
-        />
+          seconds={matchDeadlineLeft} color="red" />
+      )}
+      {nextRoundVisible && (
+        <TimerRow icon={<CalendarClock className="w-4 h-4 text-purple-600" />} label="Prochaine phase estimée"
+          sub={`Dans environ ${fmt(nextRoundLeft)}`} seconds={nextRoundLeft} color="purple" />
       )}
     </div>
   );
 }
 
 function TimerRow({ icon, label, sub, seconds, color }: {
-  icon: React.ReactNode; label: string; sub: string; seconds: number; color: "amber" | "blue" | "red";
+  icon: React.ReactNode; label: string; sub: string; seconds: number;
+  color: "amber" | "blue" | "red" | "purple";
 }) {
-  const colorClasses = {
+  const cc: Record<string, string> = {
     amber: "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
     blue: "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
     red: "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300",
+    purple: "bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300",
   };
-  const pct = Math.min(100, (seconds / 600) * 100); // assume max 10 min for visual
-
+  const pct = Math.min(100, Math.max(5, (seconds / 1800) * 100));
   return (
-    <div className={`rounded-xl ${colorClasses[color]} p-2.5 space-y-1`}>
+    <div className={`rounded-xl ${cc[color]} p-2.5 space-y-1`}>
       <div className="flex items-center gap-2">
         {icon}
         <span className="text-xs font-bold flex-1">{label}</span>
@@ -536,170 +483,154 @@ function TimerRow({ icon, label, sub, seconds, color }: {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   BRACKET — TOUS LES TOURS EN UNE SEULE VUE
+   TAB 1: JOUEURS — player list → matchups when tournament starts
    ═══════════════════════════════════════════════════════════ */
-function BracketView({ matches, byId, me, slug, currentRound }: {
-  matches: any[]; byId: Record<string, any>; me: any; slug: string; currentRound: number;
+function PlayersTab({ entrants, waitlist, t, byId, me, matches, hasMatches }: {
+  entrants: any[]; waitlist: any[]; t: any; byId: Record<string, any>; me: any; matches: any[]; hasMatches: boolean;
 }) {
-  if (!matches.length) {
+  // Before tournament starts → show full player list
+  // After tournament starts → show matchups (who vs who)
+  const tournamentStarted = t.status === "running" || t.status === "finished";
+  const active = entrants.filter((e) => e.status === "active");
+  const eliminated = entrants.filter((e) => e.status === "eliminated").sort((a, b) => (b.eliminated_round ?? 0) - (a.eliminated_round ?? 0));
+
+  if (!tournamentStarted) {
+    // ── PRE-TOURNAMENT: Full player list ──
     return (
-      <div className="rounded-3xl bg-card p-8 text-center space-y-2">
-        <Trophy className="w-10 h-10 text-muted-foreground mx-auto opacity-50" />
-        <p className="text-sm text-muted-foreground">Le tableau apparaîtra dès le démarrage du tournoi.</p>
+      <div className="space-y-3">
+        <div className="rounded-2xl bg-card p-4 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase mb-3">
+            Joueurs inscrits ({entrants.length}/{t.max_players})
+          </h3>
+          <div className="space-y-1">
+            {entrants.map((e, i) => (
+              <div key={e.id} className={`flex items-center gap-2 text-sm px-2.5 py-2 rounded-xl ${me?.id === e.id ? "bg-primary/10 font-bold" : "bg-secondary/40"}`}>
+                <span className="w-6 text-xs text-muted-foreground font-bold">{i + 1}</span>
+                <span className="flex-1 truncate">{e.display_name}</span>
+                {e.is_bot && <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-secondary">bot</span>}
+                {e.checked_in && <span className="text-[10px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40">✓</span>}
+                {me?.id === e.id && <span className="text-[8px] font-bold text-primary">VOUS</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {waitlist.length > 0 && (
+          <div className="rounded-2xl bg-card p-4 shadow-[var(--shadow-soft)]">
+            <h3 className="text-xs font-bold text-amber-600 uppercase mb-2 flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Liste d'attente ({waitlist.length})
+            </h3>
+            <div className="space-y-1">
+              {waitlist.map((w: any) => (
+                <div key={w.id} className="flex items-center gap-2 text-sm px-2.5 py-2 rounded-xl bg-secondary/40">
+                  <span className="w-6 text-xs font-bold text-amber-600">{w.position}</span>
+                  <span className="flex-1 truncate">{w.display_name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  const bracketMatches = matches.filter((m) => m.phase !== "pool");
-  const poolMatches = matches.filter((m) => m.phase === "pool");
-  const rounds = Array.from(new Set(bracketMatches.map((m) => m.round))).sort((a, b) => a - b);
-  const thirdPlaceMatch = bracketMatches.find((m) => m.phase === "third_place");
+  // ── TOURNAMENT RUNNING: Show matchups ──
+  const currentRoundMatches = matches.filter((m) => m.round === t.current_round && m.phase !== "pool" && m.status !== "finished");
+  const poolMatches = matches.filter((m) => m.phase === "pool" && m.status !== "finished");
+  const displayMatches = poolMatches.length > 0 ? poolMatches : currentRoundMatches;
 
   return (
-    <div className="space-y-4">
-      {/* Matchs de poule */}
-      {poolMatches.length > 0 && (
-        <div className="rounded-2xl bg-secondary/40 p-3 space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase">Phase de poules</h3>
+    <div className="space-y-3">
+      {/* Matchups for current phase */}
+      {displayMatches.length > 0 && (
+        <div className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-primary uppercase mb-3">
+            {poolMatches.length > 0 ? "Matchs de poules" : "Matchs en cours"}
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {poolMatches.map((m) => (
-              <MatchCard key={m.id} m={m} byId={byId} me={me} slug={slug} compact />
+            {displayMatches.map((m) => (
+              <MatchupCard key={m.id} m={m} byId={byId} me={me} t={t} />
             ))}
           </div>
         </div>
       )}
 
-      {/* TOUS LES TOURS — un par un, en vertical */}
-      {rounds.map((r) => {
-        const roundMatches = bracketMatches.filter((m) => m.round === r && m.phase !== "third_place");
-        if (roundMatches.length === 0) return null;
-        const label = roundLabel(roundMatches.length, roundMatches[0]?.phase ?? "final");
-        const isCurrent = r === currentRound;
-        const finished = roundMatches.filter((m) => m.status === "finished").length;
-        const live = roundMatches.filter((m) => m.status === "running").length;
-        const waiting = roundMatches.filter((m) => m.status === "scheduled").length;
-
-        return (
-          <div key={r} className="space-y-2">
-            {/* En-tête du round */}
-            <div className={`rounded-2xl px-3 py-2 flex items-center justify-between ${isCurrent ? "bg-amber-100 dark:bg-amber-950/40" : "bg-secondary/60"}`}>
-              <span className={`text-sm font-bold ${isCurrent ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>
-                {isCurrent && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1.5" />}
-                {label}
-              </span>
-              <span className="text-[10px] font-semibold text-muted-foreground">
-                {finished > 0 && <span className="text-emerald-600">{finished} fini{finished > 1 ? "s" : ""} · </span>}
-                {live > 0 && <span className="text-amber-600">{live} live · </span>}
-                {waiting > 0 && <span>{waiting} en attente</span>}
-                {finished === roundMatches.length && <span className="text-emerald-600">✓ Terminé</span>}
-              </span>
-            </div>
-
-            {/* Matchs du round — en grille */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {roundMatches.map((m) => (
-                <MatchCard key={m.id} m={m} byId={byId} me={me} slug={slug} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Petite finale */}
-      {thirdPlaceMatch && (
-        <div className="space-y-2">
-          <div className="rounded-2xl px-3 py-2 text-center bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30">
-            <span className="text-sm font-bold text-amber-700 dark:text-amber-400">🥉 Petite finale</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <MatchCard m={thirdPlaceMatch} byId={byId} me={me} slug={slug} />
+      {/* Active players */}
+      {active.length > 0 && (
+        <div className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-emerald-600 uppercase mb-2 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" /> En lice ({active.length})
+          </h3>
+          <div className="space-y-1">
+            {active.map((e, i) => (
+              <div key={e.id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl bg-secondary/40">
+                <span className="w-5 text-xs text-muted-foreground">{i + 1}</span>
+                <span className="flex-1 truncate font-medium">{e.display_name}</span>
+                {e.is_bot && <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-secondary">bot</span>}
+                {e.final_rank === 1 && <Crown className="w-4 h-4 text-amber-500" />}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Légende */}
-      <div className="flex flex-wrap gap-3 px-1 text-[10px] text-muted-foreground">
-        <LegendDot color="bg-emerald-500" label="Gagnant" />
-        <LegendDot color="bg-amber-500" label="En cours" />
-        <LegendDot color="bg-secondary" label="À venir" />
-        <LegendDot color="bg-red-400" label="Perdant" />
-      </div>
+      {/* Eliminated */}
+      {eliminated.length > 0 && (
+        <div className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase mb-2">
+            Éliminés ({eliminated.length})
+          </h3>
+          <div className="space-y-1">
+            {eliminated.map((e, i) => (
+              <div key={e.id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl opacity-60">
+                <span className="w-5 text-xs text-muted-foreground">{i + 1}</span>
+                <span className="flex-1 truncate">{e.display_name}</span>
+                {e.final_rank && e.final_rank <= 4 && (
+                  <span className="text-[10px] font-bold text-amber-600">
+                    {e.final_rank === 1 ? "🥇" : e.final_rank === 2 ? "🥈" : "🥉"}
+                  </span>
+                )}
+                {e.eliminated_round && (
+                  <span className="text-[9px] text-muted-foreground shrink-0">
+                    {eliminatedRoundLabel(e.eliminated_round, t.format, t.total_rounds ?? 0)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function MatchCard({ m, byId, me, slug, compact }: {
-  m: any; byId: Record<string, any>; me: any; slug: string; compact?: boolean;
-}) {
+function MatchupCard({ m, byId, me, t }: { m: any; byId: Record<string, any>; me: any; t: any }) {
   const players = m.entrant_ids.map((eid: string) => byId[eid]);
-  const winnerId = m.winner_entrant_id;
-  const isRunning = m.status === "running";
-  const isFinished = m.status === "finished";
   const isMyMatch = me && m.entrant_ids.includes(me.id);
-
-  // Deadline countdown for running matches
-  const deadlineLeft = useCountdown(m.status === "running" ? m.deadline_at : null);
+  const isRunning = m.status === "running";
 
   return (
-    <div className={`rounded-2xl border p-2.5 transition-all ${
-      isMyMatch && isRunning ? "border-primary shadow-md scale-[1.02]" :
-      isRunning ? "border-amber-300 dark:border-amber-700" :
-      "border-border"
-    } ${compact ? "" : "shadow-[var(--shadow-soft)]"}`}>
-      {/* N° match + statut */}
+    <div className={`rounded-2xl border p-2.5 ${isMyMatch && isRunning ? "border-primary shadow-md" : "border-border"} ${isRunning ? "bg-amber-50 dark:bg-amber-950/20" : "bg-secondary/30"}`}>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[9px] font-bold text-muted-foreground">
-          {m.phase === "third_place" ? "3e place" : `M${m.match_no ?? ""}`}
+          {m.phase === "pool" ? "Poule" : m.phase === "third_place" ? "3e place" : `M${m.match_no ?? ""}`}
         </span>
         <MatchPill m={m} />
       </div>
-
-      {/* Joueurs */}
       {players.map((p: any, i: number) => (
         <div key={i}>
-          {i > 0 && (
-            <div className="flex items-center gap-1 py-0.5">
-              <div className="flex-1 border-t border-dashed border-border" />
-              <span className="text-[9px] font-bold text-muted-foreground px-1">VS</span>
-              <div className="flex-1 border-t border-dashed border-border" />
-            </div>
-          )}
-          <PlayerRow
-            name={p?.display_name ?? "À déterminer"}
-            isWinner={winnerId && winnerId === p?.id}
-            isLoser={isFinished && winnerId && winnerId !== p?.id && p}
-            isMyRow={me?.id === p?.id}
-          />
+          {i > 0 && <div className="flex items-center gap-1 py-0.5"><div className="flex-1 border-t border-dashed border-border" /><span className="text-[9px] font-bold text-muted-foreground px-1">VS</span><div className="flex-1 border-t border-dashed border-border" /></div>}
+          <div className={`flex items-center gap-1.5 rounded-lg px-1.5 py-1 ${m.winner_entrant_id === p?.id ? "bg-emerald-50 dark:bg-emerald-950/30" : m.status === "finished" && m.winner_entrant_id && m.winner_entrant_id !== p?.id ? "opacity-50" : ""}`}>
+            {m.winner_entrant_id === p?.id ? <Crown className="w-3 h-3 text-amber-500 shrink-0" /> : <span className="w-3 h-3 shrink-0" />}
+            <span className={`text-xs truncate flex-1 ${m.winner_entrant_id === p?.id ? "font-bold text-emerald-700 dark:text-emerald-400" : m.status === "finished" && m.winner_entrant_id && m.winner_entrant_id !== p?.id ? "text-muted-foreground line-through" : "font-medium"} ${me?.id === p?.id ? "text-primary font-bold" : ""}`}>
+              {p?.display_name ?? "À déterminer"}
+            </span>
+            {me?.id === p?.id && <span className="text-[8px] font-bold text-primary shrink-0">VOUS</span>}
+          </div>
         </div>
       ))}
-
-      {m.entrant_ids.length < 2 && (
-        <div className="text-[11px] text-muted-foreground italic px-1.5 py-1">
-          En attente du tirage...
-        </div>
-      )}
-
-      {/* Deadline countdown for running matches */}
-      {isRunning && deadlineLeft > 0 && (
-        <div className={`mt-1.5 flex items-center justify-center gap-1 text-[10px] font-bold rounded-lg py-1 ${
-          deadlineLeft < 60 ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300" :
-          "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-        }`}>
-          <Clock className="w-3 h-3" />
-          <span className="tabular-nums">{fmt(deadlineLeft)}</span>
-        </div>
-      )}
-
-      {/* Forfait / timeout */}
-      {isFinished && !winnerId && (
-        <div className="mt-1 text-[9px] text-muted-foreground italic text-center">
-          Match résolu (forfait/timeout)
-        </div>
-      )}
-
-      {/* Lien rejoindre */}
       {isRunning && m.game_id && me && m.entrant_ids.includes(me.id) && (
-        <Link to={slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"} params={{ id: m.game_id }}
+        <Link to={t.game_slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"} params={{ id: m.game_id }}
           className="mt-2 block w-full py-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold text-center">
           ▶ Rejoindre
         </Link>
@@ -708,98 +639,293 @@ function MatchCard({ m, byId, me, slug, compact }: {
   );
 }
 
-function PlayerRow({ name, isWinner, isLoser, isMyRow }: {
-  name: string; isWinner?: boolean | "" | 0 | null; isLoser?: boolean | "" | 0 | null; isMyRow?: boolean;
-}) {
-  return (
-    <div className={`flex items-center gap-1.5 rounded-lg px-1.5 py-1 ${
-      isWinner ? "bg-emerald-50 dark:bg-emerald-950/30" : isLoser ? "opacity-50" : ""
-    }`}>
-      {isWinner ? <Crown className="w-3 h-3 text-amber-500 shrink-0" /> : <span className="w-3 h-3 shrink-0" />}
-      <span className={`text-xs truncate flex-1 ${
-        isWinner ? "font-bold text-emerald-700 dark:text-emerald-400" :
-        isLoser ? "text-muted-foreground line-through" : "font-medium"
-      } ${isMyRow ? "text-primary font-bold" : ""}`}>
-        {name}
-      </span>
-      {isMyRow && <span className="text-[8px] font-bold text-primary shrink-0">VOUS</span>}
-    </div>
-  );
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1">
-      <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
-      <span>{label}</span>
-    </div>
-  );
-}
-
 /* ═══════════════════════════════════════════════════════════
-   PHASE BANNER — résumé de la phase en cours
+   TAB 2: RÉSULTATS — all completed match results by round
    ═══════════════════════════════════════════════════════════ */
-function PhaseBanner({ t, matches, entrants }: { t: any; matches: any[]; entrants: any[] }) {
-  const breakLeft = useCountdown(t.break_until);
-  const active = entrants.filter((e) => e.status === "active").length;
-  const round = matches.filter((m) => m.round === t.current_round && m.phase !== "pool");
-  const done = round.filter((m) => m.status === "finished").length;
-  const live = round.filter((m) => m.status === "running").length;
-  const waiting = round.filter((m) => m.status === "scheduled").length;
-  const matchCount = round.length;
-  const firstPhase = round[0]?.phase ?? "final";
-  const title = t.stage === "pools" ? "Phase de poules" : roundLabel(matchCount, firstPhase);
+function ResultsTab({ matches, byId, me, t }: {
+  matches: any[]; byId: Record<string, any>; me: any; t: any;
+}) {
+  const finished = matches.filter((m) => m.status === "finished");
+  if (!finished.length) {
+    return (
+      <div className="rounded-2xl bg-card p-8 text-center shadow-[var(--shadow-soft)]">
+        <Trophy className="w-10 h-10 text-muted-foreground mx-auto opacity-50" />
+        <p className="text-sm text-muted-foreground mt-2">Aucun résultat pour l'instant.</p>
+      </div>
+    );
+  }
+
+  // Group by round
+  const poolResults = finished.filter((m) => m.phase === "pool");
+  const bracketResults = finished.filter((m) => m.phase !== "pool");
+  const rounds = Array.from(new Set(bracketResults.map((m) => m.round))).sort((a, b) => a - b);
+  const thirdPlace = bracketResults.find((m) => m.phase === "third_place");
 
   return (
-    <div className="rounded-2xl bg-secondary/60 p-3 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-bold flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${live > 0 ? "bg-amber-500 animate-pulse" : "bg-muted-foreground"}`} />
-          {title}
-        </span>
-        <span className="text-[11px] font-semibold text-muted-foreground">{active} en lice</span>
-      </div>
-      {round.length > 0 && (
-        <>
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-            <span className="text-emerald-600">{done} fini{done > 1 ? "s" : ""}</span>
-            <ChevronRight className="w-3 h-3 text-muted-foreground" />
-            <span className="text-amber-600">{live} en cours</span>
-            {waiting > 0 && (<>
-              <ChevronRight className="w-3 h-3 text-muted-foreground" />
-              <span className="text-muted-foreground">{waiting} en attente</span>
-            </>)}
-            <span className="ml-auto text-muted-foreground">{t.max_concurrent_matches ?? 8} max simultanés</span>
+    <div className="space-y-3">
+      {/* Pool results */}
+      {poolResults.length > 0 && (
+        <div className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase mb-2">Phase de poules</h3>
+          <div className="space-y-1.5">
+            {poolResults.map((m) => <ResultRow key={m.id} m={m} byId={byId} me={me} />)}
           </div>
-          <div className="flex gap-0.5 h-1.5">
-            {round.map((m, i) => (
-              <div key={i} className={`flex-1 rounded-full ${
-                m.status === "finished" ? "bg-emerald-500" : m.status === "running" ? "bg-amber-500" : "bg-secondary"
-              }`} />
-            ))}
-          </div>
-        </>
+        </div>
       )}
-      {breakLeft > 0 && (
-        <div className="rounded-xl bg-amber-100 dark:bg-amber-950/40 px-3 py-2 text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center justify-between">
-          <span>⏸ Pause avant la phase suivante</span>
-          <span className="tabular-nums">{fmt(breakLeft)}</span>
+
+      {/* Bracket results by round */}
+      {rounds.map((r) => {
+        const roundMatches = bracketResults.filter((m) => m.round === r && m.phase !== "third_place");
+        if (!roundMatches.length) return null;
+        const label = roundLabel(
+          matches.filter((m) => m.round === r && m.phase !== "pool" && m.phase !== "third_place").length,
+          roundMatches[0]?.phase ?? "final"
+        );
+        return (
+          <div key={r} className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+            <h3 className="text-xs font-bold text-primary uppercase mb-2">{label}</h3>
+            <div className="space-y-1.5">
+              {roundMatches.map((m) => <ResultRow key={m.id} m={m} byId={byId} me={me} />)}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Third place */}
+      {thirdPlace && (
+        <div className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-amber-600 uppercase mb-2">🥉 Petite finale</h3>
+          <div className="space-y-1.5">
+            <ResultRow m={thirdPlace} byId={byId} me={me} />
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   ADMIN BAR
-   ═══════════════════════════════════════════════════════════ */
-function AdminBar({ t, busy, rpc }: { t: any; busy: boolean; rpc: (fn: string, a: any, ok: string) => void }) {
-  const [bots, setBots] = useState(4);
-  const [brk, setBrk] = useState(Math.round((t.break_seconds ?? 180) / 60));
+function ResultRow({ m, byId, me }: { m: any; byId: Record<string, any>; me: any }) {
+  const winner = m.winner_entrant_id ? byId[m.winner_entrant_id] : null;
+  const players = m.entrant_ids.map((eid: string) => byId[eid]).filter(Boolean);
 
   return (
-    <div className="rounded-2xl border border-dashed border-border p-3 space-y-2">
-      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Contrôles admin</div>
+    <div className="flex items-center gap-2 text-[11px] px-2.5 py-2 rounded-xl bg-secondary/40">
+      <span className="text-[9px] font-bold text-muted-foreground w-6">M{m.match_no ?? ""}</span>
+      <div className="flex-1 min-w-0">
+        {players.map((p: any, i: number) => (
+          <div key={i} className={`flex items-center gap-1 ${i > 0 ? "mt-0.5" : ""}`}>
+            {m.winner_entrant_id === p?.id ? <Crown className="w-3 h-3 text-amber-500 shrink-0" /> : <span className="w-3 h-3 shrink-0" />}
+            <span className={`truncate ${m.winner_entrant_id === p?.id ? "font-bold text-emerald-700 dark:text-emerald-400" : m.is_draw ? "" : "text-muted-foreground line-through"} ${me?.id === p?.id ? "text-primary" : ""}`}>
+              {p?.display_name ?? "?"}
+            </span>
+            {me?.id === p?.id && <span className="text-[8px] font-bold text-primary shrink-0">VOUS</span>}
+          </div>
+        ))}
+      </div>
+      {m.is_draw ? (
+        <span className="text-[9px] font-bold text-amber-600 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 shrink-0">NUL</span>
+      ) : winner ? (
+        <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 shrink-0">GAGNÉ</span>
+      ) : (
+        <span className="text-[9px] font-bold text-muted-foreground px-1.5 py-0.5 rounded-full bg-secondary shrink-0">FORFAIT</span>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAB 3: MATCHS SUIVANTS — upcoming matches with precise times
+   ═══════════════════════════════════════════════════════════ */
+function NextMatchesTab({ matches, byId, me, t, now }: {
+  matches: any[]; byId: Record<string, any>; me: any; t: any; now: number;
+}) {
+  const scheduled = matches.filter((m) => m.status === "scheduled");
+  const running = matches.filter((m) => m.status === "running");
+  const hasMatches = matches.length > 0;
+
+  if (!hasMatches) {
+    return (
+      <div className="rounded-2xl bg-card p-8 text-center shadow-[var(--shadow-soft)]">
+        <CalendarClock className="w-10 h-10 text-muted-foreground mx-auto opacity-50" />
+        <p className="text-sm text-muted-foreground mt-2">Les matchs apparaîtront au démarrage du tournoi.</p>
+      </div>
+    );
+  }
+
+  if (!scheduled.length && !running.length) {
+    return (
+      <div className="rounded-2xl bg-card p-8 text-center shadow-[var(--shadow-soft)]">
+        <Trophy className="w-10 h-10 text-muted-foreground mx-auto opacity-50" />
+        <p className="text-sm text-muted-foreground mt-2">Tous les matchs sont terminés.</p>
+      </div>
+    );
+  }
+
+  // Group scheduled by round
+  const bracketScheduled = scheduled.filter((m) => m.phase !== "pool");
+  const poolScheduled = scheduled.filter((m) => m.phase === "pool");
+  const rounds = Array.from(new Set(bracketScheduled.map((m) => m.round))).sort((a, b) => a - b);
+
+  // Compute timing info
+  const matchDurSec = t.max_match_duration_secs ?? 1800;
+  const breakSec = t.break_seconds ?? 600;
+  const lobbySec = (t.lobby_minutes ?? 5) * 60;
+
+  // Next round start estimate
+  const nextRoundStart = estimateNextRoundStart(t, matches, now);
+
+  return (
+    <div className="space-y-3">
+      {/* Timing info banner */}
+      <div className="rounded-2xl bg-secondary/40 p-3 space-y-1.5 text-[11px]">
+        <div className="flex justify-between"><span className="text-muted-foreground">Durée max par match</span><span className="font-bold">{Math.floor(matchDurSec / 60)} min</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Préparation entre phases</span><span className="font-bold">{Math.floor(breakSec / 60)} min</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Salle d'attente (lobby)</span><span className="font-bold">{t.lobby_minutes ?? 5} min</span></div>
+        {nextRoundStart && (
+          <div className="flex justify-between pt-1 border-t border-border">
+            <span className="font-bold text-primary">Prochaine phase estimée</span>
+            <span className="font-bold text-primary">{new Date(nextRoundStart).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Running matches */}
+      {running.length > 0 && (
+        <div className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-amber-600 uppercase mb-2 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" /> En cours ({running.length})
+          </h3>
+          <div className="space-y-1.5">
+            {running.map((m) => <UpcomingMatchRow key={m.id} m={m} byId={byId} me={me} t={t} now={now} isRunning />)}
+          </div>
+        </div>
+      )}
+
+      {/* Pool scheduled */}
+      {poolScheduled.length > 0 && (
+        <div className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase mb-2">Poules à venir</h3>
+          <div className="space-y-1.5">
+            {poolScheduled.map((m) => <UpcomingMatchRow key={m.id} m={m} byId={byId} me={me} t={t} now={now} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Bracket rounds */}
+      {rounds.map((r) => {
+        const roundMatches = bracketScheduled.filter((m) => m.round === r);
+        if (!roundMatches.length) return null;
+        const allInRound = matches.filter((m) => m.round === r && m.phase !== "pool" && m.phase !== "third_place");
+        const label = roundLabel(allInRound.length, roundMatches[0]?.phase ?? "final");
+        return (
+          <div key={r} className="rounded-2xl bg-card p-3 shadow-[var(--shadow-soft)]">
+            <h3 className="text-xs font-bold text-primary uppercase mb-2">{label}</h3>
+            <div className="space-y-1.5">
+              {roundMatches.map((m) => <UpcomingMatchRow key={m.id} m={m} byId={byId} me={me} t={t} now={now} />)}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Timing explanation */}
+      <div className="rounded-2xl bg-secondary/40 p-3 text-[11px] text-muted-foreground space-y-1">
+        <div className="font-bold text-foreground mb-1">📅 Organisation des temps</div>
+        <div>• Chaque match dure au maximum {Math.floor(matchDurSec / 60)} minutes</div>
+        <div>• {Math.floor(breakSec / 60)} minutes de préparation entre chaque phase</div>
+        <div>• {t.lobby_minutes ?? 5} minutes en salle d'attente avant le match</div>
+        <div>• Règles officielles {t.game_slug === "ludo" ? "du Ludo" : "du Domino"} — identiques au jeu normal</div>
+      </div>
+    </div>
+  );
+}
+
+function UpcomingMatchRow({ m, byId, me, t, now, isRunning }: {
+  m: any; byId: Record<string, any>; me: any; t: any; now: number; isRunning?: boolean;
+}) {
+  const players = m.entrant_ids.map((eid: string) => byId[eid]);
+  const isMyMatch = me && m.entrant_ids.includes(me.id);
+  const est = isRunning ? null : estimateMatchStart(m, m._allMatches ?? [], t, now);
+  const deadlineLeft = useCountdown(isRunning ? m.deadline_at : null);
+
+  return (
+    <div className={`flex items-center gap-2 text-[11px] px-2.5 py-2 rounded-xl ${isMyMatch ? "bg-primary/10 border border-primary/30" : "bg-secondary/40"}`}>
+      <span className="text-[9px] font-bold text-muted-foreground w-6">{m.match_no ?? ""}</span>
+      <div className="flex-1 min-w-0">
+        {players.map((p: any, i: number) => (
+          <span key={i} className={`${i > 0 ? " text-muted-foreground" : ""} ${me?.id === p?.id ? "font-bold text-primary" : ""}`}>
+            {i > 0 && " vs "}
+            {p?.display_name ?? "À déterminer"}
+          </span>
+        ))}
+        {!players.length && <span className="text-muted-foreground italic">En attente du tirage</span>}
+      </div>
+      {/* Time indicator */}
+      {isRunning && deadlineLeft > 0 ? (
+        <span className={`text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full ${deadlineLeft < 60 ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300" : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>
+          {fmt(deadlineLeft)}
+        </span>
+      ) : est ? (
+        <span className="text-[10px] font-bold text-muted-foreground px-2 py-0.5 rounded-full bg-secondary shrink-0">
+          ~{est.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+        </span>
+      ) : null}
+      {isMyMatch && <span className="text-[8px] font-bold text-primary shrink-0">VOUS</span>}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN BAR — with timer controls
+   ═══════════════════════════════════════════════════════════ */
+function AdminBar({ t, busy, rpc }: { t: any; busy: boolean; rpc: (fn: string, a: any, ok: string) => void }) {
+  const [showTimers, setShowTimers] = useState(false);
+  const [matchMin, setMatchMin] = useState(Math.floor((t.max_match_duration_secs ?? 1800) / 60));
+  const [breakMin, setBreakMin] = useState(Math.floor((t.break_seconds ?? 600) / 60));
+  const [lobbyMin, setLobbyMin] = useState(t.lobby_minutes ?? 5);
+  const [checkInMin, setCheckInMin] = useState(t.check_in_minutes ?? 15);
+  const [concurrent, setConcurrent] = useState(t.max_concurrent_matches ?? 8);
+  const [bots, setBots] = useState(4);
+
+  const saveTimers = () => {
+    rpc("admin_tournament_set_timers", {
+      _tid: t.id,
+      _match_duration_secs: matchMin * 60,
+      _break_secs: breakMin * 60,
+      _lobby_mins: lobbyMin,
+      _check_in_mins: checkInMin,
+      _max_concurrent: concurrent,
+    }, "✅ Timers mis à jour");
+  };
+
+  return (
+    <div className="mx-4 my-2 rounded-2xl border border-dashed border-border p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Contrôles admin</div>
+        <button onClick={() => setShowTimers(!showTimers)}
+          className="text-[11px] font-bold text-primary flex items-center gap-1">
+          <Settings className="w-3 h-3" /> Timers
+        </button>
+      </div>
+
+      {/* Timer settings (collapsible) */}
+      {showTimers && (
+        <div className="rounded-xl bg-secondary/40 p-3 space-y-2">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase">Configuration des temps</div>
+          <div className="grid grid-cols-2 gap-2">
+            <TimerInput label="Match (min)" value={matchMin} onChange={setMatchMin} min={1} max={120} />
+            <TimerInput label="Prépa (min)" value={breakMin} onChange={setBreakMin} min={0} max={60} />
+            <TimerInput label="Lobby (min)" value={lobbyMin} onChange={setLobbyMin} min={1} max={30} />
+            <TimerInput label="Check-in (min)" value={checkInMin} onChange={setCheckInMin} min={1} max={60} />
+            <TimerInput label="Matchs simultanés" value={concurrent} onChange={setConcurrent} min={1} max={8} />
+          </div>
+          <button onClick={saveTimers} disabled={busy}
+            className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60">
+            Enregistrer les timers
+          </button>
+        </div>
+      )}
+
+      {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
         {t.status === "open" && (
           <>
@@ -827,12 +953,6 @@ function AdminBar({ t, busy, rpc }: { t: any; busy: boolean; rpc: (fn: string, a
             </button>
             <button disabled={busy} onClick={() => rpc("admin_tournament_set_status", { _tid: t.id, _status: "paused" }, "Tournoi en pause")}
               className="px-3 py-1.5 rounded-xl bg-secondary text-xs font-bold">⏸ Pause</button>
-            <div className="flex items-center gap-1">
-              <input type="number" min={0} max={60} value={brk} onChange={(e) => setBrk(Number(e.target.value))}
-                className="w-12 px-2 py-1.5 rounded-xl bg-secondary text-sm text-center" />
-              <button disabled={busy} onClick={() => rpc("admin_tournament_set_break", { _tid: t.id, _seconds: brk * 60 }, "Pause mise à jour")}
-                className="px-2.5 py-1.5 rounded-xl bg-secondary text-[11px] font-bold">min</button>
-            </div>
           </>
         )}
         {t.status === "paused" && (
@@ -848,311 +968,21 @@ function AdminBar({ t, busy, rpc }: { t: any; busy: boolean; rpc: (fn: string, a
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   POULES
-   ═══════════════════════════════════════════════════════════ */
-function PoolsView({ pools, byId, me, matches }: { pools: { pool: any; players: any[] }[]; byId: Record<string, any>; me: any; matches: any[] }) {
-  if (!pools.length) return <p className="text-sm text-muted-foreground text-center py-4">Le tirage des poules aura lieu au démarrage.</p>;
-  return (
-    <div className="space-y-3">
-      {pools.map(({ pool, players }) => {
-        const poolMatches = matches.filter((m) => m.pool_id === pool.id);
-        return (
-          <div key={pool.id} className="rounded-2xl bg-secondary/40 p-3">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-primary/15 text-primary grid place-items-center text-xs font-extrabold">{pool.label}</span>
-                Poule {pool.label}
-              </h3>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                pool.status === "finished" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" :
-                pool.status === "running" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" :
-                "bg-secondary text-muted-foreground"
-              }`}>
-                {pool.status === "finished" ? "Terminée" : pool.status === "running" ? "En cours" : "À venir"}
-              </span>
-            </div>
-            {/* Classement */}
-            <div className="space-y-1 mb-3">
-              {players.map((p, i) => (
-                <div key={p.id} className={`flex items-center gap-2 text-sm px-2.5 py-2 rounded-xl ${
-                  me && p.entrant_id === me.id ? "bg-primary/10 font-bold" : "bg-secondary/40"
-                }`}>
-                  <span className="w-5 text-xs text-muted-foreground font-bold">{i + 1}.</span>
-                  <span className="flex-1 truncate">{byId[p.entrant_id]?.display_name ?? "?"}</span>
-                  {p.qualified && <span className="text-[10px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40">Qualifié</span>}
-                  <span className="text-xs text-muted-foreground">{p.played}j · {p.wins}V</span>
-                  <span className="text-xs font-bold w-10 text-right">{p.points} pts</span>
-                </div>
-              ))}
-            </div>
-            {/* Matchs */}
-            {poolMatches.length > 0 && (
-              <div className="border-t border-border pt-2 space-y-1">
-                <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Matchs</div>
-                {poolMatches.map((m) => (
-                  <div key={m.id} className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg bg-secondary/30">
-                    {m.entrant_ids.map((eid: string, i: number) => {
-                      const p = byId[eid];
-                      const won = m.winner_entrant_id === eid;
-                      return (
-                        <span key={eid} className={`flex-1 truncate ${won ? "font-bold text-emerald-600" : m.status === "finished" ? "text-muted-foreground" : ""}`}>
-                          {p?.display_name ?? "?"}
-                        </span>
-                      );
-                    }).reduce((acc: any[], el: any, i: number) => {
-                      if (i > 0) acc.push(<span key={`sep-${i}`} className="text-[9px] text-muted-foreground font-bold">vs</span>);
-                      acc.push(el);
-                      return acc;
-                    }, [])}
-                    <span className="shrink-0"><MatchPill m={m} /></span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
-   PARTICIPANTS
-   ═══════════════════════════════════════════════════════════ */
-function PlayersView({ entrants, waitlist, t }: { entrants: any[]; waitlist: any[]; t: any }) {
-  if (!entrants.length && (!waitlist || !waitlist.length)) return <p className="text-sm text-muted-foreground text-center py-4">Aucun inscrit.</p>;
-
-  const active = entrants.filter((e) => e.status === "active");
-  const eliminated = entrants.filter((e) => e.status === "eliminated").sort((a, b) => (b.eliminated_round ?? 0) - (a.eliminated_round ?? 0));
-
-  return (
-    <div className="space-y-3">
-      {/* Champion */}
-      {t.status === "finished" && (() => {
-        const champ = entrants.find((e) => e.final_rank === 1);
-        if (!champ) return null;
-        return (
-          <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 p-4 text-center space-y-2">
-            <Crown className="w-8 h-8 text-amber-500 mx-auto" />
-            <div className="text-base font-extrabold text-amber-700 dark:text-amber-400">{champ.display_name}</div>
-            <div className="text-[10px] font-bold text-amber-600 uppercase">🏆 Champion du tournoi</div>
-          </div>
-        );
-      })()}
-
-      {/* En lice */}
-      {active.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold text-emerald-600 uppercase mb-2 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" /> En lice ({active.length})
-          </h3>
-          <div className="space-y-1">
-            {active.map((e, i) => (
-              <div key={e.id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl bg-secondary/40">
-                <span className="w-5 text-xs text-muted-foreground">{i + 1}</span>
-                <span className="flex-1 truncate font-medium">{e.display_name}</span>
-                {e.is_bot && <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-secondary">bot</span>}
-                {e.final_rank === 1 && <Crown className="w-4 h-4 text-amber-500" />}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Éliminés */}
-      {eliminated.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold text-muted-foreground uppercase mb-2 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-muted-foreground" /> Éliminés ({eliminated.length})
-          </h3>
-          <div className="space-y-1">
-            {eliminated.map((e, i) => (
-              <div key={e.id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl opacity-60">
-                <span className="w-5 text-xs text-muted-foreground">{i + 1}</span>
-                <span className="flex-1 truncate">{e.display_name}</span>
-                {e.is_bot && <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-secondary">bot</span>}
-                {e.final_rank && e.final_rank <= 4 && (
-                  <span className="text-[10px] font-bold text-amber-600">{e.final_rank === 1 ? "🥇" : e.final_rank === 2 ? "🥈" : "🥉"}</span>
-                )}
-                {e.eliminated_round && (
-                  <span className="text-[9px] text-muted-foreground shrink-0">{eliminatedRoundLabel(e.eliminated_round, t.format, t.total_rounds ?? 0)}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Liste d'attente */}
-      {waitlist && waitlist.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold text-amber-600 uppercase mb-2 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Liste d'attente ({waitlist.length})
-          </h3>
-          <div className="space-y-1">
-            {waitlist.map((w) => (
-              <div key={w.id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl bg-secondary/40">
-                <span className="w-5 text-xs font-bold text-amber-600">{w.position}</span>
-                <span className="flex-1 truncate">{w.display_name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
-   RÉCOMPENSES
-   ═══════════════════════════════════════════════════════════ */
-function RewardsView({ t, net }: { t: any; net: number; byId: Record<string, any> }) {
-  const pcts = [t.prize_1_pct, t.prize_2_pct, t.prize_3_pct].slice(0, t.winners_count);
-  const medals = ["🥇", "🥈", "🥉"];
-  const labels = ["1er", "2e", "3e"];
-  const isPaid = Number(t.entry_fee_ar) > 0;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-center gap-2">
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isPaid ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"}`}>
-          {isPaid ? "💰 Mode payant" : "🎁 Mode gratuit"}
-        </span>
-      </div>
-      <div className="text-center py-2">
-        <div className="text-3xl font-extrabold text-amber-600">{net.toLocaleString("fr-FR")} Ar</div>
-        <div className="text-xs text-muted-foreground mt-1">{isPaid ? "Cagnotte nette (après commission)" : "Récompense offerte par l'organisateur"}</div>
-      </div>
-      <div className="space-y-2">
-        {pcts.map((pct, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-2xl bg-secondary/60 px-4 py-3">
-            <span className="text-2xl">{medals[i]}</span>
-            <div className="flex-1">
-              <div className="text-sm font-bold">{labels[i]} place</div>
-              <div className="text-[11px] text-muted-foreground">{pct}% de la cagnotte</div>
-            </div>
-            <div className="text-lg font-bold text-amber-600">{Math.round(net * pct / 100).toLocaleString("fr-FR")} Ar</div>
-          </div>
-        ))}
-      </div>
-      <div className="rounded-2xl bg-secondary/40 p-3 space-y-1.5 text-[11px] text-muted-foreground">
-        {isPaid && <Row label="Frais collectés" value={`${Number(t.prize_pool_ar).toLocaleString("fr-FR")} Ar`} />}
-        {!isPaid && <Row label="Inscription" value="Gratuite" valueClass="text-emerald-600" />}
-        <Row label="Cagnotte admin" value={`${Number(t.admin_prize_pool_ar).toLocaleString("fr-FR")} Ar`} />
-        {isPaid && <Row label={`Commission (${t.platform_pct}%)`} value={`-${Math.round(Number(t.prize_pool_ar) * Number(t.platform_pct) / 100).toLocaleString("fr-FR")} Ar`} valueClass="text-destructive" />}
-        <div className="flex justify-between pt-1 border-t border-border">
-          <span className="font-bold">Net à distribuer</span>
-          <span className="font-bold text-amber-600">{net.toLocaleString("fr-FR")} Ar</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
-   STATS
-   ═══════════════════════════════════════════════════════════ */
-function StatsView({ t, entrants, matches, me, byId }: {
-  t: any; entrants: any[]; matches: any[]; me: any; byId: Record<string, any>;
+function TimerInput({ label, value, onChange, min, max }: {
+  label: string; value: number; onChange: (v: number) => void; min: number; max: number;
 }) {
-  const poolMatches = matches.filter((m) => m.phase === "pool" && m.status === "finished");
-  const myMatches = me ? matches.filter((m) => m.entrant_ids.includes(me.id) && m.status === "finished") : [];
-  const scorerMap: Record<string, { name: string; w: number; l: number; d: number; pts: number }> = {};
-  poolMatches.forEach((m) => {
-    m.entrant_ids.forEach((id: string) => {
-      if (!scorerMap[id]) scorerMap[id] = { name: byId[id]?.display_name ?? "?", w: 0, l: 0, d: 0, pts: 0 };
-      if (m.winner_id === id) scorerMap[id].w++;
-      else if (m.loser_id === id) scorerMap[id].l++;
-      else if (m.is_draw) scorerMap[id].d++;
-    });
-  });
-  Object.values(scorerMap).forEach((s) => { s.pts = s.w * 3 + s.d * 1; });
-  const topScorers = Object.entries(scorerMap).sort(([,a],[,b]) => b.pts - a.pts).slice(0, 10);
-  const np = Number(t.entry_fee_ar) > 0
-    ? Math.round(Number(t.prize_pool_ar || 0) * (100 - t.platform_pct) / 100 + Number(t.admin_prize_pool_ar || 0))
-    : Number(t.admin_prize_pool_ar || 0);
-
   return (
-    <div className="space-y-3">
-      {/* Règles */}
-      <div className="rounded-2xl bg-secondary/40 p-3 space-y-2">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase">Règles du tournoi</h3>
-        <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <Row label="Commission" value={`${t.platform_pct}%`} />
-          <Row label="Net distribué" value={`${np.toLocaleString("fr-FR")} Ar`} valueClass="text-emerald-600" />
-          <Row label="Vainqueurs" value={`${t.winners_count}`} />
-          <Row label="Matchs simultanés" value={`${t.max_concurrent_matches}`} />
-          {t.game_slug === "domino" && <Row label="Mode domino" value={t.domino_scoring === "points" ? `Points (${t.target_score})` : "Élimination"} />}
-          <Row label="Durée max match" value={`${Math.floor(t.max_match_duration_secs / 60)} min`} />
-        </div>
-      </div>
-
-      {/* Répartition */}
-      <div className="rounded-2xl bg-secondary/40 p-3 space-y-2">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase">Répartition des gains</h3>
-        {[1, 2, 3].filter((r) => t.winners_count >= r).map((rank) => {
-          const pct = rank === 1 ? t.prize_1_pct : rank === 2 ? t.prize_2_pct : t.prize_3_pct;
-          const amount = Math.round(np * pct / 100);
-          const medals = ["🥇", "🥈", "🥉"];
-          return (
-            <div key={rank} className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2">
-                <span>{medals[rank - 1]}</span>
-                <span className="font-semibold">{rank === 1 ? "Champion" : rank === 2 ? "Finaliste" : "3e place"}</span>
-              </span>
-              <span className="font-bold text-amber-600">{pct}% · {amount.toLocaleString("fr-FR")} Ar</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Mes matchs */}
-      {me && myMatches.length > 0 && (
-        <div className="rounded-2xl bg-secondary/40 p-3 space-y-2">
-          <h3 className="text-xs font-bold text-primary uppercase">Mes matchs ({myMatches.length})</h3>
-          <div className="space-y-1.5">
-            {myMatches.map((m) => {
-              const won = m.winner_id === me.id;
-              const opp = m.entrant_ids.filter((id: string) => id !== me.id).map((id: string) => byId[id]?.display_name ?? "?").join(" / ");
-              return (
-                <div key={m.id} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded-xl bg-secondary/40">
-                  <span className={`px-1.5 py-0.5 rounded-full font-bold ${won ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : m.is_draw ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"}`}>
-                    {won ? "GAGNÉ" : m.is_draw ? "NUL" : "PERDU"}
-                  </span>
-                  <span className="flex-1 truncate">vs {opp}</span>
-                  <span className="text-muted-foreground">{m.phase === "pool" ? "Poule" : m.phase === "third_place" ? "3e pl." : roundLabel(matches.filter((mm) => mm.round === m.round && mm.phase !== "pool").length, "final")}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Top scorers */}
-      {topScorers.length > 0 && (
-        <div className="rounded-2xl bg-secondary/40 p-3 space-y-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase">Classement (poules)</h3>
-          <div className="space-y-1">
-            {topScorers.map(([id, s], i) => (
-              <div key={id} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-xl bg-secondary/40">
-                <span className={`w-5 text-xs font-bold ${i < 3 ? "text-amber-600" : "text-muted-foreground"}`}>{i + 1}</span>
-                <span className="flex-1 truncate font-medium">{s.name}</span>
-                <span className="text-[11px] text-emerald-600 font-bold">{s.w}V</span>
-                <span className="text-[11px] text-destructive">{s.l}D</span>
-                {s.d > 0 && <span className="text-[11px] text-amber-600">{s.d}N</span>}
-                <span className="text-[11px] font-bold text-primary">{s.pts} pts</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div>
+      <label className="text-[10px] text-muted-foreground font-semibold block mb-1">{label}</label>
+      <input type="number" min={min} max={max} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full px-2 py-1.5 rounded-xl bg-card text-sm text-center" />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════
-   UTILITAIRES
+   UTILITIES
    ═══════════════════════════════════════════════════════════ */
 function Info({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
@@ -1160,24 +990,6 @@ function Info({ icon, label, value }: { icon: React.ReactNode; label: string; va
       <div className="flex justify-center text-muted-foreground mb-1">{icon}</div>
       <div className="text-[10px] text-muted-foreground">{label}</div>
       <div className="text-xs font-bold truncate">{value}</div>
-    </div>
-  );
-}
-
-function Stat({ n, label, color }: { n: number | string; label: string; color?: string }) {
-  return (
-    <div>
-      <div className={`text-lg font-bold ${color ?? "text-foreground"}`}>{n}</div>
-      <div className="text-[9px] text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function Row({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`font-semibold ${valueClass ?? "text-foreground"}`}>{value}</span>
     </div>
   );
 }
