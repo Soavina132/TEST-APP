@@ -110,18 +110,20 @@ function CornerIndex({ rank, suit, x, y, flip, color, fontScale = 1 }: {
   color: string; fontScale?: number;
 }) {
   const rot = flip ? `rotate(180 ${x} ${y})` : undefined;
-  const fs = 12 * fontScale;
-  const ss = 9 * fontScale;
+  const fs = 13 * fontScale;
+  const ss = 10 * fontScale;
   return (
     <g transform={rot}>
-      <text x={x} y={y} fontSize={fs} fontWeight="700" fill={color}
-        fontFamily="'Georgia', 'Times New Roman', serif" textAnchor="start"
-        style={{ letterSpacing: "-0.5px" }}>
+      {/* Rank — bold and clear */}
+      <text x={x} y={y} fontSize={fs} fontWeight="800" fill={color}
+        fontFamily="'Georgia', 'Times New Roman', serif" textAnchor="start">
         {RANKS[rank]}
       </text>
-      <g transform={`translate(${x + 1.5}, ${y + 2})`}>
-        <Pip suit={suit} size={ss * 0.55} />
-      </g>
+      {/* Suit symbol — Unicode character, below the rank */}
+      <text x={x + 0.5} y={y + ss} fontSize={ss * 0.85} fontWeight="700" fill={color}
+        fontFamily="serif" textAnchor="start">
+        {SUITS[suit]}
+      </text>
     </g>
   );
 }
@@ -386,10 +388,10 @@ function Card({
           ) : (
             <>
               {/* Top-left corner index */}
-              <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.82 : 1} />
+              <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.88 : 1} />
               {/* Bottom-right corner index (rotated) */}
               <g transform="rotate(180 50 70)">
-                <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.82 : 1} />
+                <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.88 : 1} />
               </g>
               {/* Center: face portrait or pip layout */}
               {isFace ? <FacePortrait rank={rank} suit={suit} /> : <PipCard rank={rank} suit={suit} />}
