@@ -13,32 +13,40 @@ const TIERS = [
     label: "Gratuit",
     price: 0,
     matches: 5,
+    period: "jour/jeu",
     color: "#6b7280",
-    gradient: "from-gray-500 to-gray-600",
+  },
+  {
+    id: "starter",
+    label: "Starter",
+    price: 500,
+    matches: 50,
+    period: "mois",
+    color: "#10b981",
   },
   {
     id: "basic",
     label: "Basic",
     price: 1000,
-    matches: 20,
+    matches: 100,
+    period: "mois",
     color: "#3b82f6",
-    gradient: "from-blue-500 to-blue-600",
   },
   {
     id: "standard",
     label: "Standard",
     price: 2000,
-    matches: 40,
+    matches: 200,
+    period: "mois",
     color: "#8b5cf6",
-    gradient: "from-violet-500 to-violet-600",
   },
   {
     id: "premium",
     label: "Premium",
     price: 5000,
-    matches: 120,
+    matches: 500,
+    period: "mois",
     color: "#f59e0b",
-    gradient: "from-amber-500 to-orange-600",
   },
 ] as const;
 
@@ -47,7 +55,7 @@ export default function PremiumSubscriptionModal({
 }: { open: boolean; onClose: () => void }) {
   const { profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<string>("basic");
+  const [selectedTier, setSelectedTier] = useState<string>("starter");
 
   const tier = TIERS.find((t) => t.id === selectedTier)!;
   const balance = Number(profile?.balance_ar || 0);
@@ -65,7 +73,7 @@ export default function PremiumSubscriptionModal({
         return;
       }
       toast.success("Abonnement activé ! 🎉", {
-        description: `${tier.label} - ${tier.matches} parties/jour/jeu`,
+        description: `${tier.label} - ${tier.matches} parties/${tier.period}`,
         duration: 5000,
       });
       refreshProfile();
@@ -117,7 +125,7 @@ export default function PremiumSubscriptionModal({
                       <div>
                         <div className="font-bold text-sm">{t.label}</div>
                         <div className="text-[10px] text-muted-foreground">
-                          {t.matches} parties/jour/jeu
+                          {t.matches} parties / {t.period}
                         </div>
                       </div>
                     </div>
@@ -130,7 +138,7 @@ export default function PremiumSubscriptionModal({
                     <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-1.5">
                       <Check className="w-3 h-3 text-emerald-500" />
                       <span className="text-[11px] text-muted-foreground">
-                        {tier.id === "free" ? "Plan actuel par defaut" : `+ ${tier.matches} parties par jeu par jour`}
+                        {tier.id === "free" ? "Plan actuel par defaut" : `+ ${tier.matches} parties par ${tier.period}`}
                       </span>
                     </div>
                   )}
