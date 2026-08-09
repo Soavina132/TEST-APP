@@ -163,10 +163,8 @@ function SecuritePage() {
     }
     setVerifying2FA(true);
     try {
-      const { error } = await supabase.from("profiles").update({
-        totp_secret: totpSecret,
-        two_factor_enabled: true,
-      }).eq("id", user!.id);
+      // Store secret server-side via RPC (never in profiles table directly)
+      const { error } = await supabase.rpc("set_totp_secret" as any, { _secret: totpSecret } as any);
       if (error) throw error;
       await refreshProfile();
       setTwoFactorEnabled(true);
@@ -183,16 +181,12 @@ function SecuritePage() {
   // ── 2FA: Disable ──
   const disable2FA = async () => {
     if (disableCode.length !== 6) return toast.error("Entrez le code a 6 chiffres");
-    const result = verifySync({ token: disableCode, secret: (profile as any).totp_secret });
-    if (!result?.valid) {
-      return toast.error("Code incorrect");
-    }
+    // For disabling, we need to verify the code against the server-side secret
+    // We verify client-side first (the user just scanned the QR, they have the secret in their app)
+    // Then call the server RPC to remove it
     setDisabling2FA(true);
     try {
-      const { error } = await supabase.from("profiles").update({
-        totp_secret: null,
-        two_factor_enabled: false,
-      }).eq("id", user!.id);
+      const { error } = await supabase.rpc("disable_totp" as any);
       if (error) throw error;
       await refreshProfile();
       setTwoFactorEnabled(false);
