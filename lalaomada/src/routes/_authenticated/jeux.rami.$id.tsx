@@ -4,6 +4,7 @@ import { serverNow } from "@/lib/server-time";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -1188,8 +1189,20 @@ function RamiPage() {
       debounceTimer = setTimeout(() => load(), 300);
     };
     const ch = supabase.channel("rami-" + id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rami_games", filter: `id=eq.${id}` }, debouncedLoad)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rami_participants", filter: `game_id=eq.${id}` }, debouncedLoad)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rami_games", filter: `id=eq.${id}` }, (payload: any) => {
+        if (payload.eventType !== "DELETE" && payload.new) {
+          setGame(payload.new);
+        } else { debouncedLoad(); }
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "rami_participants", filter: `game_id=eq.${id}` }, (payload: any) => {
+        if (payload.eventType === "INSERT" && payload.new) {
+          setParts(prev => prev.some(p => p.id === payload.new.id) ? prev : [...prev, payload.new]);
+        } else if (payload.eventType === "UPDATE" && payload.new) {
+          setParts(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+        } else if (payload.eventType === "DELETE" && payload.old) {
+          setParts(prev => prev.filter(p => p.id !== payload.old.id));
+        } else { debouncedLoad(); }
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); if (debounceTimer) clearTimeout(debounceTimer); };
   }, [id, load]);
