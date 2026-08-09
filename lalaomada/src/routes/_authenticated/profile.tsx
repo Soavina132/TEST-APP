@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   Camera, Copy, ShieldCheck, ShieldAlert, LogOut, Trash2,
   Phone, Gamepad2, ArrowDownLeft, ArrowUpRight, Gift, Send,
-  HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap, FileText, Crown, Calendar, Infinity,
+  HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap, FileText, Crown, Calendar,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
@@ -228,6 +228,10 @@ function ListRow({ icon: Icon, label, action, color, danger }: {
     </button>
   );
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Main Page
+─────────────────────────────────────────────────────────────────────────────── */
 
 /* ────────────────────────────────────────────────────────────────────────────
    Main Page
@@ -624,21 +628,6 @@ function ProfilePage() {
       />
 
       {/* ═══════════════════════════════════════════════════════════════════
-         3b.  Abonnement — statut + détails + bouton d'abonnement
-      ═══════════════════════════════════════════════════════════════════ */}
-      <SubscriptionSection
-        limits={gameLimits}
-        premiumTier={p.premium_tier}
-        premiumUntil={p.premium_until}
-        balance={Number(profile.balance_ar) || 0}
-        onSubscribe={() => setShowSubscription(true)}
-      />
-      <PremiumSubscriptionModal
-        open={showSubscription}
-        onClose={() => { setShowSubscription(false); refreshProfile(); }}
-      />
-
-            {/* ═══════════════════════════════════════════════════════════════════
          4.  Plus — simple list menu
       ═══════════════════════════════════════════════════════════════════ */}
       <Section icon={Settings} title="Plus">
@@ -648,6 +637,7 @@ function ProfilePage() {
           <ListRow icon={FileText} label="Conditions d'utilisation" color="text-sky-500" action={() => navigate({ to: "/cgu", search: {} } as any)} />
           <ListRow icon={ShieldCheck} label="Politique de confidentialité" color="text-sky-500" action={() => navigate({ to: "/confidentialite", search: {} } as any)} />
           <ListRow icon={Settings} label="Paramètres" color="text-muted-foreground" action={() => navigate({ to: "/parametres", search: {} })} />
+          <ListRow icon={Crown} label="Abonnement" color="text-amber-500" action={() => setShowSubscription(true)} />
         </div>
       </Section>
 
@@ -662,6 +652,11 @@ function ProfilePage() {
           <Trash2 className="w-4 h-4" /> Supprimer
         </button>
       </div>
+
+      <PremiumSubscriptionModal
+        open={showSubscription}
+        onClose={() => { setShowSubscription(false); refreshProfile(); }}
+      />
 
     </main>
   );

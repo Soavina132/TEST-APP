@@ -9,10 +9,18 @@ import { Crown, Check, Gamepad2 } from "lucide-react";
 
 const TIERS = [
   {
+    id: "free",
+    label: "Gratuit",
+    price: 0,
+    matches: 5,
+    color: "#6b7280",
+    gradient: "from-gray-500 to-gray-600",
+  },
+  {
     id: "basic",
     label: "Basic",
     price: 1000,
-    matches: 10,
+    matches: 20,
     color: "#3b82f6",
     gradient: "from-blue-500 to-blue-600",
   },
@@ -20,7 +28,7 @@ const TIERS = [
     id: "standard",
     label: "Standard",
     price: 2000,
-    matches: 200,
+    matches: 40,
     color: "#8b5cf6",
     gradient: "from-violet-500 to-violet-600",
   },
@@ -28,7 +36,7 @@ const TIERS = [
     id: "premium",
     label: "Premium",
     price: 5000,
-    matches: 500,
+    matches: 120,
     color: "#f59e0b",
     gradient: "from-amber-500 to-orange-600",
   },
@@ -57,7 +65,7 @@ export default function PremiumSubscriptionModal({
         return;
       }
       toast.success("Abonnement activé ! 🎉", {
-        description: `${tier.label} — ${tier.matches} parties ce mois`,
+        description: `${tier.label} - ${tier.matches} parties/jour/jeu`,
         duration: 5000,
       });
       refreshProfile();
@@ -82,14 +90,17 @@ export default function PremiumSubscriptionModal({
           {/* Tier selector */}
           <div className="space-y-2">
             {TIERS.map((t) => {
+              const isFree = t.id === "free";
               const selected = selectedTier === t.id;
               const affordable = balance >= t.price;
               return (
                 <button
                   key={t.id}
-                  onClick={() => setSelectedTier(t.id)}
+                  onClick={() => !isFree && setSelectedTier(t.id)}
                   className={`w-full rounded-2xl p-3.5 text-left transition-all border-2 ${
-                    selected
+                    isFree
+                      ? "border-border/20 opacity-70"
+                      : selected
                       ? "border-primary shadow-md"
                       : "border-border/40 hover:border-primary/30"
                   }`}
@@ -106,20 +117,20 @@ export default function PremiumSubscriptionModal({
                       <div>
                         <div className="font-bold text-sm">{t.label}</div>
                         <div className="text-[10px] text-muted-foreground">
-                          {t.matches} parties / mois
+                          {t.matches} parties/jour/jeu
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="font-black text-base">{t.price.toLocaleString("fr-FR")}</div>
-                      <div className="text-[10px] text-muted-foreground">Ar/mois</div>
+                      <div className="text-[10px] text-muted-foreground">{t.price === 0 ? "Gratuit" : "Ar/mois"}</div>
                     </div>
                   </div>
                   {selected && (
                     <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-1.5">
                       <Check className="w-3 h-3 text-emerald-500" />
                       <span className="text-[11px] text-muted-foreground">
-                        + toutes les fonctionnalités gratuites incluses
+                        {tier.id === "free" ? "Plan actuel par defaut" : `+ ${tier.matches} parties par jeu par jour`}
                       </span>
                     </div>
                   )}
