@@ -14,11 +14,9 @@ import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
-import GameBoardSkin from "@/components/game/GameBoardSkin";
 import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useGlobalGameTimer } from "@/hooks/game/use-global-game-timer";
 import { useConfirm } from "@/components/ConfirmDialog";
-import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import { playFanoronaMove, playFanoronaCapture, playFanoronaWin, playFanoronaLose, unlockAudio } from "@/lib/sounds/fanorona-sounds";
 import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
@@ -561,14 +559,15 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       )}
 
       {/* ── Board (plein écran) ── */}
-      <div className="flex-1 flex items-center justify-center px-2 py-1 min-h-0 w-full">
+      <div className="flex-1 flex items-center justify-center px-1 py-1 min-h-0 w-full">
       <div
-        className="h-full max-w-full"
+        className="h-full max-w-full rounded-md overflow-hidden"
         style={{
           aspectRatio: rotated90 ? `${ROWS} / ${COLS}` : `${COLS} / ${ROWS}`,
+          boxShadow: "0 6px 20px rgba(0,0,0,0.35), inset 0 0 0 5px #3f2d1a, inset 0 0 0 7px #5a3a1a",
+          background: "#5a3a1a",
         }}
       >
-      <GameBoardSkin coverUrl={fanoronaCover.url} compact>
         <div className="overflow-hidden w-full h-full" style={{ position: "relative" }}>
           <svg viewBox={`-24 -24 ${SIZE_W + 48} ${SIZE_H + 48}`} className="" style={rotated90 ? {
             position: "absolute", width: `${(COLS / ROWS) * 100}%`, height: `${(ROWS / COLS) * 100}%`,
@@ -671,7 +670,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
             </button>
           )}
         </div>
-      </GameBoardSkin>
       </div>
       </div>
 
