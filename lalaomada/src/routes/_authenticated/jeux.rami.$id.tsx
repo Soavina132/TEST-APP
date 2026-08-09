@@ -96,13 +96,7 @@ function PipCard({ rank, suit }: { rank: number; suit: number }) {
   </>;
 }
 
-import joker0Asset from "@/assets/rami/joker-0.png.asset.json";
-import joker1Asset from "@/assets/rami/joker-1.png.asset.json";
-import joker2Asset from "@/assets/rami/joker-2.png.asset.json";
-import joker3Asset from "@/assets/rami/joker-3.png.asset.json";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
-
-const JOKER_ART = [joker0Asset.url, joker1Asset.url, joker2Asset.url, joker3Asset.url];
 
 /** Corner index — rank + suit symbol, like a real playing card corner. */
 function CornerIndex({ rank, suit, x, y, flip, color, fontScale = 1 }: {
@@ -128,83 +122,54 @@ function CornerIndex({ rank, suit, x, y, flip, color, fontScale = 1 }: {
   );
 }
 
-/** Ornate court card figure — half (top or bottom mirror). */
+/** Simple, clean court-card figure (J/Q/K) — flat vector style, no external assets. */
 function CourtHalf({ rank, suit }: { rank: number; suit: number }) {
   const isRed = suit === 1 || suit === 2;
   const ink = "#1a1a2e";
   const main = isRed ? "#c41e3a" : "#1e3a5f";
   const gold = "#c9a227";
-  const skin = "#f5d5b8";
-  const skinShadow = "#e8c4a0";
-  const hair = rank === 11 ? "#8b5a2b" : rank === 12 ? "#6b4423" : "#7c5832";
+  const skin = "#f0c9a0";
 
   return (
     <g>
-      {/* ornate panel background */}
+      {/* panel background */}
       <rect x="8" y="19" width="84" height="52" fill="#fffcf5" />
-      <rect x="8" y="19" width="84" height="52" fill="none" stroke={gold} strokeWidth="0.6" opacity="0.4" />
-      {/* decorative corner flourishes */}
-      <path d="M10 21 L16 21 M10 21 L10 27" stroke={gold} strokeWidth="0.5" opacity="0.5" />
-      <path d="M90 21 L84 21 M90 21 L90 27" stroke={gold} strokeWidth="0.5" opacity="0.5" />
-      {/* robe / garment */}
-      <path d="M22 70 C24 55, 34 49, 50 49 C66 49, 76 55, 78 70 Z" fill={main} />
-      <path d="M50 49 L41 70 L50 62 L59 70 Z" fill="#fffcf5" stroke={ink} strokeWidth="0.4" />
-      {/* collar / trim with gold accent */}
-      <path d="M37 51 C42 58, 58 58, 63 51" fill="none" stroke={gold} strokeWidth="1.2" />
-      <path d="M37 51 C42 58, 58 58, 63 51" fill="none" stroke={ink} strokeWidth="0.3" opacity="0.3" />
-      {/* face */}
-      <ellipse cx="50" cy="40" rx="10" ry="11.5" fill={skin} stroke={ink} strokeWidth="0.5" />
-      <ellipse cx="50" cy="42" rx="8" ry="7" fill={skinShadow} opacity="0.3" />
-      {/* hair / beard by rank */}
+      {/* body / robe — simple triangle shape */}
+      <path d="M28 71 C28 58, 37 51, 50 51 C63 51, 72 58, 72 71 Z" fill={main} />
+      <path d="M50 51 L44 71 L50 65 L56 71 Z" fill="#fffcf5" opacity="0.85" />
+      {/* collar */}
+      <path d="M40 53 C43 58, 57 58, 60 53" fill="none" stroke={gold} strokeWidth="1.4" />
+      {/* head */}
+      <circle cx="50" cy="41" r="9.5" fill={skin} stroke={ink} strokeWidth="0.8" />
+      {/* eyes */}
+      <circle cx="46.5" cy="40" r="1" fill={ink} />
+      <circle cx="53.5" cy="40" r="1" fill={ink} />
+      {/* smile */}
+      <path d="M46.5 45 C48.5 46.5, 51.5 46.5, 53.5 45" fill="none" stroke={ink} strokeWidth="0.7" strokeLinecap="round" />
+      {/* crown / headwear — distinct per rank */}
       {rank === 12 && (
-        <path d="M40 41 C40 56, 60 56, 60 41 C60 50, 55 54, 50 54 C45 54, 40 50, 40 41 Z" fill={hair} opacity="0.9" />
+        <g>
+          {/* King — crown with 3 points */}
+          <path d="M39 33 L39 25 L44 29 L50 22 L56 29 L61 25 L61 33 Z" fill={gold} stroke={ink} strokeWidth="0.6" />
+          <rect x="39" y="32" width="22" height="3" fill={main} stroke={ink} strokeWidth="0.4" />
+        </g>
       )}
       {rank === 11 && (
-        <>
-          <path d="M39 39 C35 50, 41 55, 44 55 L44 41 Z" fill={hair} />
-          <path d="M61 39 C65 50, 59 55, 56 55 L56 41 Z" fill={hair} />
-          <path d="M44 48 C46 53, 54 53, 56 48" fill="none" stroke={ink} strokeWidth="0.4" opacity="0.3" />
-        </>
+        <g>
+          {/* Queen — pointed tiara */}
+          <path d="M40 34 C43 26, 57 26, 60 34 Z" fill={gold} stroke={ink} strokeWidth="0.5" />
+          <circle cx="50" cy="27" r="1.8" fill={main} stroke={ink} strokeWidth="0.4" />
+        </g>
       )}
       {rank === 10 && (
-        <path d="M40 37 C42 31, 58 31, 60 37 L60 44 C56 39, 44 39, 40 44 Z" fill={hair} />
+        <g>
+          {/* Jack — simple cap */}
+          <path d="M40 35 C42 27, 58 27, 60 35 Z" fill={main} stroke={ink} strokeWidth="0.5" />
+          <rect x="39" y="34" width="22" height="2.6" rx="1" fill={gold} stroke={ink} strokeWidth="0.3" />
+        </g>
       )}
-      {/* eyes — subtle */}
-      <ellipse cx="46" cy="39" rx="1.3" ry="1.5" fill={ink} />
-      <ellipse cx="54" cy="39" rx="1.3" ry="1.5" fill={ink} />
-      <circle cx="46.3" cy="38.5" r="0.4" fill="#fff" opacity="0.6" />
-      <circle cx="54.3" cy="38.5" r="0.4" fill="#fff" opacity="0.6" />
-      {/* mouth */}
-      <path d="M46.5 46 C48.5 47.5, 51.5 47.5, 53.5 46" fill="none" stroke={ink} strokeWidth="0.6" strokeLinecap="round" />
-      {/* headwear by rank */}
-      {rank === 12 && (
-        <>
-          {/* King: elaborate crown with cross */}
-          <path d="M36 31 L36 23 L42 28 L50 19 L58 28 L64 23 L64 31 Z" fill={gold} stroke={ink} strokeWidth="0.5" />
-          <rect x="36" y="30" width="28" height="3" fill={main} stroke={ink} strokeWidth="0.3" />
-          <circle cx="42" cy="28" r="1.2" fill={isRed ? "#dc2626" : "#1e3a8a"} />
-          <circle cx="58" cy="28" r="1.2" fill={isRed ? "#dc2626" : "#1e3a8a"} />
-          <path d="M50 19 L50 15 M48 17 L52 17" stroke={gold} strokeWidth="1.2" strokeLinecap="round" />
-        </>
-      )}
-      {rank === 11 && (
-        <>
-          {/* Queen: tiara with gem */}
-          <path d="M37 33 C40 24, 60 24, 63 33 Z" fill={gold} stroke={ink} strokeWidth="0.4" />
-          <circle cx="50" cy="26" r="2" fill={isRed ? "#dc2626" : "#1e3a8a"} stroke={ink} strokeWidth="0.3" />
-          <path d="M35 34 C42 29, 58 29, 65 34" fill="none" stroke={main} strokeWidth="1" />
-        </>
-      )}
-      {rank === 10 && (
-        <>
-          {/* Jack: plumed hat */}
-          <path d="M35 33 C38 24, 62 24, 65 33 Z" fill={main} stroke={ink} strokeWidth="0.4" />
-          <path d="M64 29 C71 22, 76 25, 73 31 C71 36, 66 35, 64 33 Z" fill={gold} stroke={ink} strokeWidth="0.3" />
-          <rect x="34" y="32.5" width="32" height="3" rx="1" fill={gold} stroke={ink} strokeWidth="0.3" />
-        </>
-      )}
-      {/* suit symbol on garment */}
-      <text x="50" y="67" textAnchor="middle" fontSize="8.5" fontWeight="600" fill={isRed ? "#c41e3a" : "#1a1a2e"}>{SUITS[suit]}</text>
+      {/* suit symbol badge on chest */}
+      <text x="50" y="67" textAnchor="middle" fontSize="9" fontWeight="700" fill={isRed ? "#c41e3a" : "#1a1a2e"}>{SUITS[suit]}</text>
     </g>
   );
 }
@@ -216,10 +181,9 @@ function FacePortrait({ rank, suit }: { rank: number; suit: number }) {
   const uid = `f-${suit}-${rank}`;
 
   return <>
-    {/* decorative frame */}
+    {/* frame */}
     <rect x="7" y="18" width="86" height="104" rx="3" fill="#fffcf5" />
-    <rect x="7" y="18" width="86" height="104" rx="3" fill="none" stroke={frame} strokeWidth="1.2" opacity="0.65" />
-    <rect x="9" y="20" width="82" height="100" rx="2" fill="none" stroke={gold} strokeWidth="0.4" opacity="0.4" />
+    <rect x="7" y="18" width="86" height="104" rx="3" fill="none" stroke={frame} strokeWidth="1.2" opacity="0.6" />
     {/* top half */}
     <clipPath id={`tc-${uid}`}><rect x="9" y="19" width="82" height="52" /></clipPath>
     <g clipPath={`url(#tc-${uid})`}>
@@ -232,9 +196,7 @@ function FacePortrait({ rank, suit }: { rank: number; suit: number }) {
     </g>
     {/* central divider band */}
     <rect x="7" y="66" width="86" height="8" fill="#fffcf5" />
-    <line x1="9" y1="70" x2="91" y2="70" stroke={frame} strokeWidth="0.8" opacity="0.55" />
-    <line x1="9" y1="68" x2="91" y2="68" stroke={gold} strokeWidth="0.3" opacity="0.3" />
-    <line x1="9" y1="72" x2="91" y2="72" stroke={gold} strokeWidth="0.3" opacity="0.3" />
+    <line x1="9" y1="70" x2="91" y2="70" stroke={frame} strokeWidth="0.8" opacity="0.5" />
     {/* central rank/suit badge */}
     <rect x="37" y="65" width="26" height="10" rx="2" fill="#fffcf5" stroke={frame} strokeWidth="0.5" />
     <text x="44" y="72.2" textAnchor="middle" fontSize="7" fontWeight="700" fill={frame}
@@ -282,28 +244,56 @@ function CardBackSVG() {
   );
 }
 
+/** Pure-vector jester face — no external image dependency (safe in production). */
 function JokerFace({ idx }: { idx: number }) {
   const schemes = ["#c41e3a", "#7c3aed", "#059669", "#b45309"];
   const color = schemes[idx % 4];
-  const href = JOKER_ART[idx % 4];
+  const skin = "#f0c9a0";
+  const ink = "#1a1a2e";
+
   return <>
     <rect x="3" y="3" width="94" height="134" rx="4" fill="#fefce8" />
-    <rect x="3" y="3" width="94" height="134" rx="4" fill="none" stroke={color} strokeWidth="1" opacity="0.5" />
+    <rect x="3" y="3" width="94" height="134" rx="4" fill="none" stroke={color} strokeWidth="1.2" opacity="0.55" />
     <rect x="6" y="6" width="88" height="128" rx="3" fill="none" stroke={color} strokeWidth="0.3" opacity="0.3" />
-    {/* decorative corner stars */}
+    {/* corner diamonds */}
     {[[12,12],[88,12],[12,128],[88,128]].map(([x,y],i) => (
       <g key={i} transform={`translate(${x},${y})`}>
-        <path d="M0,-3 L0.8,-1 L3,-1 L1.5,0.5 L2,2.5 L0,1.5 L-2,2.5 L-1.5,0.5 L-3,-1 L-0.8,-1 Z"
-          fill={color} opacity="0.5" />
+        <path d="M0,-3 L2.5,0 L0,3 L-2.5,0 Z" fill={color} opacity="0.55" />
       </g>
     ))}
-    <text x="50" y="14" textAnchor="middle" fontSize="7" fontWeight="bold"
+    <text x="50" y="16" textAnchor="middle" fontSize="7.5" fontWeight="bold"
       fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
+
+    {/* Jester face — simple vector illustration */}
+    <g transform="translate(50,68)">
+      {/* jester hat with 3 points + bells */}
+      <path d="M-20,-8 C-24,-24 -12,-20 -8,-10 C-4,-24 4,-24 8,-10 C12,-20 24,-24 20,-8 Z" fill={color} />
+      <circle cx="-20" cy="-8" r="2.6" fill="#eab308" />
+      <circle cx="0" cy="-19" r="2.6" fill="#eab308" />
+      <circle cx="20" cy="-8" r="2.6" fill="#eab308" />
+      {/* face */}
+      <circle cx="0" cy="2" r="14" fill={skin} stroke={ink} strokeWidth="0.8" />
+      {/* eyes */}
+      <circle cx="-5.5" cy="0" r="1.4" fill={ink} />
+      <circle cx="5.5" cy="0" r="1.4" fill={ink} />
+      {/* eyebrows */}
+      <path d="M-8,-4 C-7,-5.5 -4,-5.5 -3,-4" fill="none" stroke={ink} strokeWidth="0.8" strokeLinecap="round" />
+      <path d="M3,-4 C4,-5.5 7,-5.5 8,-4" fill="none" stroke={ink} strokeWidth="0.8" strokeLinecap="round" />
+      {/* big grin */}
+      <path d="M-8,6 C-4,12 4,12 8,6" fill="none" stroke={ink} strokeWidth="1.1" strokeLinecap="round" />
+      {/* nose dot */}
+      <circle cx="0" cy="3" r="0.8" fill={ink} opacity="0.5" />
+      {/* collar with bells */}
+      <path d="M-16,15 C-8,22 8,22 16,15 L16,19 C8,26 -8,26 -16,19 Z" fill={color} />
+      <circle cx="-12" cy="20" r="2" fill="#eab308" />
+      <circle cx="0" cy="23" r="2" fill="#eab308" />
+      <circle cx="12" cy="20" r="2" fill="#eab308" />
+    </g>
+
     <g transform="rotate(180 50 70)">
-      <text x="50" y="14" textAnchor="middle" fontSize="7" fontWeight="bold"
+      <text x="50" y="16" textAnchor="middle" fontSize="7.5" fontWeight="bold"
         fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
     </g>
-    <image href={href} x="14" y="20" width="72" height="100" preserveAspectRatio="xMidYMid meet" />
   </>;
 }
 
