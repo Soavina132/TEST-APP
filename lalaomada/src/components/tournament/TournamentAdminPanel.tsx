@@ -55,7 +55,7 @@ export default function TournamentAdminPanel() {
     name: "",
     game_slug: "ludo",
     format: "knockout" as "knockout" | "pools",
-    players_per_match: 2,
+    players_per_match: 4,
     max_players: 16,
     mode: "free" as "free" | "paid",
     entry_fee_ar: 0,
@@ -85,7 +85,7 @@ export default function TournamentAdminPanel() {
       return toast.error("Frais d'inscription minimum : 100 Ar");
     }
     const [p1, p2, p3, p4] = SPLITS[f.winners_count];
-    const ppm = f.game_slug === "domino" ? 2 : f.players_per_match;
+    const ppm = f.game_slug === "domino" ? 2 : Math.max(f.players_per_match, f.game_slug === "ludo" ? 4 : 2);
     setBusy(true);
     const { error } = await (supabase.rpc as any)("admin_tournament_create", {
       _name: f.name.trim(),
@@ -335,7 +335,7 @@ export default function TournamentAdminPanel() {
         <div className="space-y-3">
           <div className="flex gap-2">
             {GAMES.map((g) => (
-              <button key={g.slug} onClick={() => set("game_slug", g.slug)}
+              <button key={g.slug} onClick={() => { set("game_slug", g.slug); set("players_per_match", g.slug === "ludo" ? 4 : 2); }}
                 className={`flex-1 py-3 rounded-2xl text-sm font-bold ${f.game_slug === g.slug ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
                 {g.emoji} {g.label}
               </button>
