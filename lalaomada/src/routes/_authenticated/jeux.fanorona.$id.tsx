@@ -563,7 +563,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       {/* ── Board (plein écran) ── */}
       <div className="flex-1 flex items-center justify-center px-2 py-1 min-h-0 w-full">
       <div
-        className="max-w-full max-h-full"
+        className="h-full max-w-full"
         style={{
           aspectRatio: rotated90 ? `${ROWS} / ${COLS}` : `${COLS} / ${ROWS}`,
         }}
