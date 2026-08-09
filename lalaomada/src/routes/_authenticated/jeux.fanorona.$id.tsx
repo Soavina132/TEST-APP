@@ -206,6 +206,22 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
     };
   }, []);
 
+  // Measure the actual available space for the board (instead of relying on
+  // CSS aspect-ratio, which can under-fill when ancestor heights are fuzzy)
+  // so the board always maximizes the space it's given.
+  const boardAreaRef = useRef<HTMLDivElement | null>(null);
+  const [boardArea, setBoardArea] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = boardAreaRef.current;
+    if (!el) return;
+    const update = () => setBoardArea({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("orientationchange", update);
+    return () => { ro.disconnect(); window.removeEventListener("orientationchange", update); };
+  }, []);
+
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
 
   // cancelled state handled by GameStateMessage below
@@ -596,12 +612,19 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       )}
 
       {/* ── Board (plein écran) ── */}
-      <div className="flex-1 flex items-center justify-center px-0.5 py-0.5 min-h-0 w-full">
+      <div ref={boardAreaRef} className="flex-1 flex items-center justify-center min-h-0 w-full">
       <div
-        className="h-full max-w-full rounded-md overflow-hidden"
-        style={{
-          aspectRatio: rotated90 ? `${ROWS} / ${COLS}` : `${COLS} / ${ROWS}`,
-        }}
+        className="rounded-md overflow-hidden"
+        style={(() => {
+          // Fill the measured area as fully as possible while keeping the
+          // board's true aspect ratio (no CSS aspect-ratio guesswork here).
+          const availW = boardArea.w || 1, availH = boardArea.h || 1;
+          const ratioW = rotated90 ? ROWS : COLS;
+          const ratioH = rotated90 ? COLS : ROWS;
+          let w = availW, h = (w * ratioH) / ratioW;
+          if (h > availH) { h = availH; w = (h * ratioW) / ratioH; }
+          return { width: `${w}px`, height: `${h}px` };
+        })()}
       >
         <div className="overflow-hidden w-full h-full" style={{ position: "relative" }}>
           <svg viewBox={`-18 -18 ${SIZE_W + 36} ${SIZE_H + 36}`} className="" style={rotated90 ? {
