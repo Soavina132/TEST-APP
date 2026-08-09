@@ -248,7 +248,7 @@ function TournamentDetail() {
   })();
 
   return (
-    <div className="min-h-screen flex flex-col pb-20">
+    <div className="min-h-screen flex flex-col">
       {/* ─────────────── HEADER — Tournament name + stage ─────────────── */}
       <div className="px-4 pt-4 pb-3">
         <button onClick={() => navigate({ to: "/tournaments" })}
@@ -282,6 +282,16 @@ function TournamentDetail() {
               {entrants.filter((e) => e.status === "active").length} joueur(s) encore en lice
             </div>
           )}
+        </div>
+
+        {/* ─────────────── INLINE TABS ─────────────── */}
+        <div className="mt-3 flex gap-1 rounded-2xl bg-secondary p-1">
+          <TabButton active={tab === "players"} onClick={() => setTab("players")}
+            icon={<Users className="w-4 h-4" />} label="Joueurs" />
+          <TabButton active={tab === "results"} onClick={() => setTab("results")}
+            icon={<ListOrdered className="w-4 h-4" />} label="Résultats" />
+          <TabButton active={tab === "next"} onClick={() => setTab("next")}
+            icon={<CalendarClock className="w-4 h-4" />} label="Matchs suivants" />
         </div>
 
         {/* Quick stats row */}
@@ -374,17 +384,7 @@ function TournamentDetail() {
         {tab === "next" && <NextMatchesTab matches={matches} byId={byId} me={me} t={t} now={now} />}
       </div>
 
-      {/* ─────────────── BOTTOM NAV — 3 TABS ─────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
-        <div className="flex">
-          <TabButton active={tab === "players"} onClick={() => setTab("players")}
-            icon={<Users className="w-5 h-5" />} label="Joueurs" />
-          <TabButton active={tab === "results"} onClick={() => setTab("results")}
-            icon={<ListOrdered className="w-5 h-5" />} label="Résultats" />
-          <TabButton active={tab === "next"} onClick={() => setTab("next")}
-            icon={<CalendarClock className="w-5 h-5" />} label="Matchs suivants" />
-        </div>
-      </div>
+
     </div>
   );
 }
@@ -397,9 +397,9 @@ function TabButton({ active, onClick, icon, label }: {
 }) {
   return (
     <button onClick={onClick}
-      className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors ${active ? "text-primary" : "text-muted-foreground"}`}>
+      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl transition-all ${active ? "bg-card text-primary font-bold shadow-sm" : "text-muted-foreground"}`}>
       {icon}
-      <span className="text-[10px] font-bold">{label}</span>
+      <span className="text-xs font-semibold">{label}</span>
     </button>
   );
 }
