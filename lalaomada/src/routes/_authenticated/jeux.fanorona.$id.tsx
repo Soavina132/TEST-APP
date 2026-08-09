@@ -563,15 +563,13 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       {/* ── Board (plein écran) ── */}
       <div className="flex-1 flex items-center justify-center px-2 py-1 min-h-0 w-full">
       <div
-        className="w-full mx-auto"
+        className="max-w-full max-h-full"
         style={{
-          maxWidth: rotated90
-            ? "min(100%, calc((100dvh - 280px) * " + (ROWS / COLS) + "))"
-            : "min(100%, calc((100dvh - 280px) * " + (COLS / ROWS) + "))",
+          aspectRatio: rotated90 ? `${ROWS} / ${COLS}` : `${COLS} / ${ROWS}`,
         }}
       >
       <GameBoardSkin coverUrl={fanoronaCover.url} compact>
-        <div className={rotated90 ? "overflow-hidden mx-auto w-full" : "overflow-hidden w-full"} style={{ aspectRatio: rotated90 ? `${ROWS} / ${COLS}` : `${COLS} / ${ROWS}`, position: "relative" }}>
+        <div className="overflow-hidden w-full h-full" style={{ position: "relative" }}>
           <svg viewBox={`-24 -24 ${SIZE_W + 48} ${SIZE_H + 48}`} className="" style={rotated90 ? {
             position: "absolute", width: `${(COLS / ROWS) * 100}%`, height: `${(ROWS / COLS) * 100}%`,
             top: "50%", left: "50%", transform: `translate(-50%, -50%) rotate(${flipped ? 270 : 90}deg)`, transformOrigin: "center",

@@ -18,7 +18,11 @@ export default function GameBoardSkin({
 }) {
   return (
     <div
-      className={compact ? "relative rounded-lg overflow-hidden p-1" : "relative rounded-3xl overflow-hidden p-3 sm:p-4"}
+      className={
+        (compact
+          ? "relative rounded-lg overflow-hidden p-1"
+          : "relative rounded-3xl overflow-hidden p-3 sm:p-4") + " w-full h-full"
+      }
       style={{
         backgroundImage: `linear-gradient(${tint}, ${tint}), url(${coverUrl})`,
         backgroundSize: "cover",
