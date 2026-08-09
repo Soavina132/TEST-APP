@@ -206,7 +206,7 @@ function normalizeDominoBoard(rawBoard: any[], serverLeft?: unknown, serverRight
 
 function DominoPage() {
   const { id } = Route.useParams();
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, refreshProfile } = useAuth();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const navigate = useNavigate();
   const confirm = useConfirm();
