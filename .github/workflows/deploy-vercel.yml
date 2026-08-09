@@ -8,28 +8,34 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        project: [test-app, lalaomada]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-      - name: Pull Vercel Environment
-        run: vercel pull --yes --token=${{ secrets.VERCEL_TOKEN }} --cwd lalaomada
-        env:
-          VERCEL_PROJECT_ID: ${{ secrets[matrix.project == 'lalaomada' && 'LALAOMADA_PROJECT_ID' || 'VERCEL_PROJECT_ID'] }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      - name: Build
-        run: vercel build --cwd lalaomada --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_PROJECT_ID: ${{ secrets[matrix.project == 'lalaomada' && 'LALAOMADA_PROJECT_ID' || 'VERCEL_PROJECT_ID'] }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      - name: Deploy to Production
-        run: vercel deploy --prebuilt --prod --cwd lalaomada --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_PROJECT_ID: ${{ secrets[matrix.project == 'lalaomada' && 'LALAOMADA_PROJECT_ID' || 'VERCEL_PROJECT_ID'] }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      - name: Get latest commit SHA
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Deploy to test-app
+        run: |
+          RESPONSE=$(curl -s -X POST "https://api.vercel.com/v13/deployments" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"test-app\",\"project\":\"${{ secrets.VERCEL_PROJECT_ID }}\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"repo\":\"TEST-APP\",\"org\":\"Soavina132\",\"ref\":\"main\",\"sha\":\"${{ steps.sha.outputs.sha }}\"}}")
+          echo "$RESPONSE"
+          DEPLOY_ID=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "Failed to trigger test-app deployment"
+            exit 1
+          fi
+          echo "test-app deployment triggered: $DEPLOY_ID"
+      - name: Deploy to lalaomada
+        run: |
+          RESPONSE=$(curl -s -X POST "https://api.vercel.com/v13/deployments" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"lalaomada\",\"project\":\"${{ secrets.LALAOMADA_PROJECT_ID }}\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"repo\":\"TEST-APP\",\"org\":\"Soavina132\",\"ref\":\"main\",\"sha\":\"${{ steps.sha.outputs.sha }}\"}}")
+          echo "$RESPONSE"
+          DEPLOY_ID=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "Failed to trigger lalaomada deployment"
+            exit 1
+          fi
+          echo "lalaomada deployment triggered: $DEPLOY_ID"
