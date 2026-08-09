@@ -147,7 +147,7 @@ function Lobby() {
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [showDepositPopup, setShowDepositPopup] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [freeGameInfo, setFreeGameInfo] = useState<{ remaining: number; isPremium: boolean } | null>(null);
+  const [freeGameInfo, setFreeGameInfo] = useState<{ remainingToday: number; isPremium: boolean; activeDaysUsed: number; maxActiveDays: number; premiumRemaining: number; tier: string | null } | null>(null);
   const walletSettings = useAppSettings();
   const [sheet, setSheet] = useState<string | null>(null);
   const closeSheet = () => setSheet(null);
@@ -227,8 +227,12 @@ function Lobby() {
       if (!error && data) {
         const result = data as any;
         setFreeGameInfo({
-          remaining: result.is_premium ? (result.premium_remaining === -1 ? -1 : result.premium_remaining) : result.remaining_free,
+          remainingToday: result.is_premium ? result.premium_remaining : (result.remaining_today ?? 0),
           isPremium: result.is_premium || false,
+          activeDaysUsed: result.active_days_used ?? 0,
+          maxActiveDays: result.max_active_days ?? 5,
+          premiumRemaining: result.premium_remaining ?? 0,
+          tier: result.tier ?? null,
         });
       }
     } catch (e) { /* fail silently */ }
@@ -275,10 +279,17 @@ function Lobby() {
       return true; // fail open — let them play
     }
     const result = data as any;
-    setFreeGameInfo({ remaining: result.remaining_free || 0, is_premium: result.is_premium || false });
+    setFreeGameInfo({
+      remainingToday: result.is_premium ? result.premium_remaining : (result.remaining_today ?? 0),
+      isPremium: result.is_premium || false,
+      activeDaysUsed: result.active_days_used ?? 0,
+      maxActiveDays: result.max_active_days ?? 5,
+      premiumRemaining: result.premium_remaining ?? 0,
+      tier: result.tier ?? null,
+    });
     if (!result.can_play) {
-      toast.error("Limite atteinte", {
-        description: result.reason || "Limite de jeux gratuits atteinte",
+      toast("Prend un abonnement pour continuer à jouer gratuitement", {
+        description: result.reason || "",
         action: { label: "S'abonner", onClick: () => setShowPremiumModal(true) },
         duration: 8000,
       });
@@ -654,20 +665,9 @@ function Lobby() {
                 <span>Un code d'invitation à 6 caractères sera généré.</span>
               </div>
             )}
-            {freeGameInfo && !freeGameInfo.isPremium && freeGameInfo.remaining <= 3 && freeGameInfo.remaining > 0 && (
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-600 flex items-center gap-2">
-                <span>⚡ {freeGameInfo.remaining} partie{freeGameInfo.remaining > 1 ? "s" : ""} gratuite{freeGameInfo.remaining > 1 ? "s" : ""} restante{freeGameInfo.remaining > 1 ? "s" : ""} aujourd'hui pour {meta.label}</span>
-              </div>
-            )}
-            {freeGameInfo && !freeGameInfo.isPremium && freeGameInfo.remaining === 0 && (
-              <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2 text-[11px] text-destructive flex items-center justify-between">
-                <span>🚫 Limite de 5 parties gratuites atteinte</span>
-                <button onClick={() => setShowPremiumModal(true)} className="font-bold underline">S'abonner</button>
-              </div>
-            )}
             {freeGameInfo && freeGameInfo.isPremium && (
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[11px] text-emerald-600 flex items-center gap-2">
-                <span>👑 Premium actif — matchs {freeGameInfo.remaining === -1 ? "illimités" : `restants: ${freeGameInfo.remaining}`}</span>
+                <span>👑 Abonnement {freeGameInfo.tier} actif — {freeGameInfo.premiumRemaining} partie(s) restante(s) ce mois</span>
               </div>
             )}
             <button onClick={joinPublicOrCreate} disabled={busy}
