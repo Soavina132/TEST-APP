@@ -515,7 +515,15 @@ function Card({
                 <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.88 : 1} />
               </g>
               {/* Center: face portrait or pip layout */}
-              {isFace ? <FacePortrait rank={rank} suit={suit} /> : <PipCard rank={rank} suit={suit} />}
+              {isFace ? (() => {
+                const _suitNames = ['spade','heart','diamond','club'];
+                const _rankNames = {10:'jack',11:'queen',12:'king'};
+                const _imgSrc = `/cards/${_suitNames[suit]}_${_rankNames[rank]}.png`;
+                return (
+                  <image href={_imgSrc} x="0.5" y="0.5" width="99" height="139"
+                    preserveAspectRatio="xMidYMid meet" opacity="0.98" />
+                );
+              })() : <PipCard rank={rank} suit={suit} />}
             </>
           )}
           {/* Gloss overlay for depth */}
