@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
+import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { LogOut, Copy, Plus, Pause, Ban, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
@@ -209,65 +210,20 @@ function DominoPage() {
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const [game, setGame] = useState<any>(null);
-  const [parts, setParts] = useState<any[]>([]);
-  const [selectedTile, setSelectedTile] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
-  // Tracks which opponent's hand has no playable tile (via realtime broadcast),
-  // so a red frame can be shown to all players before the auto-pass completes.
-  const [remoteNoMoveSlot, setRemoteNoMoveSlot] = useState<number | null>(null);
-  const noMoveChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  // Available width for the hand row; tile width is derived from it and from
-  // the number of tiles held (a player can hold more than 7 after drawing).
-  const [handAvail, setHandAvail] = useState<number>(190);
-  useEffect(() => {
-    const update = () => {
-      const vw = typeof window !== "undefined" ? window.innerWidth : 360;
-      // Reserve ~170px for the PlayerHeader block + gaps/padding.
-      setHandAvail(Math.max(140, vw - 170));
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-    };
-  }, []);
-
-  const load = useCallback(async () => {
-    const { data: g } = await supabase.from("domino_games" as any).select("*").eq("id", id).maybeSingle();
-    setGame(g);
-    const { data: p } = await supabase.from("domino_participants" as any).select("*").eq("game_id", id).order("slot");
-    const rows = (p as any[]) || [];
-    // Give bots a synthetic key ("bot_<slot>") matching the backend so score /
-    // winner lookups keyed by user_id keep working when a bot is involved.
-    const ids = rows.map(r => r.user_id).filter(Boolean);
-    let byId = new Map<string, string | null>();
-    if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, avatar_url").in("id", ids);
-      byId = new Map((profs || []).map((x: any) => [x.id, x.avatar_url]));
-    }
-    setParts(rows.map(r => ({
-      ...r,
-      user_id: r.user_id || `bot_${r.slot}`,
-      avatar_url: r.user_id ? (byId.get(r.user_id) || null) : null,
-    })));
-  }, [id, profile?.id]);
+  const { game, parts, setGame, setParts, loading, connected, reload } = useFastRealtime({
+    gameTable: "domino_games",
+    participantTable: "domino_participants",
+    gameId: id,
+    enabled: !!profile?.id,
+    onFinished: refreshProfile,
+  }) as any;
 
   // ── Sound effects ──────────────────────────────────────────────────────
   useDominoSounds({ game, parts, myUserId: profile?.id });
 
-  useEffect(() => {
-    load();
-    const ch = supabase.channel("domino-"+id)
-      .on("postgres_changes", { event: "*", schema: "public", table: "domino_games", filter: `id=eq.${id}` }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "domino_participants", filter: `game_id=eq.${id}` }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [id, load]);
 
-  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
+
+  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
 
   // cancelled state handled by GameStateMessage below
 
