@@ -564,12 +564,10 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         className="h-full max-w-full rounded-md overflow-hidden"
         style={{
           aspectRatio: rotated90 ? `${ROWS} / ${COLS}` : `${COLS} / ${ROWS}`,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.45), inset 0 0 0 3px #3a2210, inset 0 0 0 6px #1a0f08",
-          background: "#1a0f08",
         }}
       >
         <div className="overflow-hidden w-full h-full" style={{ position: "relative" }}>
-          <svg viewBox={`-34 -34 ${SIZE_W + 68} ${SIZE_H + 68}`} className="" style={rotated90 ? {
+          <svg viewBox={`-14 -14 ${SIZE_W + 28} ${SIZE_H + 28}`} className="" style={rotated90 ? {
             position: "absolute", width: `${(COLS / ROWS) * 100}%`, height: `${(ROWS / COLS) * 100}%`,
             top: "50%", left: "50%", transform: `translate(-50%, -50%) rotate(${flipped ? 270 : 90}deg)`, transformOrigin: "center",
           } : { width: "100%", height: "100%", transform: flipped ? "rotate(180deg)" : undefined }}>
@@ -590,9 +588,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
                 <feGaussianBlur stdDeviation="3" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
             </defs>
-            <rect x={-26} y={-26} width={SIZE_W + 52} height={SIZE_H + 52} rx={16} fill="#2a1810" stroke="#4a3018" strokeWidth="1.5" />
-            <rect x={-20} y={-20} width={SIZE_W + 40} height={SIZE_H + 40} rx={12} fill="url(#wood-inner)" stroke="#8b6914" strokeWidth="2.5" />
-            <rect x={-20} y={-20} width={SIZE_W + 40} height={SIZE_H + 40} rx={12} fill="none" stroke="rgba(255,220,150,0.15)" strokeWidth="1" />
+            <rect x={-12} y={-12} width={SIZE_W + 24} height={SIZE_H + 24} rx={8} fill="url(#wood-inner)" />
             {Array.from({ length: ROWS }).map((_, r) => Array.from({ length: COLS }).map((_, c) => {
               const here = idx(r, c);
               return neighbors(r, c).map(([dr, dc]) => {
