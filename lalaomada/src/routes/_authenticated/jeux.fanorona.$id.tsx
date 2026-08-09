@@ -137,7 +137,7 @@ function FanoronaWaitingBar() {
 
 function FanoronaPage() {
   const { id } = Route.useParams();
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
 
