@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   Camera, Copy, ShieldCheck, ShieldAlert, LogOut, Trash2,
   Phone, Gamepad2, ArrowDownLeft, ArrowUpRight, Gift, Send,
-  HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap, FileText,
+  HelpCircle, Shield, ChevronRight, Settings, Trophy, Zap, FileText, Crown, Calendar, Infinity,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { compressImageToWebp } from "@/lib/image-compress";
@@ -16,6 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { MatchListDialog, useAllMatches } from "@/components/game/MatchStatsDialog";
+import PremiumSubscriptionModal from "@/components/PremiumSubscriptionModal";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -232,6 +233,159 @@ function ListRow({ icon: Icon, label, action, color, danger }: {
    Main Page
 ─────────────────────────────────────────────────────────────────────────────── */
 
+/* ────────────────────────────────────────────────────────────────────────────
+   Subscription Section — shows current plan + details + subscribe button
+─────────────────────────────────────────────────────────────────────────────── */
+
+const TIER_INFO: Record<string, { label: string; price: number; matches: number; color: string; icon: string }> = {
+  basic:    { label: "Basic",    price: 1000, matches: 10,  color: "#3b82f6", icon: "⭐" },
+  standard: { label: "Standard", price: 2000, matches: 200, color: "#8b5cf6", icon: "🚀" },
+  premium:  { label: "Premium",  price: 5000, matches: 500, color: "#f59e0b", icon: "👑" },
+};
+
+function SubscriptionSection({ limits, premiumTier, premiumUntil, balance, onSubscribe }: {
+  limits: any; premiumTier: string | null; premiumUntil: string | null; balance: number; onSubscribe: () => void;
+}) {
+  const isPremium = premiumUntil && new Date(premiumUntil) > new Date();
+  const tier = premiumTier && TIER_INFO[premiumTier] ? TIER_INFO[premiumTier] : null;
+
+  // Calculate days remaining
+  const daysLeft = isPremium
+    ? Math.ceil((new Date(premiumUntil!).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  // From get_game_limits RPC
+  const remainingMonthly = limits?.remaining_monthly ?? 0;
+  const monthlyLimit = limits?.monthly_limit ?? 0;
+  const monthlyUsed = limits?.monthly_used ?? 0;
+  const remainingToday = limits?.remaining_today ?? 0;
+  const activeDaysUsed = limits?.active_days_used ?? 0;
+  const maxActiveDays = limits?.max_active_days ?? 5;
+
+  return (
+    <div className="rounded-2xl bg-card border border-border/40 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30 bg-secondary/30">
+        <Crown className="w-4 h-4 text-amber-500" />
+        <span className="font-bold text-sm">Abonnement</span>
+        {isPremium && (
+          <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style={{ background: tier?.color || "#f59e0b" }}>
+            ACTIF
+          </span>
+        )}
+      </div>
+
+      <div className="p-4 space-y-3">
+        {isPremium && tier ? (
+          <>
+            {/* Active subscription card */}
+            <div className="rounded-xl p-3 border" style={{ borderColor: `${tier.color}40`, background: `linear-gradient(135deg, ${tier.color}12, transparent)` }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
+                    style={{ background: tier.color }}>
+                    {tier.icon}
+                  </div>
+                  <div>
+                    <div className="font-black text-sm">{tier.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{tier.matches} parties / mois</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-bold" style={{ color: tier.color }}>{daysLeft} jours</div>
+                  <div className="text-[10px] text-muted-foreground">restants</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Details grid */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-secondary/40 p-2.5 text-center">
+                <div className="text-lg font-black tabular-nums" style={{ color: tier.color }}>{remainingMonthly}</div>
+                <div className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Parties restantes (mois)</div>
+              </div>
+              <div className="rounded-xl bg-secondary/40 p-2.5 text-center">
+                <div className="text-lg font-black tabular-nums">{remainingToday}</div>
+                <div className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Gratuites aujourd'hui</div>
+              </div>
+              <div className="rounded-xl bg-secondary/40 p-2.5 text-center">
+                <div className="text-lg font-black tabular-nums">{monthlyUsed}</div>
+                <div className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Parties jouées (mois)</div>
+              </div>
+              <div className="rounded-xl bg-secondary/40 p-2.5 text-center">
+                <div className="text-lg font-black tabular-nums">{activeDaysUsed}/{maxActiveDays}</div>
+                <div className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Jours actifs</div>
+              </div>
+            </div>
+
+            {/* Expiry date */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Expire le {new Date(premiumUntil!).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</span>
+            </div>
+
+            {/* Renew button */}
+            <button onClick={onSubscribe}
+              className="w-full py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
+              style={{ background: `linear-gradient(135deg, ${tier.color}, ${tier.color}dd)` }}>
+              <Crown className="w-4 h-4" /> Renouveler
+            </button>
+          </>
+        ) : (
+          <>
+            {/* No active subscription */}
+            <div className="text-center py-2">
+              <div className="w-12 h-12 rounded-full bg-secondary/60 flex items-center justify-center mx-auto mb-2">
+                <Crown className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <div className="font-bold text-sm">Aucun abonnement actif</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {activeDaysUsed >= maxActiveDays
+                  ? "Essai gratuit expiré — abonnez-vous pour continuer"
+                  : `Essai gratuit: ${remainingToday} parties aujourd'hui`}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                Jours actifs: {activeDaysUsed}/{maxActiveDays}
+              </div>
+            </div>
+
+            {/* Plan previews */}
+            <div className="space-y-1.5">
+              {Object.values(TIER_INFO).map((t) => (
+                <div key={t.id} className="flex items-center gap-2 rounded-lg bg-secondary/30 px-2.5 py-2">
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0"
+                    style={{ background: t.color }}>
+                    {t.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold">{t.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{t.matches} parties/mois</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-black">{t.price.toLocaleString("fr-FR")}</div>
+                    <div className="text-[9px] text-muted-foreground">Ar/mois</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Subscribe button */}
+            <button onClick={onSubscribe}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md">
+              <Crown className="w-4 h-4" /> S'abonner maintenant
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Main Page
+─────────────────────────────────────────────────────────────────────────────── */
+
 function ProfilePage() {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -246,6 +400,8 @@ function ProfilePage() {
   const [showDeposit, setShowDeposit] = useState(false);
   const [showRetrait, setShowRetrait] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
+  const [gameLimits, setGameLimits] = useState<any>(null);
   const appSettings = useAppSettings();
   const [statsDialog, setStatsDialog] = useState<"all" | "wins" | "losses" | null>(null);
   const { matches, loaded: matchesLoaded, loading: matchesLoading, load: loadMatches } = useAllMatches(user?.id);
@@ -268,6 +424,11 @@ function ProfilePage() {
       if (!data) return;
       const idx = (data as any[]).findIndex((r: any) => r.id === uid || (currentPseudo && r.name === currentPseudo));
       if (idx >= 0) setMyRank((data[idx] as any).rank);
+    });
+
+    // Fetch subscription / game limits
+    supabase.rpc("get_game_limits" as any).then(({ data }: any) => {
+      if (data && !data.error) setGameLimits(data);
     });
   }, [user?.id, profile?.pseudo]);
 
@@ -463,6 +624,21 @@ function ProfilePage() {
       />
 
       {/* ═══════════════════════════════════════════════════════════════════
+         3b.  Abonnement — statut + détails + bouton d'abonnement
+      ═══════════════════════════════════════════════════════════════════ */}
+      <SubscriptionSection
+        limits={gameLimits}
+        premiumTier={p.premium_tier}
+        premiumUntil={p.premium_until}
+        balance={Number(profile.balance_ar) || 0}
+        onSubscribe={() => setShowSubscription(true)}
+      />
+      <PremiumSubscriptionModal
+        open={showSubscription}
+        onClose={() => { setShowSubscription(false); refreshProfile(); }}
+      />
+
+            {/* ═══════════════════════════════════════════════════════════════════
          4.  Plus — simple list menu
       ═══════════════════════════════════════════════════════════════════ */}
       <Section icon={Settings} title="Plus">
