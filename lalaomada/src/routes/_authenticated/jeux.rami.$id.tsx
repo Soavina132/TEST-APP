@@ -1590,7 +1590,7 @@ function RamiPage() {
 
   return (
     <main
-      className="max-w-3xl mx-auto px-2.5 py-1.5 space-y-1.5 h-full overflow-hidden overscroll-none rounded-xl"
+      className="max-w-3xl mx-auto px-2.5 py-1.5 flex flex-col gap-1.5 h-full overflow-hidden overscroll-none rounded-xl"
       style={{
         background: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.35)), radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 70%, ${activeTheme.border} 100%)`,
         backgroundSize: "cover",
@@ -1791,7 +1791,7 @@ function RamiPage() {
 
         // ═══ ZONE 2: Clean center felt (pioche + défausse + joker only) ═══
         const centerFelt = (
-          <div className="relative flex-1 flex items-center justify-center gap-4 px-3 py-2"
+          <div className="relative flex-1 flex items-center justify-center gap-4 px-3 py-2 min-h-0"
             style={{
               background: `radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 80%)`,
               boxShadow: "inset 0 0 40px rgba(0,0,0,0.4)",
@@ -1818,7 +1818,7 @@ function RamiPage() {
                   isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
                 }`}
               >
-                <Card faceDown styleOverride={{ width: 42, height: 60 }} />
+                <Card faceDown styleOverride={{ width: 50, height: 71 }} />
               </button>
               <span className="text-[9px] font-semibold text-white/90 bg-black/60 px-2 py-0.5 rounded-full">
                 Pioche · {deckCount}
@@ -1837,8 +1837,8 @@ function RamiPage() {
                 >
                   <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
                     {topDiscard !== undefined
-                      ? <Card c={topDiscard} styleOverride={{ width: 42, height: 60 }} />
-                      : <div className="rounded-md border border-dashed border-white/40" style={{ width: 42, height: 60 }} />}
+                      ? <Card c={topDiscard} styleOverride={{ width: 50, height: 71 }} />
+                      : <div className="rounded-md border border-dashed border-white/40" style={{ width: 50, height: 71 }} />}
                   </div>
                 </button>
                 <button
@@ -1855,7 +1855,7 @@ function RamiPage() {
             {/* Joker aléatoire */}
             {randomJoker !== null && (
               <div className="flex flex-col items-center gap-0.5">
-                <Card c={randomJoker} styleOverride={{ width: 42, height: 60 }} />
+                <Card c={randomJoker} styleOverride={{ width: 50, height: 71 }} />
                 <span className="text-[9px] font-semibold text-amber-300 bg-black/60 px-2 py-0.5 rounded-full">Carte tirée</span>
               </div>
             )}
@@ -1880,7 +1880,7 @@ function RamiPage() {
 
         // ═══ Combine zones into one clean board ═══
         return (
-          <div className="rounded-2xl overflow-hidden border-2"
+          <div className="rounded-2xl overflow-hidden border-2 flex-1 min-h-0 flex flex-col"
             style={{ borderColor: activeTheme.border, boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}>
             {oppStrip}
             {centerFelt}
@@ -1980,7 +1980,7 @@ function RamiPage() {
           <div className={reorderMode ? "overflow-x-auto" : ""}>
             <div
               ref={handRef}
-              className={`${reorderMode ? "flex gap-2 min-w-max" : "flex flex-col gap-2"} px-1 py-2`}
+              className={`${reorderMode ? "flex gap-2 min-w-max" : "flex flex-col gap-1"} px-1 py-1`}
             >
               {reorderMode ? (
                 orderedHandCards.map((c, i) => {
@@ -2005,8 +2005,8 @@ function RamiPage() {
                 const perRow = Math.ceil(n / 2);
                 const rows = [orderedHandCards.slice(0, perRow), orderedHandCards.slice(perRow)];
                 const avail = (typeof window !== "undefined" ? Math.min(window.innerWidth, 480) : 360) - 24;
-                const cw = Math.max(38, Math.min(56, Math.floor((avail - (perRow - 1) * 6) / Math.max(perRow, 1))));
-                const ch = Math.round(cw * 1.42);
+                const cw = Math.max(34, Math.min(48, Math.floor((avail - (perRow - 1) * 4) / Math.max(perRow, 1))));
+                const ch = Math.round(cw * 1.38);
                 let globalIdx = 0;
                 return rows.map((row, ri) => (
                   <div key={`row-${ri}`} className="flex justify-center items-end gap-1.5" data-drop-target="hand-end">
