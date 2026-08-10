@@ -24,11 +24,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { useLongPressDrag } from "@/hooks/use-long-press-drag";
 import ramiCover from "@/assets/games/rami.asset.json";
 import { setMuted as setSfxMuted, isMuted as isSfxMuted, sfx } from "@/lib/game-sounds";
-import feltAsset from "@/assets/rami/felt.jpg.asset.json";
-import cardBackAsset from "@/assets/rami/card-back.jpg.asset.json";
-
-const FELT_URL = feltAsset.url;
-const _CARD_BACK_URL = cardBackAsset.url; // kept for potential future use
+// Felt and card back images removed — now using pure CSS gradients for performance
 
 export const Route = createFileRoute("/_authenticated/jeux/rami/$id")({
   component: RamiPage,
@@ -39,36 +35,22 @@ export const Route = createFileRoute("/_authenticated/jeux/rami/$id")({
 // Realistic playing card design with proper suit shapes, ornate court cards,
 // and decorative card back pattern.
 
-/** Render a realistic suit symbol (♠♥♦♣) as SVG paths. */
+/** Render suit symbol as simple Unicode text — 10x lighter than SVG paths */
 function Pip({ suit, size = 7, flip = false }: { suit: number; size?: number; flip?: boolean }) {
-  const s = size;
-  const t = flip ? " rotate(180)" : "";
-  if (suit === 0) {
-    // Spade — refined teardrop + stem
-    return <g transform={t} fill="#1a1a2e">
-      <path d={`M0,${-s} C${s*0.75},${-s*0.35} ${s*0.95},${s*0.25} ${s*0.3},${s*0.72} C${s*0.18},${s*0.78} ${s*0.08},${s*0.7} ${s*0.12},${s*0.58} C${s*0.16},${s*0.46} ${s*0.3},${s*0.44} ${s*0.4},${s*0.55} L${s*0.4},${s*0.55} C${s*0.35},${s*0.65} ${s*0.22},${s*0.72} ${s*0.1},${s*0.7} L${-s*0.1},${s*0.7} C${-s*0.22},${s*0.72} ${-s*0.35},${s*0.65} ${-s*0.4},${s*0.55} C${-s*0.3},${s*0.44} ${-s*0.16},${s*0.46} ${-s*0.12},${s*0.58} C${-s*0.08},${s*0.7} ${-s*0.18},${s*0.78} ${-s*0.3},${s*0.72} C${-s*0.95},${s*0.25} ${-s*0.75},${-s*0.35} 0,${-s}Z`} />
-      <path d={`M${-s*0.14},${s*0.55} L${s*0.14},${s*0.55} L${s*0.08},${s*0.95} L${-s*0.08},${s*0.95} Z`} />
-    </g>;
-  }
-  if (suit === 1) {
-    // Heart — smooth scalloped top
-    return <g transform={t} fill="#c41e3a">
-      <path d={`M0,${s*0.95} C${-s*0.92},${s*0.12} ${-s*0.98},${-s*0.52} ${-s*0.5},${-s*0.78} C${-s*0.25},${-s*0.92} ${-s*0.05},${-s*0.82} 0,${-s*0.5} C${s*0.05},${-s*0.82} ${s*0.25},${-s*0.92} ${s*0.5},${-s*0.78} C${s*0.98},${-s*0.52} ${s*0.92},${s*0.12} 0,${s*0.95}Z`} />
-    </g>;
-  }
-  if (suit === 2) {
-    // Diamond — slightly rounded rhombus
-    return <g transform={t} fill="#c41e3a">
-      <path d={`M0,${-s*0.98} L${s*0.62},0 L0,${s*0.98} L${-s*0.62},0 Z`} />
-    </g>;
-  }
-  // Club — three circles + stem
-  return <g transform={t} fill="#1a1a2e">
-    <circle r={s*0.38} cy={-s*0.46} />
-    <circle r={s*0.38} cx={-s*0.42} cy={s*0.18} />
-    <circle r={s*0.38} cx={s*0.42} cy={s*0.18} />
-    <path d={`M${-s*0.12},${s*0.45} L${s*0.12},${s*0.45} L${s*0.08},${s*0.95} L${-s*0.08},${s*0.95} Z`} />
-  </g>;
+  const colors = ["#1a1a2e", "#c41e3a", "#c41e3a", "#1a1a2e"];
+  const syms = ["♠", "♥", "♦", "♣"];
+  const fs = size * 2.8;
+  return (
+    <text
+      x={0} y={0}
+      fontSize={fs}
+      fontWeight="700"
+      fill={colors[suit]}
+      textAnchor="middle"
+      dominantBaseline="central"
+      transform={flip ? "rotate(180)" : undefined}
+    >{syms[suit]}</text>
+  );
 }
 
 // Standard pip positions on a playing card (0=Ace, 1=2, ... 9=10)
@@ -126,95 +108,60 @@ const CornerIndex = React.memo(function CornerIndex({ rank, suit, x, y, flip, co
 
 /** Decorative card back pattern. */
 const CardBackSVG = React.memo(function CardBackSVG() {
+  // Lightweight CSS-based card back — no SVG paths, no patterns, no gradients
   return (
-    <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-      <defs>
-        <linearGradient id="cb-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7c1e3f" />
-          <stop offset="50%" stopColor="#5a152f" />
-          <stop offset="100%" stopColor="#3d0f20" />
-        </linearGradient>
-        <pattern id="cb-lattice" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-          <rect width="14" height="14" fill="url(#cb-grad)" />
-          <path d="M0 7 L7 0 L14 7 L7 14 Z" fill="none" stroke="#c9a227" strokeWidth="0.3" opacity="0.35" />
-          <circle cx="7" cy="7" r="1.2" fill="#c9a227" opacity="0.3" />
-        </pattern>
-      </defs>
-      <rect x="0" y="0" width="100" height="140" rx="6" fill="url(#cb-lattice)" />
-      {/* outer border */}
-      <rect x="3" y="3" width="94" height="134" rx="4" fill="none" stroke="#c9a227" strokeWidth="0.8" opacity="0.5" />
-      <rect x="5" y="5" width="90" height="130" rx="3" fill="none" stroke="#c9a227" strokeWidth="0.4" opacity="0.3" />
-      {/* center medallion */}
-      <ellipse cx="50" cy="70" rx="22" ry="30" fill="none" stroke="#c9a227" strokeWidth="0.6" opacity="0.45" />
-      <ellipse cx="50" cy="70" rx="18" ry="26" fill="none" stroke="#c9a227" strokeWidth="0.3" opacity="0.3" />
-      <g transform="translate(50,70)">
-        <path d="M0,-12 L3,-4 L11,-4 L5,1 L7,9 L0,5 L-7,9 L-5,1 L-11,-4 L-3,-4 Z"
-          fill="#c9a227" opacity="0.4" />
-        <circle r="2.5" fill="#c9a227" opacity="0.5" />
-      </g>
-      {/* corner flourishes */}
-      {[8, 92].map(cx => [8, 132].map(cy =>
-        <g key={`${cx}-${cy}`} transform={`translate(${cx},${cy})`}>
-          <path d="M0,0 L4,0 M0,0 L0,4" stroke="#c9a227" strokeWidth="0.4" opacity="0.4" />
-        </g>
-      ))}
-    </svg>
+    <div className="w-full h-full rounded-md"
+      style={{
+        background: 'linear-gradient(135deg, #5a152f 0%, #7c1e3f 50%, #3d0f20 100%)',
+        border: '2px solid rgba(201,162,39,0.35)',
+        borderRadius: '5px',
+      }}>
+      <div className="w-full h-full flex items-center justify-center"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(45deg, transparent 0, transparent 6px, rgba(201,162,39,0.12) 6px, rgba(201,162,39,0.12) 7px)',
+        }}>
+        <span style={{ fontSize: 18, color: 'rgba(201,162,39,0.4)', fontWeight: 'bold' }}>★</span>
+      </div>
+    </div>
   );
 });
 
 const JokerFace = React.memo(function JokerFace({ idx }: { idx: number }) {
   const schemes = ["#c41e3a", "#7c3aed", "#059669", "#b45309"];
   const color = schemes[idx % 4];
-  const skin = "#f0c9a0";
-  const ink = "#1a1a2e";
-
+  // Simplified joker — minimal SVG paths for performance
   return <>
-    <rect x="3" y="3" width="94" height="134" rx="4" fill="#fefce8" />
-    <rect x="3" y="3" width="94" height="134" rx="4" fill="none" stroke={color} strokeWidth="1.2" opacity="0.55" />
-    <rect x="6" y="6" width="88" height="128" rx="3" fill="none" stroke={color} strokeWidth="0.3" opacity="0.3" />
-    {/* corner diamonds */}
-    {[[12,12],[88,12],[12,128],[88,128]].map(([x,y],i) => (
-      <g key={i} transform={`translate(${x},${y})`}>
-        <path d="M0,-3 L2.5,0 L0,3 L-2.5,0 Z" fill={color} opacity="0.55" />
-      </g>
-    ))}
-    <text x="50" y="16" textAnchor="middle" fontSize="7.5" fontWeight="bold"
-      fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
-
-    {/* Jester face — simple vector illustration */}
-    <g transform="translate(50,68)">
-      {/* jester hat with 3 points + bells */}
-      <path d="M-20,-8 C-24,-24 -12,-20 -8,-10 C-4,-24 4,-24 8,-10 C12,-20 24,-24 20,-8 Z" fill={color} />
-      <circle cx="-20" cy="-8" r="2.6" fill="#eab308" />
-      <circle cx="0" cy="-19" r="2.6" fill="#eab308" />
-      <circle cx="20" cy="-8" r="2.6" fill="#eab308" />
-      {/* face */}
-      <circle cx="0" cy="2" r="14" fill={skin} stroke={ink} strokeWidth="0.8" />
-      {/* eyes */}
-      <circle cx="-5.5" cy="0" r="1.4" fill={ink} />
-      <circle cx="5.5" cy="0" r="1.4" fill={ink} />
-      {/* eyebrows */}
-      <path d="M-8,-4 C-7,-5.5 -4,-5.5 -3,-4" fill="none" stroke={ink} strokeWidth="0.8" strokeLinecap="round" />
-      <path d="M3,-4 C4,-5.5 7,-5.5 8,-4" fill="none" stroke={ink} strokeWidth="0.8" strokeLinecap="round" />
-      {/* big grin */}
-      <path d="M-8,6 C-4,12 4,12 8,6" fill="none" stroke={ink} strokeWidth="1.1" strokeLinecap="round" />
-      {/* nose dot */}
-      <circle cx="0" cy="3" r="0.8" fill={ink} opacity="0.5" />
-      {/* collar with bells */}
-      <path d="M-16,15 C-8,22 8,22 16,15 L16,19 C8,26 -8,26 -16,19 Z" fill={color} />
-      <circle cx="-12" cy="20" r="2" fill="#eab308" />
-      <circle cx="0" cy="23" r="2" fill="#eab308" />
-      <circle cx="12" cy="20" r="2" fill="#eab308" />
-    </g>
-
-    <g transform="rotate(180 50 70)">
-      <text x="50" y="16" textAnchor="middle" fontSize="7.5" fontWeight="bold"
-        fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
-    </g>
+    <rect x="3" y="3" width="94" height="134" rx="4" fill="#fefce8" stroke={color} strokeWidth="0.8" opacity="0.9" />
+    <text x="50" y="20" textAnchor="middle" fontSize="8" fontWeight="bold" fill={color}>JOKER</text>
+    <text x="50" y="75" textAnchor="middle" fontSize="28" fill={color} opacity="0.7">★</text>
+    <text x="50" y="128" textAnchor="middle" fontSize="8" fontWeight="bold" fill={color}>JOKER</text>
   </>;
 });
 
 
+
+
+// ── Lightweight Face Card renderer (J/Q/K) — pure SVG, no external images ──
+const FaceCard = React.memo(function FaceCard({ rank, suit }: { rank: number; suit: number }) {
+  const color = SUIT_COLORS[suit];
+  const suitSym = SUITS[suit];
+  const labels = { 10: 'J', 11: 'Q', 12: 'K' } as any;
+  const label = labels[rank];
+
+  return (
+    <g>
+      {/* Decorative frame */}
+      <rect x="6" y="6" width="88" height="128" rx="3" fill="none" stroke={color} strokeWidth="0.6" opacity="0.4" />
+      {/* Large rank letter in center */}
+      <text x="50" y="78" textAnchor="middle" fontSize="42" fontWeight="800"
+        fontFamily="Georgia, serif" fill={color} opacity="0.85">{label}</text>
+      {/* Suit symbol below the letter */}
+      <text x="50" y="105" textAnchor="middle" fontSize="20" fill={color} opacity="0.7">{suitSym}</text>
+      {/* Small suit symbol above the letter */}
+      <text x="50" y="35" textAnchor="middle" fontSize="14" fill={color} opacity="0.5">{suitSym}</text>
+    </g>
+  );
+});
 
 const Card = React.memo(function Card({
   c, selected, onClick, size = "md", faceDown, onRemove, highlight, dealDelay, styleOverride,
@@ -290,16 +237,7 @@ const Card = React.memo(function Card({
                 <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.88 : 1} />
               </g>
               {/* Center: face portrait or pip layout */}
-              {isFace ? (() => {
-                const _suitNames = ['spade','heart','diamond','club'];
-                const _rankNames = {10:'jack',11:'queen',12:'king'};
-                const _imgSrc = `/cards/${_suitNames[suit]}_${(_rankNames as any)[rank]}.png`;
-                return (
-                  <foreignObject x="2" y="2" width="96" height="136" pointerEvents="none">
-                    <div style={{ width: '100%', height: '100%', backgroundImage: `url(${_imgSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '5px', opacity: 0.98 }} />
-                  </foreignObject>
-                );
-              })() : <PipCard rank={rank} suit={suit} />}
+              {isFace ? <FaceCard rank={rank} suit={suit} /> : <PipCard rank={rank} suit={suit} />}
             </>
           )}
 
@@ -1708,7 +1646,7 @@ function RamiPage() {
     <main
       className="max-w-3xl mx-auto px-2.5 py-1.5 space-y-1.5 h-full overflow-hidden overscroll-none rounded-xl"
       style={{
-        backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.35)), url(${FELT_URL})`,
+        background: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.35)), radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 70%, ${activeTheme.border} 100%)`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         boxShadow: "inset 0 0 60px rgba(0,0,0,0.45), 0 0 0 6px #0f3d20, 0 8px 24px rgba(0,0,0,0.4)",
