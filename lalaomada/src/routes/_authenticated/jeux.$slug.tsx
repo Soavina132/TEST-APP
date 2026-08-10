@@ -131,6 +131,7 @@ function Lobby() {
   const [fanoronaBotDifficulty, setFanoronaBotDifficulty] = useState<number>(3);
   const [ramiJokerMode, setRamiJokerMode] = useState<"sans" | "aleatoire" | "classique" | "double">("sans");
   const [ramiGameMode, setRamiGameMode] = useState<"bordel" | "naturel">("bordel");
+  const [ramiSevenCards, setRamiSevenCards] = useState(true);
   const [ramiBotDifficulty, setRamiBotDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   // Poker : blindes + cave (jetons de table, indépendants de la mise en Ar)
   const [pokerBlinds, setPokerBlinds] = useState<{ sb: number; bb: number }>({ sb: 10, bb: 20 });
@@ -418,7 +419,7 @@ function Lobby() {
         if (error) throw error;
         id = extractGameId(data);
       } else if (slug === "rami") {
-        const { data, error } = await supabase.rpc("rami_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode } as any);
+        const { data, error } = await supabase.rpc("rami_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards } as any);
         if (error) throw error; id = extractGameId(data);
       } else if (slug === "poker") {
         const { data, error } = await supabase.rpc("poker_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
@@ -463,7 +464,7 @@ function Lobby() {
       const { data, error } = await supabase.rpc("chess_create_stake" as any, { _stake: stake, _time_min: chessTime } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "rami") {
-      const { data, error } = await supabase.rpc("rami_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode } as any);
+      const { data, error } = await supabase.rpc("rami_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "poker") {
       const { data, error } = await supabase.rpc("poker_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
@@ -648,6 +649,8 @@ function Lobby() {
                 <>
                   <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Aléatoire", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
                   <SummaryRow icon="📜" label="Mode de jeu" value={ramiGameMode === "naturel" ? "Naturel" : "Bordel"} onClick={() => setSheet("rami_mode")} />
+                  <SummaryRow icon="7️⃣" label="7 Cartes" value={ramiSevenCards ? "Activé" : "Désactivé"} onClick={() => setSheet("rami_seven")} />
+                  <SummaryRow icon="7️⃣" label="7 Cartes" value={ramiSevenCards ? "Activé" : "Désactivé"} onClick={() => setSheet("rami_seven")} />
                   {opponentMode === "bot" && (
                     <SummaryRow icon="⭐" label="Niveau des bots" value={({ easy:"⭐ Facile", medium:"⭐⭐ Moyen", hard:"⭐⭐⭐ Difficile" } as any)[ramiBotDifficulty]} onClick={() => setSheet("rami_diff")} />
                   )}
@@ -899,6 +902,26 @@ function Lobby() {
       </BottomSheet>
       <BottomSheet open={sheet === "rami_mode"} onClose={closeSheet} title="Mode de jeu">
         <RamiGameModeBlock value={ramiGameMode} onChange={(v) => { setRamiGameMode(v); closeSheet(); }} />
+      </BottomSheet>
+      <BottomSheet open={sheet === "rami_seven"} onClose={closeSheet} title="7 Cartes (Miverim-bola)">
+        <div className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)] space-y-3">
+          <div className="space-y-2">
+            <button onClick={() => { setRamiSevenCards(true); closeSheet(); }}
+              className={`w-full py-3 px-3 rounded-2xl font-semibold text-xs text-left ${ramiSevenCards ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+              <div>7️⃣ 7 Cartes activé</div>
+              <div className={`text-[10px] mt-0.5 ${ramiSevenCards ? "opacity-90" : "text-muted-foreground"}`}>
+                Le joueur qui valide 7 cartes (trio + carré ou trio + suite ou suite + carré) récupère sa mise. Le gagnant prend le pot restant.
+              </div>
+            </button>
+            <button onClick={() => { setRamiSevenCards(false); closeSheet(); }}
+              className={`w-full py-3 px-3 rounded-2xl font-semibold text-xs text-left ${!ramiSevenCards ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+              <div>🚫 7 Cartes désactivé</div>
+              <div className={`text-[10px] mt-0.5 ${!ramiSevenCards ? "opacity-90" : "text-muted-foreground"}`}>
+                Le joueur doit valider toutes ses cartes pour gagner. Pas de remboursement de mise.
+              </div>
+            </button>
+          </div>
+        </div>
       </BottomSheet>
       <BottomSheet open={sheet === "rami_diff"} onClose={closeSheet} title="Niveau des bots">
         <ModeBlock columns={3} options={[

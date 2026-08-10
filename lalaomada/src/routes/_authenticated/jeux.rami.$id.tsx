@@ -1635,6 +1635,7 @@ function RamiPage() {
 
   const dnd = useLongPressDrag({ delay: 380, onDrop: handleDrop });
 
+  const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
   if (!game) return <div className="p-6 text-center">Chargement…</div>;
 
 
@@ -1741,6 +1742,11 @@ function RamiPage() {
             <span className="text-[9px] font-semibold text-blue-500 whitespace-nowrap">
               ✦ {melds.filter(m => m.player === profile?.id).length} combo
             </span>
+          )}
+          {sevenCardsEnabled ? (
+            <span className="text-[9px] font-semibold text-amber-500 whitespace-nowrap">7️⃣</span>
+          ) : (
+            <span className="text-[9px] font-semibold text-muted-foreground/60 whitespace-nowrap">7️⃣✕</span>
           )}
         </div>
         {!me ? (
@@ -1937,7 +1943,7 @@ function RamiPage() {
               key={`meld-${i}`}
               onClick={() => {
                 if (canLayoff) layoff(i);
-                else if (mine && !alreadySeven && !canBreak) toggleMeldPick(i);
+                else if (mine && sevenCardsEnabled && !alreadySeven && !canBreak) toggleMeldPick(i);
                 else if (canBreak) { if (picked || pickedMelds.length > 0) toggleMeldPick(i); else unmeld(i); }
               }}
               onDoubleClick={() => { if (canBreak) unmeld(i); }}
@@ -2086,7 +2092,9 @@ function RamiPage() {
             {/* Mes combinaisons — sans cadre, au-dessus de ma plaque */}
             <div className="absolute bottom-8 inset-x-2 overflow-x-auto">
               {myMelds.length === 0 ? (
-                <div className="text-center text-white/35 text-[9px]">Aucune combinaison posée</div>
+                <div className="text-center text-white/35 text-[9px]">
+                  {sevenCardsEnabled ? "Aucune combinaison posée" : "Aucune combinaison — validez toutes vos cartes pour gagner"}
+                </div>
               ) : (
                 <div className="flex items-end justify-center gap-2 min-w-max px-1">
                   {myMelds.map(({ m, i }) => <MeldRow key={i} m={m} i={i} mine />)}
@@ -2155,7 +2163,7 @@ function RamiPage() {
 
 
       {/* 7 cartes : sélectionner ses combinaisons posées puis réclamer */}
-      {!!me && !alreadySeven && pickedMelds.length > 0 && (
+      {!!me && sevenCardsEnabled && !alreadySeven && pickedMelds.length > 0 && (
         <div className="flex items-center gap-2">
           <button
             onClick={claimSeven}
