@@ -372,7 +372,25 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       const { error } = await supabase.rpc("fanorona_play" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
       setSelected(null); setCaptureChoice(null);
-    } catch (e: any) { toast.error(e.message || "Coup invalide"); }
+    } catch (e: any) {
+      const msg = e?.message || "";
+      const fr: Record<string, string> = {
+        "capture is mandatory when available": "Capture obligatoire — vous devez capturer un pion adverse",
+        "must capture during chain": "Vous devez continuer la rafale (capture obligatoire)",
+        "must continue with same piece": "Vous devez continuer avec le même pion",
+        "not your turn": "Ce n'est pas votre tour",
+        "game not active": "La partie n'est plus active",
+        "not your piece": "Ce n'est pas votre pion",
+        "target not empty": "La case de destination est occupée",
+        "invalid step": "Déplacement invalide",
+        "diagonal not allowed here": "Diagonale non autorisée ici",
+        "cannot revisit cell": "Vous ne pouvez pas revenir sur une case déjà visitée",
+        "cannot continue on same axis": "Vous ne pouvez pas continuer sur le même axe",
+        "invalid capture set": "Ensemble de capture invalide",
+        "not a participant": "Vous n'êtes pas participant de cette partie",
+      };
+      toast.error(fr[msg] || msg || "Coup invalide");
+    }
     finally { setBusy(false); }
   }, [id]);
 
