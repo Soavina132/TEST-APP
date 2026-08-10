@@ -94,15 +94,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Lalao MADA — Jouez au Ludo en Ariary" },
       { name: "twitter:description", content: "Lalao MADA, application 100% malagasy : jouez au Ludo en ligne, mises en Ariary, dépôts et retraits via Mobile Money (MVola, Orange Money, Airtel Money)." },
-      { property: "og:image", content: "https://test-app-primeventemada-5276s-projects.vercel.app/branding/lalao-mada-logo.png" },
-      { name: "twitter:image", content: "https://test-app-primeventemada-5276s-projects.vercel.app/branding/lalao-mada-logo.png" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b744f25f-6be8-4018-84db-5968ece32a9c/id-preview-2109df56--55268ec1-0df4-4faf-b44d-913c5f22a01f.lovable.app-1781835411588.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b744f25f-6be8-4018-84db-5968ece32a9c/id-preview-2109df56--55268ec1-0df4-4faf-b44d-913c5f22a01f.lovable.app-1781835411588.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.json" },
-      { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
-      { rel: "icon", type: "image/png", sizes: "1024x1024", href: "/branding/lalao-mada-logo.png" },
-      { rel: "apple-touch-icon", href: "/branding/lalao-mada-logo.png" },
+      { rel: "apple-touch-icon", href: "/favicon.ico" },
     ],
     scripts: [{
       type: "application/ld+json",

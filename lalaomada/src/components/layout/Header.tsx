@@ -49,16 +49,14 @@ function RouteLoadingBar() {
 
 export function Logo() {
   return (
-    <div className="relative w-9 h-9 flex-shrink-0 rounded-full overflow-hidden ring-1 ring-primary/20 shadow-sm">
-      <img
-        src="/branding/lalao-mada-logo.png"
-        alt="Lalao MADA"
-        width={36}
-        height={36}
-        loading="eager"
-        decoding="async"
-        className="w-full h-full object-cover"
-      />
+    <div className="relative w-9 h-9 flex-shrink-0">
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-red-500 via-orange-500 to-yellow-400 opacity-20 blur-sm" />
+      <div className="relative grid grid-cols-2 gap-[3px] w-9 h-9 p-1.5">
+        <div className="rounded-full bg-gradient-to-br from-red-500 to-red-600 shadow-sm" />
+        <div className="rounded-full bg-gradient-to-br from-green-400 to-green-600 shadow-sm" />
+        <div className="rounded-full bg-gradient-to-br from-blue-500 to-blue-600 shadow-sm" />
+        <div className="rounded-full bg-gradient-to-br from-yellow-400 to-orange-400 shadow-sm" />
+      </div>
     </div>
   );
 }
