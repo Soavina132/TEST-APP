@@ -214,12 +214,12 @@ const CARD_POINTS = (c: number): number => {
 };
 
 // ── Joker detection — mirrors backend _rami_is_joker ──────────────────────
-// Card encoding: 0-51 deck A, 52-55 jokers deck A, 56-107 deck B, 108-111 jokers deck B
+// Card encoding: 0-51 deck A, 52-53 jokers deck A, 56-107 deck B, 108-109 jokers deck B
 // base = c % 56, so physical jokers always have base 52-55
 function isJokerCard(c: number, jokerMode: string, randomJoker: number | null): boolean {
   const base = CARD_BASE(c);
-  // Physical jokers — only in classique/double
-  if (base >= 52 && (jokerMode === 'classique' || jokerMode === 'double')) return true;
+  // Physical jokers (cards 52,53 only — 2 per deck) — in classique/double
+  if ((base === 52 || base === 53) && (jokerMode === 'classique' || jokerMode === 'double')) return true;
   // Color-opposite jokers — only in aleatoire/double
   if ((jokerMode === 'aleatoire' || jokerMode === 'double') && randomJoker !== null) {
     const rjBase = CARD_BASE(randomJoker);
@@ -622,12 +622,21 @@ function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct, melds }:
   const activeParts = parts.filter(p => !p.forfeited);
   const stakePerPlayer = pot && activeParts.length > 0 ? Math.round(pot / activeParts.length) : 0;
 
+  const pointValue = stakePerPlayer > 0 ? stakePerPlayer / 13 : 0;
+  const loserRows = activeParts.map(p => {
+    const hand: number[] = hands?.[p.user_id] ?? [];
+    const pts = hand.reduce((s, c) => s + CARD_POINTS(c), 0);
+    return { uid: p.user_id, pts };
+  });
+  const totalLoserPts = loserRows.filter(r => r.uid !== winnerId).reduce((s, r) => s + r.pts, 0);
+  const pointsBonus = Math.round(totalLoserPts * pointValue);
   const rows = activeParts.map(p => {
     const hand: number[] = hands?.[p.user_id] ?? [];
     const pts = hand.reduce((s, c) => s + CARD_POINTS(c), 0);
     const isWinner = p.user_id === winnerId;
-    const arDelta = isWinner ? netPot - stakePerPlayer : -stakePerPlayer;
-    return { ...p, hand, pts, arDelta };
+    const loserPays = isWinner ? 0 : Math.round(pts * pointValue);
+    const arDelta = isWinner ? (netPot - stakePerPlayer + pointsBonus) : -(stakePerPlayer + loserPays);
+    return { ...p, hand, pts, arDelta, loserPays };
   }).sort((a, b) => a.pts - b.pts);
 
   const minPts = rows[0]?.pts ?? 0;
@@ -647,6 +656,11 @@ function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct, melds }:
         {pot !== undefined && pot > 0 && (
           <div className="ml-auto text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
             Pot {pot.toLocaleString("fr-FR")} Ar
+          </div>
+        )}
+        {pointsBonus > 0 && (
+          <div className="text-xs font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+            +{pointsBonus.toLocaleString("fr-FR")} Ar bonus points
           </div>
         )}
       </div>
@@ -672,6 +686,11 @@ function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct, melds }:
                   {pot !== undefined && pot > 0 && (
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.arDelta > 0 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "bg-destructive/10 text-destructive border border-destructive/15"}`}>
                       {p.arDelta > 0 ? "+" : ""}{p.arDelta.toLocaleString("fr-FR")} Ar
+                    {p.loserPays > 0 && (
+                      <span className="text-[10px] text-destructive/70 font-normal">
+                        (-{p.loserPays.toLocaleString("fr-FR")} pts)
+                      </span>
+                    )}
                     </span>
                   )}
                 </div>
