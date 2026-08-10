@@ -500,7 +500,20 @@ function ChessPage() {
   };
   const doReplay = async () => {
     if (!game) return;
-    if (game.mode !== "solo") { navigate({ to: "/jeux/$slug", params: { slug: "chess" } }); return; }
+    if (game.mode !== "solo") {
+      setBusy(true);
+      try {
+        const { data, error } = await supabase.rpc("chess_create" as any, {
+          _stake: Number(game.stake) || 0,
+          _private: !!game.is_private,
+          _commission: Number(game.commission_pct) || 10,
+        } as any);
+        if (error) throw error;
+        if (data) navigate({ to: "/jeux/chess/$id", params: { id: data as string } });
+      } catch (e: any) { toast.error(e.message); }
+      finally { setBusy(false); }
+      return;
+    }
     setBusy(true);
     try {
       const { data, error } = await supabase.rpc("chess_create_solo" as any, {
