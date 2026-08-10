@@ -221,6 +221,7 @@ const POWER_TILE_STYLES = `
   80%  { transform: rotate(5deg) scale(1.0); }
   100% { transform: rotate(0deg) scale(1); }
 }
+.dice-tumbling { animation: diceTumble 0.3s ease-in-out infinite; }
 @keyframes boardGiftPop {
   0% { transform: scale(0) translateY(10px); opacity: 0; }
   30% { transform: scale(1.4) translateY(-5px); opacity: 1; }
@@ -438,6 +439,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const anim = setInterval(() => {
       setRollingFace(1 + Math.floor(Math.random() * 6));
     }, 100);
+    // Safety timeout: if RPC takes > 5s, force-clear the animation
+    const safety = setTimeout(() => {
+      clearInterval(anim);
+      setRollingFace(null);
+      setBusy(false);
+    }, 5000);
     try {
       const { error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
       if (error) {
@@ -449,6 +456,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
       }
     } finally {
+      clearTimeout(safety);
       clearInterval(anim);
       // Short delay so the player sees the final face before clearing
       setTimeout(() => { setRollingFace(null); setBusy(false); sfx.diceLand(); }, 300);
@@ -477,6 +485,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     if (lastTurnKeyRef.current !== turnKey) {
       lastTurnKeyRef.current = turnKey;
       setSelectedIdx(null);
+      // Reset busy state when turn changes — prevents stuck button if a
+      // previous roll's RPC timed out without reaching finally
+      setBusy(false);
+      setRollingFace(null);
     }
   }, [turnKey]);
 
