@@ -1888,7 +1888,7 @@ function RamiPage() {
 
         // ═══ Combine zones into one clean board ═══
         return (
-          <div className="rounded-2xl overflow-hidden border-2 flex-1 min-h-0 flex flex-col"
+          <div className="rounded-2xl overflow-hidden border-2 flex-[1.6_1_0%] min-h-[38vh] flex flex-col"
             style={{ borderColor: activeTheme.border, boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}>
             {oppStrip}
             {centerFelt}
@@ -1951,10 +1951,10 @@ function RamiPage() {
 
       {/* ── MY HAND ── */}
       {me && (
-        <div className="space-y-2">
+        <div className="space-y-1 shrink-0">
           {/* Sort buttons — compact inline */}
           {handCards.length > 0 && !reorderMode && (
-            <div className="flex items-center gap-1 px-1">
+            <div className="flex items-center gap-1 px-1 mb-0.5">
               <button onClick={() => { setSortMode(sortMode === "suit" ? "none" : "suit"); setCustomOrder(null); }}
                 className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold transition-all active:scale-90 ${sortMode === "suit" ? "bg-emerald-500 text-white" : "bg-white/10 text-white/50"}`}>
                 ♠ Couleur
@@ -1999,11 +1999,11 @@ function RamiPage() {
                 const perRow = Math.ceil(n / 2);
                 const rows = [orderedHandCards.slice(0, perRow), orderedHandCards.slice(perRow)];
                 const avail = (typeof window !== "undefined" ? Math.min(window.innerWidth, 480) : 360) - 24;
-                const cw = Math.max(34, Math.min(48, Math.floor((avail - (perRow - 1) * 4) / Math.max(perRow, 1))));
-                const ch = Math.round(cw * 1.38);
+                const cw = Math.max(30, Math.min(42, Math.floor((avail - (perRow - 1) * 3) / Math.max(perRow, 1))));
+                const ch = Math.round(cw * 1.35);
                 let globalIdx = 0;
                 return rows.map((row, ri) => (
-                  <div key={`row-${ri}`} className="flex justify-center items-end gap-1.5" data-drop-target="hand-end">
+                  <div key={`row-${ri}`} className="flex justify-center items-end gap-1" data-drop-target="hand-end">
                     {row.map((c) => {
                       const i = globalIdx++;
                       const isSel = selected.includes(c);
@@ -2089,7 +2089,7 @@ function RamiPage() {
 
           {/* Action bar during play phase */}
           {isMyTurn && phase === "play" && !reorderMode && (
-            <div className="space-y-2">
+            <div className="space-y-1">
       {/* Floating validate removed — use action bar instead */}
 
 
@@ -2162,11 +2162,11 @@ function RamiPage() {
 
               {/* Bouton Valider ma main — CTA doré */}
               {isMyTurn && game?.turn_phase === "play" && staged.length > 0 && (
-                <div className="rounded-2xl p-3 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border border-amber-500/40 shadow-lg">
+                <div className="rounded-xl p-2 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border border-amber-500/40 shadow-lg">
                   <button
                     onClick={validateHand}
                     disabled={busy || staged.length === 0 || selected.length !== 1}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black text-base shadow-md shadow-amber-500/40 disabled:opacity-40 hover:brightness-110 active:scale-[0.98] transition-all"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black text-sm shadow-md shadow-amber-500/40 disabled:opacity-40 hover:brightness-110 active:scale-[0.98] transition-all"
                   >
                     <Check className="w-5 h-5" />
                     {selected.length === 1
@@ -2181,7 +2181,7 @@ function RamiPage() {
 
               {/* Staging zone */}
               {staged.length > 0 && (
-                <div className="rounded-2xl bg-emerald-500/6 border border-emerald-500/20 p-3 space-y-3 shadow-sm">
+                <div className="rounded-xl bg-emerald-500/6 border border-emerald-500/20 p-2 space-y-2 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -2196,9 +2196,9 @@ function RamiPage() {
                       </button>
                     )}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {staged.map((group, gi) => (
-                      <div key={gi} className={`rounded-xl p-2.5 flex items-center gap-2 transition-all border ${
+                      <div key={gi} className={`rounded-lg p-2 flex items-center gap-2 transition-all border ${
                         stagedValidity[gi] === 'valid' ? 'bg-emerald-500/5 border-emerald-500/25 shadow-sm'
                         : stagedValidity[gi] === 'invalid' ? 'bg-destructive/5 border-destructive/25'
                         : 'bg-white/4 border-white/8'
