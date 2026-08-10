@@ -170,7 +170,7 @@ const Card = React.memo(function Card({
       <button
         onClick={onClick}
         disabled={!onClick}
-        style={{ ...styleOverride, willChange: selected ? 'transform' : undefined }}
+        style={{ ...styleOverride,  }}
         className={`${sizeClass} block transition-transform duration-100 ease-out contain-strict
           ${selected ? "-translate-y-3" : ""}
           ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 scale-105" : ""}
@@ -710,7 +710,7 @@ function ensureDealKeyframes() {
       0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); }
       50%       { box-shadow: 0 0 0 6px rgba(220,38,38,0); }
     }
-    .timer-urgent { animation: timerUrgent 0.6s ease-in-out infinite; }
+    .timer-urgent { box-shadow: 0 0 0 2px rgba(220,38,38,0.4); }
     @keyframes flyToHand {
       0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5) rotate(-20deg); }
       15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(0deg); }
@@ -739,7 +739,7 @@ function ensureDealKeyframes() {
       0%, 100% { opacity: 0.4; }
       50%      { opacity: 0.8; }
     }
-    .playable-glow { animation: glowPulse 1.2s ease-in-out infinite; }
+    .playable-glow { box-shadow: 0 0 0 2px rgba(251,191,36,0.5); }
     @keyframes cardFlip3D {
       0%   { transform: rotateY(180deg); }
       100% { transform: rotateY(0deg); }
@@ -749,28 +749,7 @@ function ensureDealKeyframes() {
 }
 
 // Flying card overlay — animates from source rect to target rect
-function FlyingCard({ card, from, to }: { card: number | undefined; from: { x: number; y: number }; to: { x: number; y: number } }) {
-  const [pos, setPos] = useState(from);
-  const [rot, setRot] = useState(-12);
-  React.useEffect(() => {
-    const r = requestAnimationFrame(() => { setPos(to); setRot(0); });
-    return () => cancelAnimationFrame(r);
-  }, [to.x, to.y]);
-  return (
-    <div
-      className="fixed z-[200] pointer-events-none"
-      style={{
-        left: 0,
-        top: 0,
-        transform: `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) rotate(${rot}deg)`,
-        transition: "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        filter: "drop-shadow(0 16px 24px rgba(0,0,0,0.55))",
-      }}
-    >
-      <Card c={card} faceDown={card === undefined} size="lg" styleOverride={{ width: 48, height: 68 }} />
-    </div>
-  );
-}
+// FlyingCard component removed for performance
 
 // ── Main component ────────────────────────────────────────────────────────
 function RamiPage() {
@@ -781,7 +760,7 @@ function RamiPage() {
   const [game, setGame] = useState<any>(null);
   const [parts, setParts] = useState<any[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
-  const [sevenFx, setSevenFx] = useState<string | null>(null);
+  // sevenFx removed for performance
   const [staged, setStaged] = useState<number[][]>([]);
   const [sortMode, setSortMode] = useState<'none' | 'suit' | 'rank'>('none');
   const [boardTheme, setBoardTheme] = useState<'green' | 'blue' | 'dark'>('green');
@@ -792,7 +771,7 @@ function RamiPage() {
   const [busy, setBusy] = useState(false);
   const [optimalPlay, setOptimalPlay] = useState<OptimalPlay | null>(null);
   const [showOptimal, setShowOptimal] = useState(false);
-  const [cardFx, setCardFx] = useState<{ card: number | undefined; from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
+  // cardFx removed for performance
   const deckRef = React.useRef<HTMLButtonElement | null>(null);
   const handRef = React.useRef<HTMLDivElement | null>(null);
   const discardRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
@@ -802,7 +781,7 @@ function RamiPage() {
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   };
   const [intro, setIntro] = useState<{ phase: "shuffle" | "joker" | "first" | "done"; pickName?: string } | null>(null);
-  const [dealAnimating, setDealAnimating] = useState(false);
+  // dealAnimating removed for performance
   const [newCard, setNewCard] = useState<number | null>(null);
   const prevHandRef = useRef<number[]>([]);
   const { entries: lbEntries, recordRound, reset: resetLb } = useRamiLeaderboard(id);
@@ -867,8 +846,8 @@ function RamiPage() {
   const prevStatusRef2 = useRef<string>("");
   useEffect(() => {
     if (prevStatusRef2.current !== "playing" && game?.status === "playing") {
-      setDealAnimating(true);
-      const t = setTimeout(() => setDealAnimating(false), 1200);
+      // dealAnimating removed
+      // dealAnimating removed
       return () => clearTimeout(t);
     }
     prevStatusRef2.current = game?.status || "";
@@ -895,8 +874,7 @@ function RamiPage() {
   }, [game?.status]);
 
   // ── Bot-action feedback: highlight new melds / discards + toast ──
-  const [flashMelds, setFlashMelds] = useState<number[]>([]);
-  const [flashDiscards, setFlashDiscards] = useState<string[]>([]);
+  // flashMelds/flashDiscards removed for performance
   const botFxRef = React.useRef<{ meldsLen: number; discardKey: string; discardTop?: number; init: boolean }>({ meldsLen: 0, discardKey: "", discardTop: undefined, init: false });
   useEffect(() => {
     if (!game) return;
@@ -920,18 +898,18 @@ function RamiPage() {
         const p = parts.find(pp => pp.user_id === m.player);
         if (m.type === "seven") {
           const who = p?.display_name || "Un joueur";
-          setSevenFx(who);
-          setTimeout(() => setSevenFx(null), 3500);
+          // sevenFx removed
+          // sevenFx removed
           toast.success(`🎊 ${who} : 7 Cartes — Miverim-bola !`, { duration: 3500 });
         }
         if (p?.is_bot && m.type !== "seven") {
           const kind = m.type === "run" ? "suite" : m.type === "set" ? "brelan/carré" : "combinaison";
-          toast.success(`🎯 ${p.display_name || "Bot"} a posé un ${kind} (${m.cards.length} cartes)`, { duration: 2800 });
+          // REMOVED: bot meld toast
         }
         // Also notify for human opponents
         if (!p?.is_bot && p && m.type !== "seven") {
           const kind = m.type === "run" ? "suite" : m.type === "set" ? "brelan/carré" : "combinaison";
-          toast.info(`🎯 ${p.display_name || "Joueur"} a posé un ${kind} (${m.cards.length} cartes)`, { duration: 2500 });
+          // REMOVED: toast for human opponent melds
         }
       }
     }
@@ -949,19 +927,17 @@ function RamiPage() {
           const suitSym = ["♠", "♥", "♦", "♣"][s];
           return `${RANKS[r]}${suitSym}`;
         })() : "une carte";
-        toast.info(`🎴 ${p.display_name || "Bot"} défausser: ${cardLabel}`, { duration: 2200 });
+        // REMOVED: bot discard toast
       }
     }
 
     botFxRef.current = { meldsLen: currentMelds.length, discardKey: lastBy, discardTop: top, init: true };
 
     if (newMeldIdxs.length) {
-      setFlashMelds(f => [...f, ...newMeldIdxs]);
-      setTimeout(() => setFlashMelds(f => f.filter(i => !newMeldIdxs.includes(i))), 2800);
+    // Flash effects removed for performance
     }
     if (newDiscardKeys.length) {
-      setFlashDiscards(f => [...f, ...newDiscardKeys]);
-      setTimeout(() => setFlashDiscards(f => f.filter(k => !newDiscardKeys.includes(k))), 2800);
+    // Flash discards removed
     }
   }, [game?.state?.melds, game?.state?.discards, game?.state?.last_discard_by, parts]);
 
@@ -1135,8 +1111,8 @@ function RamiPage() {
       }
     };
     tick();
-    // Update every 2s normally, every 1s when urgent (≤10s) — reduces re-renders by 50%
-    const t = setInterval(tick, 1000);
+    // Fixed 2s interval — tick() already skips re-render if second hasn't changed
+    const t = setInterval(tick, 2000);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
 
@@ -1181,8 +1157,8 @@ function RamiPage() {
       setSelected([]);
       sfx.ramiMeld();
       if (kind === 'seven') {
-        setSevenFx(MELD_LABEL.seven);
-        setTimeout(() => setSevenFx(null), 3500);
+        // sevenFx removed
+        // sevenFx removed
         toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
       } else {
         toast.success(`✓ ${MELD_LABEL[kind]} validé`);
@@ -1220,8 +1196,8 @@ function RamiPage() {
       if (error) throw error;
       if (data) {
         setPickedMelds([]);
-        setSevenFx(MELD_LABEL.seven);
-        setTimeout(() => setSevenFx(null), 3500);
+        // sevenFx removed
+        // sevenFx removed
         toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
       } else {
         toast.error("Pas de 7 cartes valide sur tes combinaisons");
@@ -1263,20 +1239,20 @@ function RamiPage() {
   const drawDeck = async () => {
     const from = centerOf(deckRef.current);
     const to = centerOf(handRef.current);
-    setCardFx({ card: undefined, from, to });
+    // cardFx removed
     sfx.ramiDraw();
     await call("rami_draw", { _game_id: id, _from: "deck" });
-    setTimeout(() => setCardFx(null), 650);
+    // cardFx removed
   };
   const drawDiscard = async () => {
     const pile = discards[lastDiscardBy] || [];
     const top = pile[pile.length - 1];
     const from = centerOf(discardRefs.current[lastDiscardBy]);
     const to = centerOf(handRef.current);
-    setCardFx({ card: top, from, to });
+    // cardFx removed
     sfx.ramiDraw();
     await call("rami_draw", { _game_id: id, _from: "discard" });
-    setTimeout(() => setCardFx(null), 650);
+    // cardFx removed
   };
 
   const submitStagedMeld = async (groupIdx: number) => {
@@ -1311,10 +1287,10 @@ function RamiPage() {
     const myKey = profile?.id || "";
     const from = centerOf(handRef.current);
     const to = centerOf(discardRefs.current[myKey]);
-    setCardFx({ card, from, to });
+    // cardFx removed
     sfx.ramiDiscard();
     await call("rami_discard", { _game_id: id, _card: card });
-    setTimeout(() => setCardFx(null), 650);
+    // cardFx removed
   };
 
   // Valider toute la main d'un coup : staged = groupes, selected[0] = carte à défausser
@@ -1645,13 +1621,11 @@ function RamiPage() {
         </div>
       )}
       {afkWarning && isMyTurn && game?.status === "playing" && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full bg-destructive text-white text-xs font-bold flex items-center gap-2 animate-pulse shadow-lg">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full bg-destructive text-white text-xs font-bold flex items-center gap-2 shadow-lg">
           <Timer className="w-3.5 h-3.5" /> Attention ! Plus que {remaining}s pour jouer
         </div>
       )}
-      {cardFx && (
-        <FlyingCard card={cardFx.card} from={cardFx.from} to={cardFx.to} />
-      )}
+      {/* FlyingCard removed for performance */}
       {game.status === "finished" && (
         <GameEndScreen slug="rami" meUserId={profile?.id} winnerId={game.winner_id}
           participants={parts} stake={Number(game.stake)} pot={Number(game.pot)}
@@ -1828,7 +1802,7 @@ function RamiPage() {
                   onClick={drawDiscard}
                   className={`relative rounded-md active:scale-95 transition-transform ${
                     isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg" : ""
-                  } ${flashDiscards.includes(lastDiscardBy) ? "ring-2 ring-amber-400" : ""}`}
+                  } ${""}`}
                 >
                   <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
                     {topDiscard !== undefined
@@ -1929,7 +1903,7 @@ function RamiPage() {
             disabled={busy || !canClaimSeven}
             className={`flex-1 rounded-xl px-3 py-2 font-black text-xs text-white shadow-lg active:scale-95 ${
               canClaimSeven
-                ? "bg-gradient-to-r from-amber-500 to-fuchsia-600 animate-pulse"
+                ? "bg-gradient-to-r from-amber-500 to-fuchsia-600 "
                 : "bg-white/15 text-white/60"
             }`}
           >
@@ -2019,7 +1993,7 @@ function RamiPage() {
                           data-drop-target={srcId}
                           {...dnd.getSourceProps(srcId)}
                           style={{
-                            contain: 'layout style paint',
+                            
                             zIndex: isBeingDragged ? 1 : isSel ? 100 + i : i,
                             transform: isBeingDragged
                               ? undefined
@@ -2054,7 +2028,7 @@ function RamiPage() {
                             c={c}
                             selected={isSel}
                             onClick={() => { if (!dnd.drag) toggleSel(c); }}
-                            dealDelay={dealAnimating ? i * 100 : undefined}
+                            
                             styleOverride={{ width: `${cw}px`, height: `${ch}px`, pointerEvents: dnd.drag ? "none" : undefined }}
                           />
                           {playableCards.has(c) && !isSel && (
@@ -2094,13 +2068,7 @@ function RamiPage() {
       {/* Floating validate removed — use action bar instead */}
 
 
-              {sevenFx && (
-                <div className="fixed inset-x-0 top-20 z-50 flex justify-center pointer-events-none">
-                  <div className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-fuchsia-600 text-white font-black text-sm shadow-xl animate-[bounce_1s_ease-in-out_2]">
-                    🎊 7 Cartes — Miverim-bola ! <span className="font-semibold opacity-90">({sevenFx})</span>
-                  </div>
-                </div>
-              )}
+              {/* sevenFx animation removed for performance */}
 
               {/* ── Compact action bar: single row, contextual ── */}
               {selected.length > 0 && (

@@ -367,7 +367,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   }, []);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(serverNow()), 500);
+    const t = setInterval(() => setNow(serverNow()), 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -430,8 +430,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const start = Date.now();
     const anim = setInterval(() => {
       setRollingFace(1 + Math.floor(Math.random() * 6));
-      if (Date.now() - start > 700) clearInterval(anim);
-    }, 80);
+      if (Date.now() - start > 500) clearInterval(anim);
+    }, 120);
     try {
       const { error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
       if (error) {
@@ -736,7 +736,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     isCurrent ? `${COLOR_META[p.color].ring} scale-105 border-2 border-white shadow-lg shadow-white/20` : "ring-transparent opacity-70 border border-white/10"
                   } ${p.forfeited ? "line-through opacity-40" : ""}`}>
                   <div className="relative shrink-0">
-                    <div className={`h-7 w-7 rounded-full overflow-hidden ring-2 ${COLOR_META[p.color].ring} ${COLOR_META[p.color].bg} ${isCurrent ? "animate-pulse" : ""}`}>
+                    <div className={`h-7 w-7 rounded-full overflow-hidden ring-2 ${COLOR_META[p.color].ring} ${COLOR_META[p.color].bg} `}>
                       {avatarOf(p) ? (
                         <img src={avatarOf(p)} alt={nameOf(p)} className="h-full w-full object-cover" />
                       ) : (
@@ -759,7 +759,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                           style={{
                             background: doubleRollPhase.phase === "2x" ? "#ec4899" : "#6366f1",
                             animation: doubleRollPhase.phase === "2x"
-                              ? "doubleRollBadgeIn 0.3s ease-out, doubleRollBadgePulse 1s ease-in-out 0.3s infinite"
+                              ? "doubleRollBadgeIn 0.3s ease-out"
                               : "doubleRollBadgeIn 0.3s ease-out",
                           }}>
                           ⚡{doubleRollPhase.phase}
@@ -818,11 +818,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     fontSize: cellPx * 0.52,
                     lineHeight: 1,
                     pointerEvents: "none",
-                    animation: "powerTilePulse 2s ease-in-out infinite",
+                    animation: "none",
                     transition: "left 0.4s ease, top 0.4s ease",
                   }}>
                   <span style={{
-                    animation: "powerGlow 1.5s ease-in-out infinite",
+                    animation: "none",
                     color: meta.color,
                     display: "inline-block",
                     filter: `drop-shadow(0 0 6px ${meta.color}) drop-shadow(0 0 2px rgba(0,0,0,0.9))`,
@@ -980,11 +980,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     style={{
                       inset: "-4px",
                       border: "2.5px solid rgba(20,184,166,0.9)",
-                      animation: "shieldAuraPulse 1.5s ease-in-out infinite",
+                      animation: "none",
                       borderRadius: "50%",
                     }}>
                     <span className="absolute -top-2 -right-1 text-[10px]"
-                      style={{ animation: "shieldBadgeFloat 1s ease-in-out infinite" }}>🛡️</span>
+                      style={{}}>🛡️</span>
                   </div>
                 )}
                 {pawnPowerEffect && pawnPowerEffect.slot === p.slot && (pawnPowerEffect.type === "shield" || pawnPowerEffect.pawn === p.idx) && (
