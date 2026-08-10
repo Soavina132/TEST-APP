@@ -207,23 +207,8 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   }, []);
 
   // Measure the actual available space for the board (instead of relying on
-  // CSS aspect-ratio, which can under-fill when ancestor heights are fuzzy)
-  // so the board always maximizes the space it's given.
-  // Use a callback ref so the observer attaches the moment the div appears
-  // in the DOM — even if the game loads late and the board div renders
-  // many seconds after first mount.
-  const [boardArea, setBoardArea] = useState({ w: 0, h: 0 });
-  const roRef = useRef<ResizeObserver | null>(null);
-  const boardAreaRef = useCallback((el: HTMLDivElement | null) => {
-    // Disconnect previous observer if any
-    if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
-    if (!el) return;
-    const update = () => setBoardArea({ w: el.clientWidth, h: el.clientHeight });
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    roRef.current = ro;
-  }, []);
+  // Board sizing is now pure CSS/SVG — the SVG fills its flex-1 container
+  // with preserveAspectRatio="xMidYMid meet", no JavaScript measurement needed.
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
 
@@ -615,25 +600,18 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       )}
 
       {/* ── Board (plein écran) ── */}
-      <div ref={boardAreaRef} className="flex-1 flex items-center justify-center min-h-0 w-full">
-      <div
-        className="rounded-md overflow-hidden"
-        style={(() => {
-          // Fill the measured area as fully as possible while keeping the
-          // board's true aspect ratio (no CSS aspect-ratio guesswork here).
-          const availW = boardArea.w || 1, availH = boardArea.h || 1;
-          const ratioW = rotated90 ? ROWS : COLS;
-          const ratioH = rotated90 ? COLS : ROWS;
-          let w = availW, h = (w * ratioH) / ratioW;
-          if (h > availH) { h = availH; w = (h * ratioW) / ratioH; }
-          return { width: `${w}px`, height: `${h}px` };
-        })()}
-      >
-        <div className="overflow-hidden w-full h-full" style={{ position: "relative" }}>
-          <svg viewBox={`-18 -18 ${SIZE_W + 36} ${SIZE_H + 36}`} className="" style={rotated90 ? {
-            position: "absolute", width: `${(COLS / ROWS) * 100}%`, height: `${(ROWS / COLS) * 100}%`,
-            top: "50%", left: "50%", transform: `translate(-50%, -50%) rotate(${flipped ? 270 : 90}deg)`, transformOrigin: "center",
-          } : { width: "100%", height: "100%", transform: flipped ? "rotate(180deg)" : undefined }}>
+      <div className="flex-1 flex items-center justify-center min-h-0 w-full p-1">
+        <div className="rounded-md overflow-hidden w-full h-full flex items-center justify-center">
+          <svg
+            viewBox={rotated90
+              ? `-18 -18 ${SIZE_H + 36} ${SIZE_W + 36}`
+              : `-18 -18 ${SIZE_W + 36} ${SIZE_H + 36}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{ width: "100%", height: "100%" }}
+          >
+            <g transform={rotated90
+              ? `rotate(${flipped ? 270 : 90} ${SIZE_W / 2} ${SIZE_H / 2}) translate(${(SIZE_H - SIZE_W) / 2} ${(SIZE_W - SIZE_H) / 2})`
+              : (flipped ? `rotate(180 ${SIZE_W / 2} ${SIZE_H / 2})` : undefined)}>
             <defs>
               <radialGradient id="wood-inner" cx="50%" cy="35%" r="80%">
                 <stop offset="0%" stopColor="#d9a86a" /><stop offset="60%" stopColor="#a06b35" /><stop offset="100%" stopColor="#5e3618" />
@@ -746,6 +724,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
                 )}
               </g>
             )}
+            </g>
           </svg>
           {/* Astuce contextuelle : seulement quand elle apporte une info utile
               (le tour actif est déjà visible via les cartes joueurs) */}
@@ -767,7 +746,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
             </button>
           )}
         </div>
-      </div>
       </div>
 
       {/* ── Carte "vous" ── */}
