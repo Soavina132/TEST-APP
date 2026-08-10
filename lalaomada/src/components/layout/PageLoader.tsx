@@ -14,20 +14,21 @@ interface PageLoaderProps {
 }
 
 function LudoMark({ size = 48 }: { size?: number }) {
-  const dot = Math.floor(size * 0.22);
   return (
     <div
       className="lm-mark"
       style={{ width: size, height: size }}
       aria-hidden
     >
-      <div className="lm-mark__inner">
-        <span className="lm-dot lm-dot--red" style={{ width: dot, height: dot }} />
-        <span className="lm-dot lm-dot--green" style={{ width: dot, height: dot }} />
-        <span className="lm-dot lm-dot--blue" style={{ width: dot, height: dot }} />
-        <span className="lm-dot lm-dot--yellow" style={{ width: dot, height: dot }} />
-      </div>
-      <div className="lm-mark__glow" />
+      <img
+        src="/branding/lalao-mada-logo.png"
+        alt="Lalao MADA"
+        width={size}
+        height={size}
+        loading="eager"
+        decoding="async"
+        className="w-full h-full object-cover rounded-2xl"
+      />
     </div>
   );
 }
