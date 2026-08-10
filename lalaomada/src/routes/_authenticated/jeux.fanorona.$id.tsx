@@ -610,7 +610,13 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
             style={{ width: "100%", height: "100%" }}
           >
             <g transform={rotated90
-              ? `rotate(${flipped ? 270 : 90} ${SIZE_W / 2} ${SIZE_H / 2}) translate(${(SIZE_H - SIZE_W) / 2} ${(SIZE_W - SIZE_H) / 2})`
+              // Rotate the board about its OWN center (pivot stays fixed at
+              // SIZE_W/2, SIZE_H/2), then translate that fixed center over
+              // to the rotated viewBox's center (SIZE_H/2, SIZE_W/2) — this
+              // is the only translation that re-centers correctly for any
+              // rotation angle (previous formula was mathematically wrong
+              // and pushed the board mostly out of the visible viewBox).
+              ? `translate(${SIZE_H / 2 - SIZE_W / 2} ${SIZE_W / 2 - SIZE_H / 2}) rotate(${flipped ? 270 : 90} ${SIZE_W / 2} ${SIZE_H / 2})`
               : (flipped ? `rotate(180 ${SIZE_W / 2} ${SIZE_H / 2})` : undefined)}>
             <defs>
               <radialGradient id="wood-inner" cx="50%" cy="35%" r="80%">
