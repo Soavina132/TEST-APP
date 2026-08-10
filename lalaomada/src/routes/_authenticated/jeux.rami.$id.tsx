@@ -1683,104 +1683,49 @@ function RamiPage() {
         const others = meIdx >= 0
           ? [...sorted.slice(meIdx + 1), ...sorted.slice(0, meIdx)]
           : sorted;
-        const seatFor = (i: number): "left" | "top" | "right" => {
-          if (others.length === 1) return "top";
-          if (others.length === 2) return i === 0 ? "left" : "right";
-          return (["left", "top", "right"] as const)[i] ?? "top";
-        };
+
         const keyOf = (p: typeof sorted[number]) => (p.user_id as string) || `bot:${p.slot}`;
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
 
-        const TimerRing = React.memo(function TimerRing({ seconds, total, turn }: { seconds: number; total: number; turn: boolean }) {
-          if (!turn) return null;
-          const pct = Math.max(0, Math.min(1, seconds / total));
-          const color = seconds <= 5 ? "#ef4444" : seconds <= 10 ? "#f59e0b" : "#22c55e";
-          return (
-            <div className="absolute -inset-1 pointer-events-none rounded-full"
-              style={{
-                border: `2px solid ${color}`,
-                opacity: pct * 0.9,
-                transition: 'opacity 0.3s, border-color 0.3s',
-                boxShadow: `0 0 6px ${color}66`,
-              }} />
-          );
-        });
-
-        const NamePlate = React.memo(({ name, count, turn, vertical, timerSec, timerTotal }: { name: string; count: number; turn: boolean; vertical?: boolean; timerSec?: number; timerTotal?: number }) => (
-          <div className="relative inline-block">
-            {turn && timerSec !== undefined && timerTotal !== undefined && !vertical && (
-              <TimerRing seconds={timerSec} total={timerTotal} turn={turn} />
-            )}
-            <div
-              className={`relative px-1.5 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap border shadow-sm ${
-                turn ? "bg-yellow-300 text-black border-yellow-600" : "bg-white/95 text-emerald-950 border-emerald-700"
-              }`}
-              style={vertical ? { writingMode: "vertical-rl", transform: "rotate(180deg)" } : undefined}
-            >
-              {name} ({count})
-            </div>
-            {turn && timerSec !== undefined && timerTotal !== undefined && vertical && (
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono font-bold px-1 rounded-full"
-                style={{ color: timerSec <= 5 ? "#ef4444" : timerSec <= 10 ? "#f59e0b" : "#22c55e", background: "rgba(0,0,0,0.6)" }}>
-                {timerSec}s
-              </div>
-            )}
-          </div>
-        ));
-
-        const AvatarBadge = React.memo(({ name, isBot, meldCount, turn }: { name: string; isBot: boolean; meldCount: number; turn: boolean }) => {
+        // ── Compact opponent badge ──
+        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, isLast }: {
+          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; isLast: boolean
+        }) {
+          const name = (p.display_name || "Joueur").slice(0, 10);
           const initial = name.charAt(0).toUpperCase();
           const colors = ["#3b82f6", "#ef4444", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
-          const colorIdx = name.charCodeAt(0) % colors.length;
-          const bg = colors[colorIdx];
+          const bg = colors[name.charCodeAt(0) % colors.length];
           return (
-            <div className="flex flex-col items-center gap-0.5">
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg shrink-0 transition-all ${
+              turn ? "bg-amber-500/20 ring-1 ring-amber-400" : "bg-black/25"
+            } ${isLast ? "" : "border-r border-white/5"}`}>
               <div
-                className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 transition-all duration-300 ${
-                  turn ? "ring-2 ring-yellow-300 ring-offset-1 ring-offset-emerald-900 shadow-[0_0_12px_rgba(253,224,71,0.6)]" : "ring-1 ring-white/20 shadow-sm"
+                className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 ${
+                  turn ? "ring-2 ring-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.5)]" : ""
                 }`}
-                style={{ width: 28, height: 28, fontSize: 11, background: bg }}
+                style={{ width: 24, height: 24, fontSize: 10, background: bg }}
               >
-                {isBot ? "🤖" : initial}
+                {p.is_bot ? "🤖" : initial}
               </div>
-              {meldCount > 0 && (
-                <div className="text-[7px] font-bold text-amber-300 bg-black/50 px-1 rounded-full whitespace-nowrap">
-                  {meldCount} combo{meldCount > 1 ? "s" : ""}
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-white/90 leading-tight">{name}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[8px] text-white/50">🂠 {n}</span>
+                  {meldCount > 0 && <span className="text-[8px] text-amber-300/80">✦{meldCount}</span>}
+                  {turn && (
+                    <span className="text-[8px] font-mono font-bold px-0.5 rounded"
+                      style={{ color: remaining <= 5 ? "#ef4444" : remaining <= 10 ? "#f59e0b" : "#22c55e" }}>
+                      {remaining}s
+                    </span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           );
         });
 
-        const BackFan = React.memo(function BackFan({ n, vertical }: { n: number; vertical?: boolean }) {
-          const count = Math.max(1, Math.min(n, 7));
-          return (
-            <div className={`flex ${vertical ? "flex-col" : "flex-row"}`}>
-              {Array.from({ length: count }).map((_, k) => (
-                <div
-                  key={k}
-                  className="rounded-[2px] shrink-0"
-                  style={{
-                    width: vertical ? 20 : 10,
-                    height: vertical ? 10 : 20,
-                    marginLeft: !vertical && k > 0 ? -2 : 0,
-                    marginTop: vertical && k > 0 ? -2 : 0,
-                    background: 'linear-gradient(135deg, #5a152f, #7c1e3f)',
-                    border: '0.5px solid rgba(201,162,39,0.25)',
-                  }}
-                />
-              ))}
-            </div>
-          );
-        });
-
-        // Seules MES combinaisons sont visibles ; celles des adversaires restent
-        // cachées, sauf un "7 cartes" validé publiquement.
-        const nameOfKey = (k: string) => {
-          const p = sorted.find(x => ((x.user_id as string) || `bot:${x.slot}`) === k);
-          return (p?.display_name || "Joueur").slice(0, 10);
-        };
+        const meldCountOf = (uid: string) => melds.filter(m => m.player === uid).length;
         const isSeven = (m: { type?: string; seven?: boolean }) =>
           m.type === "seven" || m.seven === true;
         const myMelds = melds
@@ -1789,8 +1734,7 @@ function RamiPage() {
         const publicSevenMelds = melds
           .map((m, i) => ({ m, i }))
           .filter(x => (!profile?.id || x.m.player !== profile.id) && isSeven(x.m as any))
-          .map(x => ({ ...x, name: nameOfKey(x.m.player) }));
-
+          .map(x => ({ ...x, name: ((p: typeof sorted[number]) => (p?.display_name || "Joueur").slice(0, 10))(sorted.find(s => ((s.user_id as string) || `bot:${s.slot}`) === x.m.player)) }));
 
         const MeldRow = ({ m, i, mine }: { m: { player: string; cards: number[]; type?: string }; i: number; mine: boolean }) => {
           const kind = (m.type as Exclude<MeldKind, null>) || meldKind(m.cards, jokerMode, randomJoker);
@@ -1809,7 +1753,7 @@ function RamiPage() {
               }}
               onDoubleClick={() => { if (canBreak) unmeld(i); }}
               disabled={!canLayoff && !mine}
-              className={`relative flex rounded-md p-0.5 transition-all ${
+              className={`relative flex rounded-md p-0.5 transition-all shrink-0 ${
                 picked
                   ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
                   : isSevenMeld
@@ -1817,171 +1761,130 @@ function RamiPage() {
                     : canLayoff
                       ? "ring-2 ring-emerald-400"
                       : ""
-
               }`}
             >
               {m.cards.map((c, ci) => (
-                <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -16 : 0 }} className="shadow-[2px_0_3px_rgba(0,0,0,0.35)]">
-                  <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 26, height: 38 }} />
+                <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -14 : 0 }} className="shadow-[2px_0_3px_rgba(0,0,0,0.35)]">
+                  <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 24, height: 34 }} />
                 </div>
               ))}
             </button>
           );
         };
 
-        return (
-          <div
-            className="relative w-full rounded-[22px] overflow-hidden"
+        // ═══ ZONE 1: Opponents strip (above the felt, clean horizontal) ═══
+        const oppStrip = (
+          <div className="flex items-center justify-center gap-1 px-2 py-1 rounded-t-xl"
+            style={{ background: `linear-gradient(180deg, ${activeTheme.feltEdge || "#0b3a1f"}dd, transparent)` }}>
+            {others.map((p, i) => (
+              <OppBadge key={keyOf(p)} p={p} turn={game.current_turn === p.slot}
+                n={handLenOf(keyOf(p))} meldCount={meldCountOf(p.user_id || "")}
+                isLast={i === others.length - 1} />
+            ))}
+          </div>
+        );
+
+        // ═══ ZONE 2: Clean center felt (pioche + défausse + joker only) ═══
+        const centerFelt = (
+          <div className="relative flex-1 flex items-center justify-center gap-4 px-3 py-2"
             style={{
-              height: "52vh",
-              minHeight: 320,
-              background: `radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 70%, ${activeTheme.border} 100%)`,
-              boxShadow: "inset 0 0 60px rgba(0,0,0,0.45), inset 0 0 100px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.3)",
-              border: `4px solid ${activeTheme.border}`,
-            }}
-          >
-            {/* Felt markings removed for performance */}
-
-            {/* Adversaires sur les bords */}
-            {others.map((p, i) => {
-              const seat = seatFor(i);
-              const turn = game.current_turn === p.slot;
-              const n = handLenOf(keyOf(p));
-              const name = (p.display_name || "Joueur").slice(0, 10);
-              const meldCountOf = (uid: string) => melds.filter(m => m.player === uid).length;
-              if (seat === "top") {
-                return (
-                  <div key={keyOf(p)} className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5">
-                    <div className="flex items-center gap-1">
-                      <AvatarBadge name={name} isBot={!!p.is_bot} meldCount={meldCountOf(p.user_id || "")} turn={turn} />
-                      <BackFan n={n} />
-                    </div>
-                    {turn ? (
-                      <NamePlate name={name} count={n} turn={turn} timerSec={remaining} timerTotal={cfg.turn_timer_seconds} />
-                    ) : (
-                      <NamePlate name={name} count={n} turn={turn} />
-                    )}
-                  </div>
-                );
-              }
-              return (
-                <div
-                  key={keyOf(p)}
-                  className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${seat === "left" ? "left-1" : "right-1 flex-row-reverse"}`}
-                >
-                  <AvatarBadge name={name} isBot={!!p.is_bot} meldCount={meldCountOf(p.user_id || "")} turn={turn} />
-                  <BackFan n={n} vertical />
-                  <NamePlate name={name} count={n} turn={turn} vertical timerSec={turn ? remaining : undefined} timerTotal={cfg.turn_timer_seconds} />
-                </div>
-              );
-            })}
-
-            {/* Pioche / Défausse — CENTRE du plateau */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="flex items-end gap-3 pointer-events-auto">
-                <div className="flex flex-col items-center gap-0.5">
-                  <button
-                    ref={deckRef}
-                    disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
-                    onClick={drawDeck}
-                    className={`relative rounded-md disabled:opacity-60 active:scale-95 transition-transform ${
-                      isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
-                    }`}
-                  >
-                    <Card faceDown styleOverride={{ width: 38, height: 55 }} />
-                  </button>
-                  <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[9px] font-semibold text-white/95 bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">Pioche · {deckCount}</span>
-                      <div className="w-12 h-1 rounded-full bg-black/40 overflow-hidden">
-                        <div className="h-full bg-amber-400 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, (deckCount / 112) * 100)}%` }} />
-                      </div>
-                    </div>
-                </div>
-
-                <div className="flex flex-col items-center gap-0.5">
-                  <div className="flex items-end gap-1">
-                    <button
-                      disabled={!(isMyTurn && phase === "draw" && !busy && topDiscard !== undefined)}
-                      onClick={drawDiscard}
-                      className={`relative rounded-md active:scale-95 transition-transform ${
-                        isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg" : ""
-                      } ${flashDiscards.includes(lastDiscardBy) ? "ring-2 ring-amber-400" : ""}`}
-                    >
-                      <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
-                        {topDiscard !== undefined
-                          ? <Card c={topDiscard} styleOverride={{ width: 38, height: 55 }} />
-                          : <div className="rounded-md border border-dashed border-white/40" style={{ width: 38, height: 55 }} />}
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setShowDiscardHistory(true)}
-                      className="w-5 h-5 rounded-full bg-black/60 text-white text-[10px] font-bold flex items-center justify-center border border-white/30"
-                      title="Historique de la défausse"
-                    >
-                      ⋯
-                    </button>
-                  </div>
-                  <span className="text-[9px] font-semibold text-white/95 bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">Défausse</span>
-                </div>
-
-                {randomJoker !== null && (
-                  <div className="flex flex-col items-center gap-0.5">
-                    <Card c={randomJoker} styleOverride={{ width: 38, height: 55 }} />
-                    <span className="text-[9px] font-semibold text-amber-300 bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">Joker</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 7 cartes révélés publiquement (adversaires) — en haut */}
+              background: `radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 80%)`,
+              boxShadow: "inset 0 0 40px rgba(0,0,0,0.4)",
+            }}>
+            {/* Public 7-card melds — top center, compact */}
             {publicSevenMelds.length > 0 && (
-              <div className="absolute top-9 inset-x-2 flex flex-wrap justify-center gap-1.5">
+              <div className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-wrap justify-center gap-1 max-w-[80%]">
                 {publicSevenMelds.map(({ m, i, name }) => (
                   <div key={`pub-${i}`} className="flex flex-col items-center">
-                    <span className="text-[8px] font-bold text-amber-300">🎊 {name}</span>
+                    <span className="text-[7px] font-bold text-amber-300/90">🎊 {name}</span>
                     <MeldRow m={m} i={i} mine={false} />
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Mes combinaisons — sans cadre, au-dessus de ma plaque */}
-            <div className="absolute bottom-8 inset-x-2 overflow-x-auto">
-              {myMelds.length === 0 ? (
-                <div className="text-center text-white/35 text-[9px]">
-                  {sevenCardsEnabled ? "Aucune combinaison posée" : "Aucune combinaison — validez toutes vos cartes pour gagner"}
-                </div>
-              ) : (
-                <div className="flex items-end justify-center gap-2 min-w-max px-1">
-                  {myMelds.map(({ m, i }) => <MeldRow key={i} m={m} i={i} mine />)}
-                </div>
-              )}
+            {/* Pioche */}
+            <div className="flex flex-col items-center gap-0.5">
+              <button
+                ref={deckRef}
+                disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
+                onClick={drawDeck}
+                className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
+                  isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
+                }`}
+              >
+                <Card faceDown styleOverride={{ width: 42, height: 60 }} />
+              </button>
+              <span className="text-[9px] font-semibold text-white/90 bg-black/60 px-2 py-0.5 rounded-full">
+                Pioche · {deckCount}
+              </span>
             </div>
 
+            {/* Défausse */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-end gap-1">
+                <button
+                  disabled={!(isMyTurn && phase === "draw" && !busy && topDiscard !== undefined)}
+                  onClick={drawDiscard}
+                  className={`relative rounded-md active:scale-95 transition-transform ${
+                    isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg" : ""
+                  } ${flashDiscards.includes(lastDiscardBy) ? "ring-2 ring-amber-400" : ""}`}
+                >
+                  <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
+                    {topDiscard !== undefined
+                      ? <Card c={topDiscard} styleOverride={{ width: 42, height: 60 }} />
+                      : <div className="rounded-md border border-dashed border-white/40" style={{ width: 42, height: 60 }} />}
+                  </div>
+                </button>
+                <button
+                  onClick={() => setShowDiscardHistory(true)}
+                  className="w-5 h-5 rounded-full bg-black/60 text-white text-[10px] font-bold flex items-center justify-center border border-white/30"
+                  title="Historique"
+                >
+                  ⋯
+                </button>
+              </div>
+              <span className="text-[9px] font-semibold text-white/90 bg-black/60 px-2 py-0.5 rounded-full">Défausse</span>
+            </div>
 
-            {/* Ma plaque nom en bas */}
-            {me && (
-              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-                <NamePlate
-                  name={(profile?.pseudo as string) || "Moi"}
-                  count={handCards.length}
-                  turn={!!isMyTurn}
-                  timerSec={isMyTurn ? remaining : undefined}
-                  timerTotal={cfg.turn_timer_seconds}
-                />
-                {isMyTurn && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold ${isUrgent ? "bg-destructive text-white" : "bg-black/70 text-white"}`}>
-                    {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
-                    {usedExtraTime ? " · dernière chance" : ""}
-                  </span>
-                )}
+            {/* Joker aléatoire */}
+            {randomJoker !== null && (
+              <div className="flex flex-col items-center gap-0.5">
+                <Card c={randomJoker} styleOverride={{ width: 42, height: 60 }} />
+                <span className="text-[9px] font-semibold text-amber-300 bg-black/60 px-2 py-0.5 rounded-full">Joker</span>
               </div>
             )}
           </div>
         );
+
+        // ═══ ZONE 3: My melds strip (below felt, above hand) ═══
+        const myMeldsStrip = (
+          <div className="px-2 py-1 rounded-b-xl"
+            style={{ background: `linear-gradient(0deg, ${activeTheme.feltEdge || "#0b3a1f"}dd, transparent)` }}>
+            {myMelds.length === 0 ? (
+              <div className="text-center text-white/30 text-[9px] py-0.5">
+                {sevenCardsEnabled ? "Aucune combinaison posée" : "Posez vos combinaisons pour gagner"}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-1.5 overflow-x-auto">
+                {myMelds.map(({ m, i }) => <MeldRow key={i} m={m} i={i} mine />)}
+              </div>
+            )}
+          </div>
+        );
+
+        // ═══ Combine zones into one clean board ═══
+        return (
+          <div className="rounded-2xl overflow-hidden border-2"
+            style={{ borderColor: activeTheme.border, boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}>
+            {oppStrip}
+            {centerFelt}
+            {myMeldsStrip}
+          </div>
+        );
       })()}
 
-      {/* Historique de la défausse */}
+            {/* Historique de la défausse */}
       {showDiscardHistory && (
         <div
           className="fixed inset-0 z-[200] bg-black/70 flex items-end sm:items-center justify-center p-3"
