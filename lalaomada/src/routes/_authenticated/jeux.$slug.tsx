@@ -650,7 +650,6 @@ function Lobby() {
                   <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Couleur opposée", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
                   <SummaryRow icon="📜" label="Mode de jeu" value={ramiGameMode === "naturel" ? "Naturel" : "Bordel"} onClick={() => setSheet("rami_mode")} />
                   <SummaryRow icon="7️⃣" label="7 Cartes" value={ramiSevenCards ? "Activé" : "Désactivé"} onClick={() => setSheet("rami_seven")} />
-                  <SummaryRow icon="7️⃣" label="7 Cartes" value={ramiSevenCards ? "Activé" : "Désactivé"} onClick={() => setSheet("rami_seven")} />
                   {opponentMode === "bot" && (
                     <SummaryRow icon="⭐" label="Niveau des bots" value={({ easy:"⭐ Facile", medium:"⭐⭐ Moyen", hard:"⭐⭐⭐ Difficile" } as any)[ramiBotDifficulty]} onClick={() => setSheet("rami_diff")} />
                   )}
