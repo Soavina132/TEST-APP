@@ -13,8 +13,8 @@ const GAMES = [
 const SPLITS: Record<number, [number, number, number, number]> = {
   1: [100, 0, 0, 0],
   2: [70, 30, 0, 0],
-  3: [60, 20, 10, 0],  // 10% platform, 90% split 60/20/10
-  4: [50, 25, 10, 5],
+  3: [60, 25, 15, 0],   // sum=100 (platform takes 10% of entry fees separately)
+  4: [50, 25, 15, 10],  // sum=100
 };
 
 export default function TournamentAdminPanel() {
