@@ -213,6 +213,14 @@ const POWER_TILE_STYLES = `
   50% { transform: scale(0.9) rotate(360deg); opacity: 0.8; }
   100% { transform: scale(2.2) rotate(720deg); opacity: 0; }
 }
+@keyframes diceTumble {
+  0%   { transform: rotate(0deg) scale(1); }
+  20%  { transform: rotate(-15deg) scale(1.1); }
+  40%  { transform: rotate(12deg) scale(1.05); }
+  60%  { transform: rotate(-8deg) scale(1.15); }
+  80%  { transform: rotate(5deg) scale(1.0); }
+  100% { transform: rotate(0deg) scale(1); }
+}
 @keyframes boardGiftPop {
   0% { transform: scale(0) translateY(10px); opacity: 0; }
   30% { transform: scale(1.4) translateY(-5px); opacity: 1; }
@@ -426,12 +434,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     if (!isMyTurn || state.must_move || busy) return;
     setBusy(true);
     sfx.diceRoll();
-    // Visual roll animation
-    const start = Date.now();
+    // Visual roll animation — keep tumbling until RPC responds
     const anim = setInterval(() => {
       setRollingFace(1 + Math.floor(Math.random() * 6));
-      if (Date.now() - start > 500) clearInterval(anim);
-    }, 120);
+    }, 100);
     try {
       const { error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
       if (error) {
@@ -443,7 +449,9 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
       }
     } finally {
-      setTimeout(() => { setRollingFace(null); setBusy(false); sfx.diceLand(); }, 750);
+      clearInterval(anim);
+      // Short delay so the player sees the final face before clearing
+      setTimeout(() => { setRollingFace(null); setBusy(false); sfx.diceLand(); }, 300);
     }
   };
 
@@ -1155,7 +1163,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           disabled={!isMyTurn || state.must_move || busy}
           className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
             displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
-          } ${isMyTurn && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "animate-spin" : ""}`}>
+          } ${isMyTurn && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
           <DiceFace value={rollingFace ?? displayDice ?? 0} />
         </button>
         {displayDice != null && rollingFace === null && (
