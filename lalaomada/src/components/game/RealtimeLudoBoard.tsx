@@ -213,15 +213,24 @@ const POWER_TILE_STYLES = `
   50% { transform: scale(0.9) rotate(360deg); opacity: 0.8; }
   100% { transform: scale(2.2) rotate(720deg); opacity: 0; }
 }
-@keyframes diceTumble {
-  0%   { transform: rotate(0deg) scale(1); }
-  20%  { transform: rotate(-15deg) scale(1.1); }
-  40%  { transform: rotate(12deg) scale(1.05); }
-  60%  { transform: rotate(-8deg) scale(1.15); }
-  80%  { transform: rotate(5deg) scale(1.0); }
-  100% { transform: rotate(0deg) scale(1); }
+@keyframes diceRoll3D {
+  0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+  10%  { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg) scale(1.15); }
+  20%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) scale(1.1); }
+  30%  { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg) scale(1.2); }
+  40%  { transform: rotateX(720deg) rotateY(360deg) rotateZ(180deg) scale(1.05); }
+  50%  { transform: rotateX(900deg) rotateY(450deg) rotateZ(225deg) scale(1.15); }
+  60%  { transform: rotateX(1080deg) rotateY(540deg) rotateZ(270deg) scale(1.1); }
+  70%  { transform: rotateX(1260deg) rotateY(630deg) rotateZ(315deg) scale(1.2); }
+  80%  { transform: rotateX(1440deg) rotateY(720deg) rotateZ(360deg) scale(1.05); }
+  90%  { transform: rotateX(1620deg) rotateY(810deg) rotateZ(405deg) scale(1.1); }
+  100% { transform: rotateX(1800deg) rotateY(900deg) rotateZ(450deg) scale(1); }
 }
-.dice-tumbling { animation: diceTumble 0.3s ease-in-out infinite; }
+.dice-tumbling {
+  animation: diceRoll3D 0.6s ease-out infinite;
+  transform-style: preserve-3d;
+  perspective: 200px;
+}
 @keyframes boardGiftPop {
   0% { transform: scale(0) translateY(10px); opacity: 0; }
   30% { transform: scale(1.4) translateY(-5px); opacity: 1; }
@@ -438,7 +447,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Visual roll animation — keep tumbling until RPC responds
     const anim = setInterval(() => {
       setRollingFace(1 + Math.floor(Math.random() * 6));
-    }, 100);
+    }, 80);
     // Safety timeout: if RPC takes > 5s, force-clear the animation
     const safety = setTimeout(() => {
       clearInterval(anim);
@@ -1171,13 +1180,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             ))}
           </div>
         )}
-        <button onClick={roll}
-          disabled={!isMyTurn || state.must_move || busy}
-          className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
-            displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
-          } ${isMyTurn && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
-          <DiceFace value={rollingFace ?? displayDice ?? 0} />
-        </button>
+        <div className="relative" style={{ perspective: '200px' }}>
+          <button onClick={roll}
+            disabled={!isMyTurn || state.must_move || busy}
+            className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
+              displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
+            } ${isMyTurn && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
+            <DiceFace value={rollingFace ?? displayDice ?? 0} />
+          </button>
+          {rollingFace !== null && (
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-2 rounded-full bg-black/20 blur-sm animate-pulse" />
+          )}
+        </div>
         {displayDice != null && rollingFace === null && (
           <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
         )}
