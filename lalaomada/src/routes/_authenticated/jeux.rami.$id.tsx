@@ -1212,13 +1212,19 @@ function RamiPage() {
     [melds, profile?.id],
   );
 
+  // Auto-detect 7 cards: check all pairs of my melds for a valid 7-card combo
   const canClaimSeven = useMemo(() => {
-    if (!profile?.id || alreadySeven || pickedMelds.length < 2) return false;
-    const picked = pickedMelds.map(i => melds[i]).filter(Boolean);
-    if (picked.some(m => m.player !== profile.id)) return false;
-    const combo = picked.flatMap(m => m.cards);
-    return combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker);
-  }, [melds, pickedMelds, profile?.id, alreadySeven, jokerMode, randomJoker]);
+    if (!profile?.id || alreadySeven) return false;
+    const mine = melds.map((m, i) => ({ m, i })).filter(x => x.m.player === profile?.id);
+    if (mine.length < 2) return false;
+    for (let a = 0; a < mine.length; a++) {
+      for (let b = a + 1; b < mine.length; b++) {
+        const combo = [...mine[a].m.cards, ...mine[b].m.cards];
+        if (combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker)) return true;
+      }
+    }
+    return false;
+  }, [melds, profile?.id, alreadySeven, jokerMode, randomJoker]);
 
   const claimSeven = async () => {
     setBusy(true);
@@ -1747,14 +1753,13 @@ function RamiPage() {
           const revealed = mine || isSevenMeld;
           const canLayoff = layoffCandidates.has(i);
           const canBreak = mine && !!isMyTurn && phase === "play" && selected.length === 0 && !busy;
-          const picked = pickedMelds.includes(i);
+          const picked = false; // auto-detect: no manual picking
           return (
             <button
               key={`meld-${i}`}
               onClick={() => {
                 if (canLayoff) layoff(i);
-                else if (mine && sevenCardsEnabled && !alreadySeven && !canBreak) toggleMeldPick(i);
-                else if (canBreak) { if (picked || pickedMelds.length > 0) toggleMeldPick(i); else unmeld(i); }
+                else if (canBreak) unmeld(i);
               }}
               onDoubleClick={() => { if (canBreak) unmeld(i); }}
               disabled={!canLayoff && !mine}
@@ -1926,29 +1931,15 @@ function RamiPage() {
       )}
 
 
-      {/* 7 cartes : sélectionner ses combinaisons posées puis réclamer */}
-      {!!me && sevenCardsEnabled && !alreadySeven && pickedMelds.length > 0 && (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={claimSeven}
-            disabled={busy || !canClaimSeven}
-            className={`flex-1 rounded-xl px-3 py-2 font-black text-xs text-white shadow-lg active:scale-95 ${
-              canClaimSeven
-                ? "bg-gradient-to-r from-amber-500 to-fuchsia-600 "
-                : "bg-white/15 text-white/60"
-            }`}
-          >
-            {canClaimSeven
-              ? "🎊 Valider mes 7 cartes — mise remboursée"
-              : `Sélection : ${pickedMelds.reduce((s, i) => s + (melds[i]?.cards.length || 0), 0)}/7 cartes`}
-          </button>
-          <button
-            onClick={() => setPickedMelds([])}
-            className="px-2.5 py-2 rounded-xl bg-black/40 text-white text-[11px] font-bold"
-          >
-            Annuler
-          </button>
-        </div>
+      {/* 7 cartes : détection automatique — bouton apparaît quand 7 cartes valides sont posées */}
+      {!!me && sevenCardsEnabled && !alreadySeven && canClaimSeven && (
+        <button
+          onClick={claimSeven}
+          disabled={busy}
+          className="w-full rounded-xl px-3 py-2.5 font-black text-xs text-white shadow-lg active:scale-95 bg-gradient-to-r from-amber-500 to-fuchsia-600 animate-pulse"
+        >
+          🎊 Valider mes 7 cartes — mise remboursée !
+        </button>
       )}
 
 
