@@ -209,17 +209,20 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   // Measure the actual available space for the board (instead of relying on
   // CSS aspect-ratio, which can under-fill when ancestor heights are fuzzy)
   // so the board always maximizes the space it's given.
-  const boardAreaRef = useRef<HTMLDivElement | null>(null);
+  // Use a callback ref so the observer attaches the moment the div appears
+  // in the DOM — even if the game loads late and the board div renders
+  // many seconds after first mount.
   const [boardArea, setBoardArea] = useState({ w: 0, h: 0 });
-  useEffect(() => {
-    const el = boardAreaRef.current;
+  const roRef = useRef<ResizeObserver | null>(null);
+  const boardAreaRef = useCallback((el: HTMLDivElement | null) => {
+    // Disconnect previous observer if any
+    if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
     if (!el) return;
     const update = () => setBoardArea({ w: el.clientWidth, h: el.clientHeight });
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    window.addEventListener("orientationchange", update);
-    return () => { ro.disconnect(); window.removeEventListener("orientationchange", update); };
+    roRef.current = ro;
   }, []);
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
