@@ -168,7 +168,12 @@ function LobbyPage() {
     const gamesChannel = supabase.channel("lobby-games");
     gamesTables.forEach(table => {
       gamesChannel.on("postgres_changes" as any,
-        { event: "*", schema: "public", table }, () => {
+        { event: "INSERT", schema: "public", table, filter: "status=eq.open" }, () => {
+          clearTimeout(gamesDebounce);
+          gamesDebounce = setTimeout(() => loadGames(), 600);
+        });
+      gamesChannel.on("postgres_changes" as any,
+        { event: "UPDATE", schema: "public", table, filter: "status=eq.open" }, () => {
           clearTimeout(gamesDebounce);
           gamesDebounce = setTimeout(() => loadGames(), 600);
         });

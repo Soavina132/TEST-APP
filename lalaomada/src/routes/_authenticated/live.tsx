@@ -28,15 +28,19 @@ function LivePage() {
   useEffect(() => {
     load();
     const ch = supabase.channel("live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "ludo_games" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "domino_games" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "chess_games" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_games" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rami_games" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ludo_games", filter: "status=eq.open" }, load)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ludo_games", filter: "status=eq.playing" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "domino_games", filter: "status=eq.open" }, load)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "domino_games", filter: "status=eq.playing" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chess_games", filter: "status=eq.open" }, load)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chess_games", filter: "status=eq.playing" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "fanorona_games", filter: "status=eq.open" }, load)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "fanorona_games", filter: "status=eq.playing" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "rami_games", filter: "status=eq.open" }, load)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rami_games", filter: "status=eq.playing" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "game_spectators" }, load)
       .subscribe();
-    const t = setInterval(load, 30000);
-    return () => { supabase.removeChannel(ch); clearInterval(t); };
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const routeFor = (g: any): { to: any; params: any; search?: any } => {

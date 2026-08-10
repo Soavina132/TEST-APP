@@ -31,10 +31,9 @@ function useChatUnread() {
     };
 
     load();
-    const ch = supabase.channel("nav-chat-" + user.id)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    // Poll every 30s instead of realtime — avoids massive egress from ALL chat messages
+    const interval = setInterval(load, 30000);
+    return () => { clearInterval(interval); };
   }, [user?.id, loc.pathname]);
 
   useEffect(() => {

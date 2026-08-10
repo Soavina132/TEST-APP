@@ -243,7 +243,7 @@ function Lobby() {
     loadPublic(); loadMine(); loadFreeGameInfo();
     let debounceTimer: ReturnType<typeof setTimeout>;
     const ch = supabase.channel("lobby-" + slug)
-      .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => { loadPublic(); loadMine(); }, 500);
       })

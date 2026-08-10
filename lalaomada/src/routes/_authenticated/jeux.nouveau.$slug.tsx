@@ -213,7 +213,7 @@ function Lobby() {
   useEffect(() => {
     loadPublic(); loadMine();
     const ch = supabase.channel("lobby-" + slug)
-      .on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, () => { loadPublic(); loadMine(); })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, () => { loadPublic(); loadMine(); })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   // eslint-disable-next-line react-hooks/exhaustive-deps

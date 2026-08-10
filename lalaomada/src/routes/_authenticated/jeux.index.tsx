@@ -244,7 +244,7 @@ function JeuxPage() {
     };
     const ch = supabase.channel("open-games-all");
     ALL_DISPLAYED_SLUGS.forEach(slug =>
-      ch.on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, refresh)
+      ch.on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, refresh)
     );
     ch.subscribe();
     return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
