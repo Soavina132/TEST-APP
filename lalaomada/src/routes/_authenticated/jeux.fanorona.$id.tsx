@@ -8,7 +8,7 @@ import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
-import { LogOut, Pause, Copy, Timer, RotateCw, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Pause, Copy, Timer, RotateCw, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
@@ -371,7 +371,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
     finally { setBusy(false); }
   }, [id]);
 
-  const endTurn = useCallback(() => sendMove({ pass: true }), [sendMove]);
 
   const onCellClick = useCallback((cell: number) => {
     if (!isMyTurn || busy) return;
@@ -600,8 +599,8 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       )}
 
       {/* ── Board (plein écran) ── */}
-      <div className="flex-1 flex flex-col min-h-0 w-full p-1 gap-1.5">
-        <div className="flex-1 min-h-0 rounded-md overflow-hidden w-full flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-0 w-full p-1">
+        <div className="rounded-md overflow-hidden w-full h-full flex items-center justify-center">
           <svg
             viewBox={rotated90
               ? `-18 -18 ${SIZE_H + 36} ${SIZE_W + 36}`
@@ -733,13 +732,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
             </g>
           </svg>
         </div>
-        {isMyTurn && chainFrom === null && !(canCapture && mandatoryCapture) && (
-          <button onClick={endTurn}
-            className="shrink-0 w-full py-2 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 bg-amber-100 text-amber-950 hover:bg-amber-200">
-            <SkipForward className="w-4 h-4" />
-            Passer mon tour
-          </button>
-        )}
       </div>
 
       {/* ── Carte "vous" ── */}
