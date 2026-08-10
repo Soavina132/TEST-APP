@@ -234,7 +234,7 @@ const Card = React.memo(function Card({
   const dealStyle: React.CSSProperties = dealDelay !== undefined ? {
     animationDelay: `${dealDelay}ms`,
     opacity: 0,
-    animation: `dealCard 0.35s ease-out ${dealDelay}ms forwards`,
+    animation: `dealCard 0.25s ease-out ${dealDelay}ms forwards`,
   } : {};
 
   if (faceDown || c === undefined) {
@@ -267,27 +267,18 @@ const Card = React.memo(function Card({
       <button
         onClick={onClick}
         disabled={!onClick}
-        style={{
-          ...styleOverride,
-          perspective: styleOverride?.width ? "200px" : undefined,
-        }}
-        className={`${sizeClass} block transition-all duration-150 ease-out
-          ${selected ? "-translate-y-3 drop-shadow-lg" : ""}
+        style={{ ...styleOverride, willChange: selected ? 'transform' : undefined }}
+        className={`${sizeClass} block transition-transform duration-100 ease-out contain-strict
+          ${selected ? "-translate-y-3" : ""}
           ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 scale-105" : ""}
-          ${onClick ? "hover:-translate-y-1.5 cursor-pointer active:scale-95 hover:drop-shadow-[0_8px_14px_rgba(0,0,0,0.4)] hover:brightness-105" : "cursor-default"}`}
+          ${onClick ? "cursor-pointer active:scale-95" : "cursor-default"}`}
       >
 
         <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <defs>
-            <linearGradient id={`gloss-${base}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.18)" stopOpacity="0.18" />
-              <stop offset="45%" stopColor="rgba(255,255,255,0)" stopOpacity="0" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0.06)" stopOpacity="0.06" />
-            </linearGradient>
-          </defs>
+
           {/* Card base — white with subtle warm tint like real card stock */}
           <rect x="0.5" y="0.5" width="99" height="139" rx="7" fill="#fefefe" stroke="#c8c8c8" strokeWidth="0.8" />
-          <rect x="2" y="2" width="96" height="136" rx="5" fill="none" stroke="#e8e8e8" strokeWidth="0.4" opacity="0.5" />
+
           {isJoker ? (
             <JokerFace idx={base - 52} />
           ) : (
@@ -311,13 +302,10 @@ const Card = React.memo(function Card({
               })() : <PipCard rank={rank} suit={suit} />}
             </>
           )}
-          {/* Gloss overlay for depth */}
-          <rect x="0.5" y="0.5" width="99" height="139" rx="7" fill={`url(#gloss-${base})`} pointerEvents="none" />
+
         </svg>
         {selected && <div className="absolute inset-0 rounded-md ring-2 ring-emerald-400 pointer-events-none" />}
-        {onClick && !selected && (
-          <div className="absolute inset-0 rounded-md opacity-0 hover:opacity-100 transition-opacity duration-200 pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)" }} />
-        )}
+
       </button>
 
       {onRemove && (
@@ -1300,9 +1288,9 @@ function RamiPage() {
     }
   }, [remaining, isMyTurn]);
 
-  const toggleSel = (c: number) => {
+  const toggleSel = useCallback((c: number) => {
     setSelected(s => s.includes(c) ? s.filter(x => x !== c) : [...s, c]);
-  };
+  }, []);
 
   // Pose directe de la sélection scannée (trio / carré / escalier / 7 cartes)
   const postSelection = async () => {
@@ -1633,7 +1621,7 @@ function RamiPage() {
     }
   }, [orderedHandCards, staged, autoStageFromOrder]);
 
-  const dnd = useLongPressDrag({ delay: 380, onDrop: handleDrop });
+  const dnd = useLongPressDrag({ delay: 250, onDrop: handleDrop });
 
   const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
   if (!game) return <div className="p-6 text-center">Chargement…</div>;
@@ -2028,7 +2016,7 @@ function RamiPage() {
                     ref={deckRef}
                     disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
                     onClick={drawDeck}
-                    className={`relative rounded-md disabled:opacity-60 active:scale-95 transition-all ${
+                    className={`relative rounded-md disabled:opacity-60 active:scale-95 transition-transform ${
                       isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
                     }`}
                   >
@@ -2047,7 +2035,7 @@ function RamiPage() {
                     <button
                       disabled={!(isMyTurn && phase === "draw" && !busy && topDiscard !== undefined)}
                       onClick={drawDiscard}
-                      className={`relative rounded-md active:scale-95 transition-all ${
+                      className={`relative rounded-md active:scale-95 transition-transform ${
                         isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg" : ""
                       } ${flashDiscards.includes(lastDiscardBy) ? "ring-2 ring-amber-400" : ""}`}
                     >
@@ -2256,10 +2244,11 @@ function RamiPage() {
                       return (
                         <div
                           key={`${c}-${i}`}
-                          className="relative transition-all duration-200 ease-out select-none"
+                          className="relative transition-transform duration-100 ease-out select-none"
                           data-drop-target={srcId}
                           {...dnd.getSourceProps(srcId)}
                           style={{
+                            contain: 'layout style paint',
                             zIndex: isBeingDragged ? 1 : isSel ? 100 + i : i,
                             transform: isBeingDragged
                               ? undefined
@@ -2268,18 +2257,19 @@ function RamiPage() {
                               : undefined,
                             opacity: isBeingDragged ? 0.25 : 1,
                             touchAction: "none",
-                            filter: isBeingDragged
-                              ? "grayscale(0.6)"
+                            boxShadow: isBeingDragged
+                              ? "0 2px 8px rgba(0,0,0,0.2)"
                               : isSel
-                              ? "drop-shadow(0 10px 16px rgba(0,0,0,0.45))"
-                              : "drop-shadow(0 4px 6px rgba(0,0,0,0.35))",
+                              ? "0 8px 16px rgba(0,0,0,0.45)"
+                              : "0 3px 6px rgba(0,0,0,0.35)",
+                            filter: isBeingDragged ? "grayscale(0.6)" : undefined,
                           }}
                         >
                           {dropSide === "before" && (
-                            <div className="absolute -left-1 top-1 bottom-1 w-1 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))] animate-pulse pointer-events-none" />
+                            <div className="absolute -left-1 top-1 bottom-1 w-1 rounded-full bg-primary pointer-events-none" />
                           )}
                           {dropSide === "after" && (
-                            <div className="absolute -right-1 top-1 bottom-1 w-1 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))] animate-pulse pointer-events-none" />
+                            <div className="absolute -right-1 top-1 bottom-1 w-1 rounded-full bg-primary pointer-events-none" />
                           )}
                           {showQuickDiscard && (
                             <button
@@ -2297,11 +2287,11 @@ function RamiPage() {
                             styleOverride={{ width: `${cw}px`, height: `${ch}px`, pointerEvents: dnd.drag ? "none" : undefined }}
                           />
                           {playableCards.has(c) && !isSel && (
-                            <div className="absolute inset-0 rounded-md ring-2 ring-amber-400/70 shadow-[0_0_10px_rgba(251,191,36,0.5)] pointer-events-none animate-pulse" style={{ width: `${cw}px`, height: `${ch}px` }} />
+                            <div className="absolute inset-0 rounded-md ring-2 ring-amber-400/70 pointer-events-none" style={{ width: `${cw}px`, height: `${ch}px` }} />
                           )}
                           {newCard === c && (
                             <>
-                              <div className="absolute inset-0 rounded-lg ring-2 ring-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.7)] pointer-events-none animate-pulse" />
+                              <div className="absolute inset-0 rounded-lg ring-2 ring-amber-400 pointer-events-none" />
                               <div className="absolute -top-2 -right-1 z-[60] px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[9px] font-extrabold shadow-md pointer-events-none animate-scale-in">
                                 NEW
                               </div>
