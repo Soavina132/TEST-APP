@@ -4,7 +4,6 @@ import Header from "@/components/layout/Header";
 import PauseBanner from "@/components/game/PauseBanner";
 import BottomNav from "@/components/layout/BottomNav";
 import TermsModal from "@/components/TermsModal";
-import FloatingBackButton from "@/components/layout/BackButton";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import ContactFab from "@/components/ContactFab";
 import OnlineStatusBar from "@/components/OnlineStatusBar";
@@ -49,7 +48,6 @@ function AuthLayout() {
 
   return (
     <>
-      <FloatingBackButton />
       <PauseBanner />
       <Header />
       {!inGame && <OnlineStatusBar />}
