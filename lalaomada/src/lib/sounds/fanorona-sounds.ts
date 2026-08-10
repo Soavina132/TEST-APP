@@ -1,3 +1,5 @@
+import { isMuted } from "@/lib/game-sounds";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Fanorona sound effects — Web Audio API (no external files needed)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,6 +23,7 @@ export function unlockAudio() { getCtx(); }
 
 /** Stone move — soft wooden clack */
 export function playFanoronaMove() {
+  if (isMuted()) return;
   const ctx = getCtx(); if (!ctx) return;
   try {
     const osc = ctx.createOscillator();
@@ -37,6 +40,7 @@ export function playFanoronaMove() {
 
 /** Stone capture — sharper double hit */
 export function playFanoronaCapture() {
+  if (isMuted()) return;
   const ctx = getCtx(); if (!ctx) return;
   try {
     [0, 0.06].forEach(delay => {
@@ -57,6 +61,7 @@ export function playFanoronaCapture() {
 
 /** Win — ascending arpeggio */
 export function playFanoronaWin() {
+  if (isMuted()) return;
   const ctx = getCtx(); if (!ctx) return;
   try {
     [523, 659, 784, 1047].forEach((freq, i) => {
@@ -74,6 +79,7 @@ export function playFanoronaWin() {
 
 /** Lose — descending tone */
 export function playFanoronaLose() {
+  if (isMuted()) return;
   const ctx = getCtx(); if (!ctx) return;
   try {
     [392, 330, 262, 196].forEach((freq, i) => {

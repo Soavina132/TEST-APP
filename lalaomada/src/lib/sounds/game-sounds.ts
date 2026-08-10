@@ -5,6 +5,7 @@
 
 let _ctx: AudioContext | null = null;
 let _muted = false;
+try { _muted = localStorage.getItem("game_sound_muted") === "1"; } catch {}
 
 /** Check if sounds are muted (shared with game-sounds.ts). */
 export function isSfxMuted() {
@@ -14,6 +15,7 @@ export function isSfxMuted() {
 /** Mute / unmute all sound effects in this module. */
 export function setSfxMuted(m: boolean) {
   _muted = m;
+  try { localStorage.setItem("game_sound_muted", m ? "1" : "0"); } catch {}
 }
 
 function getCtx(): AudioContext | null {

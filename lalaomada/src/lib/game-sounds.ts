@@ -15,6 +15,7 @@ let masterGain: GainNode | null = null;
 let reverbNode: ConvolverNode | null = null;
 let reverbGain: GainNode | null = null;
 let muted = false;
+try { muted = localStorage.getItem("game_sound_muted") === "1"; } catch {}
 
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -22,13 +23,13 @@ function getCtx(): AudioContext | null {
     try {
       ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.value = 0.35;
+      masterGain.gain.value = muted ? 0 : 0.35;
       masterGain.connect(ctx.destination);
 
       // Créer un réverbe simple (convolver avec impulse response synthétique)
       reverbNode = ctx.createConvolver();
       reverbGain = ctx.createGain();
-      reverbGain.gain.value = 0.25;
+      reverbGain.gain.value = muted ? 0 : 0.25;
       // Générer une impulse response courte pour le réverbe
       const sampleRate = ctx.sampleRate;
       const length = sampleRate * 0.8; // 800ms de réverbe
@@ -54,6 +55,7 @@ function getCtx(): AudioContext | null {
 
 export function setMuted(m: boolean) {
   muted = m;
+  try { localStorage.setItem("game_sound_muted", m ? "1" : "0"); } catch {}
   if (masterGain) masterGain.gain.value = m ? 0 : 0.35;
   if (reverbGain) reverbGain.gain.value = m ? 0 : 0.25;
 }
@@ -78,6 +80,7 @@ interface ToneOpts {
 }
 
 function tone(opts: ToneOpts) {
+  if (muted) return;
   const c = getCtx();
   if (!c || !masterGain) return;
   const {
@@ -124,6 +127,7 @@ function noise(
   filterType: BiquadFilterType = "lowpass",
   useReverb = false,
 ) {
+  if (muted) return;
   const c = getCtx();
   if (!c || !masterGain) return;
   const t0 = c.currentTime + startAt;
