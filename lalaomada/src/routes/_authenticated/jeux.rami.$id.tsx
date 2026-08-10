@@ -85,7 +85,7 @@ const PIP_POS: [number, number, boolean][][] = [
   [[33, 24, false], [67, 24, false], [50, 36, false], [33, 50, false], [67, 50, false], [33, 90, true], [67, 90, true], [50, 104, true], [33, 116, true], [67, 116, true]], // 10
 ];
 
-function PipCard({ rank, suit }: { rank: number; suit: number }) {
+const PipCard = React.memo(function PipCard({ rank, suit }: { rank: number; suit: number }) {
   const pips = PIP_POS[rank];
   const isAce = rank === 0;
   return <>
@@ -95,12 +95,13 @@ function PipCard({ rank, suit }: { rank: number; suit: number }) {
       </g>
     ))}
   </>;
-}
+});
+
 
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 
 /** Corner index — rank + suit symbol, like a real playing card corner. */
-function CornerIndex({ rank, suit, x, y, flip, color, fontScale = 1 }: {
+const CornerIndex = React.memo(function CornerIndex({ rank, suit, x, y, flip, color, fontScale = 1 }: {
   rank: number; suit: number; x: number; y: number; flip?: boolean;
   color: string; fontScale?: number;
 }) {
@@ -297,49 +298,7 @@ function CourtHalf({ rank, suit }: { rank: number; suit: number }) {
   );
 }
 
-function FacePortrait({ rank, suit }: { rank: number; suit: number }) {
-  const isRed = suit === 1 || suit === 2;
-  const frame = isRed ? "#c41e3a" : "#1e3a5f";
-  const gold = "#c9a227";
-  const uid = `f-${suit}-${rank}`;
-
-  return <>
-    {/* ornate frame */}
-    <rect x="7" y="18" width="86" height="104" rx="3" fill="#fffcf5" />
-    <rect x="7" y="18" width="86" height="104" rx="3" fill="none" stroke={frame} strokeWidth="1.2" opacity="0.6" />
-    {/* inner decorative frame */}
-    <rect x="9.5" y="19.5" width="81" height="101" rx="2" fill="none" stroke={gold} strokeWidth="0.35" opacity="0.4" />
-    {/* corner flourishes */}
-    {[[10,21],[90,21],[10,119],[90,119]].map(([cx,cy],i) => (
-      <g key={i} transform={`translate(${cx},${cy})`}>
-        <path d="M0,0 Q3,0 4,-2 Q0,-3 0,0 Z" fill={gold} opacity="0.4" />
-      </g>
-    ))}
-    {/* top half */}
-    <clipPath id={`tc-${uid}`}><rect x="9" y="19" width="82" height="52" /></clipPath>
-    <g clipPath={`url(#tc-${uid})`}>
-      <CourtHalf rank={rank} suit={suit} />
-    </g>
-    {/* bottom half (mirrored) */}
-    <clipPath id={`bc-${uid}`}><rect x="9" y="69" width="82" height="52" /></clipPath>
-    <g clipPath={`url(#bc-${uid})`} transform="rotate(180 50 70)">
-      <CourtHalf rank={rank} suit={suit} />
-    </g>
-    {/* central divider band with ornamental design */}
-    <rect x="7" y="66" width="86" height="8" fill="#fffcf5" />
-    <line x1="9" y1="70" x2="91" y2="70" stroke={frame} strokeWidth="0.8" opacity="0.5" />
-    <line x1="12" y1="68.5" x2="88" y2="68.5" stroke={gold} strokeWidth="0.2" opacity="0.3" />
-    <line x1="12" y1="71.5" x2="88" y2="71.5" stroke={gold} strokeWidth="0.2" opacity="0.3" />
-    {/* central rank/suit badge — ornate */}
-    <rect x="35" y="64.5" width="30" height="11" rx="2.5" fill="#fffcf5" stroke={frame} strokeWidth="0.6" />
-    <rect x="36" y="65.5" width="28" height="9" rx="2" fill="none" stroke={gold} strokeWidth="0.25" opacity="0.5" />
-    <text x="44" y="72.5" textAnchor="middle" fontSize="8" fontWeight="700" fill={frame}
-      fontFamily="'Georgia', serif">{RANKS[rank]}</text>
-    <text x="56" y="72.8" textAnchor="middle" fontSize="8" fontWeight="700"
-      fill={isRed ? "#c41e3a" : "#1a1a2e"}>{SUITS[suit]}</text>
-  </>;
-}/** Decorative SVG card back — diamond lattice with center medallion. */
-function CardBackSVG() {
+const CardBackSVG = React.memo(function CardBackSVG() {
   return (
     <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
       <defs>
@@ -374,10 +333,9 @@ function CardBackSVG() {
       ))}
     </svg>
   );
-}
+});
 
-/** Pure-vector jester face — no external image dependency (safe in production). */
-function JokerFace({ idx }: { idx: number }) {
+const JokerFace = React.memo(function JokerFace({ idx }: { idx: number }) {
   const schemes = ["#c41e3a", "#7c3aed", "#059669", "#b45309"];
   const color = schemes[idx % 4];
   const skin = "#f0c9a0";
@@ -427,7 +385,8 @@ function JokerFace({ idx }: { idx: number }) {
         fontFamily="serif" fill={color} letterSpacing="2">JOKER</text>
     </g>
   </>;
-}
+});
+
 
 
 const Card = React.memo(function Card({
@@ -1367,7 +1326,7 @@ function RamiPage() {
   const myHand: number[] = useMemo(() => {
     const h = game?.state?.hands?.[profile?.id || ""];
     return Array.isArray(h) ? h : [];
-  }, [game, profile?.id]);
+  }, [game?.state?.hands, profile?.id]);
   const discards: Record<string, number[]> = useMemo(() => {
     const d = game?.state?.discards;
     if (d && typeof d === "object") return d as Record<string, number[]>;
@@ -1489,6 +1448,18 @@ function RamiPage() {
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
+
+  // ── Bot think timer: trigger rami_tick when bot's think delay expires ──
+  useEffect(() => {
+    const think = game?.state?.bot_think_until;
+    if (!think || game?.status !== "playing") return;
+    const ms = new Date(think).getTime() - serverNow();
+    const delay = Math.max(0, ms) + 150;
+    const t = setTimeout(() => {
+      supabase.rpc("rami_tick" as any, { _game_id: id } as any);
+    }, delay);
+    return () => clearTimeout(t);
+  }, [game?.state?.bot_think_until, game?.status, id]);
 
   const isUrgent = remaining <= 10 && isMyTurn;
 
