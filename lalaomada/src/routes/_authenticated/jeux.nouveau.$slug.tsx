@@ -440,6 +440,9 @@ function Lobby() {
       } else if (slug === "petanque") {
         const { error } = await supabase.rpc("petanque_join" as any, { _game_id: gameId } as any);
         if (error) throw error;
+      } else if (slug === "rami") {
+        const { error } = await supabase.rpc("rami_join" as any, { _game_id: gameId } as any);
+        if (error) throw error;
       }
       refreshProfile(); goTo(gameId);
     } catch (e: any) { toast.error(e.message || "Erreur"); }

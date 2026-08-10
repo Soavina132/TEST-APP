@@ -879,7 +879,7 @@ function RamiPage() {
     if (prevStatusRef2.current !== "playing" && game?.status === "playing") {
       // dealAnimating removed
       // dealAnimating removed
-      return () => clearTimeout(t);
+      return;
     }
     prevStatusRef2.current = game?.status || "";
   }, [game?.status]);
@@ -1156,7 +1156,7 @@ function RamiPage() {
     const t = setTimeout(() => {
       supabase.rpc("rami_tick" as any, { _game_id: id } as any);
     }, delay);
-    return () => clearTimeout(t);
+    return;
   }, [game?.state?.bot_think_until, game?.status, id]);
 
   const isUrgent = remaining <= 10 && isMyTurn;
