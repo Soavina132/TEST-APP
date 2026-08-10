@@ -1702,39 +1702,68 @@ function RamiPage() {
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
 
-        // ── Compact opponent badge ──
+        // ── Opponent avatar card: photo-style avatar + mini fanned hand ──
         const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, isLast }: {
           p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; isLast: boolean
         }) {
           const name = (p.display_name || "Joueur").slice(0, 10);
           const initial = name.charAt(0).toUpperCase();
-          const colors = ["#3b82f6", "#ef4444", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
-          const bg = colors[name.charCodeAt(0) % colors.length];
+          const gradients = [
+            "linear-gradient(145deg,#60a5fa,#2563eb)",
+            "linear-gradient(145deg,#f87171,#dc2626)",
+            "linear-gradient(145deg,#4ade80,#16a34a)",
+            "linear-gradient(145deg,#fbbf24,#d97706)",
+            "linear-gradient(145deg,#c084fc,#9333ea)",
+            "linear-gradient(145deg,#f472b6,#db2777)",
+          ];
+          const bg = gradients[name.charCodeAt(0) % gradients.length];
+          const fanCount = Math.min(n, 5);
           return (
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg shrink-0 transition-all ${
-              turn ? "bg-amber-500/20 ring-1 ring-amber-400" : "bg-black/25"
-            } ${isLast ? "" : "border-r border-white/5"}`}>
-              <div
-                className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 ${
-                  turn ? "ring-2 ring-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.5)]" : ""
-                }`}
-                style={{ width: 24, height: 24, fontSize: 10, background: bg }}
-              >
-                {p.is_bot ? "🤖" : initial}
+            <div className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl shrink-0 transition-all ${
+              turn ? "bg-amber-500/15 ring-1 ring-amber-400/70 shadow-[0_0_10px_-2px_rgba(251,191,36,0.6)]" : ""
+            } ${isLast ? "" : ""}`}>
+              {/* Mini fanned card-back hand */}
+              <div className="relative h-[18px] flex items-end justify-center" style={{ width: 34 + fanCount * 3 }}>
+                {Array.from({ length: fanCount }).map((_, i) => {
+                  const mid = (fanCount - 1) / 2;
+                  const rot = (i - mid) * 11;
+                  return (
+                    <div key={i} className="absolute bottom-0 rounded-[2px] border border-white/25"
+                      style={{
+                        width: 12, height: 17,
+                        left: `calc(50% + ${(i - mid) * 7}px - 6px)`,
+                        transform: `rotate(${rot}deg)`,
+                        background: "linear-gradient(135deg,#1e3a8a,#1e40af)",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                        zIndex: i,
+                      }}
+                    />
+                  );
+                })}
               </div>
-              <div className="flex flex-col">
-                <span className="text-[9px] font-bold text-white/90 leading-tight">{name}</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[8px] text-white/50">🂠 {n}</span>
-                  {meldCount > 0 && <span className="text-[8px] text-amber-300/80">✦{meldCount}</span>}
-                  {turn && (
-                    <span className="text-[8px] font-mono font-bold px-0.5 rounded"
-                      style={{ color: remaining <= 5 ? "#ef4444" : remaining <= 10 ? "#f59e0b" : "#22c55e" }}>
-                      {remaining}s
-                    </span>
-                  )}
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 border-2 ${
+                    turn ? "border-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.6)]" : "border-white/20"
+                  }`}
+                  style={{ width: 26, height: 26, fontSize: 11, background: bg, boxShadow: "inset 0 -2px 4px rgba(0,0,0,0.25)" }}
+                >
+                  {p.is_bot ? "◆" : initial}
+                </div>
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[9px] font-bold text-white/95">{name}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[8px] text-white/55 font-semibold">{n} cartes</span>
+                    {meldCount > 0 && <span className="text-[8px] text-amber-300/90 font-bold">✦{meldCount}</span>}
+                  </div>
                 </div>
               </div>
+              {turn && (
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-black/40"
+                  style={{ color: remaining <= 5 ? "#ef4444" : remaining <= 10 ? "#f59e0b" : "#22c55e" }}>
+                  {remaining}s
+                </span>
+              )}
             </div>
           );
         });
@@ -1766,19 +1795,20 @@ function RamiPage() {
               }}
               onDoubleClick={() => { if (canBreak) unmeld(i); }}
               disabled={!canLayoff && !mine}
-              className={`relative flex rounded-md p-0.5 transition-all shrink-0 ${
+              className={`relative flex rounded-lg p-1 transition-all shrink-0 bg-black/10 ${
                 picked
                   ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
                   : isSevenMeld
                     ? "ring-2 ring-amber-400 shadow-[0_0_14px_-4px_rgba(251,191,36,0.9)]"
                     : canLayoff
                       ? "ring-2 ring-emerald-400"
-                      : ""
+                      : "ring-1 ring-white/10"
               }`}
+              style={{ boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}
             >
               {m.cards.map((c, ci) => (
-                <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -14 : 0 }} className="shadow-[2px_0_3px_rgba(0,0,0,0.35)]">
-                  <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 24, height: 34 }} />
+                <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -13 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
+                  <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 25, height: 35 }} />
                 </div>
               ))}
             </button>
@@ -1787,8 +1817,8 @@ function RamiPage() {
 
         // ═══ ZONE 1: Opponents strip (above the felt, clean horizontal) ═══
         const oppStrip = (
-          <div className="flex items-center justify-center gap-1 px-2 py-1 rounded-t-xl"
-            style={{ background: `linear-gradient(180deg, ${activeTheme.feltEdge || "#0b3a1f"}dd, transparent)` }}>
+          <div className="flex items-center justify-center gap-2.5 px-3 py-1.5 rounded-t-xl"
+            style={{ background: `linear-gradient(180deg, ${activeTheme.feltEdge || "#0b3a1f"}ee, transparent)` }}>
             {others.map((p, i) => (
               <OppBadge key={keyOf(p)} p={p} turn={game.current_turn === p.slot}
                 n={handLenOf(keyOf(p))} meldCount={meldCountOf(p.user_id || "")}
@@ -1799,11 +1829,14 @@ function RamiPage() {
 
         // ═══ ZONE 2: Clean center felt (pioche + défausse + joker only) ═══
         const centerFelt = (
-          <div className="relative flex-1 flex items-center justify-center gap-4 px-3 py-2 min-h-0"
+          <div className="relative flex-1 flex items-center justify-center gap-4 px-3 py-2 min-h-0 overflow-hidden"
             style={{
               background: `radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 80%)`,
-              boxShadow: "inset 0 0 40px rgba(0,0,0,0.4)",
+              boxShadow: "inset 0 0 50px rgba(0,0,0,0.45), inset 0 0 2px rgba(255,255,255,0.06)",
             }}>
+            {/* Subtle suit watermark, bottom-right, pro felt-table touch */}
+            <div className="absolute bottom-1 right-2 text-white/[0.05] select-none pointer-events-none" style={{ fontSize: 40 }}>♦</div>
+            <div className="absolute top-1 left-2 text-white/[0.04] select-none pointer-events-none" style={{ fontSize: 28 }}>♠</div>
             {/* Public 7-card melds — top center, compact */}
             {publicSevenMelds.length > 0 && (
               <div className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-wrap justify-center gap-1 max-w-[80%]">
@@ -1825,8 +1858,9 @@ function RamiPage() {
                 className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
                   isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
                 }`}
+                style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
               >
-                <Card faceDown styleOverride={{ width: 50, height: 71 }} />
+                <Card faceDown styleOverride={{ width: 52, height: 74 }} />
               </button>
               <span className="text-[9px] font-semibold text-white/90 bg-black/60 px-2 py-0.5 rounded-full">
                 Pioche · {deckCount}
@@ -1888,11 +1922,17 @@ function RamiPage() {
 
         // ═══ Combine zones into one clean board ═══
         return (
-          <div className="rounded-2xl overflow-hidden border-2 flex-[1.6_1_0%] min-h-[38vh] flex flex-col"
-            style={{ borderColor: activeTheme.border, boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}>
-            {oppStrip}
-            {centerFelt}
-            {myMeldsStrip}
+          <div className="rounded-2xl flex-[1.6_1_0%] min-h-[38vh] flex flex-col p-[5px]"
+            style={{
+              background: "repeating-linear-gradient(100deg, #7a4a26 0px, #8a5a34 3px, #6e4322 6px, #85532f 9px)",
+              boxShadow: "0 6px 20px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.3)",
+            }}>
+            <div className="rounded-xl overflow-hidden border flex-1 flex flex-col min-h-0"
+              style={{ borderColor: activeTheme.border, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}>
+              {oppStrip}
+              {centerFelt}
+              {myMeldsStrip}
+            </div>
           </div>
         );
       })()}
