@@ -41,7 +41,7 @@ const GAME_SPECIFIC_TIPS: Record<GameSlug, string[]> = {
     "<strong>Temps par joueur</strong> : choisis une cadence ou une partie sans limite de temps.",
   ],
   rami: [
-    "<strong>Joker</strong> : définit comment les jokers sont distribués (sans, aléatoire, classique, double).",
+    "<strong>Joker</strong> : 2 paquets (104 cartes) + modes Sans, Couleur opposée, Classiques (4 Jokers), ou Double (les deux).",
     "<strong>Mode de jeu</strong> : Naturel ou Bordel — les règles de combinaisons changent.",
     "<strong>Niveau des bots</strong> si tu joues contre l'IA.",
   ],

@@ -647,7 +647,7 @@ function Lobby() {
 
               {slug === "rami" && (
                 <>
-                  <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Aléatoire", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
+                  <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Couleur opposée", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
                   <SummaryRow icon="📜" label="Mode de jeu" value={ramiGameMode === "naturel" ? "Naturel" : "Bordel"} onClick={() => setSheet("rami_mode")} />
                   <SummaryRow icon="7️⃣" label="7 Cartes" value={ramiSevenCards ? "Activé" : "Désactivé"} onClick={() => setSheet("rami_seven")} />
                   <SummaryRow icon="7️⃣" label="7 Cartes" value={ramiSevenCards ? "Activé" : "Désactivé"} onClick={() => setSheet("rami_seven")} />
@@ -723,7 +723,7 @@ function Lobby() {
               )}
               {slug === "rami" && (
                 <>
-                  <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Aléatoire", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
+                  <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Couleur opposée", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
                   <SummaryRow icon="📜" label="Mode de jeu" value={ramiGameMode === "naturel" ? "Naturel" : "Bordel"} onClick={() => setSheet("rami_mode")} />
                 </>
               )}
@@ -1327,10 +1327,10 @@ function RamiJokerBlock({ value, onChange }: {
   onChange: (v: "sans" | "aleatoire" | "classique" | "double") => void;
 }) {
   const opts: { v: typeof value; l: string; d: string }[] = [
-    { v: "sans", l: "Sans Joker", d: "52 cartes uniquement" },
-    { v: "aleatoire", l: "Joker tiré au hasard", d: "Vrai Joker = couleur opposée" },
-    { v: "classique", l: "Jokers classiques", d: "4 Jokers du paquet" },
-    { v: "double", l: "Double Joker", d: "Classiques + tiré au hasard" },
+    { v: "sans", l: "Sans Joker", d: "104 cartes (2 paquets), aucun Joker" },
+    { v: "aleatoire", l: "Joker couleur opposée", d: "Tirage aléatoire → couleur opposée = Joker" },
+    { v: "classique", l: "Jokers classiques", d: "4 Jokers physiques (2 par paquet)" },
+    { v: "double", l: "Double Joker", d: "4 Jokers physiques + couleur opposée" },
   ];
   return (
     <div className="rounded-3xl bg-card p-4 shadow-[var(--shadow-soft)] space-y-2">

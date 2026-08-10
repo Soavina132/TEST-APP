@@ -201,6 +201,31 @@ const CARD_POINTS = (c: number): number => {
   return r + 1;
 };
 
+// ── Joker detection — mirrors backend _rami_is_joker ──────────────────────
+// Card encoding: 0-51 deck A, 52-55 jokers deck A, 56-107 deck B, 108-111 jokers deck B
+// base = c % 56, so physical jokers always have base 52-55
+function isJokerCard(c: number, jokerMode: string, randomJoker: number | null): boolean {
+  const base = CARD_BASE(c);
+  // Physical jokers — only in classique/double
+  if (base >= 52 && (jokerMode === 'classique' || jokerMode === 'double')) return true;
+  // Color-opposite jokers — only in aleatoire/double
+  if ((jokerMode === 'aleatoire' || jokerMode === 'double') && randomJoker !== null) {
+    const rjBase = CARD_BASE(randomJoker);
+    if (base < 52 && rjBase < 52) {
+      const cardRank = base % 13;
+      const jokerRank = rjBase % 13;
+      const cardSuit = Math.floor(base / 13);
+      const jokerSuit = Math.floor(rjBase / 13);
+      if (cardRank === jokerRank && cardSuit !== jokerSuit) {
+        const cardColor = (cardSuit === 0 || cardSuit === 3) ? 0 : 1; // ♠♣ black, ♥♦ red
+        const jokerColor = (jokerSuit === 0 || jokerSuit === 3) ? 0 : 1;
+        if (cardColor !== jokerColor) return true;
+      }
+    }
+  }
+  return false;
+}
+
 type MeldValidity = 'valid' | 'invalid' | 'unknown';
 
 function validateMeld(
@@ -210,11 +235,7 @@ function validateMeld(
 ): MeldValidity {
   if (cards.length < 3) return 'unknown';
 
-  const isJoker = (c: number) => {
-    if (CARD_BASE(c) >= 52) return true;
-    if (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker)) return true;
-    return false;
-  };
+  const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
 
   const jokerCount = cards.filter(isJoker).length;
   const real = cards.filter(c => !isJoker(c));
@@ -255,8 +276,7 @@ function meldKind(cards: number[], jokerMode: string, randomJoker: number | null
   if (cards.length < 3) return null;
   if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker)) return 'seven';
   if (validateMeld(cards, jokerMode, randomJoker) !== 'valid') return null;
-  const isJoker = (c: number) =>
-    CARD_BASE(c) >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker));
+  const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
   const real = cards.filter(c => !isJoker(c));
   const sameRank = real.length > 0 && real.every(c => CARD_BASE(c) % 13 === CARD_BASE(real[0]) % 13);
   if (sameRank && cards.length <= 4) return cards.length === 4 ? 'carre' : 'trio';
@@ -278,7 +298,7 @@ function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | 
   if (cards.length !== 7) return false;
   const baseValid = (sub: number[]): boolean => {
     if (sub.length < 3) return false;
-    const isJoker = (c: number) => CARD_BASE(c) >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker));
+    const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
     const jokerCount = sub.filter(isJoker).length;
     const real = sub.filter(c => !isJoker(c));
     if (real.length < 2) return false;
@@ -395,8 +415,7 @@ function getSelectionFeedback(
 ): { hint: string; severity: 'ok' | 'warn' | 'error' | 'info' } {
   if (cards.length === 0) return { hint: "", severity: 'info' };
 
-  const isJoker = (c: number) =>
-    CARD_BASE(c) >= 52 || (jokerMode === 'aleatoire' && randomJoker !== null && CARD_BASE(c) === CARD_BASE(randomJoker));
+  const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
 
   const validity = validateMeld(cards, jokerMode, randomJoker);
   if (validity === 'valid') return { hint: "✓ Combinaison valide — prête à poser", severity: 'ok' };
@@ -1825,7 +1844,7 @@ function RamiPage() {
             {randomJoker !== null && (
               <div className="flex flex-col items-center gap-0.5">
                 <Card c={randomJoker} styleOverride={{ width: 42, height: 60 }} />
-                <span className="text-[9px] font-semibold text-amber-300 bg-black/60 px-2 py-0.5 rounded-full">Joker</span>
+                <span className="text-[9px] font-semibold text-amber-300 bg-black/60 px-2 py-0.5 rounded-full">Carte tirée</span>
               </div>
             )}
           </div>
