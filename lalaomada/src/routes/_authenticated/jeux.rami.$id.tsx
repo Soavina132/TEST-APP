@@ -1523,6 +1523,9 @@ function RamiPage() {
       _max: game.max_players,
       _private: !!game.is_private,
       _commission: Number(game.commission_pct) || 10,
+      _game_mode: game.game_mode || "bordel",
+      _joker_mode: game.joker_mode || "classique",
+      _seven_cards: game.seven_cards !== false,
     } as any);
     if (error) { toast.error(error.message); return; }
     navigate({ to: "/jeux/rami/$id", params: { id: data as string } });
