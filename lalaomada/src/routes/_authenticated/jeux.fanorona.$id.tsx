@@ -600,8 +600,8 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       )}
 
       {/* ── Board (plein écran) ── */}
-      <div className="flex-1 flex items-center justify-center min-h-0 w-full p-1">
-        <div className="rounded-md overflow-hidden w-full h-full flex items-center justify-center">
+      <div className="flex-1 flex flex-col min-h-0 w-full p-1 gap-1.5">
+        <div className="flex-1 min-h-0 rounded-md overflow-hidden w-full flex items-center justify-center">
           <svg
             viewBox={rotated90
               ? `-18 -18 ${SIZE_H + 36} ${SIZE_W + 36}`
@@ -732,26 +732,14 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
             )}
             </g>
           </svg>
-          {/* Astuce contextuelle : seulement quand elle apporte une info utile
-              (le tour actif est déjà visible via les cartes joueurs) */}
-          {isMyTurn && captureChoice && (
-            <div className="text-xs text-center mt-3 font-semibold">
-              <span style={{ color: "#f97316" }}>● Approche</span> ou <span style={{ color: "#38bdf8" }}>● Éloignement</span> — touche la flèche de ton choix
-            </div>
-          )}
-          {isMyTurn && !captureChoice && chainFrom !== null && (
-            <div className="text-xs text-center mt-3 font-semibold text-amber-400">
-              ⛓ Enchaînement obligatoire — joue la suite de la capture
-            </div>
-          )}
-          {isMyTurn && chainFrom === null && !(canCapture && mandatoryCapture) && (
-            <button onClick={endTurn}
-              className="mt-3 w-full py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 bg-amber-100 text-amber-950 hover:bg-amber-200">
-              <SkipForward className="w-4 h-4" />
-              Passer mon tour
-            </button>
-          )}
         </div>
+        {isMyTurn && chainFrom === null && !(canCapture && mandatoryCapture) && (
+          <button onClick={endTurn}
+            className="shrink-0 w-full py-2 rounded-full font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 bg-amber-100 text-amber-950 hover:bg-amber-200">
+            <SkipForward className="w-4 h-4" />
+            Passer mon tour
+          </button>
+        )}
       </div>
 
       {/* ── Carte "vous" ── */}
