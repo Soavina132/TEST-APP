@@ -84,6 +84,18 @@ const Card = React.memo(function Card({
     size === "xl" ? "w-20 h-28" :
     "w-12 h-[72px]";
 
+  // Set fontSize on the card container so that % font-sizes inside are
+  // proportional to the card width — prevents distortion on web/desktop
+  // where card dimensions differ from mobile.
+  const cardFontSize = styleOverride?.width
+    ? (typeof styleOverride.width === "number"
+        ? styleOverride.width
+        : parseInt(String(styleOverride.width).replace(/px$/, ""), 10) || 48)
+    : size === "sm" ? 36
+    : size === "lg" ? 64
+    : size === "xl" ? 80
+    : 48;
+
   const dealStyle: React.CSSProperties = dealDelay !== undefined ? {
     animationDelay: `${dealDelay}ms`,
     opacity: 0,
@@ -93,7 +105,7 @@ const Card = React.memo(function Card({
   if (faceDown || c === undefined) {
     return (
       <div className={`${sizeClass} rounded-md shrink-0 overflow-hidden`}
-        style={{ ...dealStyle, ...styleOverride, border: '1px solid rgba(100,80,40,0.25)' }}>
+        style={{ ...dealStyle, ...styleOverride, border: '1px solid rgba(100,80,40,0.25)', fontSize: `${cardFontSize}px` }}>
         <CardBackCSS />
       </div>
     );
@@ -170,7 +182,7 @@ const Card = React.memo(function Card({
       <button
         onClick={onClick}
         disabled={!onClick}
-        style={{ ...styleOverride,  }}
+        style={{ ...styleOverride, fontSize: `${cardFontSize}px` }}
         className={`${sizeClass} block transition-transform duration-100 ease-out contain-strict
           ${selected ? "-translate-y-3" : ""}
           ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 scale-105" : ""}
