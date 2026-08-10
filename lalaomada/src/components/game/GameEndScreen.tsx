@@ -12,6 +12,7 @@ export default function GameEndScreen({
   slug,
   meUserId,
   winnerId,
+  winnerSlot,
   participants,
   stake,
   pot,
@@ -22,6 +23,7 @@ export default function GameEndScreen({
   slug: GameSlug;
   meUserId?: string;
   winnerId?: string | null;
+  winnerSlot?: number | null;
   participants: Participant[];
   stake: number;
   pot: number;
@@ -32,9 +34,12 @@ export default function GameEndScreen({
   const [busy, setBusy] = useState<null | "replay" | "quit">(null);
   const confirm = useConfirm();
   const navigate = useNavigate();
-  const winner = participants.find((p) => p.user_id === winnerId);
-  const iWon = !!meUserId && winnerId === meUserId;
-  const isDraw = !winnerId;
+  // Use winnerSlot as fallback when winnerId is null (bot wins)
+  const winner = participants.find((p) => p.user_id === winnerId)
+    || (winnerSlot !== null && winnerSlot !== undefined ? participants.find((p) => p.slot === winnerSlot) : undefined);
+  const winnerResolved = !!winnerId || (winnerSlot !== null && winnerSlot !== undefined);
+  const iWon = !!meUserId && (winnerId === meUserId || (winner?.user_id === meUserId));
+  const isDraw = !winnerResolved;
   const payout = Math.round((pot * (100 - commissionPct)) / 100);
 
   const handleQuit = async () => {
@@ -222,7 +227,7 @@ export default function GameEndScreen({
             {participants.length > 0 && (
               <div className="rounded-2xl border border-border/60 divide-y divide-border/40 overflow-hidden">
                 {participants.map((p) => {
-                  const isWin = p.user_id === winnerId;
+                  const isWin = winner ? p === winner || p.slot === winner.slot || p.user_id === winnerId : false;
                   const isMe = p.user_id === meUserId;
                   return (
                     <div

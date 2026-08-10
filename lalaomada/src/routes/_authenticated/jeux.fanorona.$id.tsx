@@ -602,6 +602,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
 
       {game.status === "finished" && (
         <GameEndScreen slug="fanorona" meUserId={profile?.id} winnerId={game.winner_id}
+          winnerSlot={game.winner_slot}
           participants={parts} stake={Number(game.stake)} pot={Number(game.pot)}
           commissionPct={Number(game.commission_pct) || 10} onReplay={replayFanorona} />
       )}
