@@ -35,131 +35,38 @@ export const Route = createFileRoute("/_authenticated/jeux/rami/$id")({
 // Realistic playing card design with proper suit shapes, ornate court cards,
 // and decorative card back pattern.
 
-/** Render suit symbol as simple Unicode text — 10x lighter than SVG paths */
-function Pip({ suit, size = 7, flip = false }: { suit: number; size?: number; flip?: boolean }) {
-  const colors = ["#1a1a2e", "#c41e3a", "#c41e3a", "#1a1a2e"];
-  const syms = ["♠", "♥", "♦", "♣"];
-  const fs = size * 2.8;
-  return (
-    <text
-      x={0} y={0}
-      fontSize={fs}
-      fontWeight="700"
-      fill={colors[suit]}
-      textAnchor="middle"
-      dominantBaseline="central"
-      transform={flip ? "rotate(180)" : undefined}
-    >{syms[suit]}</text>
-  );
-}
+// ── Pure HTML/CSS Card System (zero SVG) ──────────────────────────────────
+// Each card is a simple div with Unicode characters. No SVG elements at all.
+// This is dramatically lighter on mobile — no SVG rendering contexts.
 
-// Standard pip positions on a playing card (0=Ace, 1=2, ... 9=10)
-const PIP_POS: [number, number, boolean][][] = [
-  [[50, 70, false]],                                                                                              // A
-  [[50, 30, false], [50, 110, true]],                                                                             // 2
-  [[50, 30, false], [50, 70, false], [50, 110, true]],                                                            // 3
-  [[33, 30, false], [67, 30, false], [33, 110, true], [67, 110, true]],                                           // 4
-  [[33, 30, false], [67, 30, false], [50, 70, false], [33, 110, true], [67, 110, true]],                          // 5
-  [[33, 30, false], [67, 30, false], [33, 70, false], [67, 70, false], [33, 110, true], [67, 110, true]],        // 6
-  [[33, 28, false], [67, 28, false], [50, 49, false], [33, 70, false], [67, 70, false], [33, 110, true], [67, 110, true]], // 7
-  [[33, 28, false], [67, 28, false], [50, 46, false], [33, 64, false], [67, 64, false], [50, 94, true], [33, 110, true], [67, 110, true]], // 8
-  [[33, 26, false], [67, 26, false], [33, 48, false], [67, 48, false], [50, 70, false], [33, 92, true], [67, 92, true], [33, 114, true], [67, 114, true]], // 9
-  [[33, 24, false], [67, 24, false], [50, 36, false], [33, 50, false], [67, 50, false], [33, 90, true], [67, 90, true], [50, 104, true], [33, 116, true], [67, 116, true]], // 10
+const SUIT_CHARS = ["♠", "♥", "♦", "♣"];
+const RANK_CHARS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const SUIT_HEX = ["#1a1a2e", "#c41e3a", "#c41e3a", "#1a1a2e"];
+
+// Pip positions in % for CSS absolute positioning (x, y, rotate)
+const PIP_CSS: [number, number, boolean][][] = [
+  [[50, 50, false]],                                                        // A
+  [[50, 22, false], [50, 78, true]],                                        // 2
+  [[50, 22, false], [50, 50, false], [50, 78, true]],                       // 3
+  [[33, 22, false], [67, 22, false], [33, 78, true], [67, 78, true]],       // 4
+  [[33, 22, false], [67, 22, false], [50, 50, false], [33, 78, true], [67, 78, true]], // 5
+  [[33, 22, false], [67, 22, false], [33, 50, false], [67, 50, false], [33, 78, true], [67, 78, true]], // 6
+  [[33, 20, false], [67, 20, false], [50, 36, false], [33, 50, false], [67, 50, false], [33, 80, true], [67, 80, true]], // 7
+  [[33, 20, false], [67, 20, false], [50, 34, false], [33, 46, false], [67, 46, false], [50, 68, true], [33, 80, true], [67, 80, true]], // 8
+  [[33, 18, false], [67, 18, false], [33, 35, false], [67, 35, false], [50, 50, false], [33, 66, true], [67, 66, true], [33, 82, true], [67, 82, true]], // 9
+  [[33, 16, false], [67, 16, false], [50, 26, false], [33, 36, false], [67, 36, false], [33, 64, true], [67, 64, true], [50, 74, true], [33, 84, true], [67, 84, true]], // 10
 ];
 
-const PipCard = React.memo(function PipCard({ rank, suit }: { rank: number; suit: number }) {
-  const pips = PIP_POS[rank];
-  const isAce = rank === 0;
-  return <>
-    {pips.map(([cx, cy, flip], i) => (
-      <g key={i} transform={`translate(${cx},${cy})`}>
-        <Pip suit={suit} size={isAce ? 22 : 7.5} flip={flip} />
-      </g>
-    ))}
-  </>;
-});
-
-
-import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
-
-/** Corner index — rank + suit symbol, like a real playing card corner. */
-const CornerIndex = React.memo(function CornerIndex({ rank, suit, x, y, flip, color, fontScale = 1 }: {
-  rank: number; suit: number; x: number; y: number; flip?: boolean;
-  color: string; fontScale?: number;
-}) {
-  const rot = flip ? `rotate(180 ${x} ${y})` : undefined;
-  const fs = 13 * fontScale;
-  const ss = 10 * fontScale;
+const CardBackCSS = React.memo(function CardBackCSS() {
   return (
-    <g transform={rot}>
-      {/* Rank — bold and clear */}
-      <text x={x} y={y} fontSize={fs} fontWeight="800" fill={color}
-        fontFamily="'Georgia', 'Times New Roman', serif" textAnchor="start">
-        {RANKS[rank]}
-      </text>
-      {/* Suit symbol — Unicode character, below the rank */}
-      <text x={x + 0.5} y={y + ss} fontSize={ss * 0.85} fontWeight="700" fill={color}
-        fontFamily="serif" textAnchor="start">
-        {SUITS[suit]}
-      </text>
-    </g>
-  );
-});
-
-/** Decorative card back pattern. */
-const CardBackSVG = React.memo(function CardBackSVG() {
-  // Lightweight CSS-based card back — no SVG paths, no patterns, no gradients
-  return (
-    <div className="w-full h-full rounded-md"
+    <div className="w-full h-full rounded-md flex items-center justify-center"
       style={{
         background: 'linear-gradient(135deg, #5a152f 0%, #7c1e3f 50%, #3d0f20 100%)',
-        border: '2px solid rgba(201,162,39,0.35)',
+        border: '1.5px solid rgba(201,162,39,0.3)',
         borderRadius: '5px',
       }}>
-      <div className="w-full h-full flex items-center justify-center"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(45deg, transparent 0, transparent 6px, rgba(201,162,39,0.12) 6px, rgba(201,162,39,0.12) 7px)',
-        }}>
-        <span style={{ fontSize: 18, color: 'rgba(201,162,39,0.4)', fontWeight: 'bold' }}>★</span>
-      </div>
+      <span style={{ fontSize: '55%', color: 'rgba(201,162,39,0.4)', fontWeight: 'bold', lineHeight: 1 }}>★</span>
     </div>
-  );
-});
-
-const JokerFace = React.memo(function JokerFace({ idx }: { idx: number }) {
-  const schemes = ["#c41e3a", "#7c3aed", "#059669", "#b45309"];
-  const color = schemes[idx % 4];
-  // Simplified joker — minimal SVG paths for performance
-  return <>
-    <rect x="3" y="3" width="94" height="134" rx="4" fill="#fefce8" stroke={color} strokeWidth="0.8" opacity="0.9" />
-    <text x="50" y="20" textAnchor="middle" fontSize="8" fontWeight="bold" fill={color}>JOKER</text>
-    <text x="50" y="75" textAnchor="middle" fontSize="28" fill={color} opacity="0.7">★</text>
-    <text x="50" y="128" textAnchor="middle" fontSize="8" fontWeight="bold" fill={color}>JOKER</text>
-  </>;
-});
-
-
-
-
-// ── Lightweight Face Card renderer (J/Q/K) — pure SVG, no external images ──
-const FaceCard = React.memo(function FaceCard({ rank, suit }: { rank: number; suit: number }) {
-  const color = SUIT_COLORS[suit];
-  const suitSym = SUITS[suit];
-  const labels = { 10: 'J', 11: 'Q', 12: 'K' } as any;
-  const label = labels[rank];
-
-  return (
-    <g>
-      {/* Decorative frame */}
-      <rect x="6" y="6" width="88" height="128" rx="3" fill="none" stroke={color} strokeWidth="0.6" opacity="0.4" />
-      {/* Large rank letter in center */}
-      <text x="50" y="78" textAnchor="middle" fontSize="42" fontWeight="800"
-        fontFamily="Georgia, serif" fill={color} opacity="0.85">{label}</text>
-      {/* Suit symbol below the letter */}
-      <text x="50" y="105" textAnchor="middle" fontSize="20" fill={color} opacity="0.7">{suitSym}</text>
-      {/* Small suit symbol above the letter */}
-      <text x="50" y="35" textAnchor="middle" fontSize="14" fill={color} opacity="0.5">{suitSym}</text>
-    </g>
   );
 });
 
@@ -177,7 +84,6 @@ const Card = React.memo(function Card({
     size === "xl" ? "w-20 h-28" :
     "w-12 h-[72px]";
 
-
   const dealStyle: React.CSSProperties = dealDelay !== undefined ? {
     animationDelay: `${dealDelay}ms`,
     opacity: 0,
@@ -186,28 +92,78 @@ const Card = React.memo(function Card({
 
   if (faceDown || c === undefined) {
     return (
-      <div
-        className={`${sizeClass} rounded-md shrink-0 shadow overflow-hidden`}
-        style={{
-          ...dealStyle,
-          ...styleOverride,
-          border: "1px solid rgba(100,80,40,0.25)",
-        }}
-      >
-        <CardBackSVG />
+      <div className={`${sizeClass} rounded-md shrink-0 overflow-hidden`}
+        style={{ ...dealStyle, ...styleOverride, border: '1px solid rgba(100,80,40,0.25)' }}>
+        <CardBackCSS />
       </div>
     );
   }
 
-  const base = c % 56; // 2 paquets : ids 0..55 et 56..111
+  const base = c % 56;
   const isJoker = base >= 52;
   const suit = isJoker ? 0 : Math.floor(base / 13);
   const rank = isJoker ? 0 : base % 13;
-  const rankLabel = isJoker ? "★" : RANKS[rank];
-  const suitSymbol = isJoker ? "" : SUITS[suit];
-  const color = isJoker ? "#7c3aed" : SUIT_COLORS[suit];
+  const rankChar = isJoker ? "★" : RANK_CHARS[rank];
+  const suitChar = isJoker ? "" : SUIT_CHARS[suit];
+  const color = isJoker ? "#7c3aed" : SUIT_HEX[suit];
   const isFace = !isJoker && rank >= 10;
-  const fontSize = rankLabel === "10" ? 9.5 : 11;
+  const isAce = rank === 0 && !isJoker;
+
+  // Render card face as pure HTML/CSS
+  const cardFace = (() => {
+    if (isJoker) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center"
+          style={{ background: '#fefce8', borderRadius: '5px', border: `1px solid ${color}55` }}>
+          <span style={{ fontSize: '20%', fontWeight: 'bold', color, lineHeight: 1 }}>JOKER</span>
+          <span style={{ fontSize: '40%', color, opacity: 0.6, lineHeight: 1.5 }}>★</span>
+          <span style={{ fontSize: '20%', fontWeight: 'bold', color, lineHeight: 1 }}>JOKER</span>
+        </div>
+      );
+    }
+    if (isFace) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center relative"
+          style={{ background: '#fefefe', borderRadius: '5px', border: '0.5px solid #c8c8c8' }}>
+          {/* Top-left corner */}
+          <span className="absolute top-[3%] left-[6%]" style={{ fontSize: '16%', fontWeight: 800, color, lineHeight: 1, fontFamily: 'Georgia, serif' }}>{rankChar}</span>
+          <span className="absolute top-[16%] left-[6%]" style={{ fontSize: '12%', color, lineHeight: 1 }}>{suitChar}</span>
+          {/* Bottom-right corner (rotated) */}
+          <span className="absolute bottom-[3%] right-[6%]" style={{ fontSize: '16%', fontWeight: 800, color, lineHeight: 1, fontFamily: 'Georgia, serif', transform: 'rotate(180deg)' }}>{rankChar}</span>
+          <span className="absolute bottom-[16%] right-[6%]" style={{ fontSize: '12%', color, lineHeight: 1, transform: 'rotate(180deg)' }}>{suitChar}</span>
+          {/* Center: large rank + suit */}
+          <span style={{ fontSize: '40%', fontWeight: 800, color, opacity: 0.85, lineHeight: 1, fontFamily: 'Georgia, serif' }}>{rankChar}</span>
+          <span style={{ fontSize: '22%', color, opacity: 0.7, lineHeight: 1.2 }}>{suitChar}</span>
+        </div>
+      );
+    }
+    // Number cards with pips
+    return (
+      <div className="w-full h-full relative"
+        style={{ background: '#fefefe', borderRadius: '5px', border: '0.5px solid #c8c8c8' }}>
+        {/* Top-left corner */}
+        <span className="absolute top-[3%] left-[6%]" style={{ fontSize: '16%', fontWeight: 800, color, lineHeight: 1, fontFamily: 'Georgia, serif' }}>{rankChar}</span>
+        <span className="absolute top-[16%] left-[6%]" style={{ fontSize: '12%', color, lineHeight: 1 }}>{suitChar}</span>
+        {/* Bottom-right corner (rotated) */}
+        <span className="absolute bottom-[3%] right-[6%]" style={{ fontSize: '16%', fontWeight: 800, color, lineHeight: 1, fontFamily: 'Georgia, serif', transform: 'rotate(180deg)' }}>{rankChar}</span>
+        <span className="absolute bottom-[16%] right-[6%]" style={{ fontSize: '12%', color, lineHeight: 1, transform: 'rotate(180deg)' }}>{suitChar}</span>
+        {/* Center pips */}
+        {isAce ? (
+          <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{ fontSize: '55%', color, lineHeight: 1 }}>{suitChar}</span>
+        ) : (
+          PIP_CSS[rank].map(([px, py, flip], i) => (
+            <span key={i} className="absolute"
+              style={{
+                left: `${px}%`, top: `${py}%`,
+                transform: `translate(-50%,-50%) ${flip ? 'rotate(180deg)' : ''}`,
+                fontSize: '8%', color, lineHeight: 1, fontWeight: 700,
+              }}>{suitChar}</span>
+          ))
+        )}
+      </div>
+    );
+  })();
 
   return (
     <div className="relative shrink-0" style={dealStyle}>
@@ -218,34 +174,10 @@ const Card = React.memo(function Card({
         className={`${sizeClass} block transition-transform duration-100 ease-out contain-strict
           ${selected ? "-translate-y-3" : ""}
           ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 scale-105" : ""}
-          ${onClick ? "cursor-pointer active:scale-95" : "cursor-default"}`}
-      >
-
-        <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-
-          {/* Card base — white with subtle warm tint like real card stock */}
-          <rect x="0.5" y="0.5" width="99" height="139" rx="7" fill="#fefefe" stroke="#c8c8c8" strokeWidth="0.8" />
-
-          {isJoker ? (
-            <JokerFace idx={base - 52} />
-          ) : (
-            <>
-              {/* Top-left corner index */}
-              <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.88 : 1} />
-              {/* Bottom-right corner index (rotated) */}
-              <g transform="rotate(180 50 70)">
-                <CornerIndex rank={rank} suit={suit} x={5.5} y={13} color={color} fontScale={rankLabel === "10" ? 0.88 : 1} />
-              </g>
-              {/* Center: face portrait or pip layout */}
-              {isFace ? <FaceCard rank={rank} suit={suit} /> : <PipCard rank={rank} suit={suit} />}
-            </>
-          )}
-
-        </svg>
-        {selected && <div className="absolute inset-0 rounded-md ring-2 ring-emerald-400 pointer-events-none" />}
-
+          ${onClick ? "cursor-pointer active:scale-95" : "cursor-default"}`}>
+        {cardFace}
       </button>
-
+      {selected && <div className="absolute inset-0 rounded-md ring-2 ring-emerald-400 pointer-events-none" />}
       {onRemove && (
         <button onClick={onRemove}
           className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center z-10 shadow">
@@ -1188,16 +1120,22 @@ function RamiPage() {
   useEffect(() => {
     if (!game?.turn_deadline || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
     let fired = false;
+    let lastSec = -1;
     const tick = () => {
       const ms = new Date(game.turn_deadline).getTime() - serverNow();
       const s = Math.max(0, Math.ceil(ms / 1000));
-      setRemaining(s);
+      // Skip re-render if the displayed second hasn't changed
+      if (s !== lastSec) {
+        lastSec = s;
+        setRemaining(s);
+      }
       if (s === 0 && !fired) {
         fired = true;
         supabase.rpc("rami_tick" as any, { _game_id: id } as any);
       }
     };
     tick();
+    // Update every 2s normally, every 1s when urgent (≤10s) — reduces re-renders by 50%
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
@@ -1225,6 +1163,7 @@ function RamiPage() {
       setAfkWarning(true);
     }
   }, [remaining, isMyTurn]);
+  // Note: remaining changes every second, but setAfkWarning(true) is idempotent
 
   const toggleSel = useCallback((c: number) => {
     setSelected(s => s.includes(c) ? s.filter(x => x !== c) : [...s, c]);
@@ -1753,28 +1692,22 @@ function RamiPage() {
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
 
-        const TimerRing = ({ seconds, total, turn }: { seconds: number; total: number; turn: boolean }) => {
+        const TimerRing = React.memo(function TimerRing({ seconds, total, turn }: { seconds: number; total: number; turn: boolean }) {
           if (!turn) return null;
           const pct = Math.max(0, Math.min(1, seconds / total));
-          const r = 16;
-          const circ = 2 * Math.PI * r;
-          const offset = circ * (1 - pct);
           const color = seconds <= 5 ? "#ef4444" : seconds <= 10 ? "#f59e0b" : "#22c55e";
           return (
-            <svg className="absolute -inset-1 pointer-events-none" viewBox="0 0 40 40" style={{ width: "100%", height: "100%" }}>
-              <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="2.5" />
-              <circle
-                cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="2.5"
-                strokeDasharray={circ} strokeDashoffset={offset}
-                strokeLinecap="round"
-                transform="rotate(-90 20 20)"
-                style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s" }}
-              />
-            </svg>
+            <div className="absolute -inset-1 pointer-events-none rounded-full"
+              style={{
+                border: `2px solid ${color}`,
+                opacity: pct * 0.9,
+                transition: 'opacity 0.3s, border-color 0.3s',
+                boxShadow: `0 0 6px ${color}66`,
+              }} />
           );
-        };
+        });
 
-        const NamePlate = ({ name, count, turn, vertical, timerSec, timerTotal }: { name: string; count: number; turn: boolean; vertical?: boolean; timerSec?: number; timerTotal?: number }) => (
+        const NamePlate = React.memo(({ name, count, turn, vertical, timerSec, timerTotal }: { name: string; count: number; turn: boolean; vertical?: boolean; timerSec?: number; timerTotal?: number }) => (
           <div className="relative inline-block">
             {turn && timerSec !== undefined && timerTotal !== undefined && !vertical && (
               <TimerRing seconds={timerSec} total={timerTotal} turn={turn} />
@@ -1794,9 +1727,9 @@ function RamiPage() {
               </div>
             )}
           </div>
-        );
+        ));
 
-        const AvatarBadge = ({ name, isBot, meldCount, turn }: { name: string; isBot: boolean; meldCount: number; turn: boolean }) => {
+        const AvatarBadge = React.memo(({ name, isBot, meldCount, turn }: { name: string; isBot: boolean; meldCount: number; turn: boolean }) => {
           const initial = name.charAt(0).toUpperCase();
           const colors = ["#3b82f6", "#ef4444", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
           const colorIdx = name.charCodeAt(0) % colors.length;
@@ -1818,27 +1751,29 @@ function RamiPage() {
               )}
             </div>
           );
-        };
+        });
 
-        const BackFan = ({ n, vertical }: { n: number; vertical?: boolean }) => (
-          <div className={`flex ${vertical ? "flex-col" : "flex-row"}`}>
-            {Array.from({ length: Math.max(1, Math.min(n, 7)) }).map((_, k) => (
-              <div
-                key={k}
-                className="rounded-[2px] overflow-hidden shrink-0 shadow-sm"
-                style={{
-                  width: vertical ? 20 : 10,
-                  height: vertical ? 10 : 20,
-                  marginLeft: !vertical && k > 0 ? -2 : 0,
-                  marginTop: vertical && k > 0 ? -2 : 0,
-                  border: "0.5px solid rgba(100,80,40,0.3)",
-                }}
-              >
-                <CardBackSVG />
-              </div>
-            ))}
-          </div>
-        );
+        const BackFan = React.memo(function BackFan({ n, vertical }: { n: number; vertical?: boolean }) {
+          const count = Math.max(1, Math.min(n, 7));
+          return (
+            <div className={`flex ${vertical ? "flex-col" : "flex-row"}`}>
+              {Array.from({ length: count }).map((_, k) => (
+                <div
+                  key={k}
+                  className="rounded-[2px] shrink-0"
+                  style={{
+                    width: vertical ? 20 : 10,
+                    height: vertical ? 10 : 20,
+                    marginLeft: !vertical && k > 0 ? -2 : 0,
+                    marginTop: vertical && k > 0 ? -2 : 0,
+                    background: 'linear-gradient(135deg, #5a152f, #7c1e3f)',
+                    border: '0.5px solid rgba(201,162,39,0.25)',
+                  }}
+                />
+              ))}
+            </div>
+          );
+        });
 
         // Seules MES combinaisons sont visibles ; celles des adversaires restent
         // cachées, sauf un "7 cartes" validé publiquement.
@@ -1905,13 +1840,8 @@ function RamiPage() {
               border: `4px solid ${activeTheme.border}`,
             }}
           >
-            {/* Subtle felt markings */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.08]" preserveAspectRatio="none">
-              <ellipse cx="50%" cy="50%" rx="35%" ry="38%" fill="none" stroke="white" strokeWidth="1" />
-              <circle cx="50%" cy="50%" r="40" fill="none" stroke="white" strokeWidth="0.5" strokeDasharray="3 5" />
-            </svg>
-            {/* Subtle vignette overlay for depth */}
-            <div className="absolute inset-0 pointer-events-none rounded-[22px]" style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.25) 100%)" }} />
+            {/* Felt markings removed for performance */}
+
             {/* Adversaires sur les bords */}
             {others.map((p, i) => {
               const seat = seatFor(i);
