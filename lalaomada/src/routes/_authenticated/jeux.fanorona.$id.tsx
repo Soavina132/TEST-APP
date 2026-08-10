@@ -208,7 +208,9 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
 
   // Measure the actual available space for the board (instead of relying on
   // End a capture chain voluntarily (Fanorona rule: enchaînement est optionnel)
-  const endTurn = useCallback(() => sendMove({ pass: true }), [sendMove]);
+  // Ref to avoid TDZ — sendMove is defined further below
+  const sendMoveRef = useRef<(move: any) => void>(() => {});
+  const endTurn = useCallback(() => sendMoveRef.current({ pass: true }), []);
 
   // Board sizing is now pure CSS/SVG — the SVG fills its flex-1 container
   // with preserveAspectRatio="xMidYMid meet", no JavaScript measurement needed.
@@ -374,6 +376,9 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
     finally { setBusy(false); }
   }, [id]);
 
+
+  // Update ref so endTurn can call the latest sendMove
+  sendMoveRef.current = sendMove;
 
   const onCellClick = useCallback((cell: number) => {
     if (!isMyTurn || busy) return;
