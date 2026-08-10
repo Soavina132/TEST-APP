@@ -829,9 +829,9 @@ function RamiPage() {
   const activeTheme = BOARD_THEMES[boardTheme];
 
   const load = useCallback(async () => {
-    const { data: g } = await supabase.from("rami_games" as any).select("*").eq("id", id).maybeSingle();
+    const { data: g } = await supabase.from("rami_games" as any).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", id).maybeSingle();
     setGame(g);
-    const { data: p } = await supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot");
+    const { data: p } = await supabase.from("rami_participants" as any).select("id,game_id,user_id,slot,name,avatar,ready,is_bot,score,hand_count,disconnected").eq("game_id", id).order("slot");
     setParts((p as any[]) || []);
   }, [id, profile?.id]);
 

@@ -148,7 +148,7 @@ function LobbyPage() {
 
   const loadTx = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from("transactions").select("*")
+    const { data } = await supabase.from("transactions").select("id,amount,type,created_at,status")
       .eq("user_id", user.id).order("created_at", { ascending: false }).limit(5);
     setRecentTx(data || []);
   }, [user]);
