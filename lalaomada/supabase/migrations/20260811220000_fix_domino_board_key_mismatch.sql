@@ -1,0 +1,15 @@
+-- ═══════════════════════════════════════════════════════════════════
+-- FIX: Bug critique du board domino — clé 't' vs 'tile'
+--
+-- domino_play (joueur) créait les entrées board avec clé 't':
+--   {"t": [3,5], "slot": 0}
+-- Mais _domino_bot_step (bot) et _domino_place_first utilisaient 'tile':
+--   {"tile": [3,5], "flipped": false}
+--
+-- Le frontend (readBoardTile) et _domino_normalize_board lisaient 'tile'
+-- uniquement → les tuiles placées par le joueur étaient invisibles sur le board.
+--
+-- Fix: domino_play utilise maintenant 'tile' comme clé (uniformisation)
+-- _domino_normalize_board gère aussi 't' pour les anciennes parties
+-- Frontend readBoardTile gère aussi 't' pour la rétro-compatibilité
+-- ═══════════════════════════════════════════════════════════════════

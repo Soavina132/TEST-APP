@@ -35,7 +35,9 @@ type Tile = [number, number];
 type BoardEntry = { tile: Tile; flipped: boolean };
 
 function readBoardTile(entry: unknown): Tile | null {
-  const rawTile = Array.isArray(entry) ? entry : (entry as { tile?: unknown } | null)?.tile;
+  if (Array.isArray(entry)) return entry.length === 2 ? [Number(entry[0]), Number(entry[1])] as Tile : null;
+  const obj = entry as { tile?: unknown; t?: unknown } | null;
+  const rawTile = obj?.tile ?? obj?.t;
   if (!Array.isArray(rawTile) || rawTile.length !== 2) return null;
   const a = Number(rawTile[0]);
   const b = Number(rawTile[1]);
