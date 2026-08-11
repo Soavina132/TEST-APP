@@ -796,6 +796,104 @@ function ensureDealKeyframes() {
 // FlyingCard component removed for performance
 
 // ── Main component ────────────────────────────────────────────────────────
+
+// ── Detect available combos in hand (trio, escalier, carré) ──
+type ComboHint = {
+  type: 'trio' | 'escalier' | 'carré';
+  cards: number[];
+  label: string;
+};
+
+function detectCombos(hand: number[], jokerMode: string, randomJoker: number | null): ComboHint[] {
+  if (hand.length < 3) return [];
+  const hints: ComboHint[] = [];
+  const realCards = hand.filter(c => !isJokerCard(c, jokerMode, randomJoker));
+  const jokerCount = hand.length - realCards.length;
+
+  // Group by rank for trios/carrés
+  const byRank: Record<number, number[]> = {};
+  for (const c of realCards) {
+    const r = CARD_BASE(c) % 13;
+    if (!byRank[r]) byRank[r] = [];
+    byRank[r].push(c);
+  }
+
+  // Trios (3 of same rank, considering jokers)
+  for (const [rankStr, cards] of Object.entries(byRank)) {
+    const r = Number(rankStr);
+    const rankName = RANKS[r];
+    if (cards.length === 2 && jokerCount > 0) {
+      hints.push({ type: 'trio', cards, label: `Trio de ${rankName} (avec Joker)` });
+    } else if (cards.length === 3) {
+      hints.push({ type: 'trio', cards, label: `Trio de ${rankName}` });
+    } else if (cards.length >= 4) {
+      hints.push({ type: 'carré', cards: cards.slice(0, 4), label: `Carré de ${rankName}` });
+    }
+  }
+
+  // Escaliers (runs of same suit, 3+ consecutive, considering jokers and ace-high)
+  const bySuit: Record<number, number[]> = {};
+  for (const c of realCards) {
+    const s = Math.floor(CARD_BASE(c) / 13);
+    if (!bySuit[s]) bySuit[s] = [];
+    bySuit[s].push(c);
+  }
+
+  for (const [suitStr, cards] of Object.entries(bySuit)) {
+    const s = Number(suitStr);
+    const suitName = SUITS[s];
+    // Get unique ranks
+    const ranks = [...new Set(cards.map(c => CARD_BASE(c) % 13))];
+    if (ranks.length < 2 && jokerCount === 0) continue;
+
+    // Try all windows of 3+ consecutive ranks
+    for (let start = 0; start <= 13; start++) {
+      for (let len = 3; len <= 5; len++) {
+        // Check if we can form a run of `len` starting at `start` (ace-low: 0-12)
+        let needed = 0;
+        const have: number[] = [];
+        for (let i = 0; i < len; i++) {
+          const targetRank = (start + i) % 13;
+          if (ranks.includes(targetRank)) {
+            const card = cards.find(c => CARD_BASE(c) % 13 === targetRank)!;
+            have.push(card);
+          } else {
+            needed++;
+          }
+        }
+        if (needed <= jokerCount && needed > 0 && needed < len && have.length >= 2) {
+          // Only show if start..start+len-1 is a valid window (not wrapping)
+          if (start + len <= 14) { // 0-12 for ace-low, or 0-13 for ace-high (rank 13 = ace high)
+            hints.push({ type: 'escalier', cards: have, label: `Escalier ${suitName} (${len} cartes, ${needed} Joker)` });
+          }
+        } else if (needed === 0 && have.length >= 3 && len >= 3) {
+          // Full run without jokers — only show if it's a minimal window (not a subset of a larger one)
+          if (start + len <= 14) {
+            // Avoid duplicates: only add if not already a subset of a longer run
+            const isSubset = hints.some(h =>
+              h.type === 'escalier' && h.cards.length > have.length &&
+              h.cards.every(c => have.includes(c) || !cards.includes(c))
+            );
+            if (!isSubset) {
+              hints.push({ type: 'escalier', cards: have, label: `Escalier ${suitName} (${len} cartes)` });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Deduplicate and limit to top 5
+  const seen = new Set<string>();
+  const unique = hints.filter(h => {
+    const key = h.type + ':' + h.cards.slice().sort((a,b) => a-b).join(',');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.slice(0, 5);
+}
+
 function RamiPage() {
   const { id } = Route.useParams();
   const { profile, isAdmin } = useAuth();
@@ -1134,6 +1232,11 @@ function RamiPage() {
     return result;
   }, [selected, handCards, isMyTurn, phase, jokerMode, randomJoker]);
   const selectionKind = useMemo(() => meldKind(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  // ── Auto-detect available combos in hand ──
+  const availableCombos = useMemo(() => {
+    if (!isPlayer || game?.status !== 'playing') return [];
+    return detectCombos(handCards, jokerMode, randomJoker);
+  }, [handCards, jokerMode, randomJoker, isPlayer, game?.status]);
   const selectionFeedback = useMemo(() => getSelectionFeedback(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
   const stagedValidity = useMemo(() => staged.map(g => validateMeld(g, jokerMode, randomJoker)), [staged, jokerMode, randomJoker]);
   const isSeven = useMemo(() => isSevenCombo(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
@@ -1595,6 +1698,40 @@ function RamiPage() {
     );
   }
 
+  // ── FINISHED: early return to avoid computing game board variables that can crash ──
+  if (game.status === "finished") {
+    // Find winner slot for bot wins (winner_id is null when a bot wins)
+    const _winnerSlot = game.winner_id
+      ? parts.find(p => p.user_id === game.winner_id)?.slot
+      : parts.find(p => !p.forfeited)?.slot ?? null;
+    return (
+      <main className="max-w-3xl mx-auto px-4 py-6 space-y-4 min-h-screen flex flex-col items-center justify-center">
+        <GameEndScreen
+          slug="rami"
+          meUserId={profile?.id}
+          winnerId={game.winner_id}
+          winnerSlot={_winnerSlot}
+          participants={parts}
+          stake={Number(game.stake) || 0}
+          pot={Number(game.pot) || 0}
+          commissionPct={Number(game.commission_pct) || 10}
+          onReplay={replayRami}
+        />
+        {game.state?.hands && (
+          <RamiScoreSummary
+            parts={parts}
+            hands={game.state.hands as Record<string, number[]>}
+            winnerId={game.winner_id}
+            pot={Number(game.pot) || 0}
+            commissionPct={Number(game.commission_pct) || 10}
+            melds={game.state?.melds as { player: string; cards: number[]; type?: string }[]}
+          />
+        )}
+        <GameSocialFab gameId={id} gameSlug="rami" participants={parts} />
+      </main>
+    );
+  }
+
   const drawablePile = (discards[lastDiscardBy] || []).length > 0
     ? discards[lastDiscardBy]
     : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) || []);
@@ -1711,6 +1848,35 @@ function RamiPage() {
       )}
 
       {/* ── Score info moved to top bar ── */}
+
+      {/* ── Combo hints badge ── */}
+      {game?.status === "playing" && isPlayer && availableCombos.length > 0 && selected.length === 0 && staged.length === 0 && (
+        <div className="flex gap-1 flex-wrap px-2 py-1 rounded-lg bg-card/95 border border-border shadow-sm">
+          <span className="text-[9px] font-bold text-amber-500 flex items-center gap-0.5 shrink-0">
+            <Lightbulb className="w-3 h-3" /> Combo{availableCombos.length > 1 ? 's' : ''} :
+          </span>
+          {availableCombos.map((combo, i) => (
+            <button
+              key={i}
+              onClick={() => setSelected(combo.cards)}
+              className="px-1.5 py-0.5 rounded-full bg-primary/15 border border-primary/25 text-[9px] font-bold text-primary hover:bg-primary/25 active:scale-95 transition-all flex items-center gap-0.5"
+            >
+              {combo.type === 'trio' && ' Trio'}
+              {combo.type === 'carré' && ' Carré'}
+              {combo.type === 'escalier' && ' Escalier'}
+              <span className="flex gap-0.5">
+                {combo.cards.slice(0, 3).map((c, ci) => {
+                  const base = CARD_BASE(c);
+                  const r = base % 13;
+                  const s = Math.floor(base / 13);
+                  return <span key={ci} className="text-[8px]" style={{ color: SUIT_COLORS[s] }}>{RANKS[r]}{SUITS[s]}</span>;
+                })}
+                {combo.cards.length > 3 && <span className="text-[8px]">+{combo.cards.length - 3}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── PLATEAU FEUTRE (style classique) ── */}
       {game?.status === "playing" && (() => {

@@ -10,7 +10,7 @@ const cache: Record<string, GameConfig> = {};
 
 export function useGameConfig(slug: string): GameConfig {
   const [cfg, setCfg] = useState<GameConfig>(
-    cache[slug] || { turn_timer_seconds: 30, max_turn_skips: 5 }
+    cache[slug] || { turn_timer_seconds: 90, max_turn_skips: 5 }
   );
   useEffect(() => {
     let cancelled = false;
