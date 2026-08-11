@@ -84,6 +84,7 @@ interface GameState {
   double_roll_pending?: number | null;
   power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; cell?: number; at: string };
   power_pending?: { tile_type: string; options: string[]; slot: number };
+  movable_pawns?: number[];  // Server-authoritative list of movable pawn indices
 }
 
 interface Props {
@@ -477,8 +478,17 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }
   };
 
+  // ═══ SERVER-AUTHORITATIVE movable pawns ═══
+  // The server (ludo_roll) now computes and returns movable_pawns in the state.
+  // We use that as the single source of truth. The client-side calculation
+  // is kept ONLY as a fallback for old game states that don't have the field.
   const movablePawnIdxs = useMemo(() => {
     if (!isMyTurn || !state.must_move || state.dice == null) return new Set<number>();
+    // Use server-provided list if available
+    if (state.movable_pawns && Array.isArray(state.movable_pawns)) {
+      return new Set(state.movable_pawns);
+    }
+    // Fallback: client-side calculation (for old/in-progress games)
     const slot = state.turn_slot;
     const arr = state.pawns?.[String(slot)] || [];
     const set = new Set<number>();
@@ -488,7 +498,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       else if (p.k + (state.dice as number) <= 56) set.add(i);
     });
     return set;
-  }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.pawns]);
+  }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.pawns, state.movable_pawns]);
 
   // Selection state: hides indicators immediately once the user picks a pawn,
   // and is reset only when the turn key actually changes.

@@ -318,7 +318,18 @@ function DominoPage() {
   const stockSize: number = (game?.state?.stock || []).length;
 
   const firstTileRule: "libre" | "under6" = game?.state?.first_tile_rule === "under6" || game?.first_tile_rule === "under6" ? "under6" : "libre";
+  // ═══ SERVER-AUTHORITATIVE playable tiles ═══
+  // The server (_domino_playable_tiles) now computes which tiles are playable
+  // and returns them in state.playable_tiles. We use that as the source of truth.
+  // Client-side tileMatches is kept as a fallback for old game states.
+  const serverPlayableTiles: number[] = game?.state?.playable_tiles || [];
   const tileMatches = useCallback((t: Tile) => {
+    // If server provides playable_tiles, use it
+    if (serverPlayableTiles.length > 0 || (game?.state && 'playable_tiles' in game.state)) {
+      const idx = myHand.indexOf(t);
+      return serverPlayableTiles.includes(idx);
+    }
+    // Fallback: client-side calculation
     if (board.length === 0) {
       const fd = game?.state?.first_move_double;
       if (typeof fd === "number") return t[0] === fd && t[1] === fd;
@@ -326,7 +337,7 @@ function DominoPage() {
       return true;
     }
     return t[0] === leftEnd || t[1] === leftEnd || t[0] === rightEnd || t[1] === rightEnd;
-  }, [board.length, game?.state?.first_move_double, leftEnd, rightEnd, firstTileRule]);
+  }, [board.length, game?.state?.first_move_double, leftEnd, rightEnd, firstTileRule, serverPlayableTiles, myHand]);
   const canPlay = myHand.some(tileMatches);
   const drawMode: "with" | "without" = game?.state?.draw_mode === "without" ? "without" : "with";
 
