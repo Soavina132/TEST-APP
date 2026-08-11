@@ -222,6 +222,12 @@ function DominoPage() {
   // ── State variables (restored after useFastRealtime refactor) ──────────
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  // Synchronous lock — React state (`busy`) updates are batched/async, so a
+  // near-simultaneous double-fire (e.g. Android Chrome firing both `onDrop`
+  // and a synthesized `onClick` for the same touch-drag gesture) can slip
+  // past a state-only guard before the re-render happens. This ref is read
+  // and written immediately, closing that race window.
+  const actionLockRef = useRef(false);
   // Tracks which opponent's hand has no playable tile (via realtime broadcast),
   // so a red frame can be shown to all players before the auto-pass completes.
   const [remoteNoMoveSlot, setRemoteNoMoveSlot] = useState<number | null>(null);
@@ -352,23 +358,27 @@ function DominoPage() {
   const oppNoMove = !!(!isMyTurn && passSlot !== undefined && passSlot !== me?.slot);
 
   const draw = async () => {
+    if (actionLockRef.current) return;
+    actionLockRef.current = true;
     setBusy(true);
     try {
       const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
       playDraw();
     } catch (e: any) { toast.error(e.message); }
-    finally { setBusy(false); }
+    finally { setBusy(false); actionLockRef.current = false; }
   };
 
   const pass = async (opts?: { silent?: boolean }) => {
+    if (actionLockRef.current) return;
+    actionLockRef.current = true;
     setBusy(true);
     try {
       const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
       playPass();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
-    finally { setBusy(false); }
+    finally { setBusy(false); actionLockRef.current = false; }
   };
 
   // Subscribe to no-move broadcasts from other players so everyone sees the
@@ -495,18 +505,22 @@ function DominoPage() {
   const canDropAny = !!(isMyTurn && draggedTile && tileMatches(draggedTile));
 
   const playSide = async (side: "left" | "right" | "auto", tileIndex = selectedTile) => {
-    if (tileIndex === null || busy) return;
+    if (tileIndex === null || actionLockRef.current) return;
     const tile = myHand[tileIndex];
     if (!tile || !tileMatches(tile)) return;
+    // Lock + clear selection synchronously so a second event fired in the
+    // same tick (e.g. the synthesized click after a touch drag-drop) can't
+    // slip through with the same stale tile.
+    actionLockRef.current = true;
+    setSelectedTile(null);
     setBusy(true);
     try {
       const move: any = side === "auto" ? { action: "play", tile } : { action: "play", tile, side };
       const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
       playClack();
-      setSelectedTile(null);
     } catch (e: any) { toast.error(e.message); }
-    finally { setBusy(false); }
+    finally { setBusy(false); actionLockRef.current = false; }
   };
 
   return (
