@@ -487,20 +487,8 @@ function Lobby() {
     if (!checkGuards(stake)) return;
     setBusy(true);
     try {
-      if (opponentMode === "bot" && slug === "ludo") {
-        // Mode Solo Ludo contre bot : toujours gratuit (pas de mise contre un bot)
-        const { data, error } = await supabase.rpc("ludo_start_solo_bot" as any, {
-          _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "solo" ? "solo" : "groupe",
-        } as any);
-        if (error) throw error;
-        const id = extractGameId(data);
-        if (!id) throw new Error("Identifiant de partie invalide");
-        if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
-        await applyLudoAutoMove(id);
-        refreshProfile(); goTo(id);
-      } else {
-        await createNew(visibility === "private");
-      }
+      // L'onglet Privé est toujours pour jouer avec des amis (pas de bots)
+      await createNew(visibility === "private");
     } catch (e: any) { toast.error(e.message || "Erreur"); } finally { setBusy(false); }
   });
 
@@ -768,14 +756,12 @@ function Lobby() {
             <button onClick={createPrivate} disabled={busy || (slug === "domino" && mode === "points" && targetScore < 1)}
               className="w-full py-3.5 rounded-full text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/40 active:scale-[0.98] transition-transform sticky bottom-2"
               style={{ background: "var(--gradient-primary)" }}>
-              {opponentMode === "bot" && slug === "ludo"
-                ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Commencer la partie"}</>)
-                : visibility === "public"
-                  ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Créer la partie"}</>)
-                  : (<><Lock className="w-4 h-4" /> {busy ? "…" : "Créer la partie privée"}</>)}
+              {visibility === "public"
+                ? (<><PlayCircle className="w-4 h-4" /> {busy ? "…" : "Créer la partie"}</>)
+                : (<><Lock className="w-4 h-4" /> {busy ? "…" : "Créer la partie privée"}</>)}
             </button>
 
-            {visibility === "private" && (slug !== "ludo" || opponentMode === "friends") && (
+            {visibility === "private" && (
               <div className="text-[11px] text-muted-foreground text-center">Un code à 6 caractères sera généré pour inviter tes amis.</div>
             )}
           </section>
