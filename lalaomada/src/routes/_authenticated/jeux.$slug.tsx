@@ -367,13 +367,22 @@ function Lobby() {
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
       } else if (slug === "rami") {
-        const { data, error } = await supabase.rpc("rami_start_solo_bot" as any, {
-          _max_players: maxP, _difficulty: ramiBotDifficulty,
-          _joker_mode: ramiJokerMode, _game_mode: ramiGameMode,
+        // Créer la partie (salle d'attente) puis ajouter les bots manuellement
+        // sans démarrer automatiquement — l'utilisateur voit la salle d'attente
+        const { data, error } = await supabase.rpc("rami_create" as any, {
+          _stake: 0, _max: maxP, _private: true, _commission: commission,
+          _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards,
         } as any);
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
+        // Ajouter les bots un par un (sans démarrer la partie)
+        const botsNeeded = Math.max(0, maxP - 1);
+        for (let i = 0; i < botsNeeded; i++) {
+          await supabase.rpc("rami_add_bot" as any, {
+            _game_id: id, _bot_name: `Bot ${i + 1}`, _difficulty: ramiBotDifficulty,
+          } as any);
+        }
       } else {
         // Jeux sans support bot pour l'instant : partie publique classique
         await createNewFree(false);
