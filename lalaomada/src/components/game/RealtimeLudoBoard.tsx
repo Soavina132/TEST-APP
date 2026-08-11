@@ -442,7 +442,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   }, [remaining, status, gameId, state.turn_slot, state.turn_started_at]);
 
   const roll = async () => {
-    if (!isMyTurn || state.must_move || busy) return;
+    if (!isMyTurn || state.must_move || busy) {
+      console.warn('[ludo] roll ignored:', { isMyTurn, must_move: state.must_move, busy, turn_slot: state.turn_slot, status });
+      return;
+    }
     setBusy(true);
     sfx.diceRoll();
     // Visual roll animation — keep tumbling until RPC responds
@@ -538,7 +541,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const nmd = state.no_move_display;
     if (nmd && nmd.until) {
       const untilMs = new Date(nmd.until).getTime();
-      const nowMs = Date.now();
+      const nowMs = serverNow();
       if (untilMs > nowMs) {
         // Still within the 1-second display window — show dice + previous player frame
         setNoMoveDisplay({ slot: nmd.slot, dice: nmd.dice });

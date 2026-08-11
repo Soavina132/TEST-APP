@@ -330,8 +330,6 @@ function Lobby() {
         if (!id) throw new Error("Identifiant de partie invalide");
         if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
         await applyLudoAutoMove(id);
-        // Fallback: si l'auto-start SQL n'est pas encore appliqué
-        await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
       } else if (slug === "domino") {
         const { data, error } = await supabase.rpc("domino_create" as any, {
           _stake: 0, _max: maxP, _private: true,
@@ -490,16 +488,15 @@ function Lobby() {
     setBusy(true);
     try {
       if (opponentMode === "bot" && slug === "ludo") {
-        // Mode Solo Ludo avec mise : créer + bots + démarrer en un seul appel
+        // Mode Solo Ludo contre bot : toujours gratuit (pas de mise contre un bot)
         const { data, error } = await supabase.rpc("ludo_start_solo_bot" as any, {
-          _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "solo" ? "solo" : "groupe",
+          _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "solo" ? "solo" : "groupe",
         } as any);
         if (error) throw error;
         const id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
         if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
         await applyLudoAutoMove(id);
-        await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
         refreshProfile(); goTo(id);
       } else {
         await createNew(visibility === "private");
