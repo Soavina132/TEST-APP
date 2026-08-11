@@ -74,8 +74,10 @@ BEGIN
       v_tile_idx := -1;
       IF jsonb_array_length(hand) > 0 THEN
         FOR i IN 0..jsonb_array_length(hand)-1 LOOP
-          IF (hand->i->>0)::INT = (tile->>0)::INT
-             AND (hand->i->>1)::INT = (tile->>1)::INT THEN
+          IF ((hand->i->>0)::INT = (tile->>0)::INT
+              AND (hand->i->>1)::INT = (tile->>1)::INT)
+             OR ((hand->i->>0)::INT = (tile->>1)::INT
+              AND (hand->i->>1)::INT = (tile->>0)::INT) THEN
             v_tile_idx := i;
             EXIT;
           END IF;
