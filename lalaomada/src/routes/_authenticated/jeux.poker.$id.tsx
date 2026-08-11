@@ -401,7 +401,7 @@ function PokerPage() {
   // ── In-game board ─────────────────────────────────────────────────────────
   return (
     <main className="flex flex-col h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at 50% 30%, #166534 0%, #14532d 50%, #052e16 100%)" }}>
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-black/40 backdrop-blur z-20">

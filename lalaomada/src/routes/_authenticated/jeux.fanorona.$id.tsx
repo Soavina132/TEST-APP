@@ -568,7 +568,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
 
   return (
     <div className="h-full overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950 overscroll-none">
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
 
       {/* ── Header compact (aligné sur le style Échecs) ── */}

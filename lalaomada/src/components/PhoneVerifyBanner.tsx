@@ -4,14 +4,13 @@ import PhoneVerifyPopup from "./PhoneVerifyPopup";
 
 /**
  * PhoneVerifyBanner — notification cliquable affichée dans les jeux avec mise.
- * S'affiche uniquement si: stake > 0 ET phone_verified = false.
- * Clic → ouvre PhoneVerifyPopup.
+ * S'affiche uniquement si: stake > 0 ET phoneVerified = false.
  */
-export default function PhoneVerifyBanner({ stake }: { stake: number }) {
+export default function PhoneVerifyBanner({ stake, phoneVerified }: { stake: number; phoneVerified?: boolean }) {
   const [showPopup, setShowPopup] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  if (stake <= 0 || dismissed) return null;
+  if (stake <= 0 || dismissed || phoneVerified) return null;
 
   return (
     <>

@@ -534,7 +534,7 @@ function DominoPage() {
 
 
 
-      <PhoneVerifyBanner stake={Number(game.stake) || 0} />
+      <PhoneVerifyBanner stake={Number(game.stake) || 0} phoneVerified={!!profile?.phone_verified} />
       <div className="flex-1 min-h-0 flex flex-col">
         <DominoTable
           seats={parts.map((p: any) => ({

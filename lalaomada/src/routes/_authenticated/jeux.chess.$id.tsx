@@ -643,7 +643,7 @@ function ChessPage() {
 
   return (
     <div className="h-full overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950 overscroll-none">
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
       {/* Top bar */}
       <div className="px-2 pt-1">
               <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
