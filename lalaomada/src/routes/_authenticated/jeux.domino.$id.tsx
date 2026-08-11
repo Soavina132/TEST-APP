@@ -16,6 +16,7 @@ import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import DominoRoundBreak from "@/components/game/DominoRoundBreak";
+import { GameLoader } from "@/components/game/GameLoader";
 import DominoTable, { DominoTile, PlayerHeader } from "@/components/game/DominoTable";
 import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -427,7 +428,7 @@ function DominoPage() {
     navigate({ to: "/jeux" });
   };
 
-  if (!game) return <div className="p-6 text-center">Chargement…</div>;
+  if (!game) return <GameLoader />;
 
   if (game.status === "cancelled") {
     return <GameStateMessage state="cancelled" gameLabel="Domino" slug="domino" />;

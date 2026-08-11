@@ -23,6 +23,7 @@ import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useLongPressDrag } from "@/hooks/use-long-press-drag";
 import ramiCover from "@/assets/games/rami.asset.json";
+import { GameLoader } from "@/components/game/GameLoader";
 import { setMuted as setSfxMuted, isMuted as isSfxMuted, sfx } from "@/lib/game-sounds";
 // Felt and card back images removed — now using pure CSS gradients for performance
 
@@ -1672,7 +1673,7 @@ function RamiPage() {
   const dnd = useLongPressDrag({ delay: 250, onDrop: handleDrop });
 
   const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
-  if (!game) return <div className="p-6 text-center">Chargement…</div>;
+  if (!game) return <GameLoader />;
 
 
   const replayRami = async () => {

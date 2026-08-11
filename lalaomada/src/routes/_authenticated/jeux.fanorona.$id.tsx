@@ -17,6 +17,8 @@ import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useGlobalGameTimer } from "@/hooks/game/use-global-game-timer";
 import { useConfirm } from "@/components/ConfirmDialog";
+import fanoronaCover from "@/assets/games/fanorona.asset.json";
+import { GameLoader } from "@/components/game/GameLoader";
 import { playFanoronaMove, playFanoronaCapture, playFanoronaWin, playFanoronaLose, unlockAudio } from "@/lib/sounds/fanorona-sounds";
 import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
@@ -476,7 +478,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   }, [game?.status, game?.current_turn, moveCount, botChainFrom, id]);
 
   // ── EARLY RETURNS AFTER ALL HOOKS ──
-  if (!loaded) return <div className="p-6 text-center text-muted-foreground">Chargement…</div>;
+  if (!loaded) return <GameLoader />;
   if (!game) return (
     <div className="p-6 text-center space-y-3">
       <div className="text-2xl">😕</div>

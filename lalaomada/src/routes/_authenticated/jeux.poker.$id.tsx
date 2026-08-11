@@ -10,6 +10,7 @@ import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { ArrowLeft, Copy, Check, Timer, Plus, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
+import { GameLoader } from "@/components/game/GameLoader";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
@@ -245,7 +246,7 @@ function PokerPage() {
 
   // cancelled state handled by GameStateMessage below
 
-  if (!game) return <div className="p-8 text-center text-muted-foreground">Chargement…</div>;
+  if (!game) return <GameLoader />;
 
   const me = players.find(p => p.user_id === user?.id);
   const isPlayer = !!me;

@@ -2,6 +2,7 @@ import { UUID_RE } from "@/lib/game-constants";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
+import { GameLoader } from "@/components/game/GameLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
@@ -538,7 +539,7 @@ function ChessPage() {
     );
   }
 
-  if (!game) return <div className="p-4">Chargement…</div>;
+  if (!game) return <GameLoader />;
 
   if (game.status === "cancelled") {
     return <GameStateMessage state="cancelled" gameLabel="Échecs" slug="chess" />;

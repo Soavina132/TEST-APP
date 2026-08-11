@@ -12,6 +12,7 @@ import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sound
 import { useT } from "@/lib/i18n";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
+import { GameLoader } from "@/components/game/GameLoader";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
@@ -119,17 +120,9 @@ function GamePage() {
 
   if (!game) {
     if (loadError) {
-      return (
-        <main className="p-8 text-center space-y-4">
-          <p className="text-muted-foreground">{t("loading")}</p>
-          <button onClick={() => { setLoadError(false); setLoadRetried(r => r + 1); }}
-            className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold">
-            Réessayer
-          </button>
-        </main>
-      );
+      return <GameLoader retryFn={() => { setLoadError(false); setLoadRetried(r => r + 1); }} />;
     }
-    return <main className="p-8 text-center text-muted-foreground">{t("loading")}</main>;
+    return <GameLoader />;
   }
 
   if (game.status === "open") {
