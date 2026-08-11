@@ -251,7 +251,7 @@ function Lobby() {
       let id: string | null = null;
       if (slug === "ludo") {
         const { data, error } = await supabase.rpc("create_private_game" as any, {
-          _max_players: maxP, _stake: 0, _mode: "classic", _match_type: "solo",
+          _max_players: maxP, _stake: 0, _mode: "classic", _match_type: "solo", _commission: commission,
         } as any);
         if (error) throw error;
         id = extractGameId(data);
@@ -326,7 +326,7 @@ function Lobby() {
       let id: string | null = null;
       if (slug === "ludo") {
         const fn = priv ? "create_private_game" : "find_or_create_game";
-        const args: any = priv ? { _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe" } : { _max_players: maxP, _stake: 0 };
+        const args: any = priv ? { _max_players: maxP, _stake: 0, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe", _commission: commission } : { _max_players: maxP, _stake: 0, _commission: commission };
         const { data, error } = await supabase.rpc(fn as any, args);
         if (error) throw error; id = extractGameId(data);
         await applyLudoAutoMove(id);
@@ -364,7 +364,7 @@ function Lobby() {
     let id: string | null = null;
     if (slug === "ludo") {
       const fn = priv ? "create_private_game" : "find_or_create_game";
-      const args: any = priv ? { _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe" } : { _max_players: maxP, _stake: stake };
+      const args: any = priv ? { _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: matchType === "bot" ? "solo" : "groupe", _commission: commission } : { _max_players: maxP, _stake: stake, _commission: commission };
       const { data, error } = await supabase.rpc(fn as any, args);
       if (error) throw error; id = extractGameId(data);
       await applyLudoAutoMove(id);
@@ -405,7 +405,7 @@ function Lobby() {
       if (matchType === "bot" && slug === "ludo") {
         // Mode Solo Ludo avec mise : créer une partie privée avec bots
         const { data, error } = await supabase.rpc("create_private_game" as any, {
-          _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: "solo",
+          _max_players: maxP, _stake: stake, _mode: mode === "fast" ? "fast" : "classic", _match_type: "solo", _commission: commission,
         } as any);
         if (error) throw error;
         const id = extractGameId(data);
