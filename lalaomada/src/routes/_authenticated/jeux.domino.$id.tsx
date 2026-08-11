@@ -341,7 +341,7 @@ function DominoPage() {
   const draw = async () => {
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "draw" } } as any);
+      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
       playDraw();
     } catch (e: any) { toast.error(e.message); }
@@ -351,7 +351,7 @@ function DominoPage() {
   const pass = async (opts?: { silent?: boolean }) => {
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "pass" } } as any);
+      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
       playPass();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
@@ -488,7 +488,7 @@ function DominoPage() {
     setBusy(true);
     try {
       const move: any = side === "auto" ? { action: "play", tile } : { action: "play", tile, side };
-      const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: move } as any);
+      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
       playClack();
       setSelectedTile(null);
@@ -724,4 +724,5 @@ function DominoPage() {
     </main>
   );
 }
+
 
