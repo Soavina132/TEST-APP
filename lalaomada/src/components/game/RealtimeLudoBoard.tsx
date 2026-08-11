@@ -673,12 +673,15 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const ev = state.last_event;
     if (!ev || ev === lastEventRef.current) return;
     lastEventRef.current = ev;
-    if (ev.startsWith("six")) sfx.six();
+    if (ev === "win") sfx.home();
+    else if (ev === "double_roll:rejoue") sfx.powerTile("double_roll");
+    else if (ev === "lucky_star:rejoue") sfx.powerTile("lucky_star");
+    else if (ev.startsWith("six")) sfx.six();
     else if (ev.startsWith("capture")) sfx.capture();
+    else if (ev === "home:continue") sfx.turnChange();
     else if (ev.startsWith("home")) sfx.home();
     else if (ev.startsWith("roll:") && ev.endsWith(":no_move")) sfx.noMove();
     else if (ev === "move") sfx.turnChange();
-    else if (ev === "double_roll:rejoue") sfx.powerTile("double_roll");
     else if (ev === "bot:pass") sfx.noMove();
   }, [state.last_event]);
 

@@ -1,0 +1,29 @@
+-- ═══════════════════════════════════════════════════════════════════
+-- FIX: 4 bugs critiques Ludo + améliorations pro
+-- 1. Sécurité: ludo_move rejette les appels directs pendant le tour du bot
+--    (utilise un GUC 'ludo.bot_play' pour distinguer les appels internes de ludo_bot_play)
+-- 2. Event mismatch: "six:rejoue" -> "double_roll:rejoue" / "lucky_star:rejoue"
+-- 3. Fin de partie: last_event -> "win" au lieu de rester sur "roll:X"
+-- 4. Sécurité: finish_game vérifie que la partie est réellement terminée
+-- ═══════════════════════════════════════════════════════════════════
+-- Note: Les changements ont été appliqués directement sur la base de données
+-- via pg_get_functiondef + string replacement. Ce fichier documente les changements.
+--
+-- FIX 1: ludo_move - Ajout d'une vérification GUC pour bloquer les appels directs
+--   IF v_isbot AND current_setting('ludo.bot_play', true) IS DISTINCT FROM 'true'
+--   THEN RAISE EXCEPTION 'Tour du bot'; END IF;
+--
+-- FIX 1b: ludo_bot_play - Set GUC marker before calling ludo_move/ludo_roll/ludo_pass
+--   PERFORM set_config('ludo.bot_play', 'true', true);
+--
+-- FIX 2: ludo_move - v_rejoue_reason variable for power tile events
+--   double_roll -> 'double_roll:rejoue' (was 'six:rejoue')
+--   lucky_star reroll -> 'lucky_star:rejoue' (was 'six:rejoue')
+--   CASE ... ELSE v_rejoue_reason END || ':rejoue'
+--
+-- FIX 3: ludo_move - last_event = 'win' after finish_game
+--   st := jsonb_set(st, '{last_event}', to_jsonb('win'::text));
+--
+-- FIX 4: finish_game - Vérifie que le gagnant a fini ses pions (non-solo)
+--   DECLARE v_remaining, v_human_count, v_winner_unfinished
+--   IF v_winner_unfinished AND v_remaining > 1 AND not solo THEN RAISE EXCEPTION
