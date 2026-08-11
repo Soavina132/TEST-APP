@@ -362,8 +362,9 @@ function DominoPage() {
     actionLockRef.current = true;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
+      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
+      if (data) setGame((g: any) => g ? { ...g, state: data, current_turn: data.turn_slot ?? g.current_turn } : g);
       playDraw();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); actionLockRef.current = false; }
@@ -374,8 +375,9 @@ function DominoPage() {
     actionLockRef.current = true;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
+      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
+      if (data) setGame((g: any) => g ? { ...g, state: data, current_turn: data.turn_slot ?? g.current_turn } : g);
       playPass();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); actionLockRef.current = false; }
@@ -516,8 +518,12 @@ function DominoPage() {
     setBusy(true);
     try {
       const move: any = side === "auto" ? { action: "play", tile } : { action: "play", tile, side };
-      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: move } as any);
+      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
+      // Use the RPC response to update game state IMMEDIATELY — don't wait
+      // for the realtime event (100-500ms delay). This prevents the user
+      // from re-selecting and re-submitting a tile that was already played.
+      if (data) setGame((g: any) => g ? { ...g, state: data, current_turn: data.turn_slot ?? g.current_turn } : g);
       playClack();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); actionLockRef.current = false; }
