@@ -35,7 +35,7 @@ export default function GameEndScreen({
   const confirm = useConfirm();
   const navigate = useNavigate();
   // Use winnerSlot as fallback when winnerId is null (bot wins)
-  const winner = participants.find((p) => p.user_id === winnerId)
+  const winner = (winnerId != null ? participants.find((p) => p.user_id === winnerId) : undefined)
     || (winnerSlot !== null && winnerSlot !== undefined ? participants.find((p) => p.slot === winnerSlot) : undefined);
   const winnerResolved = !!winnerId || (winnerSlot !== null && winnerSlot !== undefined);
   const iWon = !!meUserId && (winnerId === meUserId || (winner?.user_id === meUserId));
@@ -227,7 +227,7 @@ export default function GameEndScreen({
             {participants.length > 0 && (
               <div className="rounded-2xl border border-border/60 divide-y divide-border/40 overflow-hidden">
                 {participants.map((p) => {
-                  const isWin = winner ? p === winner || p.slot === winner.slot || p.user_id === winnerId : false;
+                  const isWin = winner ? (p === winner || (winnerId != null && p.user_id === winnerId) || (winner.slot != null && p.slot === winner.slot)) : false;
                   const isMe = p.user_id === meUserId;
                   return (
                     <div
