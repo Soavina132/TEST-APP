@@ -238,6 +238,31 @@ function isJokerCard(c: number, jokerMode: string, randomJoker: number | null): 
   return false;
 }
 
+// Calcule le nombre de "trous" (cartes manquantes) dans un escalier, en essayant
+// l'As bas (valeur 0) ET l'As haut (valeur 13, après le Roi — ex: J-Q-K-A).
+// Retourne le minimum de trous entre les deux interprétations, en respectant
+// la même logique que le backend (_rami_meld_type).
+function computeRunGaps(ranks: number[]): number {
+  const calcGaps = (rs: number[]): number | null => {
+    const sorted = [...rs].sort((a, b) => a - b);
+    let gaps = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      const diff = sorted[i] - sorted[i - 1];
+      if (diff === 0) return null; // doublon = invalide
+      gaps += diff - 1;
+    }
+    return gaps;
+  };
+  const normal = calcGaps(ranks);
+  let best = normal === null ? Infinity : normal;
+  if (ranks.includes(0)) {
+    const aceHigh = ranks.map(r => (r === 0 ? 13 : r));
+    const aceHighGaps = calcGaps(aceHigh);
+    if (aceHighGaps !== null && aceHighGaps < best) best = aceHighGaps;
+  }
+  return best;
+}
+
 type MeldValidity = 'valid' | 'invalid' | 'unknown';
 
 function validateMeld(
@@ -266,14 +291,9 @@ function validateMeld(
     if (real.length < 2) return false;
     const suit = Math.floor(CARD_BASE(real[0]) / 13);
     if (!real.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
-    const ranks = real.map(c => CARD_BASE(c) % 13).sort((a, b) => a - b);
-    let gaps = 0;
-    for (let i = 1; i < ranks.length; i++) {
-      const diff = ranks[i] - ranks[i - 1];
-      if (diff === 0) return false;
-      gaps += diff - 1;
-    }
-    return gaps <= jokerCount;
+    const ranks = real.map(c => CARD_BASE(c) % 13);
+    if (new Set(ranks).size !== ranks.length) return false; // doublon
+    return computeRunGaps(ranks) <= jokerCount;
   };
 
   if (checkSet() || checkSequence()) return 'valid';
@@ -321,14 +341,9 @@ function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | 
     // run
     const suit = Math.floor(CARD_BASE(real[0]) / 13);
     if (!real.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
-    const ranks = real.map(c => CARD_BASE(c) % 13).sort((a, b) => a - b);
-    let gaps = 0;
-    for (let i = 1; i < ranks.length; i++) {
-      const diff = ranks[i] - ranks[i - 1];
-      if (diff === 0) return false;
-      gaps += diff - 1;
-    }
-    return gaps <= jokerCount;
+    const ranks = real.map(c => CARD_BASE(c) % 13);
+    if (new Set(ranks).size !== ranks.length) return false; // doublon
+    return computeRunGaps(ranks) <= jokerCount;
   };
   for (let i = 0; i < 4; i++)
     for (let j = i + 1; j < 5; j++)
@@ -439,11 +454,11 @@ function getSelectionFeedback(
       const sameSuit = real.every(c => Math.floor(CARD_BASE(c) / 13) === Math.floor(CARD_BASE(real[0]) / 13));
       const sameRank = real.every(c => CARD_BASE(c) % 13 === CARD_BASE(real[0]) % 13);
       if (sameSuit) {
-        const suitName = ["♠ Pique", "♥ Cœur", "♦ Carreau", "♣ Trèfle"][Math.floor(real[0] / 13)];
+        const suitName = ["♠ Pique", "♥ Cœur", "♦ Carreau", "♣ Trèfle"][Math.floor(CARD_BASE(real[0]) / 13)];
         return { hint: `Escalier ${suitName} en cours — ajoute une carte adjacente`, severity: 'info' };
       }
       if (sameRank) {
-        const rankName = RANKS[real[0] % 13];
+        const rankName = RANKS[CARD_BASE(real[0]) % 13];
         const missingCount = 3 - cards.length;
         return { hint: `Trio de ${rankName} — ajoute encore ${missingCount} carte${missingCount > 1 ? 's' : ''} de même valeur`, severity: 'info' };
       }
@@ -476,13 +491,11 @@ function getSelectionFeedback(
   }
 
   if (allSameSuit) {
-    const ranks = real.map(c => CARD_BASE(c) % 13).sort((a, b) => a - b);
-    let gaps = 0;
-    for (let i = 1; i < ranks.length; i++) {
-      const diff = ranks[i] - ranks[i - 1];
-      if (diff === 0) return { hint: "Deux cartes identiques dans l'escalier", severity: 'error' };
-      gaps += diff - 1;
+    const ranks = real.map(c => CARD_BASE(c) % 13);
+    if (new Set(ranks).size !== ranks.length) {
+      return { hint: "Deux cartes identiques dans l'escalier", severity: 'error' };
     }
+    const gaps = computeRunGaps(ranks);
     if (gaps > jokerCount) {
       return { hint: `Trou trop grand dans l'escalier (${gaps} manquant${gaps > 1 ? 's' : ''}, ${jokerCount} Joker${jokerCount > 1 ? 's' : ''} disponible${jokerCount > 1 ? 's' : ''})`, severity: 'warn' };
     }
