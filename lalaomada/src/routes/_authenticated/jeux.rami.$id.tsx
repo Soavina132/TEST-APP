@@ -904,6 +904,7 @@ function RamiPage() {
   const [selected, setSelected] = useState<number[]>([]);
   // sevenFx removed for performance
   const [staged, setStaged] = useState<number[][]>([]);
+  const [stagedMoving, setStagedMoving] = useState<{ gi: number; idx: number } | null>(null);
   const [sortMode, setSortMode] = useState<'none' | 'suit' | 'rank'>('none');
   const [boardTheme, setBoardTheme] = useState<'green' | 'blue' | 'dark'>('green');
   // Custom hand order for drag-reorder
@@ -1191,14 +1192,22 @@ function RamiPage() {
     return cards;
   }, [handCards, sortMode, reorderMode, customOrder]);
 
-  // Reset custom order when hand size changes (not on every game state update)
+  // Initialize custom order once (or after it was explicitly cleared by the
+  // sort buttons). Do NOT reset it on every hand-size change — that wiped the
+  // player's manual arrangement on every draw/discard, making the hand look
+  // "disordered" again. orderedHandCards already appends new cards to the end
+  // and drops removed ones automatically, preserving the rest of the order.
   const prevHandLenRef = useRef(0);
   useEffect(() => {
     if (prevHandLenRef.current !== myHand.length) {
       prevHandLenRef.current = myHand.length;
-      setCustomOrder(handCards.length > 0 ? [...handCards] : null);
+      if (customOrder === null && handCards.length > 0) {
+        setCustomOrder([...handCards]);
+      } else if (handCards.length === 0) {
+        setCustomOrder(null);
+      }
     }
-  }, [myHand.length, handCards]);
+  }, [myHand.length, handCards, customOrder]);
 
   // Detect newly drawn card to show a "NEW" mark
   useEffect(() => {
@@ -1388,12 +1397,36 @@ function RamiPage() {
     setStaged(prev => prev.filter((_, i) => i !== groupIdx));
   };
 
+  // Tap a card in a staged combo to pick it up, then tap another card in the
+  // same combo to swap their positions — a simpler alternative to long-press
+  // drag for reorganizing a combo you already built.
+  const handleStagedTap = (gi: number, idx: number) => {
+    if (stagedMoving === null) {
+      setStagedMoving({ gi, idx });
+    } else if (stagedMoving.gi === gi && stagedMoving.idx === idx) {
+      setStagedMoving(null);
+    } else if (stagedMoving.gi === gi) {
+      setStaged(prev => {
+        const next = prev.map(g => [...g]);
+        const arr = next[gi];
+        [arr[stagedMoving.idx], arr[idx]] = [arr[idx], arr[stagedMoving.idx]];
+        return next;
+      });
+      setStagedMoving(null);
+    } else {
+      setStagedMoving({ gi, idx });
+    }
+  };
+
   const call = async (fn: string, payload: any) => {
     setBusy(true);
     try {
       const { error } = await supabase.rpc(fn as any, payload);
       if (error) throw error;
       setSelected([]);
+      // Realtime can lag or drop an event on some connections — force a fresh
+      // fetch right away so the drawn/discarded card never appears "stuck".
+      await load();
     } catch (e: any) { toast.error(e.message || "Action invalide"); }
     finally { setBusy(false); }
   };
@@ -2424,6 +2457,11 @@ function RamiPage() {
                       </button>
                     )}
                   </div>
+                  {stagedMoving && (
+                    <div className="text-[9px] text-violet-500 font-semibold px-1">
+                      Touche une autre carte de la combo pour l'échanger de place
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     {staged.map((group, gi) => (
                       <div key={gi} className={`rounded-lg p-2 flex items-center gap-2 transition-all border ${
@@ -2436,6 +2474,7 @@ function RamiPage() {
                             const srcId = `staged:${gi}:${c}`;
                             const isBeingDragged = dnd.isDraggingId(srcId);
                             const dropSide = dnd.isTargetId(srcId);
+                            const isPicked = stagedMoving?.gi === gi && stagedMoving?.idx === ci;
                             return (
                               <div
                                 key={`stage-${gi}-${ci}`}
@@ -2444,7 +2483,7 @@ function RamiPage() {
                                 {...dnd.getSourceProps(srcId)}
                                 style={{
                                   opacity: isBeingDragged ? 0.55 : 1,
-                                  transform: isBeingDragged ? "translateY(-10px) scale(1.06)" : undefined,
+                                  transform: isBeingDragged ? "translateY(-10px) scale(1.06)" : isPicked ? "translateY(-6px) scale(1.08)" : undefined,
                                   transition: "transform 0.15s ease-out",
                                   touchAction: "none",
                                 }}
@@ -2455,7 +2494,7 @@ function RamiPage() {
                                 {dropSide === "after" && (
                                   <div className="absolute -right-1 top-0 bottom-0 w-1 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))] animate-pulse pointer-events-none" />
                                 )}
-                                <Card c={c} size="md" onRemove={() => removeFromStaged(gi, c)} />
+                                <Card c={c} size="md" selected={isPicked} onClick={() => handleStagedTap(gi, ci)} onRemove={() => removeFromStaged(gi, c)} />
                               </div>
                             );
                           })}
