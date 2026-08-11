@@ -543,28 +543,35 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
-  // No-move display: the backend already passed the turn, but includes
-  // no_move_display = { slot, dice, until } so the frontend can visually
-  // show the dice + previous player's frame for ~3 seconds before updating.
-  // We guarantee a MINIMUM display of 1.5s even if the 'until' timestamp
-  // has already passed (network latency can cause the server timestamp
-  // to be in the past by the time the client receives it).
+  // ═══ NEW DESIGN: no more no_move_display timestamp ═══
+  // The server now ALWAYS sets must_move=true + dice + movable_pawns.
+  // When movable_pawns is empty, the dice is still visible in state.
+  // The frontend shows "PAS DE COUP" for 1.5s, then auto-calls ludo_pass.
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
-  useEffect(() => {
-    const nmd = state.no_move_display;
-    if (nmd && nmd.until) {
-      const untilMs = new Date(nmd.until).getTime();
-      const nowMs = serverNow();
-      // Guarantee at least 1.5s display, even if 'until' has passed
-      const displayMs = Math.max(1500, untilMs - nowMs);
-      setNoMoveDisplay({ slot: nmd.slot, dice: nmd.dice });
-      const t = setTimeout(() => setNoMoveDisplay(null), displayMs);
-      return () => clearTimeout(t);
-    }
-    setNoMoveDisplay(null);
-  }, [state.no_move_display]);
 
-  // When no_move_display is active, show the previous player's slot + dice
+  // Detect no-move: must_move=true but no movable pawns
+  const noMove = isMyTurn && state.must_move && state.dice != null
+    && movablePawnIdxs.size === 0;
+
+  // Auto-pass after 1.5s when the human player has no move
+  const autoPassKey = noMove ? `${state.turn_slot}-${state.dice}-${state.turn_started_at}` : "";
+  const lastAutoPassRef = useRef<string>("");
+  useEffect(() => {
+    if (!noMove || !gameId) return;
+    if (lastAutoPassRef.current === autoPassKey) return;
+    lastAutoPassRef.current = autoPassKey;
+    // Show the dice result during the delay
+    setNoMoveDisplay({ slot: state.turn_slot, dice: state.dice as number });
+    const t = setTimeout(async () => {
+      try {
+        await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
+      } catch {}
+      setNoMoveDisplay(null);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [noMove, autoPassKey, gameId, state.turn_slot, state.dice, state.turn_started_at]);
+
+  // When no_move_display is active, show the player's slot + dice
   const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
   const displayDice = noMoveDisplay ? noMoveDisplay.dice : state.dice;
   const displayPart = partsBySlot.get(displaySlot) || currentPart;
@@ -1213,7 +1220,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         {displayDice != null && rollingFace === null && (
           <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
         )}
-        {noMoveDisplay && (
+        {(noMove || noMoveDisplay) && (
           <div className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 text-[10px] font-bold animate-pulse">
             PAS DE COUP
           </div>
