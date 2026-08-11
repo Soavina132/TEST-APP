@@ -831,7 +831,7 @@ function RamiPage() {
   const load = useCallback(async () => {
     const { data: g } = await supabase.from("rami_games" as any).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", id).maybeSingle();
     setGame(g);
-    const { data: p } = await supabase.from("rami_participants" as any).select("id,game_id,user_id,slot,name,avatar,ready,is_bot,score,hand_count,disconnected").eq("game_id", id).order("slot");
+    const { data: p } = await supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot");
     setParts((p as any[]) || []);
   }, [id, profile?.id]);
 
@@ -981,8 +981,9 @@ function RamiPage() {
   const [spectateData, setSpectateData] = useState<any>(null);
 
   // Spectator mode: if not a player and game is playing, allow spectating
+  // Only trigger after parts have loaded to avoid race condition with realtime
   useEffect(() => {
-    if (!isPlayer && game?.status === "playing" && !isSpectating && profile?.id) {
+    if (!isPlayer && parts.length > 0 && game?.status === "playing" && !isSpectating && profile?.id) {
       void supabase.rpc("rami_spectate" as any, { _game_id: id } as any).then(({ data }: any) => {
         if (data) {
           setIsSpectating(true);
@@ -994,6 +995,14 @@ function RamiPage() {
       }, () => {});
     }
   }, [isPlayer, game?.status, id, profile?.id, isSpectating]);
+
+  // Reset spectator mode if user is actually a player (fixes race condition)
+  useEffect(() => {
+    if (isPlayer && isSpectating) {
+      setIsSpectating(false);
+      void supabase.rpc("rami_spectate_leave" as any, { _game_id: id } as any).then(() => {}, () => {});
+    }
+  }, [isPlayer, isSpectating, id]);
 
   // Poll spectate data every 3s
   useEffect(() => {
