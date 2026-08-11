@@ -23,7 +23,15 @@ function createSupabaseClient() {
       storage: typeof window !== 'undefined' ? localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
-    }
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 20,
+      },
+    },
+    global: {
+      headers: { 'x-client-info': 'lalaomada-web' },
+    },
   });
 }
 
@@ -37,4 +45,3 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
-

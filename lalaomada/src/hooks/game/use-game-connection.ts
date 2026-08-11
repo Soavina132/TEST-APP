@@ -15,9 +15,9 @@ import { toast } from "sonner";
  * Toasts are kept minimal — the reconnect overlay handles the visual feedback.
  */
 
-const PING_INTERVAL_MS = 15_000; // check every 15s
+const PING_INTERVAL_MS = 10_000; // check every 10s
 const SLOW_THRESHOLD_MS = 3000;  // >3s = slow
-const OFFLINE_TIMEOUT_MS = 8000; // no response in 8s = consider offline
+const OFFLINE_TIMEOUT_MS = 5000; // no response in 5s = consider offline
 
 export function useGameConnection({ onReconnect }: { onReconnect: () => void }) {
   const [isConnected, setIsConnected] = useState(

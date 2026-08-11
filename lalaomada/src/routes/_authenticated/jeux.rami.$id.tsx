@@ -955,6 +955,7 @@ function RamiPage() {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => load(), 300);
     };
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
     const ch = supabase.channel("rami-" + id)
       .on("postgres_changes", { event: "*", schema: "public", table: "rami_games", filter: `id=eq.${id}` }, (payload: any) => {
         if (payload.eventType !== "DELETE" && payload.new) {
@@ -970,8 +971,16 @@ function RamiPage() {
           setParts(prev => prev.filter(p => p.id !== payload.old.id));
         } else { debouncedLoad(); }
       })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); if (debounceTimer) clearTimeout(debounceTimer); };
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          if (heartbeat) clearInterval(heartbeat);
+          heartbeat = setInterval(() => load(), 10_000);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+          setTimeout(() => load(), 300);
+        }
+      });
+    return () => { supabase.removeChannel(ch); if (debounceTimer) clearTimeout(debounceTimer); if (heartbeat) clearInterval(heartbeat); };
   }, [id, load]);
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });

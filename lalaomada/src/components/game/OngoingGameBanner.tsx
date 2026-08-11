@@ -66,9 +66,9 @@ export default function OngoingGameBanner() {
     load();
     if (!user) return;
     let debounce: ReturnType<typeof setTimeout>;
-    const debouncedLoad = () => { clearTimeout(debounce); debounce = setTimeout(load, 2000); };
+    const debouncedLoad = () => { clearTimeout(debounce); debounce = setTimeout(load, 500); };
     const ch = supabase.channel(`ongoing-banner-${user.id}`);
-    ["ludo_games", "domino_games", "fanorona_games", "chess_games", "rami_games"].forEach(t => {
+    ["ludo_games", "domino_games", "fanorona_games", "chess_games", "rami_games", "poker_games"].forEach(t => {
       ch.on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: t, filter: "status=eq.playing" }, debouncedLoad);
     });
     ch.subscribe();

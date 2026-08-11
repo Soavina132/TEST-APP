@@ -237,6 +237,7 @@ function ChessPage() {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => { void load(); }, 300);
   };
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
   const ch = supabase.channel(`chess-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "chess_games", filter: `id=eq.${id}` }, (payload: any) => {
         if (payload.new) {
@@ -255,8 +256,16 @@ function ChessPage() {
           });
         }
       })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          if (heartbeat) clearInterval(heartbeat);
+          heartbeat = setInterval(() => load(), 10_000);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+          setTimeout(() => load(), 300);
+        }
+      });
+    return () => { supabase.removeChannel(ch); if (heartbeat) clearInterval(heartbeat); };
   }, [id, isValidGameId, load]);
 
   /* -------- Timer tick (UI) -------- */
