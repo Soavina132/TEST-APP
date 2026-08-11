@@ -1723,15 +1723,15 @@ function RamiPage() {
               turn ? "bg-amber-500/15 ring-1 ring-amber-400/70 shadow-[0_0_10px_-2px_rgba(251,191,36,0.6)]" : ""
             } ${isLast ? "" : ""}`}>
               {/* Mini fanned card-back hand */}
-              <div className="relative h-[18px] flex items-end justify-center" style={{ width: 34 + fanCount * 3 }}>
+              <div className="relative h-[24px] flex items-end justify-center" style={{ width: 44 + fanCount * 4 }}>
                 {Array.from({ length: fanCount }).map((_, i) => {
                   const mid = (fanCount - 1) / 2;
                   const rot = (i - mid) * 11;
                   return (
                     <div key={i} className="absolute bottom-0 rounded-[2px] border border-white/25"
                       style={{
-                        width: 12, height: 17,
-                        left: `calc(50% + ${(i - mid) * 7}px - 6px)`,
+                        width: 16, height: 23,
+                        left: `calc(50% + ${(i - mid) * 9}px - 8px)`,
                         transform: `rotate(${rot}deg)`,
                         background: "linear-gradient(135deg,#1e3a8a,#1e40af)",
                         boxShadow: "0 1px 2px rgba(0,0,0,0.5)",
@@ -1746,14 +1746,14 @@ function RamiPage() {
                   className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 border-2 ${
                     turn ? "border-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.6)]" : "border-white/20"
                   }`}
-                  style={{ width: 26, height: 26, fontSize: 11, background: bg, boxShadow: "inset 0 -2px 4px rgba(0,0,0,0.25)" }}
+                  style={{ width: 34, height: 34, fontSize: 14, background: bg, boxShadow: "inset 0 -2px 4px rgba(0,0,0,0.25)" }}
                 >
                   {p.is_bot ? "◆" : initial}
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="text-[9px] font-bold text-white/95">{name}</span>
+                  <span className="text-[11px] font-bold text-white/95">{name}</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-[8px] text-white/55 font-semibold">{n} cartes</span>
+                    <span className="text-[10px] text-white/55 font-semibold">{n} cartes</span>
                     {meldCount > 0 && <span className="text-[8px] text-amber-300/90 font-bold">✦{meldCount}</span>}
                   </div>
                 </div>
@@ -1817,7 +1817,7 @@ function RamiPage() {
 
         // ═══ ZONE 1: Opponents strip (above the felt, clean horizontal) ═══
         const oppStrip = (
-          <div className="flex items-center justify-center gap-2.5 px-3 py-1.5 rounded-t-xl"
+          <div className="flex items-center justify-center gap-3.5 px-3 py-3 rounded-t-xl"
             style={{ background: `linear-gradient(180deg, ${activeTheme.feltEdge || "#0b3a1f"}ee, transparent)` }}>
             {others.map((p, i) => (
               <OppBadge key={keyOf(p)} p={p} turn={game.current_turn === p.slot}
@@ -1829,7 +1829,7 @@ function RamiPage() {
 
         // ═══ ZONE 2: Clean center felt (pioche + défausse + joker only) ═══
         const centerFelt = (
-          <div className="relative flex-1 flex items-center justify-center gap-4 px-3 py-2 min-h-0 overflow-hidden"
+          <div className="relative flex-1 flex items-center justify-center gap-6 px-3 py-3 min-h-0 overflow-hidden"
             style={{
               background: `radial-gradient(ellipse at center, ${activeTheme.feltCenter || "#1a6b3a"} 0%, ${activeTheme.feltEdge || "#0b3a1f"} 80%)`,
               boxShadow: "inset 0 0 50px rgba(0,0,0,0.45), inset 0 0 2px rgba(255,255,255,0.06)",
@@ -1860,9 +1860,9 @@ function RamiPage() {
                 }`}
                 style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
               >
-                <Card faceDown styleOverride={{ width: 52, height: 74 }} />
+                <Card faceDown styleOverride={{ width: 68, height: 96 }} />
               </button>
-              <span className="text-[9px] font-semibold text-white/90 bg-black/60 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-semibold text-white/90 bg-black/60 px-2.5 py-1 rounded-full">
                 Pioche · {deckCount}
               </span>
             </div>
@@ -1879,8 +1879,8 @@ function RamiPage() {
                 >
                   <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
                     {topDiscard !== undefined
-                      ? <Card c={topDiscard} styleOverride={{ width: 50, height: 71 }} />
-                      : <div className="rounded-md border border-dashed border-white/40" style={{ width: 50, height: 71 }} />}
+                      ? <Card c={topDiscard} styleOverride={{ width: 66, height: 93 }} />
+                      : <div className="rounded-md border border-dashed border-white/40" style={{ width: 66, height: 93 }} />}
                   </div>
                 </button>
                 <button
@@ -1891,14 +1891,14 @@ function RamiPage() {
                   ⋯
                 </button>
               </div>
-              <span className="text-[9px] font-semibold text-white/90 bg-black/60 px-2 py-0.5 rounded-full">Défausse</span>
+              <span className="text-[10px] font-semibold text-white/90 bg-black/60 px-2.5 py-1 rounded-full">Défausse</span>
             </div>
 
             {/* Joker aléatoire */}
             {randomJoker !== null && (
               <div className="flex flex-col items-center gap-0.5">
-                <Card c={randomJoker} styleOverride={{ width: 50, height: 71 }} />
-                <span className="text-[9px] font-semibold text-amber-300 bg-black/60 px-2 py-0.5 rounded-full">Carte tirée</span>
+                <Card c={randomJoker} styleOverride={{ width: 66, height: 93 }} />
+                <span className="text-[10px] font-semibold text-amber-300 bg-black/60 px-2.5 py-1 rounded-full">Carte tirée</span>
               </div>
             )}
           </div>
@@ -1922,7 +1922,7 @@ function RamiPage() {
 
         // ═══ Combine zones into one clean board ═══
         return (
-          <div className="rounded-2xl flex-[1.6_1_0%] min-h-[38vh] flex flex-col p-[5px]"
+          <div className="rounded-2xl flex-[2_1_0%] min-h-[46vh] flex flex-col p-[5px]"
             style={{
               background: "repeating-linear-gradient(100deg, #7a4a26 0px, #8a5a34 3px, #6e4322 6px, #85532f 9px)",
               boxShadow: "0 6px 20px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.3)",
