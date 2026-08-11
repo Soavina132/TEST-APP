@@ -897,7 +897,7 @@ function detectCombos(hand: number[], jokerMode: string, randomJoker: number | n
 
 function RamiPage() {
   const { id } = Route.useParams();
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [game, setGame] = useState<any>(null);
@@ -1677,17 +1677,31 @@ function RamiPage() {
 
 
   const replayRami = async () => {
-    const { data, error } = await supabase.rpc("rami_create" as any, {
-      _stake: Number(game.stake) || 0,
-      _max: game.max_players,
-      _private: !!game.is_private,
-      _commission: Number(game.commission_pct) || 10,
-      _game_mode: game.game_mode || "bordel",
-      _joker_mode: game.joker_mode || "classique",
-      _seven_cards: game.seven_cards !== false,
-    } as any);
-    if (error) { toast.error(error.message); return; }
-    navigate({ to: "/jeux/rami/$id", params: { id: data as string } });
+    const hadBots = parts.some((p: any) => p.is_bot);
+    if (hadBots) {
+      const { data, error } = await supabase.rpc("rami_start_solo_bot" as any, {
+        _max_players: game.max_players,
+        _difficulty: "medium",
+        _joker_mode: game.joker_mode || "classique",
+        _game_mode: game.game_mode || "bordel",
+      } as any);
+      if (error) { toast.error(error.message); return; }
+      refreshProfile();
+      navigate({ to: "/jeux/rami/$id", params: { id: data as string } });
+    } else {
+      const { data, error } = await supabase.rpc("rami_create" as any, {
+        _stake: Number(game.stake) || 0,
+        _max: game.max_players,
+        _private: !!game.is_private,
+        _commission: Number(game.commission_pct) || 10,
+        _game_mode: game.game_mode || "bordel",
+        _joker_mode: game.joker_mode || "classique",
+        _seven_cards: game.seven_cards !== false,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+      refreshProfile();
+      navigate({ to: "/jeux/rami/$id", params: { id: data as string } });
+    }
   };
 
   if (game.status === "cancelled") {

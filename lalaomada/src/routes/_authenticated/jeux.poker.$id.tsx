@@ -384,6 +384,7 @@ function PokerPage() {
           pot={Number(game.pot) || 0}
           commissionPct={Number((game as any).commission_pct) || 10}
           onReplay={async () => {
+            const hadBots = participants.some((p: any) => p.is_bot);
             const { data, error } = await supabase.rpc("poker_create" as any, {
               _stake: Number(game.stake) || 0,
               _max: game.max_players,
@@ -391,7 +392,15 @@ function PokerPage() {
               _commission: Number((game as any).commission_pct) || 10,
             } as any);
             if (error) { toast.error(error.message); return; }
-            navigate({ to: "/jeux/poker/$id", params: { id: String(data) } });
+            const id = String(data);
+            if (hadBots) {
+              const botsNeeded = Math.max(0, Number(game.max_players) - 1);
+              for (let i = 0; i < botsNeeded; i++) {
+                await supabase.rpc("poker_add_bot" as any, { _game_id: id } as any);
+              }
+            }
+            refreshProfile();
+            navigate({ to: "/jeux/poker/$id", params: { id } });
           }}
         />
       </main>

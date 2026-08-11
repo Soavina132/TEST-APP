@@ -169,7 +169,7 @@ function pickBotMove(fen: string, level: number): { uci: string; san: string; fe
 /* ------------------------ Page ------------------------ */
 function ChessPage() {
   const { id } = Route.useParams();
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const confirm = useConfirm();
@@ -510,7 +510,7 @@ function ChessPage() {
           _commission: Number(game.commission_pct) || 10,
         } as any);
         if (error) throw error;
-        if (data) navigate({ to: "/jeux/chess/$id", params: { id: data as string } });
+        if (data) { refreshProfile(); navigate({ to: "/jeux/chess/$id", params: { id: data as string } }); }
       } catch (e: any) { toast.error(e.message); }
       finally { setBusy(false); }
       return;
@@ -523,7 +523,7 @@ function ChessPage() {
         _time_min: game.time_control_min,
       } as any);
       if (error) throw error;
-      if (data) navigate({ to: "/jeux/chess/$id", params: { id: data as string } });
+      if (data) { refreshProfile(); navigate({ to: "/jeux/chess/$id", params: { id: data as string } }); }
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };

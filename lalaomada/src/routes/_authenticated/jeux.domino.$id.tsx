@@ -601,18 +601,45 @@ function DominoPage() {
             pot={Number(game.pot)}
             commissionPct={Number(game.commission_pct) || 10}
             onReplay={async () => {
-              const { data, error } = await supabase.rpc("domino_create" as any, {
-                _stake: Number(game.stake) || 0,
-                _max: game.max_players,
-                _private: !!game.is_private,
-                _mode: game.state?.target_score ? "points" : "classic",
-                _commission: Number(game.commission_pct) || 10,
-                _target_score: Number(game.target_score) || 0,
-                _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
-                _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
-              } as any);
-              if (error) { toast.error(error.message); return; }
-              navigate({ to: "/jeux/domino/$id", params: { id: data as string } });
+              const hadBots = parts.some((p: any) => p.is_bot);
+              const newId = await (async () => {
+                if (hadBots) {
+                  // Recreate a solo bot game: create + add bots + set ready (auto-start)
+                  const { data, error } = await supabase.rpc("domino_create" as any, {
+                    _stake: Number(game.stake) || 0,
+                    _max: game.max_players,
+                    _private: true,
+                    _mode: game.state?.target_score ? "points" : "classic",
+                    _commission: Number(game.commission_pct) || 10,
+                    _target_score: Number(game.target_score) || 0,
+                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
+                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
+                  } as any);
+                  if (error) { toast.error(error.message); return null; }
+                  const id = data as string;
+                  const botsNeeded = Math.max(0, Number(game.max_players) - 1);
+                  for (let i = 0; i < botsNeeded; i++) {
+                    await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
+                  }
+                  await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
+                  return id;
+                } else {
+                  // Recreate a multiplayer game
+                  const { data, error } = await supabase.rpc("domino_create" as any, {
+                    _stake: Number(game.stake) || 0,
+                    _max: game.max_players,
+                    _private: !!game.is_private,
+                    _mode: game.state?.target_score ? "points" : "classic",
+                    _commission: Number(game.commission_pct) || 10,
+                    _target_score: Number(game.target_score) || 0,
+                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
+                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
+                  } as any);
+                  if (error) { toast.error(error.message); return null; }
+                  return data as string;
+                }
+              })();
+              if (newId) { refreshProfile(); navigate({ to: "/jeux/domino/$id", params: { id: newId } }); }
             }}
             extra={Number(game.target_score) > 0 && game.scores ? (
               <div className="text-left rounded-xl bg-secondary/50 p-3 space-y-1.5">

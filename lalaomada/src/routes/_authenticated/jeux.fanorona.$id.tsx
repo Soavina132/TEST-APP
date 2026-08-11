@@ -495,6 +495,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         _mandatory_capture: game.mandatory_capture !== false, _bot_intelligence: 3,
       } as any);
       if (error) { toast.error(error.message); return; }
+      refreshProfile();
       navigate({ to: "/jeux/fanorona/$id", params: { id: data as string } });
     } else {
       const { data, error } = await supabase.rpc("fanorona_create" as any, {
@@ -503,6 +504,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         _mandatory_capture: game.mandatory_capture !== false,
       } as any);
       if (error) { toast.error(error.message); return; }
+      refreshProfile();
       navigate({ to: "/jeux/fanorona/$id", params: { id: data as string } });
     }
   };
