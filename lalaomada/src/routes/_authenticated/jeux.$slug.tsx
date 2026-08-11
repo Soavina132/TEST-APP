@@ -330,6 +330,8 @@ function Lobby() {
         if (!id) throw new Error("Identifiant de partie invalide");
         if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
         await applyLudoAutoMove(id);
+        // Fallback: si l'auto-start SQL n'est pas encore appliqué
+        await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
       } else if (slug === "domino") {
         const { data, error } = await supabase.rpc("domino_create" as any, {
           _stake: 0, _max: maxP, _private: true,
@@ -497,6 +499,7 @@ function Lobby() {
         if (!id) throw new Error("Identifiant de partie invalide");
         if (overrideName) await supabase.rpc("ludo_set_display_name" as any, { _game_id: id, _name: overrideName } as any);
         await applyLudoAutoMove(id);
+        await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: true } as any);
         refreshProfile(); goTo(id);
       } else {
         await createNew(visibility === "private");
