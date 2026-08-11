@@ -273,6 +273,7 @@ function GamePage() {
         afkWarning={game?.afk_warning ?? null}
         afkPauseFor={game?.afk_pause_for ?? null}
         matchType={game.match_type}
+        onStateUpdate={(newState) => setGame((g: any) => g ? { ...g, state: newState } : g)}
       />
 
       <GameSocialFab gameId={id} gameSlug="ludo" participants={parts} />

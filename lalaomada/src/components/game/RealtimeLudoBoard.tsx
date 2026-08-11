@@ -99,6 +99,7 @@ interface Props {
   afkWarning?: any | null;
   afkPauseFor?: string | null;
   matchType?: string;
+  onStateUpdate?: (newState: GameState) => void;
 }
 
 
@@ -255,7 +256,7 @@ const POWER_TILE_STYLES = `
 }
 `;
 
-export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType }: Props) {
+export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType, onStateUpdate }: Props) {
   const [boardSize, setBoardSize] = useState(600);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(serverNow());
@@ -455,7 +456,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       setBusy(false);
     }, 5000);
     try {
-      const { error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
+      const { data: rollData, error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
+      if (rollData && onStateUpdate) onStateUpdate(rollData as GameState);
       if (error) {
         const friendlyMap: Record<string, string> = {
           "Partie pas en cours": "La partie est terminée",
@@ -510,7 +512,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     moveLockRef.current = true;
     setSelectedIdx(idx);
     setBusy(true);
-    try { const { error } = await supabase.rpc("ludo_move" as any, { _game_id: gameId, _pawn_idx: idx } as any);
+    try { const { data: moveData, error } = await supabase.rpc("ludo_move" as any, { _game_id: gameId, _pawn_idx: idx } as any);
+        if (moveData && onStateUpdate) onStateUpdate(moveData as GameState);
         if (error) {
           const friendlyMap: Record<string, string> = {
             "Partie pas en cours": "La partie est terminée",
