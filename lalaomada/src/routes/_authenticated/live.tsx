@@ -27,6 +27,7 @@ function LivePage() {
 
   useEffect(() => {
     load();
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
     const ch = supabase.channel("live")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "ludo_games", filter: "status=eq.open" }, load)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ludo_games", filter: "status=eq.playing" }, load)
@@ -38,9 +39,19 @@ function LivePage() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "fanorona_games", filter: "status=eq.playing" }, load)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "rami_games", filter: "status=eq.open" }, load)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rami_games", filter: "status=eq.playing" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "poker_games", filter: "status=eq.open" }, load)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "poker_games", filter: "status=eq.playing" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "game_spectators" }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          if (heartbeat) clearInterval(heartbeat);
+          heartbeat = setInterval(() => load(), 10_000);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+          setTimeout(() => load(), 300);
+        }
+      });
+    return () => { supabase.removeChannel(ch); if (heartbeat) clearInterval(heartbeat); };
   }, []);
 
   const routeFor = (g: any): { to: any; params: any; search?: any } => {
@@ -49,6 +60,7 @@ function LivePage() {
     if (gt === "chess")    return { to: "/jeux/chess/$id",    params: { id: g.id } };
     if (gt === "fanorona") return { to: "/jeux/fanorona/$id", params: { id: g.id } };
     if (gt === "rami")     return { to: "/jeux/rami/$id",     params: { id: g.id } };
+    if (gt === "poker")    return { to: "/jeux/poker/$id",    params: { id: g.id } };
     return { to: "/jeux/ludo/$id", params: { id: g.id }, search: { spectate: 1 } as any };
   };
 
@@ -58,6 +70,7 @@ function LivePage() {
       case "chess": return "Échecs";
       case "fanorona": return "Fanorona";
       case "rami": return "Rami";
+      case "poker": return "Poker";
       default: return "Ludo";
     }
   };
