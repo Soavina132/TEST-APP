@@ -292,12 +292,12 @@ function DominoPage() {
   }, [game?.turn_deadline, game?.status, phase, game?.state?.reveal_until, game?.state?.break_until, id, cfg.turn_timer_seconds, game]);
 
   // Re-trigger domino_tick when a bot's "thinking delay" expires, so bot
-  // moves appear with the intended pause instead of waiting for the 5s cron.
+  // moves appear with the intended pause instead of waiting for the 5s cron fallback.
   useEffect(() => {
     const think = game?.state?.bot_think_until;
     if (!think || game?.status !== "playing") return;
     const ms = new Date(think).getTime() - serverNow();
-    const delay = Math.max(0, ms) + 150;
+    const delay = Math.max(0, ms) + 50;
     const t = setTimeout(() => {
       supabase.rpc("domino_tick" as any, { _game_id: id } as any);
     }, delay);
