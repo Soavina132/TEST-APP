@@ -184,7 +184,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   // Load player profiles for avatars
   useEffect(() => {
     if (!parts.length) return;
-    const uids = parts.map(pt => pt.user_id).filter(Boolean);
+    const uids = parts.map((pt: any) => pt.user_id).filter(Boolean);
     if (!uids.length) return;
     supabase.from("profiles").select("id,pseudo,avatar_url").in("id", uids).then(({ data }) => {
       if (!data) return;

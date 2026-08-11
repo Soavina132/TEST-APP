@@ -57,6 +57,7 @@ type Game = {
   afk_pause_name: string | null;
   ready_white: boolean;
   ready_black: boolean;
+  commission_pct: number;
   created_at: string;
 };
 

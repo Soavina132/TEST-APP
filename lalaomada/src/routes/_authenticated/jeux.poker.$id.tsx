@@ -393,7 +393,7 @@ function PokerPage() {
           pot={Number(game.pot) || 0}
           commissionPct={Number((game as any).commission_pct) || 10}
           onReplay={async () => {
-            const hadBots = participants.some((p: any) => p.is_bot);
+            const hadBots = enriched.some((p: any) => p.is_bot);
             const { data, error } = await supabase.rpc("poker_create" as any, {
               _stake: Number(game.stake) || 0,
               _max: game.max_players,
