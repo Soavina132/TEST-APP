@@ -21,8 +21,12 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
 
   const reload = useCallback(async () => {
     try {
-      const { data: g, error: e1 } = await supabase.from(gameTable).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", gameId).maybeSingle();
-      if (e1 && !g) { console.warn("[realtime] load error:", e1); return; }
+      // Use select("*") instead of a fixed column list — different game tables
+      // have different columns (e.g. ludo has no turn_phase, domino has no joker_mode).
+      // A fixed list causes the query to fail on tables missing those columns,
+      // leaving the page stuck on loading and the user as a spectator.
+      const { data: g, error: e1 } = await supabase.from(gameTable).select("*").eq("id", gameId).maybeSingle();
+      if (e1 && !g) { console.warn("[realtime] load error:", e1); setLoading(false); return; }
       const { data: p, error: e2 } = await supabase.from(participantTable).select("*").eq("game_id", gameId).order("slot");
       if (e2 && !p) { console.warn("[realtime] parts error:", e2); }
       setGame(g as TGame);

@@ -344,7 +344,7 @@ function Lobby() {
         const botsNeeded = Math.max(0, maxP - 1);
         for (let i = 0; i < botsNeeded; i++) {
           const { error: berr } = await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-          if (error) throw error;
+          if (berr) throw berr;
         }
         // Auto-ready pour démarrer immédiatement (bypass salle d'attente)
         await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
@@ -363,9 +363,6 @@ function Lobby() {
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
-        if (error) throw error;
-        id = extractGameId(data);
-        if (!id) throw new Error("Identifiant de partie invalide");
       } else if (slug === "rami") {
         const { data, error } = await supabase.rpc("rami_start_solo_bot" as any, {
           _max_players: maxP, _difficulty: ramiBotDifficulty,
@@ -374,8 +371,21 @@ function Lobby() {
         if (error) throw error;
         id = extractGameId(data);
         if (!id) throw new Error("Identifiant de partie invalide");
+      } else if (slug === "poker") {
+        const { data, error } = await supabase.rpc("poker_create" as any, {
+          _stake: 0, _max: maxP, _private: true, _commission: commission,
+          _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn,
+        } as any);
+        if (error) throw error;
+        id = extractGameId(data);
+        if (!id) throw new Error("Identifiant de partie invalide");
+        const botsNeeded = Math.max(0, maxP - 1);
+        for (let i = 0; i < botsNeeded; i++) {
+          const { error: berr } = await supabase.rpc("poker_add_bot" as any, { _game_id: id } as any);
+          if (berr) throw berr;
+        }
       } else {
-        // Jeux sans support bot pour l'instant : partie publique classique
+        // Jeu non supporté en mode bot : partie publique classique
         await createNewFree(false);
         return;
       }
@@ -505,6 +515,9 @@ function Lobby() {
         if (error) throw error;
       } else if (slug === "poker") {
         const { error } = await supabase.rpc("poker_join" as any, { _game_id: gameId } as any);
+        if (error) throw error;
+      } else if (slug === "rami") {
+        const { error } = await supabase.rpc("rami_join" as any, { _game_id: gameId } as any);
         if (error) throw error;
       }
       refreshProfile(); goTo(gameId);
