@@ -545,19 +545,21 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   // No-move display: the backend already passed the turn, but includes
   // no_move_display = { slot, dice, until } so the frontend can visually
-  // show the dice + previous player's frame for 1 second before updating.
+  // show the dice + previous player's frame for ~3 seconds before updating.
+  // We guarantee a MINIMUM display of 1.5s even if the 'until' timestamp
+  // has already passed (network latency can cause the server timestamp
+  // to be in the past by the time the client receives it).
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
   useEffect(() => {
     const nmd = state.no_move_display;
     if (nmd && nmd.until) {
       const untilMs = new Date(nmd.until).getTime();
       const nowMs = serverNow();
-      if (untilMs > nowMs) {
-        // Still within the 1-second display window — show dice + previous player frame
-        setNoMoveDisplay({ slot: nmd.slot, dice: nmd.dice });
-        const t = setTimeout(() => setNoMoveDisplay(null), untilMs - nowMs);
-        return () => clearTimeout(t);
-      }
+      // Guarantee at least 1.5s display, even if 'until' has passed
+      const displayMs = Math.max(1500, untilMs - nowMs);
+      setNoMoveDisplay({ slot: nmd.slot, dice: nmd.dice });
+      const t = setTimeout(() => setNoMoveDisplay(null), displayMs);
+      return () => clearTimeout(t);
     }
     setNoMoveDisplay(null);
   }, [state.no_move_display]);
@@ -1210,6 +1212,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         </div>
         {displayDice != null && rollingFace === null && (
           <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
+        )}
+        {noMoveDisplay && (
+          <div className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 text-[10px] font-bold animate-pulse">
+            PAS DE COUP
+          </div>
         )}
 
       </div>
