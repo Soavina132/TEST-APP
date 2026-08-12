@@ -124,21 +124,62 @@ function initials(name?: string | null) {
 }
 
 function Avatar({ seat, side, size = 28 }: { seat?: Seat; side: "left" | "right"; size?: number }) {
-  const ringColor = seat?.isCurrent ? "#22c55e" : "rgba(255,255,255,0.35)";
   const name = seat?.isMe ? "Vous" : (seat?.display_name || (side === "left" ? "Joueur" : "Adversaire"));
-  const style = { width: size, height: size, border: `2px solid ${ringColor}`, boxShadow: seat?.isCurrent ? "0 0 8px rgba(34,197,94,0.75)" : undefined, transition: "border-color 0.3s ease, box-shadow 0.3s ease" } as const;
-  if (seat?.avatar_url) {
-    return (
-      <img src={seat.avatar_url} alt={name}
-        width={size} height={size} loading="lazy" decoding="async"
-        className="rounded-full object-cover"
-        style={style} />
-    );
-  }
-  return (
-    <div className="rounded-full flex items-center justify-center font-bold text-white/90 bg-white/10"
-      style={{ ...style, fontSize: Math.max(9, Math.round(size / 3)) }}>
+  const isCurrent = !!seat?.isCurrent;
+  const remaining = seat?.remaining;
+  const hasTimer = isCurrent && typeof remaining === "number";
+  const ringColor = isCurrent ? "#22c55e" : "rgba(255,255,255,0.35)";
+  const timerColor = remaining !== undefined && remaining <= 5 ? "#ef4444" : "#22c55e";
+
+  // SVG circular timer ring
+  const R = size / 2;
+  const STROKE = 3;
+  const RADIUS = R - STROKE / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  // Assume 30s max timer; clamp progress
+  const maxSeconds = 30;
+  const progress = hasTimer ? Math.max(0, Math.min(1, remaining / maxSeconds)) : 1;
+  const dashOffset = CIRCUMFERENCE * (1 - progress);
+
+  const innerStyle = { width: size - STROKE * 2, height: size - STROKE * 2 } as const;
+
+  const inner = seat?.avatar_url ? (
+    <img src={seat.avatar_url} alt={name}
+      width={size - STROKE * 2} height={size - STROKE * 2} loading="lazy" decoding="async"
+      className="rounded-full object-cover" />
+  ) : (
+    <div className="rounded-full flex items-center justify-center font-bold text-white/90 bg-white/10 w-full h-full"
+      style={{ fontSize: Math.max(9, Math.round(size / 3)) }}>
       {initials(name) || "—"}
+    </div>
+  );
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="absolute inset-0 -rotate-90" style={{ overflow: "visible" }}>
+        {/* Background ring */}
+        <circle cx={R} cy={R} r={RADIUS} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={STROKE} />
+        {/* Timer progress ring */}
+        {hasTimer && (
+          <circle cx={R} cy={R} r={RADIUS} fill="none" stroke={timerColor} strokeWidth={STROKE}
+            strokeDasharray={CIRCUMFERENCE} strokeDashoffset={dashOffset}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 0.1s linear, stroke 0.3s ease" }} />
+        )}
+        {/* Static ring for non-current */}
+        {!hasTimer && (
+          <circle cx={R} cy={R} r={RADIUS} fill="none" stroke={ringColor} strokeWidth={STROKE}
+            style={{ transition: "stroke 0.3s ease" }} />
+        )}
+      </svg>
+      <div className="absolute rounded-full overflow-hidden" style={{ top: STROKE, left: STROKE, ...innerStyle }}>
+        {inner}
+      </div>
+      {/* Glow for current player */}
+      {isCurrent && (
+        <div className="absolute inset-0 rounded-full pointer-events-none"
+          style={{ boxShadow: `0 0 ${remaining !== undefined && remaining <= 5 ? "12px" : "8px"} ${timerColor}80` }} />
+      )}
     </div>
   );
 }

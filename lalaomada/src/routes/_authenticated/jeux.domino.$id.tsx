@@ -266,6 +266,28 @@ function DominoPage() {
   // ── Sound effects ──────────────────────────────────────────────────────
   useDominoSounds({ game, parts, myUserId: profile?.id });
 
+  // Fetch avatar URLs from profiles for participants (domino_participants has no avatar_url column)
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const userIds = parts.map((p: any) => p.user_id).filter(Boolean);
+    if (userIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id,avatar_url")
+        .in("id", userIds);
+      if (data && !cancelled) {
+        const map: Record<string, string> = {};
+        for (const row of data) {
+          if (row.avatar_url) map[row.id] = row.avatar_url;
+        }
+        setAvatarMap(map);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [parts.map((p: any) => p.user_id).join(",")]);
+
 
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
@@ -537,6 +559,7 @@ function DominoPage() {
         state: data,
         current_turn: data.turn_slot ?? g.current_turn,
         turn_deadline: data.turn_deadline || undefined,
+        updated_at: new Date().toISOString(),
       } : g);
       playClack();
     } catch (e: any) {  }
@@ -587,7 +610,7 @@ function DominoPage() {
           seats={parts.map((p: any) => ({
             user_id: p.user_id,
             display_name: p.display_name,
-            avatar_url: p.avatar_url,
+            avatar_url: p.avatar_url || avatarMap[p.user_id] || undefined,
             slot: p.slot,
             handCount: (game.state?.hands?.[String(p.slot)] as Tile[])?.length || 0,
             isCurrent: game.current_turn === p.slot && game.status === "playing",
@@ -715,7 +738,7 @@ function DominoPage() {
                 seat={{
                   user_id: me.user_id,
                   display_name: me.display_name,
-                  avatar_url: me.avatar_url,
+                  avatar_url: me.avatar_url || profile?.avatar_url || undefined,
                   slot: me.slot,
                   handCount: myHand.length,
                   isCurrent: isMyTurn,
