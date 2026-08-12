@@ -151,8 +151,6 @@ export function PlayerHeader({ seat, side, size = "sm" }: { seat?: Seat; side: "
   const isLg = size === "lg";
   const avatarSize = isLg ? 52 : 44;
 
-  const showTimer = seat?.isCurrent && typeof seat.remaining === "number";
-  const timerLow = seat && seat.remaining !== undefined && seat.remaining <= 5;
 
   return (
     <div className="inline-flex flex-col items-center gap-0.5 min-w-0">
@@ -171,11 +169,7 @@ export function PlayerHeader({ seat, side, size = "sm" }: { seat?: Seat; side: "
       </div>
       <div className="text-white/90 text-[11px] font-semibold truncate max-w-[90px] leading-tight text-center">{name}</div>
       <div className="text-white text-lg font-black leading-none tabular-nums">{score}</div>
-      {showTimer && (
-        <div className={`mt-0.5 text-[10px] font-mono font-bold tabular-nums px-1.5 py-0.5 rounded leading-none ${timerLow ? "bg-red-600 text-white animate-pulse" : "bg-black/40 text-white"} transition-colors duration-300`}>
-          {seat!.remaining}s
-        </div>
-      )}
+
     </div>
   );
 }

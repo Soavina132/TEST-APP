@@ -29,7 +29,7 @@ export default function DominoRoundBreak({
   scores: Record<string, number>;
   targetScore: number;
   breakUntil: string;
-  participants: { user_id: string; display_name: string }[];
+  participants: { user_id: string; display_name: string; slot: number }[];
   roundNumber?: number;
 }) {
   // Prefer server-provided round (round that just ended) over client fallback.

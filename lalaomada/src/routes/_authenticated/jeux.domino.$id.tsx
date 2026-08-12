@@ -3,7 +3,7 @@ import { serverNow } from "@/lib/server-time";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { toast } from "sonner";
+
 import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
@@ -263,11 +263,10 @@ function DominoPage() {
 
 
   const cfg = useGameConfig("domino");
-  const [remaining, setRemaining] = useState<number>(cfg.turn_timer_seconds);
   const phase = game?.state?.phase;
   const isRoundTransition = phase === "reveal" || phase === "break";
   useEffect(() => {
-    if (!game || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
+    if (!game || game.status !== "playing") return;
     // During reveal/break phases: schedule a tick right after each deadline
     // (turn_deadline is NULL between rounds — we rely on state.reveal_until /
     // state.break_until instead so the new round starts without waiting on the
@@ -283,12 +282,11 @@ function DominoPage() {
       }, delay);
       return () => clearTimeout(t);
     }
-    if (!game.turn_deadline) { setRemaining(cfg.turn_timer_seconds); return; }
+    if (!game.turn_deadline) return;
     let fired = false;
     const tick = () => {
       const ms = new Date(game.turn_deadline).getTime() - serverNow();
       const s = Math.max(0, Math.ceil(ms / 1000));
-      setRemaining(s);
       if (s === 0 && !fired) {
         fired = true;
         supabase.rpc("domino_tick" as any, { _game_id: id } as any);
@@ -365,7 +363,7 @@ function DominoPage() {
       const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
       playDraw();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {  }
     finally { setBusy(false); actionLockRef.current = false; }
   };
 
@@ -377,7 +375,7 @@ function DominoPage() {
       const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
       playPass();
-    } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
+    } catch (e: any) { if (!opts?.silent) {}}
     finally { setBusy(false); actionLockRef.current = false; }
   };
 
@@ -476,7 +474,7 @@ function DominoPage() {
           onQuit={forfeit}
           onToggleReady={async (ready) => {
             const { error } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: ready } as any);
-            if (error) toast.error(error.message);
+            if (error) {}
           }}
         />
 
@@ -484,8 +482,8 @@ function DominoPage() {
           <button
             onClick={async () => {
               const { error } = await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: "Bot" } as any);
-              if (error) toast.error(error.message);
-              else toast.success("Bot ajouté");
+              if (error) {}
+              else null;
             }}
             className="w-full px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-sm"
           >
@@ -523,7 +521,7 @@ function DominoPage() {
       // from re-selecting and re-submitting a tile that was already played.
       if (data) setGame((g: any) => g ? { ...g, state: data, current_turn: data.turn_slot ?? g.current_turn } : g);
       playClack();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {  }
     finally { setBusy(false); actionLockRef.current = false; }
   };
 
@@ -545,8 +543,8 @@ function DominoPage() {
               <button
                 onClick={async () => {
                   const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "domino", _game_id: id } as any);
-                  if (error) toast.error(error.message);
-                  else toast.success("Partie en pause");
+                  if (error) {}
+                  else null;
                 }}
                 className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-0.5"
               >
@@ -575,7 +573,6 @@ function DominoPage() {
             slot: p.slot,
             handCount: (game.state?.hands?.[String(p.slot)] as Tile[])?.length || 0,
             isCurrent: game.current_turn === p.slot && game.status === "playing",
-            remaining: game.current_turn === p.slot ? remaining : undefined,
             isMe: p.user_id === profile?.id,
             forfeited: p.forfeited,
             score: Number(game.scores?.[String(p.slot)] || 0),
@@ -592,20 +589,9 @@ function DominoPage() {
           seed={id}
           statusMessage={(() => {
             if (game.status !== "playing") return undefined;
-            const passName = passPart ? (passPart.user_id === profile?.id ? "Vous" : passPart.display_name) : null;
             const currentPart = parts.find((p: any) => p.slot === game.current_turn);
             const currentName = currentPart ? (currentPart.user_id === profile?.id ? "Vous" : currentPart.display_name) : null;
-            if (isBlocked) return "🚫 Domino bloqué ! Fin de la manche";
-            if (noMove) return "Aucun domino jouable — vous passez votre tour";
-            if (oppNoMove && passName) return `${passName} passe son tour`;
-            if (isMyTurn) return canPlay ? "À vous de jouer" : (drawMode === "with" && stockSize > 0 ? "Piochez pour continuer" : "Aucun domino jouable — passez");
             if (currentName) return `Tour de ${currentName}…`;
-            return undefined;
-          })()}
-          statusType={(() => {
-            if (game.status !== "playing") return undefined;
-            if (isBlocked) return "blocked";
-            if (noMove || (oppNoMove && passSlot !== me?.slot)) return "pass";
             return undefined;
           })()}
           noMoveSlot={null}
@@ -646,7 +632,7 @@ function DominoPage() {
                     _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
                     _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
                   } as any);
-                  if (error) { toast.error(error.message); return null; }
+                  if (error) { return null; }
                   const id = data as string;
                   const botsNeeded = Math.max(0, Number(game.max_players) - 1);
                   for (let i = 0; i < botsNeeded; i++) {
@@ -666,7 +652,7 @@ function DominoPage() {
                     _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
                     _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
                   } as any);
-                  if (error) { toast.error(error.message); return null; }
+                  if (error) { return null; }
                   return data as string;
                 }
               })();
@@ -712,7 +698,6 @@ function DominoPage() {
                   slot: me.slot,
                   handCount: myHand.length,
                   isCurrent: isMyTurn,
-                  remaining: isMyTurn ? remaining : undefined,
                   isMe: true,
                   score: Number(game.scores?.[String(me.slot)] || 0),
                   skips: Number(game.turn_skips?.[me.user_id] || 0),
@@ -742,7 +727,7 @@ function DominoPage() {
                       onClick={playable ? () => {
                         if (needsChoice) {
                           if (selectedTile === i) { setSelectedTile(null); }
-                          else { setSelectedTile(i); toast.info("Choisissez le côté (gauche/droite)", { duration: 2500 }); }
+                          else { setSelectedTile(i); }
                         } else {
                           playSide("auto", i);
                         }
