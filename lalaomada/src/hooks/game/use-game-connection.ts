@@ -66,16 +66,16 @@ export function useGameConnection({ onReconnect }: { onReconnect: () => void }) 
       }
 
       try {
-        const url = (import.meta.env.VITE_SUPABASE_URL as string) + "/rest/v1/";
+        const url = (import.meta.env.VITE_SUPABASE_URL as string) + "/rest/v1/profiles?select=id&limit=1";
         const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
         const t0 = performance.now();
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), OFFLINE_TIMEOUT_MS);
 
         await fetch(url, {
-          method: "HEAD",
+          method: "GET",
           cache: "no-store",
-          headers: { apikey: key },
+          headers: { apikey: key, Authorization: `Bearer ${key}` },
           signal: controller.signal,
         });
         clearTimeout(timeoutId);

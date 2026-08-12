@@ -84,10 +84,10 @@ export function useOnlineStatus(userId?: string): OnlineStatusResult {
     const ping = async () => {
       if (cancelled || !navigator.onLine) return;
       try {
-        const url = (import.meta.env.VITE_SUPABASE_URL as string) + "/rest/v1/";
+        const url = (import.meta.env.VITE_SUPABASE_URL as string) + "/rest/v1/profiles?select=id&limit=1";
         const key =  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
         const t0 = performance.now();
-        await fetch(url, { method: "HEAD", cache: "no-store", headers: { apikey: key } });
+        await fetch(url, { method: "GET", cache: "no-store", headers: { apikey: key, Authorization: `Bearer ${key}` } });
         if (!cancelled) setLatencyMs(Math.round(performance.now() - t0));
       } catch {
         if (!cancelled) setLatencyMs(null);
