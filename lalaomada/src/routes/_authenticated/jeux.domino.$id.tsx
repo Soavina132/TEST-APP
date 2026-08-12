@@ -732,7 +732,7 @@ function DominoPage() {
                 const playable = isMyTurn && tileMatches(t);
                 const canL = board.length > 0 && (t[0] === leftEnd || t[1] === leftEnd);
                 const canR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
-                const needsChoice = playable && canL && canR;
+                const needsChoice = playable && canL && canR && leftEnd !== rightEnd;
                 return (
                   <div key={i} className={`flex justify-center ${playable
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.75)] animate-pulse"
@@ -743,7 +743,8 @@ function DominoPage() {
                     <DominoTile t={t} w={handTileW} vertical
                       onClick={playable ? () => {
                         if (needsChoice) {
-                          setSelectedTile(selectedTile === i ? null : i);
+                          if (selectedTile === i) { setSelectedTile(null); }
+                          else { setSelectedTile(i); toast.info("Choisissez le côté (gauche/droite)", { duration: 2500 }); }
                         } else {
                           playSide("auto", i);
                         }
