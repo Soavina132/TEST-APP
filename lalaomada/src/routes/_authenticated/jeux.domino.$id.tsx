@@ -730,7 +730,7 @@ function DominoPage() {
                 const canR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
                 const needsChoice = playable && canL && canR && leftEnd !== rightEnd;
                 return (
-                  <div key={i} className={`flex justify-center ${playable
+                  <div key={`${t[0]}-${t[1]}`} className={`flex justify-center transition-all duration-300 ease-out ${playable
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.75)] animate-pulse"
                     : "p-0.5 border-2 border-transparent opacity-70"}`}>
                     {playable && (
