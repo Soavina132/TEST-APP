@@ -19,6 +19,8 @@ export default function GameEndScreen({
   commissionPct = 10,
   extra,
   onReplay,
+  countdownSeconds,
+  onCountdownEnd,
 }: {
   slug: GameSlug;
   meUserId?: string;
@@ -30,6 +32,8 @@ export default function GameEndScreen({
   commissionPct?: number;
   extra?: React.ReactNode;
   onReplay?: () => void | Promise<void>;
+  countdownSeconds?: number;
+  onCountdownEnd?: () => void;
 }) {
   const [busy, setBusy] = useState<null | "replay" | "quit">(null);
   const confirm = useConfirm();
@@ -103,6 +107,24 @@ export default function GameEndScreen({
       clearTimeout(t2);
     };
   }, [iWon]);
+
+  // ── Countdown timer (e.g. for points mode) ──
+  const [countdown, setCountdown] = useState(countdownSeconds ?? 0);
+  useEffect(() => {
+    if (!countdownSeconds || countdownSeconds <= 0) return;
+    setCountdown(countdownSeconds);
+    const t = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(t);
+          onCountdownEnd?.();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [countdownSeconds, onCountdownEnd]);
 
   const title = iWon ? "Victoire !" : isDraw ? "Match nul" : "Partie terminée";
   const emoji = iWon ? "🏆" : isDraw ? "🤝" : "🎯";

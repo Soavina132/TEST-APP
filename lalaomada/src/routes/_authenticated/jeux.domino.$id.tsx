@@ -234,12 +234,11 @@ function DominoPage() {
   const noMoveChRef = useRef<any>(null);
   // Prevents auto-pass from firing repeatedly while waiting for server state update.
   const passAttemptedRef = useRef(false);
-  // Delay showing the end screen by 1s so the player sees the final board state.
+  // Show end screen immediately when the game finishes.
   const [showEndScreen, setShowEndScreen] = useState(false);
   useEffect(() => {
     if (game?.status === "finished" && !showEndScreen) {
-      const t = setTimeout(() => setShowEndScreen(true), 1000);
-      return () => clearTimeout(t);
+      setShowEndScreen(true);
     }
     if (game?.status !== "finished" && showEndScreen) {
       setShowEndScreen(false);
@@ -738,6 +737,46 @@ function DominoPage() {
                 ))}
               </div>
             ) : undefined}
+            countdownSeconds={Number(game.target_score) > 0 ? 10 : undefined}
+            onCountdownEnd={async () => {
+              const hadBots = parts.some((p: any) => p.is_bot);
+              const newId = await (async () => {
+                if (hadBots) {
+                  const { data, error } = await supabase.rpc("domino_create" as any, {
+                    _stake: Number(game.stake) || 0,
+                    _max: game.max_players,
+                    _private: true,
+                    _mode: "points",
+                    _commission: Number(game.commission_pct) || 10,
+                    _target_score: Number(game.target_score) || 0,
+                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
+                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
+                  } as any);
+                  if (error) { return null; }
+                  const id = data as string;
+                  const botsNeeded = Math.max(0, Number(game.max_players) - 1);
+                  for (let i = 0; i < botsNeeded; i++) {
+                    await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
+                  }
+                  await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
+                  return id;
+                } else {
+                  const { data, error } = await supabase.rpc("domino_create" as any, {
+                    _stake: Number(game.stake) || 0,
+                    _max: game.max_players,
+                    _private: !!game.is_private,
+                    _mode: "points",
+                    _commission: Number(game.commission_pct) || 10,
+                    _target_score: Number(game.target_score) || 0,
+                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
+                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
+                  } as any);
+                  if (error) { return null; }
+                  return data as string;
+                }
+              })();
+              if (newId) { refreshProfile(); navigate({ to: "/jeux/domino/$id", params: { id: newId } }); }
+            }}
           />
         );
       })()}
