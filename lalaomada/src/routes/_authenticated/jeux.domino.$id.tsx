@@ -274,10 +274,11 @@ function DominoPage() {
 
 
   const cfg = useGameConfig("domino");
+  const [remaining, setRemaining] = useState<number>(cfg.turn_timer_seconds);
   const phase = game?.state?.phase;
   const isRoundTransition = phase === "reveal" || phase === "break";
   useEffect(() => {
-    if (!game || game.status !== "playing") return;
+    if (!game || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
     // During reveal/break phases: schedule a tick right after each deadline
     // (turn_deadline is NULL between rounds — we rely on state.reveal_until /
     // state.break_until instead so the new round starts without waiting on the
@@ -293,11 +294,12 @@ function DominoPage() {
       }, delay);
       return () => clearTimeout(t);
     }
-    if (!game.turn_deadline) return;
+    if (!game.turn_deadline) { setRemaining(cfg.turn_timer_seconds); return; }
     let fired = false;
     const tick = () => {
       const ms = new Date(game.turn_deadline).getTime() - serverNow();
       const s = Math.max(0, Math.ceil(ms / 1000));
+      setRemaining(s);
       if (s === 0 && !fired) {
         fired = true;
         supabase.rpc("domino_tick" as any, { _game_id: id } as any);
@@ -584,6 +586,7 @@ function DominoPage() {
             slot: p.slot,
             handCount: (game.state?.hands?.[String(p.slot)] as Tile[])?.length || 0,
             isCurrent: game.current_turn === p.slot && game.status === "playing",
+            remaining: game.current_turn === p.slot ? remaining : undefined,
             isMe: p.user_id === profile?.id,
             forfeited: p.forfeited,
             score: Number(game.scores?.[String(p.slot)] || 0),
@@ -711,6 +714,7 @@ function DominoPage() {
                   slot: me.slot,
                   handCount: myHand.length,
                   isCurrent: isMyTurn,
+                  remaining: isMyTurn ? remaining : undefined,
                   isMe: true,
                   score: Number(game.scores?.[String(me.slot)] || 0),
                   skips: Number(game.turn_skips?.[me.user_id] || 0),
@@ -730,7 +734,7 @@ function DominoPage() {
                 const canR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
                 const needsChoice = playable && canL && canR && leftEnd !== rightEnd;
                 return (
-                  <div key={`${t[0]}-${t[1]}`} className={`flex justify-center transition-all duration-300 ease-out ${playable
+                  <div key={`${t[0]}-${t[1]}`} className={`flex justify-center transition-colors duration-200 ease-out ${playable
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.75)] animate-pulse"
                     : "p-0.5 border-2 border-transparent opacity-70"}`}>
                     {playable && (
