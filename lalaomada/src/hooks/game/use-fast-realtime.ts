@@ -44,8 +44,8 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
 
   const debouncedReload = useCallback(() => {
     if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-    // Reduced from 500ms to 200ms for faster fallback sync
-    reloadTimerRef.current = setTimeout(() => reload(), 200);
+    // Reduced to 80ms for near-instant fallback sync
+    reloadTimerRef.current = setTimeout(() => reload(), 80);
   }, [reload]);
 
   useEffect(() => {

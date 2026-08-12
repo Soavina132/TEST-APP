@@ -277,7 +277,7 @@ function DominoPage() {
         ? (game.state?.reveal_until as string | undefined)
         : (game.state?.break_until as string | undefined);
       if (!target) return;
-      const delay = Math.max(0, new Date(target).getTime() - serverNow()) + 250;
+      const delay = Math.max(0, new Date(target).getTime() - serverNow()) + 150;
       const t = setTimeout(() => {
         supabase.rpc("domino_tick" as any, { _game_id: id } as any);
       }, delay);
@@ -295,7 +295,7 @@ function DominoPage() {
       }
     };
     tick();
-    const t = setInterval(tick, 500);
+    const t = setInterval(tick, 100);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, phase, game?.state?.reveal_until, game?.state?.break_until, id, cfg.turn_timer_seconds, game]);
 
@@ -305,7 +305,7 @@ function DominoPage() {
     const think = game?.state?.bot_think_until;
     if (!think || game?.status !== "playing") return;
     const ms = new Date(think).getTime() - serverNow();
-    const delay = Math.max(0, ms) + 50;
+    const delay = Math.max(0, ms) + 30;
     const t = setTimeout(() => {
       supabase.rpc("domino_tick" as any, { _game_id: id } as any);
     }, delay);
@@ -430,7 +430,7 @@ function DominoPage() {
     const t = setTimeout(() => {
       passAttemptedRef.current = true;
       pass({ silent: true });
-    }, 2000);
+    }, 800);
     return () => clearTimeout(t);
   }, [noMove, busy, id]);
 

@@ -1,4 +1,12 @@
 import { ChevronLeft, ChevronRight, Ban } from "lucide-react";
+
+// Inject fadeInUp keyframe once
+if (typeof document !== "undefined" && !document.getElementById("domino-fade-keyframe")) {
+  const style = document.createElement("style");
+  style.id = "domino-fade-keyframe";
+  style.textContent = `@keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }`;
+  document.head.appendChild(style);
+}
 import { useEffect, useRef, useState } from "react";
 
 export type Tile = [number, number];
@@ -89,7 +97,7 @@ export function DominoTile({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       style={{ width: W, height: H, touchAction: draggable ? "none" : undefined }}
-      className={`rounded-[6px] shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-transform ${selected ? "-translate-y-1" : ""} ${onClick || draggable ? "hover:-translate-y-0.5" : ""}`}>
+      className={`rounded-[6px] shadow-[0_2px_4px_rgba(0,0,0,0.35)] transition-transform duration-200 ${selected ? "-translate-y-1" : ""} ${onClick || draggable ? "hover:-translate-y-0.5" : ""}`}>
       {inner}
     </button>
   );
@@ -118,7 +126,7 @@ function initials(name?: string | null) {
 function Avatar({ seat, side, size = 28 }: { seat?: Seat; side: "left" | "right"; size?: number }) {
   const ringColor = seat?.isCurrent ? "#22c55e" : "rgba(255,255,255,0.35)";
   const name = seat?.isMe ? "Vous" : (seat?.display_name || (side === "left" ? "Joueur" : "Adversaire"));
-  const style = { width: size, height: size, border: `2px solid ${ringColor}`, boxShadow: seat?.isCurrent ? "0 0 8px rgba(34,197,94,0.75)" : undefined } as const;
+  const style = { width: size, height: size, border: `2px solid ${ringColor}`, boxShadow: seat?.isCurrent ? "0 0 8px rgba(34,197,94,0.75)" : undefined, transition: "border-color 0.3s ease, box-shadow 0.3s ease" } as const;
   if (seat?.avatar_url) {
     return (
       <img src={seat.avatar_url} alt={name}
@@ -151,7 +159,7 @@ export function PlayerHeader({ seat, side, size = "sm" }: { seat?: Seat; side: "
       <div className="relative shrink-0">
         <Avatar seat={seat} side={side} size={avatarSize} />
         {seat && seat.handCount > 0 && (
-          <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-amber-500 text-black text-[9px] font-extrabold border border-white/70 flex items-center justify-center leading-none">
+          <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-amber-500 text-black text-[9px] font-extrabold border border-white/70 flex items-center justify-center leading-none transition-all duration-300">
             {seat.handCount}
           </div>
         )}
@@ -164,7 +172,7 @@ export function PlayerHeader({ seat, side, size = "sm" }: { seat?: Seat; side: "
       <div className="text-white/90 text-[11px] font-semibold truncate max-w-[90px] leading-tight text-center">{name}</div>
       <div className="text-white text-lg font-black leading-none tabular-nums">{score}</div>
       {showTimer && (
-        <div className={`mt-0.5 text-[10px] font-mono font-bold tabular-nums px-1.5 py-0.5 rounded leading-none ${timerLow ? "bg-red-600 text-white animate-pulse" : "bg-black/40 text-white"}`}>
+        <div className={`mt-0.5 text-[10px] font-mono font-bold tabular-nums px-1.5 py-0.5 rounded leading-none ${timerLow ? "bg-red-600 text-white animate-pulse" : "bg-black/40 text-white"} transition-colors duration-300`}>
           {seat!.remaining}s
         </div>
       )}
@@ -481,7 +489,7 @@ export default function DominoTable({
 
       {statusMessage && (
         <div className="px-4 pb-3 flex justify-center">
-          <div className={`px-5 py-3 rounded-xl text-center font-bold text-sm shadow-lg max-w-[90%] ${statusType === "blocked" ? "bg-red-600/90 text-white animate-pulse" : statusType === "pass" ? "bg-orange-500/90 text-white" : "bg-[#0a1a3e]/90 text-white"}`}>
+          <div key={statusMessage} className={`px-5 py-3 rounded-xl text-center font-bold text-sm shadow-lg max-w-[90%] transition-all duration-300 ease-out animate-[fadeInUp_0.3s_ease-out] ${statusType === "blocked" ? "bg-red-600/90 text-white animate-pulse" : statusType === "pass" ? "bg-orange-500/90 text-white" : "bg-[#0a1a3e]/90 text-white"}`}>
             {statusMessage}
           </div>
         </div>
