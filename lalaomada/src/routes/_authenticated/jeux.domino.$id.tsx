@@ -614,6 +614,7 @@ function DominoPage() {
             slug="domino"
             meUserId={profile?.id}
             winnerId={effectiveWinnerId}
+            winnerSlot={typeof winnerSlot === "number" ? winnerSlot : null}
             participants={parts}
             stake={Number(game.stake)}
             pot={Number(game.pot)}
