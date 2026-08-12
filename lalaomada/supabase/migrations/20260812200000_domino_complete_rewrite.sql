@@ -488,7 +488,7 @@ DECLARE
 BEGIN
   IF _host IS NULL THEN RAISE EXCEPTION 'Auth required'; END IF;
   IF _si > 0 AND _si < 200 THEN RAISE EXCEPTION 'Mise minimum 200 Ar'; END IF;
-  SELECT display_name INTO _pr FROM public.profiles WHERE id = _host;
+  SELECT pseudo INTO _pr FROM public.profiles WHERE id = _host;
   IF NOT FOUND THEN RAISE EXCEPTION 'Profil introuvable'; END IF;
   IF _si > 0 THEN
     UPDATE public.profiles SET balance = balance - _si WHERE id = _host AND balance >= _si;
@@ -508,7 +508,7 @@ BEGIN
     _mp, _t, '{}'::jsonb, '{}'::jsonb, false, false, _first_tile_rule, _mode, -1, now(), now()
   ) RETURNING id INTO _id;
   INSERT INTO public.domino_participants(game_id, user_id, slot, ready, forfeited, score, display_name, is_bot, joined_at)
-  VALUES (_id, _host, 0, false, false, 0, COALESCE(_pr.display_name, 'Joueur'), false, now());
+  VALUES (_id, _host, 0, false, false, 0, COALESCE(_pr.pseudo, 'Joueur'), false, now());
   RETURN _id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
