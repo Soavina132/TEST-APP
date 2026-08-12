@@ -350,6 +350,7 @@ function SnakeBoard({
             height: chainH,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
+            transition: "transform 320ms cubic-bezier(0.22,1,0.36,1)",
           }}
         >
           {placed.map((p, idx) => {
@@ -488,8 +489,8 @@ export default function DominoTable({
       </div>
 
       {statusMessage && (
-        <div className="px-4 pb-3 flex justify-center">
-          <div key={statusMessage} className={`px-5 py-3 rounded-xl text-center font-bold text-sm shadow-lg max-w-[90%] transition-all duration-300 ease-out animate-[fadeInUp_0.3s_ease-out] ${statusType === "blocked" ? "bg-red-600/90 text-white animate-pulse" : statusType === "pass" ? "bg-orange-500/90 text-white" : "bg-[#0a1a3e]/90 text-white"}`}>
+        <div className="absolute bottom-2 left-0 right-0 px-4 flex justify-center pointer-events-none z-30">
+          <div key={statusMessage} className={`px-5 py-2.5 rounded-xl text-center font-bold text-sm shadow-lg max-w-[90%] ${statusType === "blocked" ? "bg-red-600/90 text-white" : statusType === "pass" ? "bg-orange-500/90 text-white" : "bg-[#0a1a3e]/90 text-white"}`}>
             {statusMessage}
           </div>
         </div>

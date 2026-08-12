@@ -700,7 +700,7 @@ function DominoPage() {
 
       {/* Hand + actions */}
       {me && game.status === "playing" && !isRoundTransition && (
-        <div className="space-y-1.5 shrink-0 relative">
+        <div className="space-y-1.5 shrink-0 relative" style={{ minHeight: 70 }}>
           <div className="flex items-end gap-2 pb-1 px-0">
             {/* Your profile (avatar + name + score + timer) anchored to the bottom-left of your hand */}
             <div className="shrink-0">
@@ -724,7 +724,7 @@ function DominoPage() {
             </div>
             <div
               className="grid flex-1 gap-1"
-              style={{ gridTemplateColumns: `repeat(${handCols}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${Math.max(handCols, 7)}, minmax(0, 1fr))`, transition: "grid-template-columns 200ms ease" }}
             >
               {myHand.map((t, i) => {
                 const playable = isMyTurn && tileMatches(t);
