@@ -405,28 +405,31 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   useEffect(() => {
     if (status !== "playing" || !currentPart?.is_bot) return;
-    if (animating) return;
+    // FIX: Removed 'animating' guard — it could block the bot from ever playing
+    // if animating got stuck true (e.g. after a race condition with realtime updates).
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    // Phase 1: must_move=false → roll dice ONLY (so player sees the result)
-    // Phase 2: must_move=true → bot_play to choose & move pawn (dice already visible)
+    // Always call ludo_bot_play — it handles BOTH roll AND move in one server call.
+    // This eliminates the two-phase race condition where the frontend called ludo_roll
+    // for the bot but ignored the response (no onStateUpdate), causing the bot to stall.
     const min = state.must_move ? 2500 : 1500;
     const max = state.must_move ? 4500 : 3500;
     const delay = min + Math.random() * (max - min);
     const t = setTimeout(async () => {
       try {
-        if (state.must_move) {
-          // Dice already rolled & visible — now move the pawn
-          await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any);
-        } else {
-          // Roll first — player will see the dice, then this effect fires again
-          await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
-        }
-      } catch {}
+        const { data: botData } = await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any);
+        if (botData && onStateUpdate) onStateUpdate(botData as GameState);
+      } catch (e) {
+        // If bot_play fails, try a simple roll as fallback
+        try {
+          const { data: rollData } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
+          if (rollData && onStateUpdate) onStateUpdate(rollData as GameState);
+        } catch {}
+      }
     }, delay);
     return () => clearTimeout(t);
-  }, [currentPart?.is_bot, state.turn_slot, state.dice, state.must_move, state.turn_started_at, status, gameId, animating]);
+  }, [currentPart?.is_bot, state.turn_slot, state.dice, state.must_move, state.turn_started_at, status, gameId]);
 
   useEffect(() => {
     if (status !== "playing") return;
@@ -466,7 +469,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         const friendlyMap: Record<string, string> = {
           "Partie pas en cours": "La partie est terminée",
           "Pas votre tour": "Ce n'est pas votre tour",
-          "Déjà lancé, déplacez un pion": "Vous avez déjà lancé le dé",
+          "Deja lance, deplacez un pion": "Vous avez deja lance le de", "Deja lance": "Vous avez deja lance le de",
         };
         toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
       }
@@ -692,14 +695,13 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   useEffect(() => {
     if (!isMyTurn || !state.must_move || state.dice == null) return;
     if (movablePawnIdxs.size !== 1) return;
-    if (busy || animating) return;
+    if (busy) return;  // FIX: removed 'animating' guard that could block auto-move
     const key = `${gameId}-${state.turn_slot}-${state.dice}-${state.turn_started_at}`;
     if (lastAutoMoveKey.current === key) return;
     lastAutoMoveKey.current = key;
     const only = movablePawnIdxs.values().next().value as number;
-    // Micro-tâche: laisse React committer, puis déclenche sans délai perceptible.
     queueMicrotask(() => { movePawn(only); });
-  }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.turn_started_at, movablePawnIdxs, gameId, busy, animating]);
+  }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.turn_started_at, movablePawnIdxs, gameId, busy]);
 
   // Persist last movable set so indicators stay visible across brief RPC/animation gaps.
   // Cleared only when the turn key changes or when the user selects a pawn.
