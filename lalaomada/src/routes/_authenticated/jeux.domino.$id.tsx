@@ -234,6 +234,17 @@ function DominoPage() {
   const noMoveChRef = useRef<any>(null);
   // Prevents auto-pass from firing repeatedly while waiting for server state update.
   const passAttemptedRef = useRef(false);
+  // Delay showing the end screen by 1s so the player sees the final board state.
+  const [showEndScreen, setShowEndScreen] = useState(false);
+  useEffect(() => {
+    if (game?.status === "finished" && !showEndScreen) {
+      const t = setTimeout(() => setShowEndScreen(true), 1000);
+      return () => clearTimeout(t);
+    }
+    if (game?.status !== "finished" && showEndScreen) {
+      setShowEndScreen(false);
+    }
+  }, [game?.status, showEndScreen]);
   // Available width for the hand row; tile width is derived from it and from
   // the number of tiles held (a player can hold more than 7 after drawing).
   const [handAvail, setHandAvail] = useState<number>(190);
@@ -605,7 +616,7 @@ function DominoPage() {
         />
       </div>
 
-      {game.status === "finished" && (() => {
+      {showEndScreen && game.status === "finished" && (() => {
         const winnerSlot = game.state?.winner_slot;
         const winnerPart = typeof winnerSlot === "number" ? parts.find((p: any) => p.slot === winnerSlot) : null;
         const effectiveWinnerId = game.winner_id ?? winnerPart?.user_id ?? null;
