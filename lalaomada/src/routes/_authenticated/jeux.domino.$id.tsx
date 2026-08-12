@@ -315,7 +315,7 @@ function DominoPage() {
   const me = parts.find((p: any) => p.user_id === profile?.id);
   const isPlayer = !!me;
   const isMyTurn = game && me && game.current_turn === me.slot && game.status === "playing" && !isRoundTransition;
-  const myHand: Tile[] = (game?.state?.hands?.[String(me?.slot)] as Tile[]) || [];
+  const myHand: Tile[] = Array.isArray(game?.state?.hands?.[String(me?.slot)]) ? (game.state.hands[String(me.slot)] as Tile[]) : [];
   // Tiles per row: 7 minimum, up to 10 when the hand grew from drawing.
   const handCols = myHand.length === 0 ? 0 : Math.max(7, Math.min(myHand.length, 10));
   const handTileW = Math.max(13, Math.min(28, Math.floor(handAvail / handCols) - 4));
@@ -352,7 +352,7 @@ function DominoPage() {
   const noMove = !!(isMyTurn && board.length > 0 && !canPlay && (drawMode === "without" || stockSize === 0));
   const passSlot = game?.state?.last_pass_by;
   const passCount = Number(game?.state?.passes) || 0;
-  const activePlayers = parts.filter((p: any) => !p.forfeited).length;
+  const activePlayers = Array.isArray(parts) ? parts.filter((p: any) => !p.forfeited).length : 0;
   const isBlocked = passCount >= activePlayers && activePlayers > 0;
   const passPart = typeof passSlot === "number" ? parts.find((p: any) => p.slot === passSlot) : null;
   const oppNoMove = !!(!isMyTurn && passSlot !== undefined && passSlot !== me?.slot);
@@ -362,9 +362,8 @@ function DominoPage() {
     actionLockRef.current = true;
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
+      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
-      if (data) setGame((g: any) => g ? { ...g, state: data, current_turn: data.turn_slot ?? g.current_turn } : g);
       playDraw();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); actionLockRef.current = false; }
@@ -375,9 +374,8 @@ function DominoPage() {
     actionLockRef.current = true;
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
+      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
-      if (data) setGame((g: any) => g ? { ...g, state: data, current_turn: data.turn_slot ?? g.current_turn } : g);
       playPass();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); actionLockRef.current = false; }
