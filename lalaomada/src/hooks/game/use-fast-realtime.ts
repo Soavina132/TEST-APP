@@ -25,6 +25,10 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
   // overwriting a newer state. The ref stores the board length of the
   // last optimistic state; realtime events with a shorter board are skipped.
   const optBoardLenRef = useRef<number>(0);
+  // Track the last optimistic current_turn from an RPC response.
+  // Realtime events with a different current_turn are from intermediate
+  // UPDATEs (before the bot played) and should be skipped.
+  const optTurnRef = useRef<any>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Keep onFinished in a ref so the realtime closure never goes stale
   const onFinishedRef = useRef(onFinished);
@@ -115,5 +119,5 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
     };
   }, [gameId, enabled, gameTable, participantTable, reload, debouncedReload]);
 
-  return { game, parts, setGame, setParts, loading, connected, reload };
+  return { game, parts, setGame, setParts, loading, connected, reload, optTurnRef };
 }

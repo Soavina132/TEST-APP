@@ -211,7 +211,7 @@ function DominoPage() {
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const { game, parts, setGame, setParts, loading, connected, reload } = useFastRealtime({
+  const { game, parts, setGame, setParts, loading, connected, reload, optTurnRef } = useFastRealtime({
     gameTable: "domino_games",
     participantTable: "domino_participants",
     gameId: id,
@@ -554,13 +554,18 @@ function DominoPage() {
       // Use the RPC response to update game state IMMEDIATELY — don't wait
       // for the realtime event (100-500ms delay). This prevents the user
       // from re-selecting and re-submitting a tile that was already played.
-      if (data) setGame((g: any) => g ? {
-        ...g,
-        state: data,
-        current_turn: data.turn_slot ?? g.current_turn,
-        turn_deadline: data.turn_deadline || undefined,
-        updated_at: new Date().toISOString(),
-      } : g);
+      if (data) {
+        // Track the optimistic turn so stale realtime events (from intermediate
+        // UPDATEs before the bot played) are skipped by the realtime guard.
+        optTurnRef.current = data.turn_slot ?? null;
+        setGame((g: any) => g ? {
+          ...g,
+          state: data,
+          current_turn: data.turn_slot ?? g.current_turn,
+          turn_deadline: data.turn_deadline || undefined,
+          updated_at: new Date(Date.now() + 3000).toISOString(),
+        } : g);
+      }
       playClack();
     } catch (e: any) {  }
     finally { setBusy(false); actionLockRef.current = false; }
@@ -754,22 +759,26 @@ function DominoPage() {
             </div>
             <div
               className="grid flex-1 gap-1"
-              style={{ gridTemplateColumns: `repeat(${Math.max(handCols, 7)}, minmax(0, 1fr))`, transition: "grid-template-columns 200ms ease" }}
+              style={{ gridTemplateColumns: `repeat(7, minmax(0, 1fr))` }}
             >
               {myHand.map((t, i) => {
-                const playable = isMyTurn && tileMatches(t);
+                const tilePlayable = tileMatches(t);
+                const playable = tilePlayable && isMyTurn;
                 const canL = board.length > 0 && (t[0] === leftEnd || t[1] === leftEnd);
                 const canR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
-                const needsChoice = playable && canL && canR && leftEnd !== rightEnd;
+                const needsChoice = tilePlayable && canL && canR && leftEnd !== rightEnd;
                 return (
-                  <div key={`${t[0]}-${t[1]}`} className={`flex justify-center transition-colors duration-200 ease-out ${playable
+                  <div key={`${t[0]}-${t[1]}`} className={`flex justify-center transition-colors duration-200 ease-out ${tilePlayable && isMyTurn
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.75)] animate-pulse"
+                    : tilePlayable
+                    ? "relative p-0.5 rounded-lg bg-amber-400/10 border-2 border-amber-400/40 opacity-90"
                     : "p-0.5 border-2 border-transparent opacity-70"}`}>
                     {playable && (
                       <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />
                     )}
                     <DominoTile t={t} w={handTileW} vertical
-                      onClick={playable ? () => {
+                      onClick={tilePlayable ? () => {
+                        if (!isMyTurn || actionLockRef.current) return;
                         if (needsChoice) {
                           if (selectedTile === i) { setSelectedTile(null); }
                           else { setSelectedTile(i); }
@@ -777,7 +786,7 @@ function DominoPage() {
                           playSide("auto", i);
                         }
                       } : undefined}
-                      draggable={playable}
+                      draggable={tilePlayable && isMyTurn}
                       onDragStart={() => setSelectedTile(i)}
                       onDragEnd={() => { setTimeout(() => setSelectedTile(null), 300); }}
                       selected={selectedTile === i} />

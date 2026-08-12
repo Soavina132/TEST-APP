@@ -331,7 +331,11 @@ function SnakeBoard({
   const PAD = 16;
   const availW = Math.max(120, size.w - PAD * 2);
   const availH = Math.max(120, size.h - PAD * 2);
-  const scale = Math.min(1, availW / chainW, availH / chainH);
+  // FIXED SCALE: based on max expected chain size (14 horizontal tiles,
+  // 4 vertical tiles) so the board doesn't zoom in/out as tiles are added.
+  const MAX_CHAIN_W = 14 * LONG;
+  const MAX_CHAIN_H = 4 * LONG;
+  const scale = Math.min(1, availW / MAX_CHAIN_W, availH / MAX_CHAIN_H);
   const renderedW = chainW * scale;
   const renderedH = chainH * scale;
 
@@ -392,7 +396,6 @@ function SnakeBoard({
             height: chainH,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
-            transition: "transform 320ms cubic-bezier(0.22,1,0.36,1)",
           }}
         >
           {placed.map((p, idx) => {
@@ -404,8 +407,6 @@ function SnakeBoard({
                 style={{
                   left: p.x,
                   top: p.y,
-                  transition: "left 320ms cubic-bezier(0.22,1,0.36,1), top 320ms cubic-bezier(0.22,1,0.36,1)",
-                  willChange: "left, top",
                 }}
               >
                 <DominoTile t={p.tile} w={BASE_W} vertical={p.vertical} />
