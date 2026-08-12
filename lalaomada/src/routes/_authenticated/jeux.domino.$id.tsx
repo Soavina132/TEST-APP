@@ -532,7 +532,12 @@ function DominoPage() {
       // Use the RPC response to update game state IMMEDIATELY — don't wait
       // for the realtime event (100-500ms delay). This prevents the user
       // from re-selecting and re-submitting a tile that was already played.
-      if (data) setGame((g: any) => g ? { ...g, state: data, current_turn: data.turn_slot ?? g.current_turn } : g);
+      if (data) setGame((g: any) => g ? {
+        ...g,
+        state: data,
+        current_turn: data.turn_slot ?? g.current_turn,
+        turn_deadline: data.turn_deadline || undefined,
+      } : g);
       playClack();
     } catch (e: any) {  }
     finally { setBusy(false); actionLockRef.current = false; }

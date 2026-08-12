@@ -20,6 +20,11 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track the last optimistic update from an RPC call to prevent stale
+  // realtime events (from intermediate UPDATEs inside the same RPC) from
+  // overwriting a newer state. The ref stores the board length of the
+  // last optimistic state; realtime events with a shorter board are skipped.
+  const optBoardLenRef = useRef<number>(0);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Keep onFinished in a ref so the realtime closure never goes stale
   const onFinishedRef = useRef(onFinished);
@@ -56,7 +61,18 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
       .on("postgres_changes", { event: "*", schema: "public", table: gameTable, filter: `id=eq.${gameId}` }, (payload: any) => {
         if (payload.eventType === "DELETE") { debouncedReload(); return; }
         if (payload.new) {
-          setGame(payload.new as TGame);
+          setGame((prev: any) => {
+            if (!prev) return payload.new as TGame;
+            // Skip stale realtime events: if the current state has a longer
+            // board than the incoming event, the event is from an intermediate
+            // UPDATE (before bot moves) and should not overwrite the newer
+            // optimistic state from the RPC response.
+            const prevBoardLen = prev.state?.board ? (Array.isArray(prev.state.board) ? prev.state.board.length : 0) : 0;
+            const newBoardLen = payload.new.state?.board ? (Array.isArray(payload.new.state.board) ? payload.new.state.board.length : 0) : 0;
+            if (prevBoardLen > newBoardLen) return prev;
+            // Reset the optimistic ref when we accept a realtime event
+            return payload.new as TGame;
+          });
           if (payload.new.status === "finished" && onFinishedRef.current) onFinishedRef.current();
         }
       })
