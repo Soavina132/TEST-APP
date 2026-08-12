@@ -578,7 +578,7 @@ function DominoPage() {
             remaining: game.current_turn === p.slot ? remaining : undefined,
             isMe: p.user_id === profile?.id,
             forfeited: p.forfeited,
-            score: Number(game.scores?.[p.user_id] || 0),
+            score: Number(game.scores?.[String(p.slot)] || 0),
             skips: Number(game.turn_skips?.[p.user_id] || 0),
             maxSkips: Number(cfg.max_turn_skips) || 5,
           }))}
@@ -678,7 +678,7 @@ function DominoPage() {
                 {parts.map((p: any) => (
                   <div key={p.user_id} className="flex justify-between text-sm">
                     <span className="truncate">{p.display_name}</span>
-                    <span className="font-mono font-bold">{Number(game.scores?.[p.user_id] || 0)} pts</span>
+                    <span className="font-mono font-bold">{Number(game.scores?.[String(p.slot)] || 0)} pts</span>
                   </div>
                 ))}
               </div>
@@ -714,7 +714,7 @@ function DominoPage() {
                   isCurrent: isMyTurn,
                   remaining: isMyTurn ? remaining : undefined,
                   isMe: true,
-                  score: Number(game.scores?.[me.user_id] || 0),
+                  score: Number(game.scores?.[String(me.slot)] || 0),
                   skips: Number(game.turn_skips?.[me.user_id] || 0),
                   maxSkips: Number(cfg.max_turn_skips) || 5,
                 }}

@@ -79,10 +79,10 @@ export default function DominoRoundBreak({
 
         <div className={`mt-4 grid gap-2 text-white text-center ${participants.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
           {participants.map(p => {
-            const total = Number(scores?.[p.user_id] || 0);
-            const pips = lastRound.hand_pips?.[p.user_id] ?? 0;
-            const tiles = lastRound.final_hands?.[p.user_id] || [];
-            const isWinner = p.user_id === winnerKey;
+            const total = Number(scores?.[String(p.slot)] || 0);
+            const pips = lastRound.hand_pips?.[String(p.slot)] ?? 0;
+            const tiles = (lastRound.final_hands?.[String(p.slot)] || []) || [];
+            const isWinner = (lastRound.winner_slot != null && p.slot === lastRound.winner_slot) || p.user_id === winnerKey;
             const roundScore = isWinner ? lastRound.round_score : 0;
             return (
               <div key={p.user_id} className="px-1 space-y-2 rounded-xl py-2"
