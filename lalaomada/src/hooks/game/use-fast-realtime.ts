@@ -44,7 +44,15 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
       if (e1 && !g) { console.warn("[realtime] load error:", e1); setLoading(false); return; }
       const { data: p, error: e2 } = await supabase.from(participantTable).select("*").eq("game_id", gameId).order("slot");
       if (e2 && !p) { console.warn("[realtime] parts error:", e2); }
-      setGame(g as TGame);
+      // Don't overwrite optimistic state with stale DB state during bot turn
+      setGame((prev: any) => {
+        if (!prev) return g as TGame;
+        if (optTurnRef.current !== null && (g as any).current_turn !== optTurnRef.current) {
+          return prev;
+        }
+        optTurnRef.current = null;
+        return g as TGame;
+      });
       setParts((p as TParticipant[]) || []);
       setLoading(false);
       if ((g as any)?.status === "finished" && onFinishedRef.current) onFinishedRef.current();
@@ -67,14 +75,27 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
         if (payload.new) {
           setGame((prev: any) => {
             if (!prev) return payload.new as TGame;
-            // Skip stale realtime events: if the current state has a longer
-            // board than the incoming event, the event is from an intermediate
-            // UPDATE (before bot moves) and should not overwrite the newer
-            // optimistic state from the RPC response.
+            // ── Stale event guards ──────────────────────────────
+            // 1. updated_at: if the optimistic state's updated_at is in the
+            //    future (set by playSide), skip older realtime events.
+            const prevUpdated = (prev as any).updated_at;
+            const newUpdated = (payload.new as any).updated_at;
+            if (prevUpdated && newUpdated && newUpdated < prevUpdated) return prev;
+            // 2. optTurnRef: if we have an optimistic current_turn from the
+            //    RPC response, and the incoming event has a different
+            //    current_turn, it's an intermediate UPDATE (before bot moved).
+            //    Skip it entirely — the final UPDATE (matching optTurnRef)
+            //    will arrive shortly and clear the ref.
+            if (optTurnRef.current !== null && (payload.new as any).current_turn !== optTurnRef.current) {
+              return prev;
+            }
+            // 3. Board length fallback: if the current state has a longer
+            //    board, the event is stale.
             const prevBoardLen = prev.state?.board ? (Array.isArray(prev.state.board) ? prev.state.board.length : 0) : 0;
             const newBoardLen = payload.new.state?.board ? (Array.isArray(payload.new.state.board) ? payload.new.state.board.length : 0) : 0;
             if (prevBoardLen > newBoardLen) return prev;
-            // Reset the optimistic ref when we accept a realtime event
+            // Accept the event — clear the optimistic ref
+            optTurnRef.current = null;
             return payload.new as TGame;
           });
           if (payload.new.status === "finished" && onFinishedRef.current) onFinishedRef.current();

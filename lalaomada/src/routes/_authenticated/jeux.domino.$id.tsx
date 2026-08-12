@@ -395,8 +395,18 @@ function DominoPage() {
     actionLockRef.current = true;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
+      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
+      if (data) {
+        optTurnRef.current = data.turn_slot ?? null;
+        setGame((g: any) => g ? {
+          ...g,
+          state: data,
+          current_turn: data.turn_slot ?? g.current_turn,
+          turn_deadline: data.turn_deadline || undefined,
+          updated_at: new Date(Date.now() + 3000).toISOString(),
+        } : g);
+      }
       playDraw();
     } catch (e: any) {  }
     finally { setBusy(false); actionLockRef.current = false; }
@@ -407,8 +417,18 @@ function DominoPage() {
     actionLockRef.current = true;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
+      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
+      if (data) {
+        optTurnRef.current = data.turn_slot ?? null;
+        setGame((g: any) => g ? {
+          ...g,
+          state: data,
+          current_turn: data.turn_slot ?? g.current_turn,
+          turn_deadline: data.turn_deadline || undefined,
+          updated_at: new Date(Date.now() + 3000).toISOString(),
+        } : g);
+      }
       playPass();
     } catch (e: any) { if (!opts?.silent) {}}
     finally { setBusy(false); actionLockRef.current = false; }
