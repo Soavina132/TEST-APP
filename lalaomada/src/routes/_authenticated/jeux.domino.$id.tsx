@@ -3,488 +3,254 @@ import { serverNow } from "@/lib/server-time";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-
-import { copyText } from "@/lib/clipboard";
+import { toast } from "sonner";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
-import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
-import { LogOut, Copy, Plus, Pause, Ban, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Plus, Ban, Volume2, VolumeX } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
-import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import DominoRoundBreak from "@/components/game/DominoRoundBreak";
-import { GameLoader } from "@/components/game/GameLoader";
-import DominoTable, { DominoTile, PlayerHeader } from "@/components/game/DominoTable";
+import { DominoTile, PlayerHeader, DominoBoard, Tile } from "@/components/game/DominoTable";
 import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useDominoSounds } from "@/hooks/game/use-domino-sounds";
 import { playClack, playDraw, playPass } from "@/lib/sounds/game-sounds";
-import { setSfxMuted, isSfxMuted } from "@/lib/sounds/game-sounds";
-
+import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 
 export const Route = createFileRoute("/_authenticated/jeux/domino/$id")({
   component: DominoPage,
   head: () => ({ meta: [{ title: "Domino — Lalao MADA" }, { name: "robots", content: "noindex" }] }),
 });
 
-type Tile = [number, number];
-
-type BoardEntry = { tile: Tile; flipped: boolean };
-
-function readBoardTile(entry: unknown): Tile | null {
-  if (Array.isArray(entry)) return entry.length === 2 ? [Number(entry[0]), Number(entry[1])] as Tile : null;
-  const obj = entry as { tile?: unknown; t?: unknown } | null;
-  const rawTile = obj?.tile ?? obj?.t;
-  if (!Array.isArray(rawTile) || rawTile.length !== 2) return null;
-  const a = Number(rawTile[0]);
-  const b = Number(rawTile[1]);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-  return [a, b];
+// ── Board normalization (server stores tiles unordered, we reconstruct chain) ─
+function readTile(e: unknown): Tile | null {
+  const raw = Array.isArray(e) ? e : (e as { tile?: unknown })?.tile;
+  if (!Array.isArray(raw) || raw.length !== 2) return null;
+  const a = Number(raw[0]), b = Number(raw[1]);
+  return Number.isFinite(a) && Number.isFinite(b) ? [a, b] : null;
 }
 
-function solveDominoTrail(tiles: Tile[], start: number, end?: number): Tile[] | null {
-  if (tiles.length === 0) return [];
-  const adjacency = new Map<number, { to: number; index: number }[]>();
-  const degree = new Map<number, number>();
-
-  tiles.forEach(([a, b], index) => {
-    adjacency.set(a, [...(adjacency.get(a) ?? []), { to: b, index }]);
-    adjacency.set(b, [...(adjacency.get(b) ?? []), { to: a, index }]);
-    degree.set(a, (degree.get(a) ?? 0) + 1);
-    degree.set(b, (degree.get(b) ?? 0) + 1);
+function solveTrail(tiles: Tile[], start: number, end?: number): Tile[] | null {
+  if (!tiles.length) return [];
+  const adj = new Map<number, { to: number; idx: number }[]>();
+  const deg = new Map<number, number>();
+  tiles.forEach(([a, b], i) => {
+    adj.set(a, [...(adj.get(a) ?? []), { to: b, idx: i }]);
+    adj.set(b, [...(adj.get(b) ?? []), { to: a, idx: i }]);
+    deg.set(a, (deg.get(a) ?? 0) + 1); deg.set(b, (deg.get(b) ?? 0) + 1);
   });
-
-  if ((degree.get(start) ?? 0) === 0) return null;
-
-  const seen = new Set<number>();
-  const pending = [start];
-  while (pending.length > 0) {
-    const node = pending.pop();
-    if (node === undefined || seen.has(node)) continue;
-    seen.add(node);
-    (adjacency.get(node) ?? []).forEach(({ to }) => {
-      if (!seen.has(to)) pending.push(to);
-    });
-  }
-  if ([...degree.entries()].some(([, value]) => value > 0) && [...degree.keys()].some((node) => !seen.has(node))) return null;
-
-  const oddNodes = [...degree.entries()].filter(([, value]) => value % 2 === 1).map(([node]) => node);
+  if (!(deg.get(start) ?? 0)) return null;
+  const seen = new Set<number>(); const st = [start];
+  while (st.length) { const n = st.pop()!; if (seen.has(n)) continue; seen.add(n); (adj.get(n) ?? []).forEach(({ to }) => { if (!seen.has(to)) st.push(to); }); }
+  if ([...deg.keys()].some(n => !seen.has(n))) return null;
+  const odd = [...deg.entries()].filter(([, v]) => v % 2).map(([n]) => n);
   if (end !== undefined) {
-    if (start === end) {
-      if (oddNodes.length !== 0) return null;
-    } else if (oddNodes.length !== 2 || !oddNodes.includes(start) || !oddNodes.includes(end)) {
-      return null;
-    }
-  } else if (oddNodes.length === 2 && !oddNodes.includes(start)) {
-    return null;
-  } else if (oddNodes.length !== 0 && oddNodes.length !== 2) {
-    return null;
-  }
-
-  const used = new Set<number>();
-  const cursors = new Map<number, number>();
+    if (start === end ? odd.length !== 0 : odd.length !== 2 || !odd.includes(start) || !odd.includes(end)) return null;
+  } else if (odd.length === 2 && !odd.includes(start)) return null;
+  else if (odd.length && odd.length !== 2) return null;
+  const used = new Set<number>(); const cursors = new Map<number, number>();
+  const path: { from: number; to: number }[] = [];
   const stack: { node: number; edge?: { from: number; to: number } }[] = [{ node: start }];
-  const edges: { from: number; to: number }[] = [];
-
-  while (stack.length > 0) {
-    const top = stack[stack.length - 1];
-    const list = adjacency.get(top.node) ?? [];
-    let cursor = cursors.get(top.node) ?? 0;
-    while (cursor < list.length && used.has(list[cursor].index)) cursor += 1;
-    cursors.set(top.node, cursor);
-
-    const next = list[cursor];
-    if (next) {
-      used.add(next.index);
-      cursors.set(top.node, cursor + 1);
-      stack.push({ node: next.to, edge: { from: top.node, to: next.to } });
-    } else {
-      const done = stack.pop();
-      if (done?.edge) edges.push(done.edge);
-    }
+  while (stack.length) {
+    const top = stack[stack.length - 1]; const list = adj.get(top.node) ?? [];
+    let c = cursors.get(top.node) ?? 0;
+    while (c < list.length && used.has(list[c].idx)) c++;
+    cursors.set(top.node, c); const nx = list[c];
+    if (nx) { used.add(nx.idx); cursors.set(top.node, c + 1); stack.push({ node: nx.to, edge: { from: top.node, to: nx.to } }); }
+    else { const d = stack.pop()!; if (d.edge) path.push(d.edge); }
   }
-
-  edges.reverse();
-  if (edges.length !== tiles.length) return null;
-  if (end !== undefined && edges[edges.length - 1]?.to !== end) return null;
-  return edges.map(({ from, to }) => [from, to] as Tile);
+  path.reverse();
+  if (path.length !== tiles.length) return null;
+  if (end !== undefined && path.at(-1)?.to !== end) return null;
+  return path.map(({ from, to }) => [from, to] as Tile);
 }
 
-function reverseTrail(trail: Tile[]): Tile[] {
-  return [...trail].reverse().map(([a, b]) => [b, a] as Tile);
-}
+function reverseTrail(t: Tile[]): Tile[] { return [...t].reverse().map(([a, b]) => [b, a] as Tile); }
 
-function fallbackNormalize(rawTiles: Tile[], expectedLeft?: number, expectedRight?: number): Tile[] {
-  const chain: Tile[] = [];
-  let leftEnd: number | null = null;
-  let rightEnd: number | null = null;
-
-  for (const tile of rawTiles) {
-    const [a, b] = tile;
-    if (chain.length === 0) {
-      const firstTile: Tile = Number.isFinite(expectedLeft) && b === expectedLeft && a !== expectedLeft ? [b, a] : [a, b];
-      chain.push(firstTile);
-      leftEnd = firstTile[0];
-      rightEnd = firstTile[1];
-    } else if (a === rightEnd) {
-      chain.push([a, b]);
-      rightEnd = b;
-    } else if (b === rightEnd) {
-      chain.push([b, a]);
-      rightEnd = a;
-    } else if (b === leftEnd) {
-      chain.unshift([a, b]);
-      leftEnd = a;
-    } else if (a === leftEnd) {
-      chain.unshift([b, a]);
-      leftEnd = b;
-    } else {
-      chain.push([a, b]);
-    }
+function fallbackNorm(tiles: Tile[], expL?: number, expR?: number): Tile[] {
+  const chain: Tile[] = []; let le: number | null = null, re: number | null = null;
+  for (const [a, b] of tiles) {
+    if (!chain.length) { const f: Tile = expL != null && b === expL && a !== expL ? [b, a] : [a, b]; chain.push(f); le = f[0]; re = f[1]; }
+    else if (a === re) { chain.push([a, b]); re = b; }
+    else if (b === re) { chain.push([b, a]); re = a; }
+    else if (b === le) { chain.unshift([a, b]); le = a; }
+    else if (a === le) { chain.unshift([b, a]); le = b; }
+    else chain.push([a, b]);
   }
-
-  if (Number.isFinite(expectedRight) && chain.at(-1)?.[1] !== expectedRight) {
-    const reversed = reverseTrail(chain);
-    if ((!Number.isFinite(expectedLeft) || reversed[0]?.[0] === expectedLeft) && reversed.at(-1)?.[1] === expectedRight) {
-      return reversed;
-    }
+  if (expR != null && chain.at(-1)?.[1] !== expR) {
+    const r = reverseTrail(chain);
+    if ((expL == null || r[0]?.[0] === expL) && r.at(-1)?.[1] === expR) return r;
   }
-
   return chain;
 }
 
-function normalizeDominoBoard(rawBoard: any[], serverLeft?: unknown, serverRight?: unknown): { board: BoardEntry[]; leftEnd: number | null; rightEnd: number | null } {
-  if (!Array.isArray(rawBoard) || rawBoard.length === 0) {
-    return { board: [], leftEnd: null, rightEnd: null };
-  }
-
-  const expectedLeft = typeof serverLeft === "number" ? serverLeft : Number(serverLeft);
-  const expectedRight = typeof serverRight === "number" ? serverRight : Number(serverRight);
-  const hasExpectedLeft = Number.isFinite(expectedLeft);
-  const hasExpectedRight = Number.isFinite(expectedRight);
-
-  const rawTiles = rawBoard.map(readBoardTile).filter((tile): tile is Tile => tile !== null);
-  if (rawTiles.length === 0) return { board: [], leftEnd: null, rightEnd: null };
-
+function normalizeBoard(raw: any[], sL?: unknown, sR?: unknown) {
+  if (!Array.isArray(raw) || !raw.length) return { board: [] as { tile: Tile; flipped: boolean }[], leftEnd: null as number | null, rightEnd: null as number | null };
+  const expL = typeof sL === "number" ? sL : Number(sL);
+  const expR = typeof sR === "number" ? sR : Number(sR);
+  const hL = Number.isFinite(expL), hR = Number.isFinite(expR);
+  const tiles = raw.map(readTile).filter((t): t is Tile => t !== null);
+  if (!tiles.length) return { board: [] as { tile: Tile; flipped: boolean }[], leftEnd: null, rightEnd: null };
   let trail: Tile[] | null = null;
-  if (hasExpectedLeft) {
-    trail = solveDominoTrail(rawTiles, expectedLeft, hasExpectedRight ? expectedRight : undefined);
-  }
-  if (!trail && hasExpectedRight) {
-    const reversed = solveDominoTrail(rawTiles, expectedRight, hasExpectedLeft ? expectedLeft : undefined);
-    if (reversed) trail = reverseTrail(reversed);
-  }
+  if (hL) trail = solveTrail(tiles, expL, hR ? expR : undefined);
+  if (!trail && hR) { const r = solveTrail(tiles, expR, hL ? expL : undefined); if (r) trail = reverseTrail(r); }
   if (!trail) {
-    const degree = new Map<number, number>();
-    rawTiles.forEach(([a, b]) => {
-      degree.set(a, (degree.get(a) ?? 0) + 1);
-      degree.set(b, (degree.get(b) ?? 0) + 1);
-    });
-    const starts = [...new Set([
-      rawTiles[0][0],
-      rawTiles[0][1],
-      ...[...degree.entries()].filter(([, value]) => value % 2 === 1).map(([pip]) => pip),
-      ...[...degree.keys()],
-    ])];
-    for (const start of starts) {
-      trail = solveDominoTrail(rawTiles, start) ?? null;
-      if (trail) break;
-    }
+    const deg = new Map<number, number>();
+    tiles.forEach(([a, b]) => { deg.set(a, (deg.get(a) ?? 0) + 1); deg.set(b, (deg.get(b) ?? 0) + 1); });
+    const starts = [...new Set([tiles[0][0], tiles[0][1], ...[...deg.entries()].filter(([, v]) => v % 2).map(([n]) => n), ...[...deg.keys()]])];
+    for (const s of starts) { trail = solveTrail(tiles, s); if (trail) break; }
   }
-
-  const normalized = trail && trail.length === rawTiles.length
-    ? trail
-    : fallbackNormalize(rawTiles, hasExpectedLeft ? expectedLeft : undefined, hasExpectedRight ? expectedRight : undefined);
-
-  const leftEnd = normalized[0]?.[0] ?? null;
-  const rightEnd = normalized[normalized.length - 1]?.[1] ?? null;
-  return { board: normalized.map((tile) => ({ tile, flipped: false })), leftEnd, rightEnd };
+  const norm = trail && trail.length === tiles.length ? trail : fallbackNorm(tiles, hL ? expL : undefined, hR ? expR : undefined);
+  return { board: norm.map(tile => ({ tile, flipped: false })), leftEnd: norm[0]?.[0] ?? null, rightEnd: norm.at(-1)?.[1] ?? null };
 }
 
-
+// ── Component ───────────────────────────────────────────────────────────
 function DominoPage() {
   const { id } = Route.useParams();
-  const { profile, isAdmin, refreshProfile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const { game, parts, setGame, setParts, loading, connected, reload, optTurnRef } = useFastRealtime({
-    gameTable: "domino_games",
-    participantTable: "domino_participants",
-    gameId: id,
-    enabled: !!profile?.id,
-    onFinished: refreshProfile,
-  }) as any;
-
-  // ── State variables (restored after useFastRealtime refactor) ──────────
+  const [game, setGame] = useState<any>(null);
+  const [parts, setParts] = useState<any[]>([]);
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  // Synchronous lock — React state (`busy`) updates are batched/async, so a
-  // near-simultaneous double-fire (e.g. Android Chrome firing both `onDrop`
-  // and a synthesized `onClick` for the same touch-drag gesture) can slip
-  // past a state-only guard before the re-render happens. This ref is read
-  // and written immediately, closing that race window.
-  const actionLockRef = useRef(false);
-  // Tracks which opponent's hand has no playable tile (via realtime broadcast),
-  // so a red frame can be shown to all players before the auto-pass completes.
-  const [remoteNoMoveSlot, setRemoteNoMoveSlot] = useState<number | null>(null);
-  const noMoveChRef = useRef<any>(null);
-  // Prevents auto-pass from firing repeatedly while waiting for server state update.
-  const passAttemptedRef = useRef(false);
-  // Show end screen immediately when the game finishes.
-  const [showEndScreen, setShowEndScreen] = useState(false);
+  const noMoveCh = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [remoteNoMove, setRemoteNoMove] = useState<number | null>(null);
+  const [handW, setHandW] = useState(190);
+
   useEffect(() => {
-    if (game?.status === "finished" && !showEndScreen) {
-      setShowEndScreen(true);
-    }
-    if (game?.status !== "finished" && showEndScreen) {
-      setShowEndScreen(false);
-    }
-  }, [game?.status, showEndScreen]);
-  // Available width for the hand row; tile width is derived from it and from
-  // the number of tiles held (a player can hold more than 7 after drawing).
-  const [handAvail, setHandAvail] = useState<number>(190);
-  useEffect(() => {
-    const update = () => {
-      const vw = typeof window !== "undefined" ? window.innerWidth : 360;
-      // Reserve ~170px for the PlayerHeader block + gaps/padding.
-      setHandAvail(Math.max(140, vw - 170));
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-    };
+    const u = () => setHandW(Math.max(140, window.innerWidth - 170));
+    u(); window.addEventListener("resize", u); window.addEventListener("orientationchange", u);
+    return () => { window.removeEventListener("resize", u); window.removeEventListener("orientationchange", u); };
   }, []);
 
-  // ── Sound effects ──────────────────────────────────────────────────────
+  // ── Load ──────────────────────────────────────────────────────────────
+  const load = useCallback(async () => {
+    const { data: g } = await supabase.from("domino_games" as any).select("*").eq("id", id).maybeSingle();
+    setGame(g);
+    const { data: p } = await supabase.from("domino_participants" as any).select("*").eq("game_id", id).order("slot");
+    const rows = (p as any[]) || [];
+    const ids = rows.map(r => r.user_id).filter(Boolean);
+    let byId = new Map<string, string | null>();
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, avatar_url").in("id", ids);
+      byId = new Map((profs || []).map((x: any) => [x.id, x.avatar_url]));
+    }
+    setParts(rows.map(r => ({ ...r, user_id: r.user_id || `bot_${r.slot}`, avatar_url: r.user_id ? byId.get(r.user_id) || null : null })));
+  }, [id, profile?.id]);
+
   useDominoSounds({ game, parts, myUserId: profile?.id });
 
-  // Fetch avatar URLs from profiles for participants (domino_participants has no avatar_url column)
-  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   useEffect(() => {
-    const userIds = parts.map((p: any) => p.user_id).filter(Boolean);
-    if (userIds.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id,avatar_url")
-        .in("id", userIds);
-      if (data && !cancelled) {
-        const map: Record<string, string> = {};
-        for (const row of data) {
-          if (row.avatar_url) map[row.id] = row.avatar_url;
-        }
-        setAvatarMap(map);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [parts.map((p: any) => p.user_id).join(",")]);
+    load();
+    const ch = supabase.channel("domino-" + id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "domino_games", filter: `id=eq.${id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "domino_participants", filter: `game_id=eq.${id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [id, load]);
 
-
-
-  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: reload });
-
-  // cancelled state handled by GameStateMessage below
-
-
+  const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
   const cfg = useGameConfig("domino");
   const [remaining, setRemaining] = useState<number>(cfg.turn_timer_seconds);
   const phase = game?.state?.phase;
-  const isRoundTransition = phase === "reveal" || phase === "break";
+  const isRoundTransition = phase === "break" || phase === "reveal";
+
+  // ── Timer ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!game || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
-    // During reveal/break phases: schedule a tick right after each deadline
-    // (turn_deadline is NULL between rounds — we rely on state.reveal_until /
-    // state.break_until instead so the new round starts without waiting on the
-    // 5s cron).
-    if (phase === "reveal" || phase === "break") {
-      const target = phase === "reveal"
-        ? (game.state?.reveal_until as string | undefined)
-        : (game.state?.break_until as string | undefined);
+    if (isRoundTransition) {
+      const target = game.state?.break_until;
       if (!target) return;
-      const delay = Math.max(0, new Date(target).getTime() - serverNow()) + 150;
-      const t = setTimeout(() => {
-        supabase.rpc("domino_tick" as any, { _game_id: id } as any);
-      }, delay);
+      const delay = Math.max(0, new Date(target).getTime() - serverNow()) + 250;
+      const t = setTimeout(() => supabase.rpc("domino_tick" as any, { _game_id: id } as any), delay);
       return () => clearTimeout(t);
     }
     if (!game.turn_deadline) { setRemaining(cfg.turn_timer_seconds); return; }
     let fired = false;
     const tick = () => {
-      const ms = new Date(game.turn_deadline).getTime() - serverNow();
-      const s = Math.max(0, Math.ceil(ms / 1000));
+      const s = Math.max(0, Math.ceil((new Date(game.turn_deadline).getTime() - serverNow()) / 1000));
       setRemaining(s);
-      if (s === 0 && !fired) {
-        fired = true;
-        supabase.rpc("domino_tick" as any, { _game_id: id } as any);
-      }
+      if (s === 0 && !fired) { fired = true; supabase.rpc("domino_tick" as any, { _game_id: id } as any); }
     };
     tick();
-    const t = setInterval(tick, 100);
+    const t = setInterval(tick, 500);
     return () => clearInterval(t);
-  }, [game?.turn_deadline, game?.status, phase, game?.state?.reveal_until, game?.state?.break_until, id, cfg.turn_timer_seconds, game]);
+  }, [game?.turn_deadline, game?.status, phase, game?.state?.break_until, id, cfg.turn_timer_seconds, game, isRoundTransition]);
 
-  // Re-trigger domino_tick when a bot's "thinking delay" expires, so bot
-  // moves appear with the intended pause instead of waiting for the 5s cron fallback.
+  // ── Bot think ──────────────────────────────────────────────────────────
   useEffect(() => {
     const think = game?.state?.bot_think_until;
     if (!think || game?.status !== "playing") return;
-    const ms = new Date(think).getTime() - serverNow();
-    const delay = Math.max(0, ms) + 30;
-    const t = setTimeout(() => {
-      supabase.rpc("domino_tick" as any, { _game_id: id } as any);
-    }, delay);
+    const delay = Math.max(0, new Date(think).getTime() - serverNow()) + 150;
+    const t = setTimeout(() => supabase.rpc("domino_tick" as any, { _game_id: id } as any), delay);
     return () => clearTimeout(t);
   }, [game?.state?.bot_think_until, game?.status, id]);
 
-  const me = parts.find((p: any) => p.user_id === profile?.id);
+  // ── Derived state ──────────────────────────────────────────────────────
+  const me = parts.find(p => p.user_id === profile?.id);
   const isPlayer = !!me;
-  const isMyTurn = game && me && game.current_turn === me.slot && game.status === "playing" && !isRoundTransition;
-  const myHand: Tile[] = Array.isArray(game?.state?.hands?.[String(me?.slot)]) ? (game.state.hands[String(me.slot)] as Tile[]) : [];
-  // Tiles per row: 7 minimum, up to 10 when the hand grew from drawing.
-  const handCols = myHand.length === 0 ? 0 : Math.max(7, Math.min(myHand.length, 10));
-  const handTileW = Math.max(13, Math.min(28, Math.floor(handAvail / handCols) - 4));
-  const normalizedBoard = normalizeDominoBoard(game?.state?.board || [], game?.state?.left_end, game?.state?.right_end);
-  const board: { tile: Tile; flipped: boolean }[] = normalizedBoard.board;
-  const leftEnd: number | null = normalizedBoard.leftEnd;
-  const rightEnd: number | null = normalizedBoard.rightEnd;
-  const stockSize: number = (game?.state?.stock || []).length;
+  const isMyTurn = !!(game && me && game.current_turn === me.slot && game.status === "playing" && !isRoundTransition);
+  const myHand: Tile[] = (game?.state?.hands?.[String(me?.slot)] as Tile[]) || [];
+  const cols = Math.max(7, Math.min(myHand.length, 10));
+  const tileW = Math.max(13, Math.min(28, Math.floor(handW / cols) - 4));
+  const { board, leftEnd, rightEnd } = normalizeBoard(game?.state?.board, game?.state?.left_end, game?.state?.right_end);
+  const stockSize = (game?.state?.stock || []).length;
+  const ftr: "libre" | "under6" = game?.state?.first_tile_rule === "under6" || game?.first_tile_rule === "under6" ? "under6" : "libre";
 
-  const firstTileRule: "libre" | "under6" = game?.state?.first_tile_rule === "under6" || game?.first_tile_rule === "under6" ? "under6" : "libre";
-  // ═══ SERVER-AUTHORITATIVE playable tiles ═══
-  // The server (_domino_playable_tiles) now computes which tiles are playable
-  // and returns them in state.playable_tiles. We use that as the source of truth.
-  // Client-side tileMatches is kept as a fallback for old game states.
-  const serverPlayableTiles: number[] = game?.state?.playable_tiles || [];
   const tileMatches = useCallback((t: Tile) => {
-    // If server provides playable_tiles, use it
-    if (serverPlayableTiles.length > 0 || (game?.state && 'playable_tiles' in game.state)) {
-      const idx = myHand.indexOf(t);
-      return serverPlayableTiles.includes(idx);
-    }
-    // Fallback: client-side calculation
-    if (board.length === 0) {
+    if (!board.length) {
       const fd = game?.state?.first_move_double;
       if (typeof fd === "number") return t[0] === fd && t[1] === fd;
-      if (firstTileRule === "under6") return (t[0] + t[1]) < 6;
+      if (ftr === "under6") return (t[0] + t[1]) < 6;
       return true;
     }
     return t[0] === leftEnd || t[1] === leftEnd || t[0] === rightEnd || t[1] === rightEnd;
-  }, [board.length, game?.state?.first_move_double, leftEnd, rightEnd, firstTileRule, serverPlayableTiles, myHand]);
+  }, [board.length, game?.state?.first_move_double, leftEnd, rightEnd, ftr]);
+
   const canPlay = myHand.some(tileMatches);
-  const drawMode: "with" | "without" = game?.state?.draw_mode === "without" ? "without" : "with";
-
+  const drawMode = game?.state?.draw_mode === "without" ? "without" : "with" as const;
   const noMove = !!(isMyTurn && board.length > 0 && !canPlay && (drawMode === "without" || stockSize === 0));
-  const passSlot = game?.state?.last_pass_by;
-  const passCount = Number(game?.state?.passes) || 0;
-  const activePlayers = Array.isArray(parts) ? parts.filter((p: any) => !p.forfeited).length : 0;
-  const isBlocked = passCount >= activePlayers && activePlayers > 0;
-  const passPart = typeof passSlot === "number" ? parts.find((p: any) => p.slot === passSlot) : null;
-  const oppNoMove = !!(!isMyTurn && passSlot !== undefined && passSlot !== me?.slot);
 
-  const draw = async () => {
-    if (actionLockRef.current) return;
-    actionLockRef.current = true;
+  // ── Actions ────────────────────────────────────────────────────────────
+  const playSide = async (side: "left" | "right" | "auto", idx = selectedTile) => {
+    if (idx === null || busy) return;
+    const tile = myHand[idx];
+    if (!tile || !tileMatches(tile)) return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "draw" } } as any);
+      const move: any = side === "auto" ? { action: "play", tile } : { action: "play", tile, side };
+      const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
-      if (data) {
-        optTurnRef.current = data.turn_slot ?? null;
-        setGame((g: any) => g ? {
-          ...g,
-          state: data,
-          current_turn: data.turn_slot ?? g.current_turn,
-          turn_deadline: data.turn_deadline || undefined,
-          updated_at: new Date(Date.now() + 3000).toISOString(),
-        } : g);
-      }
+      playClack();
+      setSelectedTile(null);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const draw = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "draw" } } as any);
+      if (error) throw error;
       playDraw();
-    } catch (e: any) {  }
-    finally { setBusy(false); actionLockRef.current = false; }
+    } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
   };
 
   const pass = async (opts?: { silent?: boolean }) => {
-    if (actionLockRef.current) return;
-    actionLockRef.current = true;
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: { action: "pass" } } as any);
+      const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
-      if (data) {
-        optTurnRef.current = data.turn_slot ?? null;
-        setGame((g: any) => g ? {
-          ...g,
-          state: data,
-          current_turn: data.turn_slot ?? g.current_turn,
-          turn_deadline: data.turn_deadline || undefined,
-          updated_at: new Date(Date.now() + 3000).toISOString(),
-        } : g);
-      }
       playPass();
-    } catch (e: any) { if (!opts?.silent) {}}
-    finally { setBusy(false); actionLockRef.current = false; }
+    } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
+    finally { setBusy(false); }
   };
-
-  // Subscribe to no-move broadcasts from other players so everyone sees the
-  // red frame before the auto-pass completes.
-  useEffect(() => {
-    if (!id) return;
-    const ch = supabase.channel(`domino-nomove-${id}`)
-      .on("broadcast", { event: "no_move" }, (payload: any) => {
-        const { slot } = payload.payload || {};
-        if (typeof slot === "number") setRemoteNoMoveSlot(slot);
-      })
-      .on("broadcast", { event: "no_move_clear" }, () => {
-        setRemoteNoMoveSlot(null);
-      })
-      .subscribe();
-    noMoveChRef.current = ch;
-    return () => {
-      supabase.removeChannel(ch);
-      noMoveChRef.current = null;
-    };
-  }, [id]);
-
-  // Broadcast our no-move state to other players
-  useEffect(() => {
-    if (!noMoveChRef.current || me?.slot === undefined) return;
-    if (noMove) {
-      noMoveChRef.current.send({
-        type: "broadcast",
-        event: "no_move",
-        payload: { slot: me.slot },
-      });
-    } else {
-      noMoveChRef.current.send({
-        type: "broadcast",
-        event: "no_move_clear",
-        payload: { slot: me.slot },
-      });
-    }
-  }, [noMove, me?.slot]);
-
-  // Auto-pass when player has no valid move. Retries every 2s (not just once)
-  // so a transient RPC/network failure, or a stale client-side playability
-  // check, can't leave the turn permanently stuck — it keeps trying until the
-  // server confirms the pass (noMove flips back to false once state updates).
-  // Errors are silent here to avoid toast spam on repeated retries.
-  useEffect(() => {
-    if (!noMove) { passAttemptedRef.current = false; return; }
-    if (busy || passAttemptedRef.current) return;
-    const t = setTimeout(() => {
-      passAttemptedRef.current = true;
-      pass({ silent: true });
-    }, 800);
-    return () => clearTimeout(t);
-  }, [noMove, busy, id]);
 
   const forfeit = async () => {
     const stake = Number(game?.stake) || 0;
@@ -503,12 +269,35 @@ function DominoPage() {
     navigate({ to: "/jeux" });
   };
 
-  if (!game) return <GameLoader />;
+  // ── No-move broadcast ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!id) return;
+    const ch = supabase.channel(`domino-nomove-${id}`)
+      .on("broadcast", { event: "no_move" }, (p: any) => { if (typeof p.payload?.slot === "number") setRemoteNoMove(p.payload.slot); })
+      .on("broadcast", { event: "no_move_clear" }, () => setRemoteNoMove(null))
+      .subscribe();
+    noMoveCh.current = ch;
+    return () => { supabase.removeChannel(ch); noMoveCh.current = null; };
+  }, [id]);
 
-  if (game.status === "cancelled") {
-    return <GameStateMessage state="cancelled" gameLabel="Domino" slug="domino" />;
-  }
+  useEffect(() => {
+    if (!noMoveCh.current || me?.slot === undefined) return;
+    noMoveCh.current.send({ type: "broadcast", event: noMove ? "no_move" : "no_move_clear", payload: { slot: me.slot } });
+  }, [noMove, me?.slot]);
 
+  useEffect(() => {
+    if (!noMove || busy) return;
+    const t = setTimeout(() => pass({ silent: true }), 2000);
+    return () => clearTimeout(t);
+  }, [noMove, busy, id]);
+
+  const toggleSound = () => { const m = !soundOn; setSoundOn(!m); setSfxMuted(m); };
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  if (!game) return <div className="p-6 text-center text-muted-foreground">Chargement…</div>;
+  if (game.status === "cancelled") return <GameStateMessage state="cancelled" gameLabel="Domino" slug="domino" />;
+
+  // Waiting room
   if (game.status === "open") {
     return (
       <main className="max-w-3xl mx-auto px-3 py-3 space-y-3">
@@ -526,261 +315,101 @@ function DominoPage() {
           isParticipant={!!me}
           createdAt={game.created_at}
           onQuit={forfeit}
-          onToggleReady={async (ready) => {
-            const { error } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: ready } as any);
-            if (error) {}
+          onToggleReady={async (r) => {
+            const { error } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: r } as any);
+            if (error) toast.error(error.message);
           }}
         />
-
         {(isAdmin || (Number(game.stake) === 0 && !!me)) && parts.length < game.max_players && (
           <button
             onClick={async () => {
               const { error } = await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: "Bot" } as any);
-              if (error) {}
-              else null;
+              if (error) toast.error(error.message);
+              else toast.success("Bot ajouté");
             }}
             className="w-full px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-sm"
           >
             <Plus className="w-4 h-4" /> Ajouter un bot
           </button>
         )}
-
         <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
       </main>
     );
   }
 
-  // Drag state
-  const draggedTile = selectedTile !== null ? myHand[selectedTile] : null;
-  const canDropLeft = !!(isMyTurn && draggedTile && (board.length === 0 ? tileMatches(draggedTile) : (draggedTile[0] === leftEnd || draggedTile[1] === leftEnd)));
-  const canDropRight = !!(isMyTurn && draggedTile && (board.length === 0 ? tileMatches(draggedTile) : (draggedTile[0] === rightEnd || draggedTile[1] === rightEnd)));
-  const canDropAny = !!(isMyTurn && draggedTile && tileMatches(draggedTile));
-
-  const playSide = async (side: "left" | "right" | "auto", tileIndex = selectedTile) => {
-    if (tileIndex === null || actionLockRef.current) return;
-    const tile = myHand[tileIndex];
-    if (!tile || !tileMatches(tile)) return;
-    // Lock + clear selection synchronously so a second event fired in the
-    // same tick (e.g. the synthesized click after a touch drag-drop) can't
-    // slip through with the same stale tile.
-    actionLockRef.current = true;
-    setSelectedTile(null);
-    setBusy(true);
-    try {
-      const move: any = side === "auto" ? { action: "play", tile } : { action: "play", tile, side };
-      const { data, error } = await supabase.rpc("domino_play_and_bot" as any, { _game_id: id, _move: move } as any);
-      if (error) throw error;
-      // Use the RPC response to update game state IMMEDIATELY — don't wait
-      // for the realtime event (100-500ms delay). This prevents the user
-      // from re-selecting and re-submitting a tile that was already played.
-      if (data) {
-        // Track the optimistic turn so stale realtime events (from intermediate
-        // UPDATEs before the bot played) are skipped by the realtime guard.
-        optTurnRef.current = data.turn_slot ?? null;
-        setGame((g: any) => g ? {
-          ...g,
-          state: data,
-          current_turn: data.turn_slot ?? g.current_turn,
-          turn_deadline: data.turn_deadline || undefined,
-          updated_at: new Date(Date.now() + 3000).toISOString(),
-        } : g);
-      }
-      playClack();
-    } catch (e: any) {  }
-    finally { setBusy(false); actionLockRef.current = false; }
-  };
+  // Game state
+  const dragged = selectedTile !== null ? myHand[selectedTile] : null;
+  const cDL = !!(isMyTurn && dragged && (board.length === 0 ? tileMatches(dragged) : dragged[0] === leftEnd || dragged[1] === leftEnd));
+  const cDR = !!(isMyTurn && dragged && (board.length === 0 ? tileMatches(dragged) : dragged[0] === rightEnd || dragged[1] === rightEnd));
+  const cDA = !!(isMyTurn && dragged && tileMatches(dragged));
 
   return (
-    <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1 h-full overflow-hidden overscroll-none" style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
+    <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1 h-full overflow-hidden overscroll-none"
+      style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
-            <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
-        <div className="flex items-baseline gap-1 min-w-0">
-          <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
-          <span className="text-xs font-extrabold truncate">{Math.round(Number(game.pot) * (100 - (Number((game as any).commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar</span>
+
+      {/* Top bar */}
+      <div className="rounded-full bg-card px-2.5 py-1 border border-border shadow-sm flex items-center justify-between">
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Gain</span>
+          <span className="text-xs font-extrabold truncate">
+            {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
+          </span>
         </div>
-        {!me ? (
-          <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
-            Spectateur
-          </div>
-        ) : (
-          <div className="flex items-center gap-1">
-            {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
-              <button
-                onClick={async () => {
-                  const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "domino", _game_id: id } as any);
-                  if (error) {}
-                  else null;
-                }}
-                className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center gap-0.5"
-              >
-                <Pause className="w-2.5 h-2.5" /> Pause
-              </button>
-            )}
-            <button onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }} className="w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center active:scale-90 transition">
-              {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+        <div className="flex items-center gap-1">
+          {game.target_score > 0 && <span className="text-[10px] text-muted-foreground font-semibold">Objectif {game.target_score} pts</span>}
+          {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
+            <button onClick={toggleSound} className="p-1 rounded-full hover:bg-secondary" title="Sons">
+              {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
-            <button onClick={forfeit} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
-              <LogOut className="w-2.5 h-2.5" /> Quitter
-            </button>
-          </div>
-        )}
+          )}
+          <button onClick={forfeit} className="p-1 rounded-full hover:bg-destructive/10 text-destructive" title="Quitter">
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-
-
-      <PhoneVerifyBanner stake={Number(game.stake) || 0} phoneVerified={!!profile?.phone_verified} />
-      <div className="flex-1 min-h-0 flex flex-col">
-        <DominoTable
-          seats={parts.map((p: any) => ({
-            user_id: p.user_id,
-            display_name: p.display_name,
-            avatar_url: p.avatar_url || avatarMap[p.user_id] || undefined,
+      {/* Opponents */}
+      <div className="flex justify-center gap-4 py-1.5">
+        {parts.filter(p => !p.isMe && !p.forfeited).map(p => (
+          <PlayerHeader key={p.user_id} seat={{
+            user_id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url,
             slot: p.slot,
-            handCount: (game.state?.hands?.[String(p.slot)] as Tile[])?.length || 0,
-            isCurrent: game.current_turn === p.slot && game.status === "playing",
+            handCount: p.hand_count ?? (game?.state?.hands?.[String(p.slot)] as Tile[] | undefined)?.length ?? 0,
+            isCurrent: game.current_turn === p.slot,
             remaining: game.current_turn === p.slot ? remaining : undefined,
-            isMe: p.user_id === profile?.id,
-            forfeited: p.forfeited,
-            score: Number(game.scores?.[String(p.slot)] || 0),
+            score: Number(game.scores?.[p.user_id] || 0),
             skips: Number(game.turn_skips?.[p.user_id] || 0),
             maxSkips: Number(cfg.max_turn_skips) || 5,
-          }))}
-          maxPlayers={game.max_players}
-          meSlot={me?.slot ?? null}
-          board={isRoundTransition ? [] : board}
-          leftEnd={isRoundTransition ? null : leftEnd}
-          rightEnd={isRoundTransition ? null : rightEnd}
-          stockSize={stockSize}
-          targetScore={Number(game.target_score) || undefined}
-          seed={id}
-          statusMessage={(() => {
-            if (game.status !== "playing") return undefined;
-            const currentPart = parts.find((p: any) => p.slot === game.current_turn);
-            const currentName = currentPart ? (currentPart.user_id === profile?.id ? "Vous" : currentPart.display_name) : null;
-            if (isMyTurn) return canPlay ? "À vous de jouer" : (drawMode === "with" && stockSize > 0 ? "Piochez pour continuer" : `Tour de ${currentName}…`);
-            if (currentName) return `Tour de ${currentName}…`;
-            return undefined;
-          })()}
-          noMoveSlot={null}
-          canDropLeft={canDropLeft}
-          canDropRight={canDropRight}
-          canDropAny={canDropAny}
-          onDropAny={() => { if (canDropAny) playSide("auto"); }}
-          onDropLeft={() => { if (canDropLeft) playSide("left"); }}
-          onDropRight={() => { if (canDropRight) playSide("right"); }}
+          }} side="right" />
+        ))}
+      </div>
+
+      {/* Board — felt table */}
+      <div className="flex-1 min-h-[130px] rounded-2xl overflow-hidden relative"
+        style={{
+          background: "radial-gradient(ellipse at 50% 40%, #1e7a42 0%, #0f4a26 65%, #0a3518 100%)",
+          boxShadow: "inset 0 0 50px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.3)",
+          border: "3px solid #0a3518",
+        }}>
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" preserveAspectRatio="none">
+          <ellipse cx="50%" cy="50%" rx="38%" ry="40%" fill="none" stroke="white" strokeWidth="1" />
+          <ellipse cx="50%" cy="50%" rx="25%" ry="28%" fill="none" stroke="white" strokeWidth="0.5" />
+        </svg>
+        <DominoBoard
+          board={board}
+          leftEnd={leftEnd}
+          rightEnd={rightEnd}
+          canDropLeft={cDL}
+          canDropRight={cDR}
+          canDropAny={cDA}
+          onDropLeft={() => cDL && playSide("left")}
+          onDropRight={() => cDR && playSide("right")}
+          onDropAny={() => cDA && playSide("auto")}
         />
       </div>
 
-      {showEndScreen && game.status === "finished" && (() => {
-        const winnerSlot = game.state?.winner_slot;
-        const winnerPart = typeof winnerSlot === "number" ? parts.find((p: any) => p.slot === winnerSlot) : null;
-        const effectiveWinnerId = game.winner_id ?? winnerPart?.user_id ?? null;
-        return (
-          <GameEndScreen
-            slug="domino"
-            meUserId={profile?.id}
-            winnerId={effectiveWinnerId}
-            winnerSlot={typeof winnerSlot === "number" ? winnerSlot : null}
-            participants={parts}
-            stake={Number(game.stake)}
-            pot={Number(game.pot)}
-            commissionPct={Number(game.commission_pct) || 10}
-            onReplay={async () => {
-              const hadBots = parts.some((p: any) => p.is_bot);
-              const newId = await (async () => {
-                if (hadBots) {
-                  // Recreate a solo bot game: create + add bots + set ready (auto-start)
-                  const { data, error } = await supabase.rpc("domino_create" as any, {
-                    _stake: Number(game.stake) || 0,
-                    _max: game.max_players,
-                    _private: true,
-                    _mode: game.state?.target_score ? "points" : "classic",
-                    _commission: Number(game.commission_pct) || 10,
-                    _target_score: Number(game.target_score) || 0,
-                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
-                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
-                  } as any);
-                  if (error) { return null; }
-                  const id = data as string;
-                  const botsNeeded = Math.max(0, Number(game.max_players) - 1);
-                  for (let i = 0; i < botsNeeded; i++) {
-                    await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-                  }
-                  await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
-                  return id;
-                } else {
-                  // Recreate a multiplayer game
-                  const { data, error } = await supabase.rpc("domino_create" as any, {
-                    _stake: Number(game.stake) || 0,
-                    _max: game.max_players,
-                    _private: !!game.is_private,
-                    _mode: game.state?.target_score ? "points" : "classic",
-                    _commission: Number(game.commission_pct) || 10,
-                    _target_score: Number(game.target_score) || 0,
-                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
-                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
-                  } as any);
-                  if (error) { return null; }
-                  return data as string;
-                }
-              })();
-              if (newId) { refreshProfile(); navigate({ to: "/jeux/domino/$id", params: { id: newId } }); }
-            }}
-            extra={Number(game.target_score) > 0 && game.scores ? (
-              <div className="text-left rounded-xl bg-secondary/50 p-3 space-y-1.5">
-                <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold">Scores (objectif {game.target_score})</div>
-                {parts.map((p: any) => (
-                  <div key={p.user_id} className="flex justify-between text-sm">
-                    <span className="truncate">{p.display_name}</span>
-                    <span className="font-mono font-bold">{Number(game.scores?.[String(p.slot)] || 0)} pts</span>
-                  </div>
-                ))}
-              </div>
-            ) : undefined}
-            countdownSeconds={Number(game.target_score) > 0 ? 10 : undefined}
-            onCountdownEnd={async () => {
-              const hadBots = parts.some((p: any) => p.is_bot);
-              const newId = await (async () => {
-                if (hadBots) {
-                  const { data, error } = await supabase.rpc("domino_create" as any, {
-                    _stake: Number(game.stake) || 0,
-                    _max: game.max_players,
-                    _private: true,
-                    _mode: "points",
-                    _commission: Number(game.commission_pct) || 10,
-                    _target_score: Number(game.target_score) || 0,
-                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
-                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
-                  } as any);
-                  if (error) { return null; }
-                  const id = data as string;
-                  const botsNeeded = Math.max(0, Number(game.max_players) - 1);
-                  for (let i = 0; i < botsNeeded; i++) {
-                    await supabase.rpc("domino_add_bot" as any, { _game_id: id, _bot_name: `Bot ${i + 1}` } as any);
-                  }
-                  await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
-                  return id;
-                } else {
-                  const { data, error } = await supabase.rpc("domino_create" as any, {
-                    _stake: Number(game.stake) || 0,
-                    _max: game.max_players,
-                    _private: !!game.is_private,
-                    _mode: "points",
-                    _commission: Number(game.commission_pct) || 10,
-                    _target_score: Number(game.target_score) || 0,
-                    _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
-                    _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
-                  } as any);
-                  if (error) { return null; }
-                  return data as string;
-                }
-              })();
-              if (newId) { refreshProfile(); navigate({ to: "/jeux/domino/$id", params: { id: newId } }); }
-            }}
-          />
-        );
-      })()}
-
+      {/* Round break */}
       {game.status === "playing" && isRoundTransition && game.state?.last_round && game.state?.break_until && (
         <DominoRoundBreak
           lastRound={game.state.last_round}
@@ -792,62 +421,85 @@ function DominoPage() {
         />
       )}
 
-      {/* Hand + actions */}
+      {/* End screen */}
+      {game.status === "finished" && (() => {
+        const ws = game.state?.winner_slot;
+        const wp = typeof ws === "number" ? parts.find(p => p.slot === ws) : null;
+        const wid = game.winner_id ?? wp?.user_id ?? null;
+        return (
+          <GameEndScreen
+            slug="domino"
+            meUserId={profile?.id}
+            winnerId={wid}
+            participants={parts}
+            stake={Number(game.stake)}
+            pot={Number(game.pot)}
+            commissionPct={Number(game.commission_pct) || 10}
+            onReplay={async () => {
+              const { data, error } = await supabase.rpc("domino_create" as any, {
+                _stake: Number(game.stake) || 0,
+                _max: game.max_players,
+                _private: !!game.is_private,
+                _mode: game.target_score > 0 ? "points" : "classic",
+                _commission: Number(game.commission_pct) || 10,
+                _target_score: Number(game.target_score) || 0,
+                _draw_mode: game.state?.draw_mode === "without" ? "without" : "with",
+                _first_tile_rule: game.first_tile_rule === "under6" ? "under6" : "libre",
+              } as any);
+              if (error) { toast.error(error.message); return; }
+              navigate({ to: "/jeux/domino/$id", params: { id: data as string } });
+            }}
+            extra={Number(game.target_score) > 0 && game.scores ? (
+              <div className="text-left rounded-xl bg-secondary/50 p-3 space-y-1.5">
+                <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold">
+                  Scores (objectif {game.target_score})
+                </div>
+                {parts.map(p => (
+                  <div key={p.user_id} className="flex justify-between text-sm">
+                    <span className="truncate">{p.display_name}</span>
+                    <span className="font-mono font-bold">{Number(game.scores?.[p.user_id] || 0)} pts</span>
+                  </div>
+                ))}
+              </div>
+            ) : undefined}
+          />
+        );
+      })()}
+
+      {/* Hand + controls */}
       {me && game.status === "playing" && !isRoundTransition && (
-        <div className="space-y-1.5 shrink-0 relative" style={{ minHeight: 70 }}>
-          <div className="flex items-end gap-2 pb-1 px-0">
-            {/* Your profile (avatar + name + score + timer) anchored to the bottom-left of your hand */}
-            <div className="shrink-0">
-              <PlayerHeader
-                seat={{
-                  user_id: me.user_id,
-                  display_name: me.display_name,
-                  avatar_url: me.avatar_url || profile?.avatar_url || undefined,
-                  slot: me.slot,
-                  handCount: myHand.length,
-                  isCurrent: isMyTurn,
-                  remaining: isMyTurn ? remaining : undefined,
-                  isMe: true,
-                  score: Number(game.scores?.[String(me.slot)] || 0),
-                  skips: Number(game.turn_skips?.[me.user_id] || 0),
-                  maxSkips: Number(cfg.max_turn_skips) || 5,
-                }}
-                side="left"
-                size="lg"
-              />
+        <div className={`space-y-1.5 shrink-0 relative ${noMove ? "rounded-xl border-2 border-red-500 p-1.5 shadow-[0_0_16px_rgba(239,68,68,0.5)] animate-pulse" : ""}`}>
+          {noMove && (
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold shadow-lg flex items-center gap-1 whitespace-nowrap">
+              <Ban className="w-3 h-3" /> PAS DE COUP
             </div>
-            <div
-              className="grid flex-1 gap-1"
-              style={{ gridTemplateColumns: `repeat(7, minmax(0, 1fr))` }}
-            >
+          )}
+          <div className="flex items-end gap-2 pb-1">
+            <div className="shrink-0">
+              <PlayerHeader seat={{
+                user_id: me.user_id, display_name: me.display_name, avatar_url: me.avatar_url,
+                slot: me.slot, handCount: myHand.length, isCurrent: isMyTurn, remaining: isMyTurn ? remaining : undefined,
+                isMe: true,
+                score: Number(game.scores?.[me.user_id] || 0),
+                skips: Number(game.turn_skips?.[me.user_id] || 0),
+                maxSkips: Number(cfg.max_turn_skips) || 5,
+              }} side="left" size="lg" />
+            </div>
+            <div className="grid flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
               {myHand.map((t, i) => {
-                const tilePlayable = tileMatches(t);
-                const playable = tilePlayable && isMyTurn;
-                const canL = board.length > 0 && (t[0] === leftEnd || t[1] === leftEnd);
-                const canR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
-                const needsChoice = tilePlayable && canL && canR && leftEnd !== rightEnd;
+                const playable = isMyTurn && tileMatches(t);
+                const cL = board.length > 0 && (t[0] === leftEnd || t[1] === leftEnd);
+                const cR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
+                const needsChoice = playable && cL && cR;
                 return (
-                  <div key={`${t[0]}-${t[1]}`} className={`flex justify-center transition-colors duration-200 ease-out ${tilePlayable && isMyTurn
-                    ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.75)] animate-pulse"
-                    : tilePlayable
-                    ? "relative p-0.5 rounded-lg bg-amber-400/10 border-2 border-amber-400/40 opacity-90"
-                    : "p-0.5 border-2 border-transparent opacity-70"}`}>
-                    {playable && (
-                      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />
-                    )}
-                    <DominoTile t={t} w={handTileW} vertical
-                      onClick={tilePlayable ? () => {
-                        if (!isMyTurn || actionLockRef.current) return;
-                        if (needsChoice) {
-                          if (selectedTile === i) { setSelectedTile(null); }
-                          else { setSelectedTile(i); }
-                        } else {
-                          playSide("auto", i);
-                        }
-                      } : undefined}
-                      draggable={tilePlayable && isMyTurn}
+                  <div key={i} className={`flex justify-center ${playable
+                    ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
+                    : "p-0.5 border-2 border-transparent opacity-65"}`}>
+                    {playable && <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />}
+                    <DominoTile t={t} w={tileW} vertical
+                      onClick={playable ? () => { if (needsChoice) setSelectedTile(selectedTile === i ? null : i); else playSide("auto", i); } : undefined}
+                      draggable={playable}
                       onDragStart={() => setSelectedTile(i)}
-                      onDragEnd={() => { setTimeout(() => setSelectedTile(null), 300); }}
                       selected={selectedTile === i} />
                   </div>
                 );
@@ -855,26 +507,20 @@ function DominoPage() {
             </div>
           </div>
           {isMyTurn && !canPlay && drawMode === "with" && stockSize > 0 && (
-            <div className="flex gap-2">
-              <button disabled={busy} onClick={draw} className="flex-1 py-2 rounded-full bg-secondary font-bold text-sm">Piocher ({stockSize})</button>
-            </div>
+            <button disabled={busy} onClick={draw}
+              className="w-full py-2 rounded-full bg-secondary font-bold text-sm">
+              Piocher ({stockSize} tuile{stockSize > 1 ? "s" : ""})
+            </button>
           )}
         </div>
       )}
+
       <GamePauseControl
-        slug="domino"
-        gameId={id}
-        game={game}
-        isPlayer={isPlayer}
-        myUserId={profile?.id ?? null}
+        slug="domino" gameId={id} game={game}
+        isPlayer={isPlayer} myUserId={profile?.id ?? null}
         simplePause={parts.some((p: any) => p.is_bot)}
       />
-
-      {game.status !== "open" && (
-        <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
-      )}
+      <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
     </main>
   );
 }
-
-
