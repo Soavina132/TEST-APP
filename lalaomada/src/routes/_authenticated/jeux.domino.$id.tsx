@@ -591,6 +591,7 @@ function DominoPage() {
             if (game.status !== "playing") return undefined;
             const currentPart = parts.find((p: any) => p.slot === game.current_turn);
             const currentName = currentPart ? (currentPart.user_id === profile?.id ? "Vous" : currentPart.display_name) : null;
+            if (isMyTurn) return canPlay ? "À vous de jouer" : (drawMode === "with" && stockSize > 0 ? "Piochez pour continuer" : `Tour de ${currentName}…`);
             if (currentName) return `Tour de ${currentName}…`;
             return undefined;
           })()}
