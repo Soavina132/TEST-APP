@@ -167,9 +167,80 @@ export function PlayerHeader({ seat, side, size = "sm" }: {
   );
 }
 
-// ── Board: snake/boustrophedon layout ───────────────────────────────────────
-// Tiles flow left-to-right on even rows, right-to-left on odd rows.
-// The chain wraps automatically to fit the container — no horizontal scroll.
+// ── Board: authentic snake path with real corner turns ─────────────────────
+// Walks the chain like a physical domino line: goes right, and when it would
+// run off the right/left edge it turns 90° and continues down for a short
+// connector run, then resumes horizontal in the opposite direction — forming
+// the classic winding "S" path seen in real domino apps. Doubles are drawn
+// perpendicular to the direction of travel (standard domino convention).
+
+type Dir = "R" | "L" | "D" | "U";
+type Placed = { tile: Tile; x: number; y: number; w: number; h: number; vertical: boolean };
+
+const VERTICAL_RUN = 3; // tiles used to bridge between horizontal rows
+
+function layoutSnake(
+  board: { tile: Tile }[],
+  containerW: number,
+  BW: number,
+): { placed: Placed[]; totalH: number; startDir: Dir; endDir: Dir } {
+  const placed: Placed[] = [];
+  let dir: Dir = "R" as Dir;
+  let x = 0, y = 0;
+  let vRunCount = 0;
+  const margin = BW * 0.5;
+
+  for (let i = 0; i < board.length; i++) {
+    const tile = board[i].tile;
+    const isDouble = tile[0] === tile[1];
+    const remaining = board.length - i;
+
+    let vertical = dir === "R" || dir === "L" ? isDouble : !isDouble;
+    let w = vertical ? BW : BW * 2;
+
+    // Decide if we need to turn before placing this tile (only when heading horizontally)
+    if (dir === "R" && x + w > containerW - margin && remaining > 1) {
+      dir = "D";
+      vRunCount = 0;
+    } else if (dir === "L" && x - w < margin && remaining > 1) {
+      dir = "D";
+      vRunCount = 0;
+    }
+
+    vertical = dir === "R" || dir === "L" ? isDouble : !isDouble;
+    w = vertical ? BW : BW * 2;
+    const h = vertical ? BW * 2 : BW;
+
+    let px = x, py = y;
+    if (dir === "L") px = x - w;
+    if (dir === "U") py = y - h;
+
+    placed.push({ tile, x: px, y: py, w, h, vertical });
+
+    if (dir === "R") x += w;
+    else if (dir === "L") x -= w;
+    else if (dir === "D") y += h;
+    else if (dir === "U") y -= h;
+
+    if (dir === "D" || dir === "U") {
+      vRunCount++;
+      if (vRunCount >= VERTICAL_RUN && remaining > 1) {
+        // resume horizontal, heading toward whichever side has more room
+        dir = x < containerW / 2 ? "R" : "L";
+        vRunCount = 0;
+      }
+    }
+  }
+
+  const totalH = placed.length
+    ? Math.max(...placed.map(p => p.y + p.h)) - Math.min(0, ...placed.map(p => p.y))
+    : 0;
+  const minY = placed.length ? Math.min(0, ...placed.map(p => p.y)) : 0;
+  if (minY < 0) for (const p of placed) p.y -= minY;
+
+  return { placed, totalH, startDir: "R", endDir: dir };
+}
+
 export function DominoBoard({
   board, canDropLeft, canDropRight, canDropAny,
   onDropLeft, onDropRight, onDropAny,
@@ -179,26 +250,23 @@ export function DominoBoard({
   canDropLeft: boolean; canDropRight: boolean; canDropAny?: boolean;
   onDropLeft?: () => void; onDropRight?: () => void; onDropAny?: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [containerW, setContainerW] = useState(400);
-  const BW = 20; // tile half-width in px
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState({ w: 400, h: 200 });
+  const dOver = (e: React.DragEvent) => e.preventDefault();
 
-  // Measure container width
   useLayoutEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
-    const measure = () => setContainerW(el.clientWidth - 8); // padding margin
+    if (!outerRef.current) return;
+    const el = outerRef.current;
+    const measure = () => setSize({ w: Math.max(50, el.clientWidth - 16), h: Math.max(50, el.clientHeight - 8) });
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  const dOver = (e: React.DragEvent) => e.preventDefault();
-
   if (board.length === 0) {
     return (
-      <div ref={containerRef} className="flex items-center justify-center w-full h-full">
+      <div ref={outerRef} className="flex items-center justify-center w-full h-full">
         <div onDragOver={dOver}
           onDrop={() => (onDropAny ?? onDropRight)?.()}
           onClick={() => { if (canDropAny || canDropRight) (onDropAny ?? onDropRight)?.(); }}
@@ -212,70 +280,61 @@ export function DominoBoard({
     );
   }
 
-  // Calculate tile widths and split into rows (boustrophedon)
-  const tileW = (t: Tile) => (t[0] === t[1] ? BW : BW * 2); // doubles are square
-  const gap = 1; // overlap margin
-  const dropZoneW = canDropLeft || canDropRight ? 32 : 0; // space for drop buttons
-
-  type Row = { tiles: { tile: Tile; flipped: boolean }[]; rowWidth: number };
-  const rows: Row[] = [];
-  let currentRow: { tile: Tile; flipped: boolean }[] = [];
-  let currentRowW = dropZoneW; // start with drop zone allowance
-
-  for (const item of board) {
-    const w = tileW(item.tile) - gap;
-    if (currentRowW + w > containerW && currentRow.length > 0) {
-      // flush current row
-      rows.push({ tiles: currentRow, rowWidth: currentRowW });
-      currentRow = [];
-      currentRowW = dropZoneW;
-    }
-    currentRow.push(item);
-    currentRowW += w;
+  // Pick the largest tile unit (BW) that keeps the whole chain within the
+  // available height; shrink progressively for long chains.
+  const candidates = [22, 20, 18, 16, 14, 12, 10];
+  let BW = candidates[candidates.length - 1];
+  let layout = layoutSnake(board, size.w, BW);
+  for (const c of candidates) {
+    const l = layoutSnake(board, size.w, c);
+    if (l.totalH <= size.h) { BW = c; layout = l; break; }
+    BW = c; layout = l;
   }
-  if (currentRow.length) rows.push({ tiles: currentRow, rowWidth: currentRowW });
+
+  const { placed, totalH, endDir } = layout;
+  const first = placed[0];
+  const last = placed[placed.length - 1];
+
+  // Open-end button positions
+  const leftBtn = first ? { x: first.x - BW * 0.9, y: first.y + first.h / 2 - BW * 0.45 } : null;
+  let rightBtn: { x: number; y: number; rotate: number } | null = null;
+  if (last) {
+    if (endDir === "R") rightBtn = { x: last.x + last.w + BW * 0.1, y: last.y + last.h / 2 - BW * 0.45, rotate: 0 };
+    else if (endDir === "L") rightBtn = { x: last.x - BW * 0.9, y: last.y + last.h / 2 - BW * 0.45, rotate: 180 };
+    else if (endDir === "D") rightBtn = { x: last.x + last.w / 2 - BW * 0.45, y: last.y + last.h + BW * 0.1, rotate: 90 };
+    else rightBtn = { x: last.x + last.w / 2 - BW * 0.45, y: last.y - BW * 0.9, rotate: -90 };
+  }
 
   return (
-    <div ref={containerRef} className="flex items-center w-full h-full overflow-hidden">
-      <div className="flex flex-col items-center justify-center w-full h-full gap-0.5 py-1">
-        {rows.map((row, ri) => {
-          const isReversed = ri % 2 === 1;
-          const tiles = isReversed ? [...row.tiles].reverse() : row.tiles;
-
-          return (
-            <div key={ri} className="flex items-center gap-0 justify-center w-full">
-              {/* Drop-left button on first row */}
-              {ri === 0 && canDropLeft && (
-                <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
-                  onClick={() => onDropLeft?.()}
-                  className="shrink-0 mx-0.5 w-6 h-9 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
-                    animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold">←</button>
-              )}
-              {/* Drop-any on first row when board is empty — handled above, but keep for safety */}
-              {ri === 0 && canDropAny && !canDropLeft && !canDropRight && board.length === 0 && (
-                <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropAny?.(); }}
-                  onClick={() => onDropAny?.()}
-                  className="shrink-0 mx-1 px-3 h-9 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
-                    animate-pulse text-amber-200 text-xs font-bold">Déposer</button>
-              )}
-              {tiles.map(({ tile }, i) => {
-                const isDouble = tile[0] === tile[1];
-                return (
-                  <div key={i} className="shrink-0" style={{ marginRight: -1 }}>
-                    <DominoTile t={tile} w={BW} vertical={isDouble} />
-                  </div>
-                );
-              })}
-              {/* Drop-right button on last row */}
-              {ri === rows.length - 1 && canDropRight && (
-                <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
-                  onClick={() => onDropRight?.()}
-                  className="shrink-0 mx-0.5 w-6 h-9 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
-                    animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold">→</button>
-              )}
+    <div ref={outerRef} className="w-full h-full overflow-y-auto overflow-x-hidden flex items-center justify-center"
+      style={{ scrollbarWidth: "thin" }}>
+      <div className="relative" style={{ width: size.w, height: Math.max(totalH, size.h) }}>
+        <div className="absolute" style={{
+          left: "50%", top: totalH <= size.h ? "50%" : 0,
+          transform: totalH <= size.h ? `translate(-50%, -50%)` : "translateX(-50%)",
+          width: size.w, height: totalH,
+        }}>
+          {placed.map((p, i) => (
+            <div key={i} className="absolute" style={{ left: p.x, top: p.y }}>
+              <DominoTile t={p.tile} w={BW} vertical={p.vertical} />
             </div>
-          );
-        })}
+          ))}
+          {canDropLeft && leftBtn && (
+            <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
+              onClick={() => onDropLeft?.()}
+              className="absolute rounded-lg bg-amber-400/25 ring-2 ring-amber-400
+                animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold"
+              style={{ left: leftBtn.x, top: leftBtn.y, width: BW * 0.8, height: BW * 0.9 }}>←</button>
+          )}
+          {canDropRight && rightBtn && (
+            <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
+              onClick={() => onDropRight?.()}
+              className="absolute rounded-lg bg-amber-400/25 ring-2 ring-amber-400
+                animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold"
+              style={{ left: rightBtn.x, top: rightBtn.y, width: BW * 0.8, height: BW * 0.9,
+                transform: `rotate(${rightBtn.rotate}deg)` }}>→</button>
+          )}
+        </div>
       </div>
     </div>
   );
