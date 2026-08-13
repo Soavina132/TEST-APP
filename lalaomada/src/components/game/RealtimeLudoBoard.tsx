@@ -264,6 +264,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [rollingFace, setRollingFace] = useState<number | null>(null);
   const [displayedPawns, setDisplayedPawns] = useState<GameState["pawns"]>(state.pawns);
   const [animating, setAnimating] = useState(false);
+  // Ref to track latest displayedPawns for animation diff computation
+  // This avoids stale closures in the queued animation promise
+  const displayedPawnsRef = useRef(state.pawns);
+  useEffect(() => { displayedPawnsRef.current = displayedPawns; }, [displayedPawns]);
   // Safety timeout: if animating gets stuck true (race condition), reset after 5s
   useEffect(() => {
     if (!animating) return;
@@ -336,46 +340,73 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
 
   // Animate pawn movement step-by-step when state.pawns changes
+  // Key fix: compute diffs AT ANIMATION TIME (inside the queued promise),
+  // not at effect fire time. This prevents stale diffs from re-animating
+  // already-completed moves when multiple state updates arrive in rafale
+  // (optimistic update + realtime event + bot cron).
+  const latestStatePawnsRef = useRef(state.pawns);
+  latestStatePawnsRef.current = state.pawns;
   useEffect(() => {
     const target = state.pawns || {};
+    // Quick check: if displayedPawns already matches target, skip entirely
     const current = displayedPawns || {};
-    // Find diffs
-    const moves: Array<{ slot: string; idx: number; from: { s: string; k: number }; to: { s: string; k: number } }> = [];
-    const captures: Array<{ slot: string; idx: number }> = [];
+    let hasDiff = false;
     for (const slot of Object.keys(target)) {
       const tArr = target[slot] || [];
       const cArr = current[slot] || [];
-      tArr.forEach((tp, i) => {
+      for (let i = 0; i < tArr.length; i++) {
+        const tp = tArr[i];
         const cp = cArr[i];
-        if (!cp) return;
-        if (cp.s === tp.s && cp.k === tp.k) return;
-        // Capture: target is yard from track
-        if (tp.s === "yard" && cp.s === "track") {
-          captures.push({ slot, idx: i });
-        } else {
-          moves.push({ slot, idx: i, from: { s: cp.s, k: cp.k }, to: { s: tp.s, k: tp.k } });
-        }
-      });
+        if (!cp || cp.s !== tp.s || cp.k !== tp.k) { hasDiff = true; break; }
+      }
+      if (hasDiff) break;
     }
-    if (moves.length === 0 && captures.length === 0) {
-      // Sync silently (e.g. initial load, turn changes only)
+    if (!hasDiff) {
       setDisplayedPawns(target);
       return;
     }
-    // Animate sequentially
+    // Queue animation — compute the actual diff INSIDE the promise
+    // so it uses the latest displayedPawns, not the stale one from effect fire time
     animQueueRef.current = animQueueRef.current.then(async () => {
       setAnimating(true);
+      // Re-read the LATEST target (may have changed since effect fired)
+      const latestTarget = latestStatePawnsRef.current || {};
+      // Re-read current displayedPawns from state (not stale closure)
+      let currentDisplayed: typeof displayedPawns = displayedPawns;
+      // Use a functional approach to get the latest displayedPawns
+      // We'll compute diffs by reading a ref that tracks displayedPawns
+      const currentPawns = displayedPawnsRef.current || {};
+
+      const moves: Array<{ slot: string; idx: number; from: { s: string; k: number }; to: { s: string; k: number } }> = [];
+      const captures: Array<{ slot: string; idx: number }> = [];
+      for (const slot of Object.keys(latestTarget)) {
+        const tArr = latestTarget[slot] || [];
+        const cArr = currentPawns[slot] || [];
+        tArr.forEach((tp, i) => {
+          const cp = cArr[i];
+          if (!cp) return;
+          if (cp.s === tp.s && cp.k === tp.k) return;
+          if (tp.s === "yard" && cp.s === "track") {
+            captures.push({ slot, idx: i });
+          } else {
+            moves.push({ slot, idx: i, from: { s: cp.s, k: cp.k }, to: { s: tp.s, k: tp.k } });
+          }
+        });
+      }
+      if (moves.length === 0 && captures.length === 0) {
+        setDisplayedPawns(latestTarget);
+        setAnimating(false);
+        return;
+      }
       for (const m of moves) {
         const fromK = m.from.s === "yard" ? -1 : m.from.k;
         const toK = m.to.s === "yard" ? -1 : m.to.k;
         if (m.from.s === "yard" && m.to.s === "track") {
-          // Pop out to k=0 in one step
           await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k: 1 }, 200);
           sfx.pawnMove();
           continue;
         }
         if (m.to.s === "finished") {
-          // Walk through home stretch then mark finished
           for (let k = fromK + 1; k <= 56; k++) {
             await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
             sfx.pawnStep();
@@ -384,19 +415,16 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           sfx.home();
           continue;
         }
-        // Track → track: glide quickly cell by cell
         for (let k = fromK + 1; k <= toK; k++) {
           await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
           sfx.pawnStep();
         }
       }
-      // Then apply captures
       for (const c of captures) {
         sfx.capture();
         await stepAnim(setDisplayedPawns, c.slot, c.idx, { s: "yard", k: -1 }, 200);
       }
-      // Final sync
-      setDisplayedPawns(target);
+      setDisplayedPawns(latestTarget);
       setAnimating(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,26 +500,27 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     return () => clearTimeout(t);
   }, [remaining, status, gameId, state.turn_slot, state.turn_started_at]);
 
+  // Dice roll — ref guard prevents double-clicks without using the disabled
+  // attribute (which blocks click events on some mobile browsers).
+  const rollLockRef = useRef(false);
   const roll = async () => {
-    if (!canRoll) {
-      console.warn('[ludo] roll ignored:', { canRoll, isMyTurn, must_move: state.must_move, busy, isSpectator, status, turn_slot: state.turn_slot });
-      return;
-    }
+    // Ref guard — instant, no state lag, works on all browsers
+    if (rollLockRef.current) return;
+    // State guard — check if we can roll
+    if (isSpectator || status !== "playing" || state.must_move) return;
+    // Lock immediately
+    rollLockRef.current = true;
     setBusy(true);
-    sfx.diceRoll();
-    // Optimistic UI: immediately set must_move=true so the UI feels instant
-    if (onStateUpdate) {
-      onStateUpdate({ ...state, must_move: true, dice: null, last_event: 'rolling' });
-    }
     // Visual roll animation — keep tumbling until RPC responds
     const anim = setInterval(() => {
       setRollingFace(1 + Math.floor(Math.random() * 6));
     }, 80);
-    // Safety timeout: if RPC takes > 5s, force-clear the animation
+    // Safety timeout: if RPC takes > 5s, force-clear everything
     const safety = setTimeout(() => {
       clearInterval(anim);
       setRollingFace(null);
       setBusy(false);
+      rollLockRef.current = false;
     }, 5000);
     try {
       const { data: rollData, error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
@@ -504,11 +533,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         };
         toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
       }
+    } catch (e) {
+      // Network error — don't leave the dice stuck
+      toast.error("Erreur réseau, réessayez", { duration: 2000 });
     } finally {
       clearTimeout(safety);
       clearInterval(anim);
       // Short delay so the player sees the final face before clearing
-      setTimeout(() => { setRollingFace(null); setBusy(false); sfx.diceLand(); }, 300);
+      setTimeout(() => {
+        setRollingFace(null);
+        setBusy(false);
+        rollLockRef.current = false;
+      }, 300);
     }
   };
 
@@ -1233,11 +1269,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         })()}
 
         <div className="relative" style={{ perspective: '200px' }}>
-          <button onClick={roll}
-            disabled={!canRoll}
-            className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
+          <button
+            onPointerDown={(e) => { e.preventDefault(); roll(); }}
+            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+            className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition select-none ${
               displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
-            } ${canRoll ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
+            } ${canRoll ? "hover:scale-110 active:scale-95 cursor-pointer" : "opacity-60 cursor-not-allowed"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
             <DiceFace value={rollingFace ?? displayDice ?? 0} />
           </button>
           {rollingFace !== null && (
