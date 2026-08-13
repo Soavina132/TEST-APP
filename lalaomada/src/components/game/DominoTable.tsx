@@ -169,10 +169,12 @@ export function PlayerHeader({ seat, side, size = "sm" }: {
 
 // ── Snake layout: 7 horizontal → 4 down → zigzag → repeat ──
 // ── Snake layout constants ──────────────────────────────────────────────────
-const SNAKE_W = 22;   // tile short side (px)
-const SNAKE_L = 44;   // tile long side = 2 * SNAKE_W
-const MAX_H_TILES = 7; // max horizontal tiles per row
-const MAX_V_TILES = 4; // max vertical tiles per column
+const SNAKE_W = 22;     // tile short side (px)
+const SNAKE_L = 44;     // tile long side = 2 * SNAKE_W
+const MAX_H_TILES = 7;  // max horizontal tiles per row
+const MAX_V_TILES = 4;  // max vertical tiles per column
+const SAFETY_MARGIN = 76; // ≈ 2cm à 96 DPI — espace de sécurité entre le bord de la table et les dominos
+const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse de la rangée/colonne
 
 interface BoardPos {
   x: number;
@@ -193,9 +195,9 @@ function computeSnakeLayout(
   board: { tile: Tile; flipped: boolean }[]
 ): SnakeLayout {
   const positions: BoardPos[] = [];
-  let x = 0, y = 0;
+  let chainX = 0, chainY = 0;  // position le long de la chaîne
   let idx = 0;
-  let hDir: 1 | -1 = 1; // right first, then alternate (zigzag)
+  let hDir: 1 | -1 = 1; // droite d'abord, puis zigzag
 
   let minX = 0, maxX = 0, minY = 0, maxY = 0;
 
@@ -207,63 +209,97 @@ function computeSnakeLayout(
   };
 
   while (idx < board.length) {
-    // ── Horizontal segment (max 7 tiles) ──
+    // ── Segment horizontal (max 7 tuiles) ──
     const hCount = Math.min(MAX_H_TILES, board.length - idx);
     for (let i = 0; i < hCount; i++) {
       const isDouble = board[idx].tile[0] === board[idx].tile[1];
-      positions.push({ x, y, dir: "h" as const, isDouble });
-      track(x, y, SNAKE_L, SNAKE_W);
-      x += SNAKE_L * hDir;
+      let renderX: number, renderY: number, advance: number;
+
+      if (isDouble) {
+        // Double perpendiculaire: tuile verticale dans rangée horizontale
+        renderX = chainX;
+        renderY = chainY - DOUBLE_EXT;  // centré verticalement sur la rangée
+        advance = SNAKE_W;               // la chaîne avance du côté court
+        track(renderX, renderY, SNAKE_W, SNAKE_L);
+      } else {
+        renderX = chainX;
+        renderY = chainY;
+        advance = SNAKE_L;
+        track(renderX, renderY, SNAKE_L, SNAKE_W);
+      }
+
+      positions.push({ x: renderX, y: renderY, dir: "h" as const, isDouble });
+      chainX += advance * hDir;
       idx++;
     }
 
     if (idx >= board.length) break;
 
-    // ── Corner H → V: center vertical column on the chain end ──
-    if (hDir > 0) {
-      // going right: x is past the last tile's right edge → center V tile on it
-      x = x - SNAKE_W / 2;
-    } else {
-      // going left: x is at the last tile's left edge → center V tile on it
-      x = x - SNAKE_W / 2;
-    }
-    y += SNAKE_W; // move below the horizontal row
+    // ── Coin H → V: centrer la colonne verticale sur la fin de la chaîne ──
+    chainX = chainX - SNAKE_W / 2;
+    chainY += SNAKE_W; // passer sous la rangée horizontale
 
-    // ── Vertical segment (4 tiles going down) ──
+    // ── Segment vertical (4 tuiles vers le bas) ──
     const vCount = Math.min(MAX_V_TILES, board.length - idx);
     for (let i = 0; i < vCount; i++) {
       const isDouble = board[idx].tile[0] === board[idx].tile[1];
-      positions.push({ x, y, dir: "v" as const, isDouble });
-      track(x, y, SNAKE_W, SNAKE_L);
-      y += SNAKE_L;
+      let renderX: number, renderY: number, advance: number;
+
+      if (isDouble) {
+        // Double perpendiculaire: tuile horizontale dans colonne verticale
+        renderX = chainX - DOUBLE_EXT;  // centré horizontalement sur la colonne
+        renderY = chainY;
+        advance = SNAKE_W;
+        track(renderX, renderY, SNAKE_L, SNAKE_W);
+      } else {
+        renderX = chainX;
+        renderY = chainY;
+        advance = SNAKE_L;
+        track(renderX, renderY, SNAKE_W, SNAKE_L);
+      }
+
+      positions.push({ x: renderX, y: renderY, dir: "v" as const, isDouble });
+      chainY += advance;
       idx++;
     }
 
     if (idx >= board.length) break;
 
-    // ── Corner V → H: start horizontal from center of V column bottom ──
+    // ── Coin V → H: reprendre l'horizontale depuis le centre de la colonne ──
     if (hDir > 0) {
-      // was right → now go left; tile right edge at center of V column
-      x = x + SNAKE_W / 2 - SNAKE_L;
+      chainX = chainX + SNAKE_W / 2 - SNAKE_L;
       hDir = -1;
     } else {
-      // was left → now go right; tile left edge at center of V column
-      x = x + SNAKE_W / 2;
+      chainX = chainX + SNAKE_W / 2;
       hDir = 1;
     }
-    // y stays at bottom of V column — H row starts here
   }
 
-  // Normalize so minX/minY = 0, then add padding for drop zones
-  const PAD = SNAKE_W * 2;
-  const ox = -minX + PAD;
-  const oy = -minY + PAD;
+  // Normaliser avec l'espace de sécurité (≈2cm)
+  const ox = -minX + SAFETY_MARGIN;
+  const oy = -minY + SAFETY_MARGIN;
   return {
     positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
-    width: (maxX - minX) + PAD * 2,
-    height: (maxY - minY) + PAD * 2,
+    width: (maxX - minX) + SAFETY_MARGIN * 2,
+    height: (maxY - minY) + SAFETY_MARGIN * 2,
     lastHDir: hDir as 1 | -1,
     lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
+  };
+}
+
+// ── Calculer l'orientation visuelle d'une tuile (doubles = perpendiculaire) ──
+function tileVisualVertical(pos: BoardPos): boolean {
+  // Double en segment horizontal → rendu vertical (perpendiculaire)
+  // Double en segment vertical → rendu horizontal (perpendiculaire)
+  // Tuile normale → suit la direction du segment
+  return pos.isDouble ? pos.dir === "h" : pos.dir === "v";
+}
+
+function tileVisualSize(pos: BoardPos): { w: number; h: number } {
+  const vertical = tileVisualVertical(pos);
+  return {
+    w: vertical ? SNAKE_W : SNAKE_L,
+    h: vertical ? SNAKE_L : SNAKE_W,
   };
 }
 
@@ -280,11 +316,24 @@ export function DominoBoard({
   const ref = useRef<HTMLDivElement | null>(null);
   const dOver = (e: React.DragEvent) => e.preventDefault();
 
-  // Auto-scroll to show the last placed tile
+  // Auto-scroll: centrer sur le 1er domino quand peu de tuiles, sinon sur la dernière
   useEffect(() => {
-    if (ref.current) {
-      const el = ref.current;
-      el.scrollTo({ left: (el.scrollWidth - el.clientWidth) / 2, top: el.scrollHeight - el.clientHeight, behavior: "smooth" });
+    if (!ref.current) return;
+    const el = ref.current;
+    if (board.length <= 3) {
+      // Centrer sur le premier domino (au centre de la table)
+      el.scrollTo({
+        left: (el.scrollWidth - el.clientWidth) / 2,
+        top: (el.scrollHeight - el.clientHeight) / 2,
+        behavior: "smooth",
+      });
+    } else {
+      // Suivre la dernière tuile posée
+      el.scrollTo({
+        left: (el.scrollWidth - el.clientWidth) / 2,
+        top: el.scrollHeight - el.clientHeight,
+        behavior: "smooth",
+      });
     }
   }, [board.length]);
 
@@ -306,76 +355,81 @@ export function DominoBoard({
 
   const { positions, width, height, lastHDir, lastDir } = computeSnakeLayout(board);
 
-  // Determine where the "left" and "right" ends are for drop zones
+  // ── Positions des zones de dépôt (adaptées aux doubles perpendiculaires) ──
   const firstPos = positions[0];
   const lastPos = positions[positions.length - 1];
+  const dropSize = SNAKE_W + 8;
 
-  // Left drop zone: to the left of the first tile
-  const leftDropX = firstPos.x - SNAKE_W - 4;
-  const leftDropY = firstPos.y - 4;
+  const firstSize = tileVisualSize(firstPos);
+  const lastSize = tileVisualSize(lastPos);
 
-  // Right drop zone: after the last tile, in the direction of growth
+  // Zone de dépôt gauche: à gauche de la première tuile
+  const leftDropX = firstPos.x - dropSize - 4;
+  const leftDropY = firstPos.y + firstSize.h / 2 - dropSize / 2;
+
+  // Zone de dépôt droite: dépend de la direction de la dernière tuile
   let rightDropX = lastPos.x;
   let rightDropY = lastPos.y;
   if (lastDir === "h") {
     if (lastHDir > 0) {
-      // going right
-      rightDropX = lastPos.x + SNAKE_L + 4;
-      rightDropY = lastPos.y - 4;
+      // vers la droite
+      rightDropX = lastPos.x + lastSize.w + 4;
+      rightDropY = lastPos.y + lastSize.h / 2 - dropSize / 2;
     } else {
-      // going left
-      rightDropX = lastPos.x - SNAKE_W - 4;
-      rightDropY = lastPos.y - 4;
+      // vers la gauche
+      rightDropX = lastPos.x - dropSize - 4;
+      rightDropY = lastPos.y + lastSize.h / 2 - dropSize / 2;
     }
   } else {
-    // Vertical segment: drop zone is below the last tile
-    rightDropX = lastPos.x - 4;
-    rightDropY = lastPos.y + SNAKE_L + 4;
+    // segment vertical: zone en bas
+    rightDropX = lastPos.x + lastSize.w / 2 - dropSize / 2;
+    rightDropY = lastPos.y + lastSize.h + 4;
   }
 
-  const dropSize = SNAKE_W + 8;
-
   return (
-    <div ref={ref} className="w-full h-full overflow-auto flex items-center justify-center"
-      style={{ scrollbarWidth: "thin" }}>
-      <div className="relative" style={{ width, height, minWidth: "100%" }}>
-        {/* Domino tiles */}
-        {positions.map((pos, i) => {
-          const { tile } = board[i];
-          return (
-            <div key={i} className="absolute" style={{ left: pos.x, top: pos.y }}>
-              <DominoTile
-                t={tile}
-                w={SNAKE_W}
-                vertical={pos.dir === "v"}
-              />
-            </div>
-          );
-        })}
+    <div ref={ref} className="w-full h-full overflow-auto" style={{ scrollbarWidth: "thin" }}>
+      {/* grid place-items-center centre le 1er domino quand peu de tuiles,
+          et gère correctement l'overflow quand la chaîne grandit */}
+      <div style={{ minWidth: "100%", minHeight: "100%", display: "grid", placeItems: "center" }}>
+        <div className="relative" style={{ width, height }}>
+          {/* Tuiles de domino */}
+          {positions.map((pos, i) => {
+            const { tile } = board[i];
+            return (
+              <div key={i} className="absolute" style={{ left: pos.x, top: pos.y }}>
+                <DominoTile
+                  t={tile}
+                  w={SNAKE_W}
+                  vertical={tileVisualVertical(pos)}
+                />
+              </div>
+            );
+          })}
 
-        {/* Left drop zone */}
-        {canDropLeft && (
-          <button
-            onDragOver={dOver}
-            onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
-            onClick={() => onDropLeft?.()}
-            className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
-              flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
-            style={{ left: leftDropX, top: leftDropY, width: dropSize, height: dropSize }}
-          >←</button>
-        )}
+          {/* Zone de dépôt gauche */}
+          {canDropLeft && (
+            <button
+              onDragOver={dOver}
+              onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
+              onClick={() => onDropLeft?.()}
+              className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
+                flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
+              style={{ left: leftDropX, top: leftDropY, width: dropSize, height: dropSize }}
+            >←</button>
+          )}
 
-        {/* Right drop zone */}
-        {canDropRight && (
-          <button
-            onDragOver={dOver}
-            onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
-            onClick={() => onDropRight?.()}
-            className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
-              flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
-            style={{ left: rightDropX, top: rightDropY, width: dropSize, height: dropSize }}
-          >→</button>
-        )}
+          {/* Zone de dépôt droite */}
+          {canDropRight && (
+            <button
+              onDragOver={dOver}
+              onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
+              onClick={() => onDropRight?.()}
+              className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
+                flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
+              style={{ left: rightDropX, top: rightDropY, width: dropSize, height: dropSize }}
+            >→</button>
+          )}
+        </div>
       </div>
     </div>
   );
