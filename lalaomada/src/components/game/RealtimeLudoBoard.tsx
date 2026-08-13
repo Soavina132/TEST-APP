@@ -264,6 +264,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [rollingFace, setRollingFace] = useState<number | null>(null);
   const [displayedPawns, setDisplayedPawns] = useState<GameState["pawns"]>(state.pawns);
   const [animating, setAnimating] = useState(false);
+  // Safety timeout: if animating gets stuck true (race condition), reset after 5s
+  useEffect(() => {
+    if (!animating) return;
+    const safety = setTimeout(() => { setAnimating(false); }, 5000);
+    return () => clearTimeout(safety);
+  }, [animating]);
   const [afkMax, setAfkMax] = useState<{t1:number;t2:number;secs:number}>({ t1: 2, t2: 2, secs: 30 });
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
@@ -283,6 +289,25 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const botIndex = new Map<string, number>();
   participants.filter(p => p.is_bot).sort((a, b) => a.slot - b.slot).forEach((b, i) => botIndex.set(b.id, i + 1));
   const nameOf = (p: Participant) => p.is_bot ? `Joueur ${botIndex.get(p.id) ?? p.slot}` : p.display_name;
+
+  // Unlock audio context on first user interaction (mobile browsers require this)
+  useEffect(() => {
+    const unlock = () => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        ctx.close();
+      } catch {}
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+    document.addEventListener('pointerdown', unlock, { once: true });
+    document.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   useEffect(() => {
     supabase.from("app_settings").select("afk_t1_max,afk_t2_max,turn_seconds").eq("id",1).maybeSingle().then(({ data }: any) => {
@@ -405,17 +430,14 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   useEffect(() => {
     if (status !== "playing" || !currentPart?.is_bot) return;
-    // FIX: Removed 'animating' guard — it could block the bot from ever playing
-    // if animating got stuck true (e.g. after a race condition with realtime updates).
+    // Bot play is now primarily handled by the server cron (ludo_tick_all, 3s interval
+    // with 1.5s natural delay). This frontend trigger is a FALLBACK only — it fires
+    // after 4s in case the cron missed the turn (e.g. server overload).
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    // Always call ludo_bot_play — it handles BOTH roll AND move in one server call.
-    // This eliminates the two-phase race condition where the frontend called ludo_roll
-    // for the bot but ignored the response (no onStateUpdate), causing the bot to stall.
-    const min = state.must_move ? 2500 : 1500;
-    const max = state.must_move ? 4500 : 3500;
-    const delay = min + Math.random() * (max - min);
+    // Fallback delay: 4s (server cron should have handled it by then)
+    const delay = 4000;
     const t = setTimeout(async () => {
       try {
         const { data: botData } = await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any);
@@ -452,6 +474,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }
     setBusy(true);
     sfx.diceRoll();
+    // Optimistic UI: immediately set must_move=true so the UI feels instant
+    if (onStateUpdate) {
+      onStateUpdate({ ...state, must_move: true, dice: null, last_event: 'rolling' });
+    }
     // Visual roll animation — keep tumbling until RPC responds
     const anim = setInterval(() => {
       setRollingFace(1 + Math.floor(Math.random() * 6));
@@ -524,7 +550,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const moveLockRef = useRef(false);
   const movePawn = async (idx: number) => {
     if (moveLockRef.current) return;
-    if (!movablePawnIdxs.has(idx) || busy || animating) return;
+    if (!movablePawnIdxs.has(idx) || busy) return;
     moveLockRef.current = true;
     setSelectedIdx(idx);
     setBusy(true);
