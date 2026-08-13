@@ -180,7 +180,11 @@ export function DominoBoard({
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (ref.current) ref.current.scrollLeft = ref.current.scrollWidth;
+    if (!ref.current) return;
+    const el = ref.current;
+    // Center content: if content fits in viewport, scroll to center.
+    // If content overflows, also center it so the first tile starts in the middle.
+    el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
   }, [board.length]);
 
   const BW = 20;
@@ -211,7 +215,7 @@ export function DominoBoard({
             animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold">←</button>
       )}
       <div ref={ref}
-        className="flex items-center gap-0 overflow-x-auto overflow-y-hidden flex-1 py-2"
+        className="flex items-center gap-0 overflow-x-auto overflow-y-hidden flex-1 py-2 justify-center"
         style={{ scrollbarWidth: "thin" }}>
         {board.map(({ tile }, i) => {
           const isDouble = tile[0] === tile[1];
