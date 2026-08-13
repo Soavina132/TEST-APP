@@ -175,12 +175,12 @@ function DominoPage() {
     const tick = () => {
       const s = Math.max(0, Math.ceil((new Date(game.turn_deadline).getTime() - serverNow()) / 1000));
       setRemaining(s);
-      if (s === 0 && !fired) { fired = true; supabase.rpc("domino_tick" as any, { _game_id: id } as any); }
+      if (s === 0 && !fired) { fired = true; supabase.rpc("domino_tick" as any, { _game_id: id } as any).then(() => load()); }
     };
     tick();
     const t = setInterval(tick, 500);
     return () => clearInterval(t);
-  }, [game?.turn_deadline, game?.status, phase, game?.state?.break_until, id, cfg.turn_timer_seconds, game, isRoundTransition]);
+  }, [game?.turn_deadline, game?.status, phase, game?.state?.break_until, id, cfg.turn_timer_seconds, isRoundTransition]);
 
   // ── Bot think ──────────────────────────────────────────────────────────
   // bot_think_until was removed. Bot auto-play is now driven by turn_deadline:
@@ -225,6 +225,7 @@ function DominoPage() {
       if (error) throw error;
       playClack();
       setSelectedTile(null);
+      load();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -235,6 +236,7 @@ function DominoPage() {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
       playDraw();
+      load();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -245,6 +247,7 @@ function DominoPage() {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
       playPass();
+      load();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); }
   };
