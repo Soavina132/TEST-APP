@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useLayoutEffect } from "react";
 
 export type Tile = [number, number];
 
@@ -167,7 +167,9 @@ export function PlayerHeader({ seat, side, size = "sm" }: {
   );
 }
 
-// ── Board: horizontal scrollable chain ──────────────────────────────────────
+// ── Board: snake/boustrophedon layout ───────────────────────────────────────
+// Tiles flow left-to-right on even rows, right-to-left on odd rows.
+// The chain wraps automatically to fit the container — no horizontal scroll.
 export function DominoBoard({
   board, canDropLeft, canDropRight, canDropAny,
   onDropLeft, onDropRight, onDropAny,
@@ -177,22 +179,26 @@ export function DominoBoard({
   canDropLeft: boolean; canDropRight: boolean; canDropAny?: boolean;
   onDropLeft?: () => void; onDropRight?: () => void; onDropAny?: () => void;
 }) {
-  const ref = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerW, setContainerW] = useState(400);
+  const BW = 20; // tile half-width in px
 
-  useEffect(() => {
-    if (!ref.current) return;
-    const el = ref.current;
-    // Center content: if content fits in viewport, scroll to center.
-    // If content overflows, also center it so the first tile starts in the middle.
-    el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
-  }, [board.length]);
+  // Measure container width
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const measure = () => setContainerW(el.clientWidth - 8); // padding margin
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  const BW = 20;
   const dOver = (e: React.DragEvent) => e.preventDefault();
 
   if (board.length === 0) {
     return (
-      <div className="flex items-center justify-center w-full h-full">
+      <div ref={containerRef} className="flex items-center justify-center w-full h-full">
         <div onDragOver={dOver}
           onDrop={() => (onDropAny ?? onDropRight)?.()}
           onClick={() => { if (canDropAny || canDropRight) (onDropAny ?? onDropRight)?.(); }}
@@ -206,32 +212,71 @@ export function DominoBoard({
     );
   }
 
+  // Calculate tile widths and split into rows (boustrophedon)
+  const tileW = (t: Tile) => (t[0] === t[1] ? BW : BW * 2); // doubles are square
+  const gap = 1; // overlap margin
+  const dropZoneW = canDropLeft || canDropRight ? 32 : 0; // space for drop buttons
+
+  type Row = { tiles: { tile: Tile; flipped: boolean }[]; rowWidth: number };
+  const rows: Row[] = [];
+  let currentRow: { tile: Tile; flipped: boolean }[] = [];
+  let currentRowW = dropZoneW; // start with drop zone allowance
+
+  for (const item of board) {
+    const w = tileW(item.tile) - gap;
+    if (currentRowW + w > containerW && currentRow.length > 0) {
+      // flush current row
+      rows.push({ tiles: currentRow, rowWidth: currentRowW });
+      currentRow = [];
+      currentRowW = dropZoneW;
+    }
+    currentRow.push(item);
+    currentRowW += w;
+  }
+  if (currentRow.length) rows.push({ tiles: currentRow, rowWidth: currentRowW });
+
   return (
-    <div className="flex items-center w-full h-full overflow-hidden">
-      {canDropLeft && (
-        <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
-          onClick={() => onDropLeft?.()}
-          className="shrink-0 mx-1 w-7 h-10 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
-            animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold">←</button>
-      )}
-      <div ref={ref}
-        className="flex items-center gap-0 overflow-x-auto overflow-y-hidden flex-1 py-2 justify-center"
-        style={{ scrollbarWidth: "thin" }}>
-        {board.map(({ tile }, i) => {
-          const isDouble = tile[0] === tile[1];
+    <div ref={containerRef} className="flex items-center w-full h-full overflow-hidden">
+      <div className="flex flex-col items-center justify-center w-full h-full gap-0.5 py-1">
+        {rows.map((row, ri) => {
+          const isReversed = ri % 2 === 1;
+          const tiles = isReversed ? [...row.tiles].reverse() : row.tiles;
+
           return (
-            <div key={i} className="shrink-0" style={{ marginRight: -1 }}>
-              <DominoTile t={tile} w={BW} vertical={isDouble} />
+            <div key={ri} className="flex items-center gap-0 justify-center w-full">
+              {/* Drop-left button on first row */}
+              {ri === 0 && canDropLeft && (
+                <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
+                  onClick={() => onDropLeft?.()}
+                  className="shrink-0 mx-0.5 w-6 h-9 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
+                    animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold">←</button>
+              )}
+              {/* Drop-any on first row when board is empty — handled above, but keep for safety */}
+              {ri === 0 && canDropAny && !canDropLeft && !canDropRight && board.length === 0 && (
+                <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropAny?.(); }}
+                  onClick={() => onDropAny?.()}
+                  className="shrink-0 mx-1 px-3 h-9 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
+                    animate-pulse text-amber-200 text-xs font-bold">Déposer</button>
+              )}
+              {tiles.map(({ tile }, i) => {
+                const isDouble = tile[0] === tile[1];
+                return (
+                  <div key={i} className="shrink-0" style={{ marginRight: -1 }}>
+                    <DominoTile t={tile} w={BW} vertical={isDouble} />
+                  </div>
+                );
+              })}
+              {/* Drop-right button on last row */}
+              {ri === rows.length - 1 && canDropRight && (
+                <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
+                  onClick={() => onDropRight?.()}
+                  className="shrink-0 mx-0.5 w-6 h-9 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
+                    animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold">→</button>
+              )}
             </div>
           );
         })}
       </div>
-      {canDropRight && (
-        <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
-          onClick={() => onDropRight?.()}
-          className="shrink-0 mx-1 w-7 h-10 rounded-lg bg-amber-400/20 ring-2 ring-amber-400
-            animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold">→</button>
-      )}
     </div>
   );
 }
