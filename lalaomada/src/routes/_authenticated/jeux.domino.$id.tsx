@@ -183,13 +183,10 @@ function DominoPage() {
   }, [game?.turn_deadline, game?.status, phase, game?.state?.break_until, id, cfg.turn_timer_seconds, game, isRoundTransition]);
 
   // ── Bot think ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    const think = game?.state?.bot_think_until;
-    if (!think || game?.status !== "playing") return;
-    const delay = Math.max(0, new Date(think).getTime() - serverNow()) + 150;
-    const t = setTimeout(() => supabase.rpc("domino_tick" as any, { _game_id: id } as any), delay);
-    return () => clearTimeout(t);
-  }, [game?.state?.bot_think_until, game?.status, id]);
+  // bot_think_until was removed. Bot auto-play is now driven by turn_deadline:
+  // domino_advance_turn sets a short deadline (3-5s) for bots, the timer
+  // useEffect above calls domino_tick when it expires, and domino_tick calls
+  // domino_bot_play. No separate bot_think_until needed.
 
   // ── Derived state ──────────────────────────────────────────────────────
   const me = parts.find(p => p.user_id === profile?.id);
