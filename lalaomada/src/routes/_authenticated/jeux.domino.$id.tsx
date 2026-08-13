@@ -175,27 +175,21 @@ function DominoPage() {
     const tick = () => {
       const s = Math.max(0, Math.ceil((new Date(game.turn_deadline).getTime() - serverNow()) / 1000));
       setRemaining(s);
-      if (s === 0 && !fired) { fired = true; supabase.rpc("domino_tick" as any, { _game_id: id } as any).then(() => load()); }
+      if (s === 0 && !fired) { fired = true; supabase.rpc("domino_tick" as any, { _game_id: id } as any); }
     };
     tick();
     const t = setInterval(tick, 500);
     return () => clearInterval(t);
-  }, [game?.turn_deadline, game?.status, phase, game?.state?.break_until, id, cfg.turn_timer_seconds, isRoundTransition]);
+  }, [game?.turn_deadline, game?.status, phase, game?.state?.break_until, id, cfg.turn_timer_seconds, game, isRoundTransition]);
 
-  // ── Bot auto-play ─────────────────────────────────────────────────────
-  // When it's a bot's turn, fire domino_tick after 2.5s to trigger the bot.
-  // The timer useEffect above also fires at deadline expiry, but this dedicated
-  // effect ensures the bot plays with a visible delay even if the timer
-  // doesn't pick up the short bot deadline right away.
+  // ── Bot think ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!game || game.status !== "playing" || isRoundTransition) return;
-    const currentPart = parts.find((p: any) => p.slot === game.current_turn);
-    if (!currentPart?.is_bot) return;
-    const timer = setTimeout(() => {
-      supabase.rpc("domino_tick" as any, { _game_id: id } as any).then(() => load());
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [game?.current_turn, game?.status, parts, id, isRoundTransition]);
+    const think = game?.state?.bot_think_until;
+    if (!think || game?.status !== "playing") return;
+    const delay = Math.max(0, new Date(think).getTime() - serverNow()) + 150;
+    const t = setTimeout(() => supabase.rpc("domino_tick" as any, { _game_id: id } as any), delay);
+    return () => clearTimeout(t);
+  }, [game?.state?.bot_think_until, game?.status, id]);
 
   // ── Derived state ──────────────────────────────────────────────────────
   const me = parts.find(p => p.user_id === profile?.id);
@@ -234,7 +228,6 @@ function DominoPage() {
       if (error) throw error;
       playClack();
       setSelectedTile(null);
-      load();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -245,7 +238,6 @@ function DominoPage() {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
       playDraw();
-      load();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -256,7 +248,6 @@ function DominoPage() {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
       playPass();
-      load();
     } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -327,9 +318,6 @@ function DominoPage() {
           onToggleReady={async (r) => {
             const { error } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: r } as any);
             if (error) toast.error(error.message);
-            load();
-            // If game just started and it's a bot's turn, trigger tick shortly after
-            setTimeout(() => supabase.rpc("domino_tick" as any, { _game_id: id } as any).then(() => load()), 2500);
           }}
         />
         {(isAdmin || (Number(game.stake) === 0 && !!me)) && parts.length < game.max_players && (
@@ -443,7 +431,6 @@ function DominoPage() {
             slug="domino"
             meUserId={profile?.id}
             winnerId={wid}
-            winnerSlot={typeof ws === "number" ? ws : undefined}
             participants={parts}
             stake={Number(game.stake)}
             pot={Number(game.pot)}
@@ -507,7 +494,7 @@ function DominoPage() {
                 return (
                   <div key={i} className={`flex justify-center ${playable
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
-                    : "p-0.5 border-2 border-transparent"}`}>
+                    : "p-0.5 border-2 border-transparent opacity-65"}`}>
                     {playable && <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />}
                     <DominoTile t={t} w={tileW} vertical
                       onClick={playable ? () => { if (needsChoice) setSelectedTile(selectedTile === i ? null : i); else playSide("auto", i); } : undefined}

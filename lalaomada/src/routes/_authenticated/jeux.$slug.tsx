@@ -347,7 +347,8 @@ function Lobby() {
           if (berr) throw berr;
         }
         // Auto-ready pour démarrer immédiatement (bypass salle d'attente)
-        await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
+        const { error: rerr } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: true } as any);
+        if (rerr) throw rerr;
       } else if (slug === "chess") {
         const diffMap = { very_easy: 1, easy: 2, medium: 3, hard: 4, expert: 5 } as const;
         const { data, error } = await supabase.rpc("chess_create_solo" as any, {

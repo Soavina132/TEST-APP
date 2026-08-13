@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useLayoutEffect } from "react";
+import { useRef, useEffect } from "react";
 
 export type Tile = [number, number];
 
@@ -167,80 +167,107 @@ export function PlayerHeader({ seat, side, size = "sm" }: {
   );
 }
 
-// ── Board: authentic snake path with real corner turns ─────────────────────
-// Walks the chain like a physical domino line: goes right, and when it would
-// run off the right/left edge it turns 90° and continues down for a short
-// connector run, then resumes horizontal in the opposite direction — forming
-// the classic winding "S" path seen in real domino apps. Doubles are drawn
-// perpendicular to the direction of travel (standard domino convention).
+// ── Snake layout: 7 horizontal → 4 down → zigzag → repeat ──
+// ── Snake layout constants ──────────────────────────────────────────────────
+const SNAKE_W = 22;   // tile short side (px)
+const SNAKE_L = 44;   // tile long side = 2 * SNAKE_W
+const MAX_H_TILES = 7; // max horizontal tiles per row
+const MAX_V_TILES = 4; // max vertical tiles per column
 
-type Dir = "R" | "L" | "D" | "U";
-type Placed = { tile: Tile; x: number; y: number; w: number; h: number; vertical: boolean };
-
-const VERTICAL_RUN = 3; // tiles used to bridge between horizontal rows
-
-function layoutSnake(
-  board: { tile: Tile }[],
-  containerW: number,
-  BW: number,
-): { placed: Placed[]; totalH: number; startDir: Dir; endDir: Dir } {
-  const placed: Placed[] = [];
-  let dir: Dir = "R" as Dir;
-  let x = 0, y = 0;
-  let vRunCount = 0;
-  const margin = BW * 0.5;
-
-  for (let i = 0; i < board.length; i++) {
-    const tile = board[i].tile;
-    const isDouble = tile[0] === tile[1];
-    const remaining = board.length - i;
-
-    let vertical = dir === "R" || dir === "L" ? isDouble : !isDouble;
-    let w = vertical ? BW : BW * 2;
-
-    // Decide if we need to turn before placing this tile (only when heading horizontally)
-    if (dir === "R" && x + w > containerW - margin && remaining > 1) {
-      dir = "D";
-      vRunCount = 0;
-    } else if (dir === "L" && x - w < margin && remaining > 1) {
-      dir = "D";
-      vRunCount = 0;
-    }
-
-    vertical = dir === "R" || dir === "L" ? isDouble : !isDouble;
-    w = vertical ? BW : BW * 2;
-    const h = vertical ? BW * 2 : BW;
-
-    let px = x, py = y;
-    if (dir === "L") px = x - w;
-    if (dir === "U") py = y - h;
-
-    placed.push({ tile, x: px, y: py, w, h, vertical });
-
-    if (dir === "R") x += w;
-    else if (dir === "L") x -= w;
-    else if (dir === "D") y += h;
-    else if (dir === "U") y -= h;
-
-    if (dir === "D" || dir === "U") {
-      vRunCount++;
-      if (vRunCount >= VERTICAL_RUN && remaining > 1) {
-        // resume horizontal, heading toward whichever side has more room
-        dir = x < containerW / 2 ? "R" : "L";
-        vRunCount = 0;
-      }
-    }
-  }
-
-  const totalH = placed.length
-    ? Math.max(...placed.map(p => p.y + p.h)) - Math.min(0, ...placed.map(p => p.y))
-    : 0;
-  const minY = placed.length ? Math.min(0, ...placed.map(p => p.y)) : 0;
-  if (minY < 0) for (const p of placed) p.y -= minY;
-
-  return { placed, totalH, startDir: "R", endDir: dir };
+interface BoardPos {
+  x: number;
+  y: number;
+  dir: "h" | "v";
+  isDouble: boolean;
 }
 
+interface SnakeLayout {
+  positions: BoardPos[];
+  width: number;
+  height: number;
+  lastHDir: 1 | -1;
+  lastDir: "h" | "v";
+}
+
+function computeSnakeLayout(
+  board: { tile: Tile; flipped: boolean }[]
+): SnakeLayout {
+  const positions: BoardPos[] = [];
+  let x = 0, y = 0;
+  let idx = 0;
+  let hDir: 1 | -1 = 1; // right first, then alternate (zigzag)
+
+  let minX = 0, maxX = 0, minY = 0, maxY = 0;
+
+  const track = (px: number, py: number, pw: number, ph: number) => {
+    if (px < minX) minX = px;
+    if (px + pw > maxX) maxX = px + pw;
+    if (py < minY) minY = py;
+    if (py + ph > maxY) maxY = py + ph;
+  };
+
+  while (idx < board.length) {
+    // ── Horizontal segment (max 7 tiles) ──
+    const hCount = Math.min(MAX_H_TILES, board.length - idx);
+    for (let i = 0; i < hCount; i++) {
+      const isDouble = board[idx].tile[0] === board[idx].tile[1];
+      positions.push({ x, y, dir: "h" as const, isDouble });
+      track(x, y, SNAKE_L, SNAKE_W);
+      x += SNAKE_L * hDir;
+      idx++;
+    }
+
+    if (idx >= board.length) break;
+
+    // ── Corner H → V: center vertical column on the chain end ──
+    if (hDir > 0) {
+      // going right: x is past the last tile's right edge → center V tile on it
+      x = x - SNAKE_W / 2;
+    } else {
+      // going left: x is at the last tile's left edge → center V tile on it
+      x = x - SNAKE_W / 2;
+    }
+    y += SNAKE_W; // move below the horizontal row
+
+    // ── Vertical segment (4 tiles going down) ──
+    const vCount = Math.min(MAX_V_TILES, board.length - idx);
+    for (let i = 0; i < vCount; i++) {
+      const isDouble = board[idx].tile[0] === board[idx].tile[1];
+      positions.push({ x, y, dir: "v" as const, isDouble });
+      track(x, y, SNAKE_W, SNAKE_L);
+      y += SNAKE_L;
+      idx++;
+    }
+
+    if (idx >= board.length) break;
+
+    // ── Corner V → H: start horizontal from center of V column bottom ──
+    if (hDir > 0) {
+      // was right → now go left; tile right edge at center of V column
+      x = x + SNAKE_W / 2 - SNAKE_L;
+      hDir = -1;
+    } else {
+      // was left → now go right; tile left edge at center of V column
+      x = x + SNAKE_W / 2;
+      hDir = 1;
+    }
+    // y stays at bottom of V column — H row starts here
+  }
+
+  // Normalize so minX/minY = 0, then add padding for drop zones
+  const PAD = SNAKE_W * 2;
+  const ox = -minX + PAD;
+  const oy = -minY + PAD;
+  return {
+    positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
+    width: (maxX - minX) + PAD * 2,
+    height: (maxY - minY) + PAD * 2,
+    lastHDir: hDir as 1 | -1,
+    lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
+  };
+}
+
+// ── Board: snake layout — 7 horizontal, 4 down, zigzag ────────────────────
 export function DominoBoard({
   board, canDropLeft, canDropRight, canDropAny,
   onDropLeft, onDropRight, onDropAny,
@@ -250,23 +277,20 @@ export function DominoBoard({
   canDropLeft: boolean; canDropRight: boolean; canDropAny?: boolean;
   onDropLeft?: () => void; onDropRight?: () => void; onDropAny?: () => void;
 }) {
-  const outerRef = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState({ w: 400, h: 200 });
+  const ref = useRef<HTMLDivElement | null>(null);
   const dOver = (e: React.DragEvent) => e.preventDefault();
 
-  useLayoutEffect(() => {
-    if (!outerRef.current) return;
-    const el = outerRef.current;
-    const measure = () => setSize({ w: Math.max(50, el.clientWidth - 16), h: Math.max(50, el.clientHeight - 8) });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Auto-scroll to show the last placed tile
+  useEffect(() => {
+    if (ref.current) {
+      const el = ref.current;
+      el.scrollTo({ left: (el.scrollWidth - el.clientWidth) / 2, top: el.scrollHeight - el.clientHeight, behavior: "smooth" });
+    }
+  }, [board.length]);
 
   if (board.length === 0) {
     return (
-      <div ref={outerRef} className="flex items-center justify-center w-full h-full">
+      <div className="flex items-center justify-center w-full h-full">
         <div onDragOver={dOver}
           onDrop={() => (onDropAny ?? onDropRight)?.()}
           onClick={() => { if (canDropAny || canDropRight) (onDropAny ?? onDropRight)?.(); }}
@@ -280,61 +304,78 @@ export function DominoBoard({
     );
   }
 
-  // Pick the largest tile unit (BW) that keeps the whole chain within the
-  // available height; shrink progressively for long chains.
-  const candidates = [22, 20, 18, 16, 14, 12, 10];
-  let BW = candidates[candidates.length - 1];
-  let layout = layoutSnake(board, size.w, BW);
-  for (const c of candidates) {
-    const l = layoutSnake(board, size.w, c);
-    if (l.totalH <= size.h) { BW = c; layout = l; break; }
-    BW = c; layout = l;
+  const { positions, width, height, lastHDir, lastDir } = computeSnakeLayout(board);
+
+  // Determine where the "left" and "right" ends are for drop zones
+  const firstPos = positions[0];
+  const lastPos = positions[positions.length - 1];
+
+  // Left drop zone: to the left of the first tile
+  const leftDropX = firstPos.x - SNAKE_W - 4;
+  const leftDropY = firstPos.y - 4;
+
+  // Right drop zone: after the last tile, in the direction of growth
+  let rightDropX = lastPos.x;
+  let rightDropY = lastPos.y;
+  if (lastDir === "h") {
+    if (lastHDir > 0) {
+      // going right
+      rightDropX = lastPos.x + SNAKE_L + 4;
+      rightDropY = lastPos.y - 4;
+    } else {
+      // going left
+      rightDropX = lastPos.x - SNAKE_W - 4;
+      rightDropY = lastPos.y - 4;
+    }
+  } else {
+    // Vertical segment: drop zone is below the last tile
+    rightDropX = lastPos.x - 4;
+    rightDropY = lastPos.y + SNAKE_L + 4;
   }
 
-  const { placed, totalH, endDir } = layout;
-  const first = placed[0];
-  const last = placed[placed.length - 1];
-
-  // Open-end button positions
-  const leftBtn = first ? { x: first.x - BW * 0.9, y: first.y + first.h / 2 - BW * 0.45 } : null;
-  let rightBtn: { x: number; y: number; rotate: number } | null = null;
-  if (last) {
-    if (endDir === "R") rightBtn = { x: last.x + last.w + BW * 0.1, y: last.y + last.h / 2 - BW * 0.45, rotate: 0 };
-    else if (endDir === "L") rightBtn = { x: last.x - BW * 0.9, y: last.y + last.h / 2 - BW * 0.45, rotate: 180 };
-    else if (endDir === "D") rightBtn = { x: last.x + last.w / 2 - BW * 0.45, y: last.y + last.h + BW * 0.1, rotate: 90 };
-    else rightBtn = { x: last.x + last.w / 2 - BW * 0.45, y: last.y - BW * 0.9, rotate: -90 };
-  }
+  const dropSize = SNAKE_W + 8;
 
   return (
-    <div ref={outerRef} className="w-full h-full overflow-y-auto overflow-x-hidden flex items-center justify-center"
+    <div ref={ref} className="w-full h-full overflow-auto flex items-center justify-center"
       style={{ scrollbarWidth: "thin" }}>
-      <div className="relative" style={{ width: size.w, height: Math.max(totalH, size.h) }}>
-        <div className="absolute" style={{
-          left: "50%", top: totalH <= size.h ? "50%" : 0,
-          transform: totalH <= size.h ? `translate(-50%, -50%)` : "translateX(-50%)",
-          width: size.w, height: totalH,
-        }}>
-          {placed.map((p, i) => (
-            <div key={i} className="absolute" style={{ left: p.x, top: p.y }}>
-              <DominoTile t={p.tile} w={BW} vertical={p.vertical} />
+      <div className="relative" style={{ width, height, minWidth: "100%" }}>
+        {/* Domino tiles */}
+        {positions.map((pos, i) => {
+          const { tile } = board[i];
+          return (
+            <div key={i} className="absolute" style={{ left: pos.x, top: pos.y }}>
+              <DominoTile
+                t={tile}
+                w={SNAKE_W}
+                vertical={pos.dir === "v"}
+              />
             </div>
-          ))}
-          {canDropLeft && leftBtn && (
-            <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
-              onClick={() => onDropLeft?.()}
-              className="absolute rounded-lg bg-amber-400/25 ring-2 ring-amber-400
-                animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold"
-              style={{ left: leftBtn.x, top: leftBtn.y, width: BW * 0.8, height: BW * 0.9 }}>←</button>
-          )}
-          {canDropRight && rightBtn && (
-            <button onDragOver={dOver} onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
-              onClick={() => onDropRight?.()}
-              className="absolute rounded-lg bg-amber-400/25 ring-2 ring-amber-400
-                animate-pulse flex items-center justify-center text-amber-200 text-xs font-bold"
-              style={{ left: rightBtn.x, top: rightBtn.y, width: BW * 0.8, height: BW * 0.9,
-                transform: `rotate(${rightBtn.rotate}deg)` }}>→</button>
-          )}
-        </div>
+          );
+        })}
+
+        {/* Left drop zone */}
+        {canDropLeft && (
+          <button
+            onDragOver={dOver}
+            onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
+            onClick={() => onDropLeft?.()}
+            className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
+              flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
+            style={{ left: leftDropX, top: leftDropY, width: dropSize, height: dropSize }}
+          >←</button>
+        )}
+
+        {/* Right drop zone */}
+        {canDropRight && (
+          <button
+            onDragOver={dOver}
+            onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
+            onClick={() => onDropRight?.()}
+            className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
+              flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
+            style={{ left: rightDropX, top: rightDropY, width: dropSize, height: dropSize }}
+          >→</button>
+        )}
       </div>
     </div>
   );

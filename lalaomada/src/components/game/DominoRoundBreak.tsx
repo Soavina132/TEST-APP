@@ -32,7 +32,7 @@ export default function DominoRoundBreak({
 
   const winnerKey = lastRound.winner_uid || (lastRound.winner_slot != null ? `bot_${lastRound.winner_slot}` : null);
   const isTie = !winnerKey;
-  const winnerName = participants.find(p => p.user_id === winnerKey)?.display_name || "Égalité";
+  const winnerName = participants.find(p => p.user_id === winnerKey)?.display_name || "Match nul";
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/65 backdrop-blur-sm flex items-center justify-center p-3">
@@ -41,7 +41,7 @@ export default function DominoRoundBreak({
         <div className="text-center text-white">
           <h2 className="text-xl font-extrabold tracking-wide">{ordinalFr(endedRound)} manche terminée</h2>
           <div className={`mt-1 text-sm font-bold ${isTie ? "text-amber-200" : "text-emerald-300"}`}>
-            {isTie ? "🤝 Égalité" : `🏆 ${winnerName}`}
+            {isTie ? "🤝 Match nul" : `🏆 ${winnerName}`}
           </div>
           {lastRound.blocked && <div className="text-[11px] mt-1 opacity-70">Blocage — plus personne ne peut jouer</div>}
         </div>
@@ -70,7 +70,7 @@ export default function DominoRoundBreak({
         <div className="mt-5 flex justify-center">
           <div className="px-6 py-2.5 rounded-full text-[#7a2e0a] font-extrabold shadow-lg"
             style={{ background: "linear-gradient(180deg,#fbbf24,#f59e0b)", border: "2px solid #f5c542" }}>
-            {isTie ? `Rejouer (${remaining}s)` : `Prochaine manche (${remaining}s)`}
+            Prochaine manche ({remaining}s)
           </div>
         </div>
       </div>
