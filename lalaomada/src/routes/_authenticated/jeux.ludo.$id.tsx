@@ -77,7 +77,6 @@ function GamePage() {
     const timer = setInterval(() => setNowTick(serverNow()), 1000);
     return () => clearInterval(timer);
   }, []);
-  }, []);
 
   const myPart = parts.find(p => p.user_id === profile?.id);
   const isParticipant = !!myPart;
