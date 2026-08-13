@@ -327,6 +327,9 @@ function DominoPage() {
           onToggleReady={async (r) => {
             const { error } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: r } as any);
             if (error) toast.error(error.message);
+            load();
+            // If game just started and it's a bot's turn, trigger tick shortly after
+            setTimeout(() => supabase.rpc("domino_tick" as any, { _game_id: id } as any).then(() => load()), 2500);
           }}
         />
         {(isAdmin || (Number(game.stake) === 0 && !!me)) && parts.length < game.max_players && (
