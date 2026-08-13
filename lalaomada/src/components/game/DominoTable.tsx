@@ -167,7 +167,7 @@ export function PlayerHeader({ seat, side, size = "sm" }: {
   );
 }
 
-// ── Snake layout: 7 horizontal → 4 down → zigzag → repeat ──
+// ── Layout: 7 horizontal → reste vertical vers le bas ──
 // ── Snake layout constants ──────────────────────────────────────────────────
 const SNAKE_W = 22;     // tile short side (px)
 const SNAKE_L = 44;     // tile long side = 2 * SNAKE_W
@@ -195,9 +195,7 @@ function computeSnakeLayout(
   board: { tile: Tile; flipped: boolean }[]
 ): SnakeLayout {
   const positions: BoardPos[] = [];
-  let chainX = 0, chainY = 0;  // position le long de la chaîne
   let idx = 0;
-  let hDir: 1 | -1 = 1; // droite d'abord, puis zigzag
 
   let minX = 0, maxX = 0, minY = 0, maxY = 0;
 
@@ -208,71 +206,68 @@ function computeSnakeLayout(
     if (py + ph > maxY) maxY = py + ph;
   };
 
-  while (idx < board.length) {
-    // ── Segment horizontal (max 7 tuiles) ──
-    const hCount = Math.min(MAX_H_TILES, board.length - idx);
-    for (let i = 0; i < hCount; i++) {
-      const isDouble = board[idx].tile[0] === board[idx].tile[1];
-      let renderX: number, renderY: number, advance: number;
+  // ── Phase 1: 7 tuiles horizontales (de gauche à droite) ──
+  let chainX = 0, chainY = 0;
+  const hCount = Math.min(MAX_H_TILES, board.length);
+  for (let i = 0; i < hCount; i++) {
+    const isDouble = board[idx].tile[0] === board[idx].tile[1];
+    let renderX: number, renderY: number, advance: number;
 
-      if (isDouble) {
-        // Double perpendiculaire: tuile verticale dans rangée horizontale
-        renderX = chainX;
-        renderY = chainY - DOUBLE_EXT;  // centré verticalement sur la rangée
-        advance = SNAKE_W;               // la chaîne avance du côté court
-        track(renderX, renderY, SNAKE_W, SNAKE_L);
-      } else {
-        renderX = chainX;
-        renderY = chainY;
-        advance = SNAKE_L;
-        track(renderX, renderY, SNAKE_L, SNAKE_W);
-      }
-
-      positions.push({ x: renderX, y: renderY, dir: "h" as const, isDouble });
-      chainX += advance * hDir;
-      idx++;
-    }
-
-    if (idx >= board.length) break;
-
-    // ── Coin H → V: centrer la colonne verticale sur la fin de la chaîne ──
-    chainX = chainX - SNAKE_W / 2;
-    chainY += SNAKE_W; // passer sous la rangée horizontale
-
-    // ── Segment vertical (4 tuiles vers le bas) ──
-    const vCount = Math.min(MAX_V_TILES, board.length - idx);
-    for (let i = 0; i < vCount; i++) {
-      const isDouble = board[idx].tile[0] === board[idx].tile[1];
-      let renderX: number, renderY: number, advance: number;
-
-      if (isDouble) {
-        // Double perpendiculaire: tuile horizontale dans colonne verticale
-        renderX = chainX - DOUBLE_EXT;  // centré horizontalement sur la colonne
-        renderY = chainY;
-        advance = SNAKE_W;
-        track(renderX, renderY, SNAKE_L, SNAKE_W);
-      } else {
-        renderX = chainX;
-        renderY = chainY;
-        advance = SNAKE_L;
-        track(renderX, renderY, SNAKE_W, SNAKE_L);
-      }
-
-      positions.push({ x: renderX, y: renderY, dir: "v" as const, isDouble });
-      chainY += advance;
-      idx++;
-    }
-
-    if (idx >= board.length) break;
-
-    // ── Coin V → H: reprendre l'horizontale depuis le centre de la colonne ──
-    if (hDir > 0) {
-      chainX = chainX + SNAKE_W / 2 - SNAKE_L;
-      hDir = -1;
+    if (isDouble) {
+      // Double perpendiculaire: tuile verticale dans rangée horizontale
+      renderX = chainX;
+      renderY = chainY - DOUBLE_EXT;
+      advance = SNAKE_W;
+      track(renderX, renderY, SNAKE_W, SNAKE_L);
     } else {
-      chainX = chainX + SNAKE_W / 2;
-      hDir = 1;
+      renderX = chainX;
+      renderY = chainY;
+      advance = SNAKE_L;
+      track(renderX, renderY, SNAKE_L, SNAKE_W);
     }
+
+    positions.push({ x: renderX, y: renderY, dir: "h" as const, isDouble });
+    chainX += advance;
+    idx++;
+  }
+
+  if (idx >= board.length) {
+    const ox = -minX + SAFETY_MARGIN;
+    const oy = -minY + SAFETY_MARGIN;
+    return {
+      positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
+      width: (maxX - minX) + SAFETY_MARGIN * 2,
+      height: (maxY - minY) + SAFETY_MARGIN * 2,
+      lastHDir: 1 as 1 | -1,
+      lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
+    };
+  }
+
+  // ── Coin H → V: centrer la colonne verticale sur la fin de la chaîne ──
+  chainX = chainX - SNAKE_W / 2;
+  chainY += SNAKE_W; // passer sous la rangée horizontale
+
+  // ── Phase 2: toutes les tuiles restantes vers le bas (vertical) ──
+  while (idx < board.length) {
+    const isDouble = board[idx].tile[0] === board[idx].tile[1];
+    let renderX: number, renderY: number, advance: number;
+
+    if (isDouble) {
+      // Double perpendiculaire: tuile horizontale dans colonne verticale
+      renderX = chainX - DOUBLE_EXT;
+      renderY = chainY;
+      advance = SNAKE_W;
+      track(renderX, renderY, SNAKE_L, SNAKE_W);
+    } else {
+      renderX = chainX;
+      renderY = chainY;
+      advance = SNAKE_L;
+      track(renderX, renderY, SNAKE_W, SNAKE_L);
+    }
+
+    positions.push({ x: renderX, y: renderY, dir: "v" as const, isDouble });
+    chainY += advance;
+    idx++;
   }
 
   // Normaliser avec l'espace de sécurité (≈2cm)
@@ -282,7 +277,7 @@ function computeSnakeLayout(
     positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
     width: (maxX - minX) + SAFETY_MARGIN * 2,
     height: (maxY - minY) + SAFETY_MARGIN * 2,
-    lastHDir: hDir as 1 | -1,
+    lastHDir: 1 as 1 | -1,
     lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
   };
 }
@@ -303,7 +298,7 @@ function tileVisualSize(pos: BoardPos): { w: number; h: number } {
   };
 }
 
-// ── Board: snake layout — 7 horizontal, 4 down, zigzag ────────────────────
+// ── Board: 7 horizontal → reste vertical vers le bas ────────────────────────
 export function DominoBoard({
   board, canDropLeft, canDropRight, canDropAny,
   onDropLeft, onDropRight, onDropAny,
