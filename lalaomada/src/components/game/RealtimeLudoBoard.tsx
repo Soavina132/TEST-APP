@@ -464,18 +464,24 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   useEffect(() => {
     if (status !== "playing" || !currentPart?.is_bot) return;
-    // Bot play is now primarily handled by the server cron (ludo_tick_all, 3s interval
-    // with 1.5s natural delay). This frontend trigger is a FALLBACK only — it fires
-    // after 4s in case the cron missed the turn (e.g. server overload).
+    // Bot play is handled by the server cron (ludo_tick_all, 3s interval).
+    // Two-phase: roll (3-5s delay) then move (2-4s delay after roll).
+    // This frontend trigger is a FALLBACK only — fires after 6s in case the cron missed.
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    // Fallback delay: 4s (server cron should have handled it by then)
-    const delay = 4000;
+    const delay = 6000;
     const t = setTimeout(async () => {
       try {
-        const { data: botData } = await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any);
-        if (botData && onStateUpdate) onStateUpdate(botData as GameState);
+        if (state.must_move) {
+          // Phase 2: bot needs to move
+          const { data: moveData } = await supabase.rpc("ludo_bot_move" as any, { _game_id: gameId } as any);
+          if (moveData && onStateUpdate) onStateUpdate(moveData as GameState);
+        } else {
+          // Phase 1: bot needs to roll
+          const { data: rollData } = await supabase.rpc("ludo_bot_play" as any, { _game_id: gameId } as any);
+          if (rollData && onStateUpdate) onStateUpdate(rollData as GameState);
+        }
       } catch (e) {
         // If bot_play fails, try a simple roll as fallback
         try {
