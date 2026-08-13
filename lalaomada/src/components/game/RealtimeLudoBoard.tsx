@@ -370,7 +370,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         const toK = m.to.s === "yard" ? -1 : m.to.k;
         if (m.from.s === "yard" && m.to.s === "track") {
           // Pop out to k=0 in one step
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k: 0 }, 200);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k: 1 }, 200);
           sfx.pawnMove();
           continue;
         }
@@ -773,7 +773,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         [row, col] = offsets[part.color];
       } else {
         let cell: [number, number];
-        if (p.k <= 50) cell = PATH[(START_IDX[part.color] + p.k) % 52];
+        if (p.k <= 50) cell = PATH[(START_IDX[part.color] + p.k - 1) % 52];
         else cell = HOME_STRETCH[part.color][p.k - 51];
         row = cell[0]; col = cell[1];
         const key = `${row}-${col}`;
