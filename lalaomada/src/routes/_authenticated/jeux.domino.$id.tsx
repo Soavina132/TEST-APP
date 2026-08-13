@@ -199,6 +199,7 @@ function DominoPage() {
   const cols = Math.max(7, Math.min(myHand.length, 10));
   const tileW = Math.max(13, Math.min(28, Math.floor(handW / cols) - 4));
   const { board, leftEnd, rightEnd } = normalizeBoard(game?.state?.board, game?.state?.left_end, game?.state?.right_end);
+  const firstTileIdx = Math.max(0, Math.min(board.length - 1, game?.state?.first_tile_idx ?? 0));
   const stockSize = (game?.state?.stock || []).length;
   const ftr: "libre" | "under6" = game?.state?.first_tile_rule === "under6" || game?.first_tile_rule === "under6" ? "under6" : "libre";
 
@@ -406,6 +407,7 @@ function DominoPage() {
           onDropLeft={() => cDL && playSide("left")}
           onDropRight={() => cDR && playSide("right")}
           onDropAny={() => cDA && playSide("auto")}
+          firstTileIdx={firstTileIdx}
         />
       </div>
 

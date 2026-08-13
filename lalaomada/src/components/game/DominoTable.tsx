@@ -172,7 +172,6 @@ export function PlayerHeader({ seat, side, size = "sm" }: {
 const SNAKE_W = 22;     // tile short side (px)
 const SNAKE_L = 44;     // tile long side = 2 * SNAKE_W
 const MAX_H_TILES = 7;  // max horizontal tiles per row
-const MAX_V_TILES = 4;  // max vertical tiles per column
 const SAFETY_MARGIN = 76; // ≈ 2cm à 96 DPI — espace de sécurité entre le bord de la table et les dominos
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse de la rangée/colonne
 
@@ -191,12 +190,11 @@ interface SnakeLayout {
   lastDir: "h" | "v";
 }
 
-function computeSnakeLayout(
-  board: { tile: Tile; flipped: boolean }[]
+function computeCenterLayout(
+  board: { tile: Tile; flipped: boolean }[],
+  firstTileIdx: number
 ): SnakeLayout {
-  const positions: BoardPos[] = [];
-  let idx = 0;
-
+  const positions: BoardPos[] = new Array(board.length);
   let minX = 0, maxX = 0, minY = 0, maxY = 0;
 
   const track = (px: number, py: number, pw: number, ph: number) => {
@@ -206,68 +204,106 @@ function computeSnakeLayout(
     if (py + ph > maxY) maxY = py + ph;
   };
 
-  // ── Phase 1: 7 tuiles horizontales (de gauche à droite) ──
-  let chainX = 0, chainY = 0;
-  const hCount = Math.min(MAX_H_TILES, board.length);
-  for (let i = 0; i < hCount; i++) {
+  // ── Tuile centrale (1er domino) fixée à (0, 0) ──
+  {
+    const idx = firstTileIdx;
     const isDouble = board[idx].tile[0] === board[idx].tile[1];
-    let renderX: number, renderY: number, advance: number;
-
     if (isDouble) {
-      // Double perpendiculaire: tuile verticale dans rangée horizontale
-      renderX = chainX;
-      renderY = chainY - DOUBLE_EXT;
-      advance = SNAKE_W;
-      track(renderX, renderY, SNAKE_W, SNAKE_L);
+      positions[idx] = { x: 0, y: -DOUBLE_EXT, dir: "h", isDouble };
+      track(0, -DOUBLE_EXT, SNAKE_W, SNAKE_L);
     } else {
-      renderX = chainX;
-      renderY = chainY;
-      advance = SNAKE_L;
-      track(renderX, renderY, SNAKE_L, SNAKE_W);
+      positions[idx] = { x: 0, y: 0, dir: "h", isDouble };
+      track(0, 0, SNAKE_L, SNAKE_W);
     }
-
-    positions.push({ x: renderX, y: renderY, dir: "h" as const, isDouble });
-    chainX += advance;
-    idx++;
   }
 
-  if (idx >= board.length) {
-    const ox = -minX + SAFETY_MARGIN;
-    const oy = -minY + SAFETY_MARGIN;
-    return {
-      positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
-      width: (maxX - minX) + SAFETY_MARGIN * 2,
-      height: (maxY - minY) + SAFETY_MARGIN * 2,
-      lastHDir: 1 as 1 | -1,
-      lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
-    };
+  // ── Côté DROITE: jusqu'à 3 tuiles horizontales, puis débordement vertical vers le BAS ──
+  const rightTotal = board.length - firstTileIdx - 1;
+  const rightH = Math.min(rightTotal, MAX_H_TILES - 1); // 3 max (with center = 7 total)
+
+  // Calculer la position de départ (bord droit du domino central)
+  const centerIsDouble = board[firstTileIdx].tile[0] === board[firstTileIdx].tile[1];
+  let rightChainX = centerIsDouble ? SNAKE_W : SNAKE_L;
+  let rightChainY = 0;
+
+  // Tuiles horizontales vers la droite
+  for (let i = 1; i <= rightH; i++) {
+    const idx = firstTileIdx + i;
+    const isDouble = board[idx].tile[0] === board[idx].tile[1];
+    const advance = isDouble ? SNAKE_W : SNAKE_L;
+    if (isDouble) {
+      positions[idx] = { x: rightChainX, y: rightChainY - DOUBLE_EXT, dir: "h", isDouble };
+      track(rightChainX, rightChainY - DOUBLE_EXT, SNAKE_W, SNAKE_L);
+    } else {
+      positions[idx] = { x: rightChainX, y: rightChainY, dir: "h", isDouble };
+      track(rightChainX, rightChainY, SNAKE_L, SNAKE_W);
+    }
+    rightChainX += advance;
   }
 
-  // ── Coin H → V: centrer la colonne verticale sur la fin de la chaîne ──
-  chainX = chainX - SNAKE_W / 2;
-  chainY += SNAKE_W; // passer sous la rangée horizontale
+  // Débordement droite vers le BAS
+  if (rightTotal > MAX_H_TILES - 1) {
+    // Coin: centrer la colonne verticale sur le bord droit de la dernière tuile horizontale
+    rightChainX = rightChainX - SNAKE_W / 2;
+    rightChainY += SNAKE_W; // passer sous la rangée horizontale
 
-  // ── Phase 2: toutes les tuiles restantes vers le bas (vertical) ──
-  while (idx < board.length) {
-    const isDouble = board[idx].tile[0] === board[idx].tile[1];
-    let renderX: number, renderY: number, advance: number;
-
-    if (isDouble) {
-      // Double perpendiculaire: tuile horizontale dans colonne verticale
-      renderX = chainX - DOUBLE_EXT;
-      renderY = chainY;
-      advance = SNAKE_W;
-      track(renderX, renderY, SNAKE_L, SNAKE_W);
-    } else {
-      renderX = chainX;
-      renderY = chainY;
-      advance = SNAKE_L;
-      track(renderX, renderY, SNAKE_W, SNAKE_L);
+    for (let i = MAX_H_TILES; i <= rightTotal; i++) {
+      const idx = firstTileIdx + i;
+      const isDouble = board[idx].tile[0] === board[idx].tile[1];
+      const advance = isDouble ? SNAKE_W : SNAKE_L;
+      if (isDouble) {
+        positions[idx] = { x: rightChainX - DOUBLE_EXT, y: rightChainY, dir: "v", isDouble };
+        track(rightChainX - DOUBLE_EXT, rightChainY, SNAKE_L, SNAKE_W);
+      } else {
+        positions[idx] = { x: rightChainX, y: rightChainY, dir: "v", isDouble };
+        track(rightChainX, rightChainY, SNAKE_W, SNAKE_L);
+      }
+      rightChainY += advance;
     }
+  }
 
-    positions.push({ x: renderX, y: renderY, dir: "v" as const, isDouble });
-    chainY += advance;
-    idx++;
+  // ── Côté GAUCHE: jusqu'à 3 tuiles horizontales, puis débordement vertical vers le HAUT ──
+  const leftTotal = firstTileIdx;
+  const leftH = Math.min(leftTotal, MAX_H_TILES - 1); // 3 max
+
+  // Partir du bord gauche du domino central (x = 0)
+  let leftChainX = 0;
+  let leftChainY = 0;
+
+  // Tuiles horizontales vers la gauche
+  for (let i = 1; i <= leftH; i++) {
+    const idx = firstTileIdx - i;
+    const isDouble = board[idx].tile[0] === board[idx].tile[1];
+    const advance = isDouble ? SNAKE_W : SNAKE_L;
+    leftChainX -= advance;
+    if (isDouble) {
+      positions[idx] = { x: leftChainX, y: leftChainY - DOUBLE_EXT, dir: "h", isDouble };
+      track(leftChainX, leftChainY - DOUBLE_EXT, SNAKE_W, SNAKE_L);
+    } else {
+      positions[idx] = { x: leftChainX, y: leftChainY, dir: "h", isDouble };
+      track(leftChainX, leftChainY, SNAKE_L, SNAKE_W);
+    }
+  }
+
+  // Débordement gauche vers le HAUT
+  if (leftTotal > MAX_H_TILES - 1) {
+    // Coin: centrer la colonne verticale sur le bord gauche de la dernière tuile horizontale
+    leftChainX = leftChainX - SNAKE_W / 2;
+    leftChainY -= SNAKE_L; // passer au-dessus de la rangée horizontale
+
+    for (let i = MAX_H_TILES; i <= leftTotal; i++) {
+      const idx = firstTileIdx - i;
+      const isDouble = board[idx].tile[0] === board[idx].tile[1];
+      const advance = isDouble ? SNAKE_W : SNAKE_L;
+      if (isDouble) {
+        positions[idx] = { x: leftChainX - DOUBLE_EXT, y: leftChainY, dir: "v", isDouble };
+        track(leftChainX - DOUBLE_EXT, leftChainY, SNAKE_L, SNAKE_W);
+      } else {
+        positions[idx] = { x: leftChainX, y: leftChainY, dir: "v", isDouble };
+        track(leftChainX, leftChainY, SNAKE_W, SNAKE_L);
+      }
+      leftChainY -= advance;
+    }
   }
 
   // Normaliser avec l'espace de sécurité (≈2cm)
@@ -301,35 +337,27 @@ function tileVisualSize(pos: BoardPos): { w: number; h: number } {
 // ── Board: 7 horizontal → reste vertical vers le bas ────────────────────────
 export function DominoBoard({
   board, canDropLeft, canDropRight, canDropAny,
-  onDropLeft, onDropRight, onDropAny,
+  onDropLeft, onDropRight, onDropAny, firstTileIdx = 0,
 }: {
   board: { tile: Tile; flipped: boolean }[];
   leftEnd: number | null; rightEnd: number | null;
   canDropLeft: boolean; canDropRight: boolean; canDropAny?: boolean;
   onDropLeft?: () => void; onDropRight?: () => void; onDropAny?: () => void;
+  firstTileIdx?: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const dOver = (e: React.DragEvent) => e.preventDefault();
 
-  // Auto-scroll: centrer sur le 1er domino quand peu de tuiles, sinon sur la dernière
+  // Auto-scroll: toujours centrer sur le domino central (le 1er joué)
   useEffect(() => {
     if (!ref.current) return;
     const el = ref.current;
-    if (board.length <= 3) {
-      // Centrer sur le premier domino (au centre de la table)
-      el.scrollTo({
-        left: (el.scrollWidth - el.clientWidth) / 2,
-        top: (el.scrollHeight - el.clientHeight) / 2,
-        behavior: "smooth",
-      });
-    } else {
-      // Suivre la dernière tuile posée
-      el.scrollTo({
-        left: (el.scrollWidth - el.clientWidth) / 2,
-        top: el.scrollHeight - el.clientHeight,
-        behavior: "smooth",
-      });
-    }
+    // Centrer sur le domino central
+    el.scrollTo({
+      left: (el.scrollWidth - el.clientWidth) / 2,
+      top: (el.scrollHeight - el.clientHeight) / 2,
+      behavior: "smooth",
+    });
   }, [board.length]);
 
   if (board.length === 0) {
@@ -348,37 +376,45 @@ export function DominoBoard({
     );
   }
 
-  const { positions, width, height, lastHDir, lastDir } = computeSnakeLayout(board);
+  const { positions, width, height } = computeCenterLayout(board, firstTileIdx);
 
-  // ── Positions des zones de dépôt (adaptées aux doubles perpendiculaires) ──
-  const firstPos = positions[0];
-  const lastPos = positions[positions.length - 1];
+  // ── Positions des zones de dépôt ──
+  // L'extrémité gauche = board[0] (premier élément du tableau)
+  // L'extrémité droite = board[board.length-1] (dernier élément)
+  const leftEndPos = positions[0];
+  const rightEndPos = positions[positions.length - 1];
   const dropSize = SNAKE_W + 8;
 
-  const firstSize = tileVisualSize(firstPos);
-  const lastSize = tileVisualSize(lastPos);
+  const leftSize = tileVisualSize(leftEndPos);
+  const rightSize = tileVisualSize(rightEndPos);
 
-  // Zone de dépôt gauche: à gauche de la première tuile
-  const leftDropX = firstPos.x - dropSize - 4;
-  const leftDropY = firstPos.y + firstSize.h / 2 - dropSize / 2;
-
-  // Zone de dépôt droite: dépend de la direction de la dernière tuile
-  let rightDropX = lastPos.x;
-  let rightDropY = lastPos.y;
-  if (lastDir === "h") {
-    if (lastHDir > 0) {
-      // vers la droite
-      rightDropX = lastPos.x + lastSize.w + 4;
-      rightDropY = lastPos.y + lastSize.h / 2 - dropSize / 2;
-    } else {
-      // vers la gauche
-      rightDropX = lastPos.x - dropSize - 4;
-      rightDropY = lastPos.y + lastSize.h / 2 - dropSize / 2;
-    }
+  // Zone de dépôt gauche:
+  // - Si board[0] est dans la section horizontale (leftTileIdx < 4): à gauche
+  // - Si board[0] est dans la section verticale haute: au-dessus
+  const leftIsVertical = leftEndPos.dir === "v";
+  let leftDropX: number, leftDropY: number;
+  if (leftIsVertical) {
+    // Section verticale (vers le haut): zone au-dessus
+    leftDropX = leftEndPos.x + leftSize.w / 2 - dropSize / 2;
+    leftDropY = leftEndPos.y - dropSize - 4;
   } else {
-    // segment vertical: zone en bas
-    rightDropX = lastPos.x + lastSize.w / 2 - dropSize / 2;
-    rightDropY = lastPos.y + lastSize.h + 4;
+    // Section horizontale: zone à gauche
+    leftDropX = leftEndPos.x - dropSize - 4;
+    leftDropY = leftEndPos.y + leftSize.h / 2 - dropSize / 2;
+  }
+
+  // Zone de dépôt droite:
+  // - Si dernière tuile est horizontale: à droite
+  // - Si dernière tuile est verticale (vers le bas): en dessous
+  let rightDropX: number, rightDropY: number;
+  if (rightEndPos.dir === "v") {
+    // Section verticale (vers le bas): zone en dessous
+    rightDropX = rightEndPos.x + rightSize.w / 2 - dropSize / 2;
+    rightDropY = rightEndPos.y + rightSize.h + 4;
+  } else {
+    // Section horizontale: zone à droite
+    rightDropX = rightEndPos.x + rightSize.w + 4;
+    rightDropY = rightEndPos.y + rightSize.h / 2 - dropSize / 2;
   }
 
   return (
