@@ -82,7 +82,7 @@ interface GameState {
   power_tiles?: { type: string; cell: number; cd?: number }[];
   shields?: Record<string, boolean>;
   double_roll_pending?: number | null;
-  power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; cell?: number; at: string };
+  power_event?: { type: string; slot: number; reward?: string; dice?: number; pawn?: number; free_pawn_idx?: number; cell?: number; at: string };
   power_pending?: { tile_type: string; options: string[]; slot: number };
   movable_pawns?: number[];  // Server-authoritative list of movable pawn indices
 }
@@ -110,6 +110,7 @@ const POWER_TILE_META: Record<string, { icon: string; label: string; color: stri
   shield:      { icon: "🛡️", label: "Bouclier",   color: "#14b8a6" },  // teal
   double_roll: { icon: "⚡", label: "2e Lancer",  color: "#f472b6" },  // rose
   lucky_star:  { icon: "⭐", label: "Chance",     color: "#fbbf24" },  // or
+  free_pawn:   { icon: "🎁", label: "Pion gratuit", color: "#22c55e" },  // vert
 };
 
 // CSS animations for power tile effects
@@ -986,7 +987,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           const effKey = boardPowerEffect.key;
           const colors: Record<string, string> = {
             boost: "#a855f7", shield: "#14b8a6", double_roll: "#ec4899",
-            lucky_star: "#fbbf24", reroll: "#ec4899", free_pawn: "#14b8a6",
+            lucky_star: "#fbbf24", reroll: "#ec4899", free_pawn: "#22c55e",
           };
           const icons: Record<string, string> = {
             boost: "🚀", shield: "🛡️", double_roll: "⚡",
@@ -1137,7 +1138,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                       double_roll: "#ec4899",
                       lucky_star: "#e2e8f0",
                       reroll: "#ec4899",
-                      free_pawn: "#14b8a6",
+                      free_pawn: "#22c55e",
                     };
                     const effColor = effectColors[effType] || "#a855f7";
                     const effectIcons: Record<string, string> = {
