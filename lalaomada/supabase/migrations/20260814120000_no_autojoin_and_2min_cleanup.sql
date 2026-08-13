@@ -1,12 +1,14 @@
 -- ═══════════════════════════════════════════════════════════════
--- Migration: No auto-join + 2-minute auto-cleanup
+-- Migration: No auto-join + 2-minute auto-cleanup with secure refunds
 -- Date: 2026-08-14
 -- ═══════════════════════════════════════════════════════════════
 -- Changes:
 -- 1. find_or_create_game: ALWAYS create a new game (no auto-join of existing open games)
 -- 2. cleanup_stale_open_games: Delete games in 'open'/'waiting' status older than 2 minutes
---    - Refund stakes to real participants (skip bots)
---    - Delete participants and game records
+--    - Refund stakes to real participants via credit_user_balance (secure)
+--    - Skip bots (is_bot = false filter)
+--    - Skip free games (stake = 0)
+--    - Fallback to direct refund if credit_user_balance fails
 -- 3. ludo_tick_all: Call cleanup at start of each tick
 -- 4. join_game: Call cleanup before joining
 -- 5. pg_cron: Schedule cleanup every minute
@@ -30,12 +32,24 @@ BEGIN
     WHERE status IN ('open', 'waiting')
       AND created_at < now() - interval '2 minutes'
   LOOP
-    FOR p_uid IN SELECT user_id FROM public.ludo_participants WHERE game_id = g_id AND user_id IS NOT NULL LOOP
-      UPDATE public.profiles SET balance_ar = balance_ar + g_stake WHERE id = p_uid;
-      INSERT INTO public.transactions(user_id, type, amount, ref_id, note)
-        VALUES (p_uid, 'refund', g_stake, g_id, 'Remboursement partie expiree');
-    END LOOP;
+    -- Refund each real participant (skip bots, only if stake > 0)
+    IF g_stake > 0 THEN
+      FOR p_uid IN SELECT user_id FROM public.ludo_participants
+        WHERE game_id = g_id AND user_id IS NOT NULL AND is_bot = false
+      LOOP
+        BEGIN
+          PERFORM public.credit_user_balance(p_uid, g_stake, 'refund', g_id, 'Remboursement partie expiree');
+        EXCEPTION WHEN OTHERS THEN
+          -- Fallback: direct refund if credit_user_balance fails
+          UPDATE public.profiles SET balance_ar = balance_ar + g_stake WHERE id = p_uid;
+          INSERT INTO public.transactions(user_id, type, amount, ref_id, note)
+            VALUES (p_uid, 'refund', g_stake, g_id, 'Remboursement partie expiree (fallback)');
+        END;
+      END LOOP;
+    END IF;
+    -- Delete participants
     DELETE FROM public.ludo_participants WHERE game_id = g_id;
+    -- Delete the game
     DELETE FROM public.ludo_games WHERE id = g_id;
     v_count := v_count + 1;
   END LOOP;
@@ -67,6 +81,7 @@ BEGIN
   SELECT balance_ar INTO v_balance FROM public.profiles WHERE id = v_uid FOR UPDATE;
   IF v_balance < _stake THEN RAISE EXCEPTION 'Solde insuffisant'; END IF;
 
+  -- Always create a new game (no auto-join of existing games)
   SELECT game_commission_pct INTO v_commission FROM public.app_settings WHERE id = 1;
   INSERT INTO public.ludo_games(host_id, max_players, stake, pot, commission_pct, match_type, mode)
     VALUES (v_uid, _max_players, _stake, _stake, COALESCE(v_commission, 10),
