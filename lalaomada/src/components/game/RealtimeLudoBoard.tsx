@@ -424,10 +424,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   const currentPart = partsBySlot.get(state.turn_slot);
   const isMyTurn = !!currentPart && !currentPart.is_bot && currentPart.user_id === myUserId && !isSpectator && status === "playing";
-  // Fallback: if participants haven't loaded yet but the game is playing and
-  // it's slot 0's turn, allow rolling. The backend validates the turn anyway.
-  // This prevents the dice from being stuck/disabled on the very first render.
-  const canRollFallback = !isMyTurn && !isSpectator && status === "playing" && participants.length === 0 && state.turn_slot === 0 && !state.must_move && !busy;
+  // DICE FIX: Always allow rolling for non-spectators when game is playing.
+  // isMyTurn can be false due to timing issues (participants not loaded yet,
+  // race condition between game state and participants). Instead of blocking
+  // the button, we always enable it and let the backend (ludo_roll) validate.
+  const canRoll = !isSpectator && status === "playing" && !state.must_move && !busy;
   const turnStartMs = state.turn_started_at ? new Date(state.turn_started_at).getTime() : now;
   const elapsed = Math.max(0, Math.floor((now - turnStartMs) / 1000));
   const remaining = Math.max(0, afkMax.secs - elapsed);
@@ -472,8 +473,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   }, [remaining, status, gameId, state.turn_slot, state.turn_started_at]);
 
   const roll = async () => {
-    if ((!isMyTurn && !canRollFallback) || state.must_move || busy) {
-      console.warn('[ludo] roll ignored:', { isMyTurn, canRollFallback, must_move: state.must_move, busy, turn_slot: state.turn_slot, status });
+    if (!canRoll) {
+      console.warn('[ludo] roll ignored:', { canRoll, isMyTurn, must_move: state.must_move, busy, isSpectator, status, turn_slot: state.turn_slot });
       return;
     }
     setBusy(true);
@@ -516,7 +517,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   // We use that as the single source of truth. The client-side calculation
   // is kept ONLY as a fallback for old game states that don't have the field.
   const movablePawnIdxs = useMemo(() => {
-    if (!isMyTurn || !state.must_move || state.dice == null) return new Set<number>();
+    if (!state.must_move || state.dice == null) return new Set<number>();
     // Use server-provided list if available
     if (state.movable_pawns && Array.isArray(state.movable_pawns)) {
       return new Set(state.movable_pawns);
@@ -531,7 +532,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       else if (p.k + (state.dice as number) <= 56) set.add(i);
     });
     return set;
-  }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.pawns, state.movable_pawns]);
+  }, [state.must_move, state.dice, state.turn_slot, state.pawns, state.movable_pawns]);
 
   // Selection state: hides indicators immediately once the user picks a pawn,
   // and is reset only when the turn key actually changes.
@@ -583,8 +584,9 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
 
   // Detect no-move: must_move=true but no movable pawns
-  const noMove = isMyTurn && state.must_move && state.dice != null
-    && movablePawnIdxs.size === 0;
+  const noMove = state.must_move && state.dice != null
+    && movablePawnIdxs.size === 0
+    && (isMyTurn || (!isSpectator && status === "playing"));
 
   // Auto-pass after 1.5s when the human player has no move
   const autoPassKey = noMove ? `${state.turn_slot}-${state.dice}-${state.turn_started_at}` : "";
@@ -1232,10 +1234,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
         <div className="relative" style={{ perspective: '200px' }}>
           <button onClick={roll}
-            disabled={(!isMyTurn && !canRollFallback) || state.must_move || busy}
+            disabled={!canRoll}
             className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
               displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
-            } ${(isMyTurn || canRollFallback) && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
+            } ${canRoll ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
             <DiceFace value={rollingFace ?? displayDice ?? 0} />
           </button>
           {rollingFace !== null && (
