@@ -40,7 +40,7 @@ function GamePage() {
   const [loadError, setLoadError] = useState(false);
   const [loadRetried, setLoadRetried] = useState(0);
 
-  const { game, parts, setGame, setParts, loading, connected, reload } = useFastRealtime({
+  const { game, parts, setGame, setParts, loading, connected, reload, optTurnRef } = useFastRealtime({
     gameTable: "ludo_games",
     participantTable: "ludo_participants",
     gameId: id,
@@ -271,7 +271,13 @@ function GamePage() {
         afkWarning={game?.afk_warning ?? null}
         afkPauseFor={game?.afk_pause_for ?? null}
         matchType={game.match_type}
-        onStateUpdate={(newState) => setGame((g: any) => g ? { ...g, state: newState } : g)}
+        onStateUpdate={(newState) => {
+          // Set optTurnRef to prevent stale realtime events from overwriting
+          // the optimistic state. The realtime handler checks this ref and
+          // skips events with a different current_turn.
+          if (optTurnRef) optTurnRef.current = newState.turn_slot;
+          setGame((g: any) => g ? { ...g, state: newState } : g);
+        }}
       />
 
       <GameSocialFab gameId={id} gameSlug="ludo" participants={parts} />

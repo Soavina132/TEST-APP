@@ -260,6 +260,7 @@ const POWER_TILE_STYLES = `
 export default function RealtimeLudoBoard({ gameId, state, participants, myUserId, isSpectator, status, isAdmin, paused, pauseDeadline, afkWarning, afkPauseFor, matchType, onStateUpdate }: Props) {
   const [boardSize, setBoardSize] = useState(600);
   const [busy, setBusy] = useState(false);
+  const [diceError, setDiceError] = useState<string | null>(null);
   const [now, setNow] = useState(serverNow());
   const [rollingFace, setRollingFace] = useState<number | null>(null);
   const [displayedPawns, setDisplayedPawns] = useState<GameState["pawns"]>(state.pawns);
@@ -531,11 +532,16 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           "Pas votre tour": "Ce n'est pas votre tour",
           "Deja lance, deplacez un pion": "Vous avez deja lance le de", "Deja lance": "Vous avez deja lance le de",
         };
-        toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
+        const msg = friendlyMap[error.message] || error.message;
+        toast.error(msg, { duration: 2000 });
+        setDiceError(msg);
+      } else {
+        setDiceError(null);
       }
     } catch (e) {
       // Network error — don't leave the dice stuck
       toast.error("Erreur réseau, réessayez", { duration: 2000 });
+      setDiceError("Erreur réseau");
     } finally {
       clearTimeout(safety);
       clearInterval(anim);
@@ -583,6 +589,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       // previous roll's RPC timed out without reaching finally
       setBusy(false);
       setRollingFace(null);
+      setDiceError(null);
     }
   }, [turnKey]);
 
@@ -748,7 +755,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     else if (ev === "double_roll:rejoue") sfx.powerTile("double_roll");
     else if (ev === "lucky_star:rejoue") sfx.powerTile("lucky_star");
     else if (ev.startsWith("six")) sfx.six();
-    else if (ev.startsWith("capture")) sfx.capture();
+    else if (ev.startsWith("capture")) { sfx.capture(); toast.success("🎯 Pion capturé !", { duration: 2000 }); }
     else if (ev === "home:continue") sfx.turnChange();
     else if (ev.startsWith("home")) sfx.home();
     else if (ev.startsWith("roll:") && ev.endsWith(":no_move")) sfx.noMove();
@@ -1281,8 +1288,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-2 rounded-full bg-black/20 blur-sm animate-pulse" />
           )}
         </div>
-        {displayDice != null && rollingFace === null && (
+        {displayDice != null && rollingFace === null && !diceError && (
           <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
+        )}
+        {diceError && rollingFace === null && (
+          <div className="text-xs font-bold text-destructive max-w-[120px] text-center leading-tight">{diceError}</div>
         )}
         {(noMove || noMoveDisplay) && (
           <div className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 text-[10px] font-bold animate-pulse">
