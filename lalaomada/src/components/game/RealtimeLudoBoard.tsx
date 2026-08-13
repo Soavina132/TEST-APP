@@ -424,6 +424,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   const currentPart = partsBySlot.get(state.turn_slot);
   const isMyTurn = !!currentPart && !currentPart.is_bot && currentPart.user_id === myUserId && !isSpectator && status === "playing";
+  // Fallback: if participants haven't loaded yet but the game is playing and
+  // it's slot 0's turn, allow rolling. The backend validates the turn anyway.
+  // This prevents the dice from being stuck/disabled on the very first render.
+  const canRollFallback = !isMyTurn && !isSpectator && status === "playing" && participants.length === 0 && state.turn_slot === 0 && !state.must_move && !busy;
   const turnStartMs = state.turn_started_at ? new Date(state.turn_started_at).getTime() : now;
   const elapsed = Math.max(0, Math.floor((now - turnStartMs) / 1000));
   const remaining = Math.max(0, afkMax.secs - elapsed);
@@ -468,8 +472,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   }, [remaining, status, gameId, state.turn_slot, state.turn_started_at]);
 
   const roll = async () => {
-    if (!isMyTurn || state.must_move || busy) {
-      console.warn('[ludo] roll ignored:', { isMyTurn, must_move: state.must_move, busy, turn_slot: state.turn_slot, status });
+    if ((!isMyTurn && !canRollFallback) || state.must_move || busy) {
+      console.warn('[ludo] roll ignored:', { isMyTurn, canRollFallback, must_move: state.must_move, busy, turn_slot: state.turn_slot, status });
       return;
     }
     setBusy(true);
@@ -1228,10 +1232,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
         <div className="relative" style={{ perspective: '200px' }}>
           <button onClick={roll}
-            disabled={!isMyTurn || state.must_move || busy}
+            disabled={(!isMyTurn && !canRollFallback) || state.must_move || busy}
             className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition ${
               displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
-            } ${isMyTurn && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
+            } ${(isMyTurn || canRollFallback) && !state.must_move ? "hover:scale-110 active:scale-95" : "opacity-60"} ${rollingFace !== null ? "dice-tumbling" : ""}`}>
             <DiceFace value={rollingFace ?? displayDice ?? 0} />
           </button>
           {rollingFace !== null && (

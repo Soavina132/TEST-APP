@@ -188,7 +188,7 @@ function GamePage() {
               navigate({ to: "/jeux/ludo/$id", params: { id: data as string } });
             } else {
               const fn = game.is_private ? "create_private_game" : "create_public_game";
-              const args: any = { _max_players: maxP, _stake: stake, _mode: mode, _match_type: "solo" };
+              const origMatchType = game.match_type === "solo" ? "solo" : "groupe"; const args: any = { _max_players: maxP, _stake: stake, _mode: mode, _match_type: origMatchType };
               const { data, error } = await supabase.rpc(fn as any, args);
               if (error) { (await import("sonner")).toast.error(error.message); return; }
               refreshProfile();
