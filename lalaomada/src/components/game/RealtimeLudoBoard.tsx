@@ -454,11 +454,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   const currentPart = partsBySlot.get(state.turn_slot);
   const isMyTurn = !!currentPart && !currentPart.is_bot && currentPart.user_id === myUserId && !isSpectator && status === "playing";
-  // DICE FIX: Always allow rolling for non-spectators when game is playing.
-  // isMyTurn can be false due to timing issues (participants not loaded yet,
-  // race condition between game state and participants). Instead of blocking
-  // the button, we always enable it and let the backend (ludo_roll) validate.
-  const canRoll = !isSpectator && status === "playing" && !state.must_move && !busy;
+  // Dice is only clickable when it is my turn (not a bot, not spectator).
+  const canRoll = isMyTurn && !state.must_move && !busy;
   const turnStartMs = state.turn_started_at ? new Date(state.turn_started_at).getTime() : now;
   const elapsed = Math.max(0, Math.floor((now - turnStartMs) / 1000));
   const remaining = Math.max(0, afkMax.secs - elapsed);
@@ -1255,7 +1252,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         </div>
         {status === "playing" && (() => {
           const pct = afkMax.secs > 0 ? remaining / afkMax.secs : 0;
-          const timerColor = remaining <= 5 ? "text-destructive" : remaining <= 10 ? "text-amber-500" : "text-emerald-500";
+          const playerTimerColor = currentPart ? COLOR_META[currentPart.color].text : "text-emerald-500";
+          const timerColor = remaining <= 5 ? "text-destructive" : playerTimerColor;
           const showAfk = currentPart && !currentPart.is_bot && ((currentPart.afk_t1 ?? 0) > 0 || (currentPart.afk_t2 ?? 0) > 0);
           return (
             <div className="flex items-center gap-2">
