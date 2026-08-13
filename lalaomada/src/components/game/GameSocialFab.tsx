@@ -285,7 +285,7 @@ export default function GameSocialFab({
               {REACTIONS.map((r) => (
                 <button
                   key={r.emoji}
-                  onClick={() => sendReaction(r.emoji)}
+                  onClick={() => { sendReaction(r.emoji); setPanelOpen(false); }}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-accent hover:scale-125 transition-all duration-150 active:scale-90"
                   title={r.label}
                   aria-label={r.label}
