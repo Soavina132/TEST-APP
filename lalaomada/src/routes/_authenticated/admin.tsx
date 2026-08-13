@@ -1061,19 +1061,17 @@ function GamesList() {
   const addBot = async (gameId: string) => {
     const name = prompt("Nom du bot:", "BotMax"); if (!name) return;
     const intel = Number(prompt("Niveau d'intelligence (0-100):", "70")) || 70;
-    const bias = Number(prompt("Biais de gain (0-100, 0 = équitable):", "0")) || 0;
-    const { error } = await supabase.rpc("admin_add_bot" as any, { _game_id: gameId, _bot_name: name, _intelligence: intel, _win_bias: bias } as any);
+    const { error } = await supabase.rpc("admin_add_bot" as any, { _game_id: gameId, _bot_name: name, _intelligence: intel } as any);
     if (error) return toast.error(error.message);
     toast.success("Bot ajouté"); load();
   };
   const editBot = async (p: any) => {
     const { data: cfg } = await supabase.rpc("admin_get_bot_config" as any, { _participant_id: p.id } as any);
-    const current = (Array.isArray(cfg) ? cfg[0] : cfg) || { intelligence: 70, win_bias: 0 };
+    const current = (Array.isArray(cfg) ? cfg[0] : cfg) || { intelligence: 70 };
     const name = prompt("Nouveau nom:", p.display_name) ?? p.display_name;
     const intel = Number(prompt("Intelligence (0-100):", String(current.intelligence ?? 70)));
-    const bias = Number(prompt("Biais de gain (0-100):", String(current.win_bias ?? 0)));
     if (name && name !== p.display_name) await supabase.rpc("admin_rename_bot" as any, { _participant_id: p.id, _name: name } as any);
-    const { error } = await supabase.rpc("admin_update_bot" as any, { _participant_id: p.id, _intelligence: intel, _win_bias: bias } as any);
+    const { error } = await supabase.rpc("admin_update_bot" as any, { _participant_id: p.id, _intelligence: intel } as any);
     if (error) return toast.error(error.message);
     toast.success("Bot mis à jour"); load();
   };

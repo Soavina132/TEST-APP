@@ -107,8 +107,7 @@ function GamePage() {
     if (isAdmin) {
       const name = prompt("Nom du bot:", "BotMax"); if (!name) return;
       const intel = Number(prompt("Intelligence (0-100):", "70")) || 70;
-      const bias = Number(prompt("Biais de gain (0-100, 0 = équitable):", "0")) || 0;
-      const { error } = await supabase.rpc("admin_add_bot" as any, { _game_id: id, _bot_name: name, _intelligence: intel, _win_bias: bias } as any);
+      const { error } = await supabase.rpc("admin_add_bot" as any, { _game_id: id, _bot_name: name, _intelligence: intel } as any);
       if (error) toast.error(error.message);
       else toast.success(t("bot_added"));
       return;

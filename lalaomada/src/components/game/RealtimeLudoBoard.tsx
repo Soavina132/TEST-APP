@@ -67,7 +67,7 @@ const SAFE_PATH_IDX = new Set<number>([0, 8, 13, 21, 26, 34, 39, 47]);
 interface Participant {
   id: string; user_id: string | null; slot: number; color: Color;
   is_bot: boolean; display_name: string; forfeited: boolean; missed_turns: number;
-  bot_intelligence?: number; bot_win_bias?: number;
+  bot_intelligence?: number;
   afk_t1?: number; afk_t2?: number;
   team?: number | null;
 }
@@ -1199,17 +1199,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             </div>
           );
         })()}
-        {isAdmin && status === "playing" && currentPart && (
-          <div className="rounded-lg bg-amber-100 border border-amber-300 px-2 py-1 flex flex-wrap items-center gap-1 text-[10px]">
-            <span className="font-bold text-amber-900">🎲 Dé de {currentPart.display_name} :</span>
-            {[1,2,3,4,5,6].map(n => (
-              <button key={n} onClick={async () => {
-                const { error } = await supabase.rpc("super_player_set_dice" as any, { _game_id: gameId, _slot: state.turn_slot, _value: n } as any);
-                if (error) toast.error(error.message); else toast.success(`Prochain dé: ${n}`);
-              }} className="w-5 h-5 rounded bg-white text-[11px] font-bold leading-none hover:bg-amber-200">{n}</button>
-            ))}
-          </div>
-        )}
+
         <div className="relative" style={{ perspective: '200px' }}>
           <button onClick={roll}
             disabled={!isMyTurn || state.must_move || busy}
