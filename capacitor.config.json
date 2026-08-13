@@ -1,8 +1,0 @@
-{
-  "appId": "com.lalaomada.app",
-  "appName": "Lalao MADA",
-  "webDir": ".output/public",
-  "server": {
-    "androidScheme": "https"
-  }
-}

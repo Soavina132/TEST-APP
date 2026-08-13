@@ -26,16 +26,3 @@ jobs:
             exit 1
           fi
           echo "test-app deployment triggered: $DEPLOY_ID"
-      - name: Deploy to lalaomada
-        run: |
-          RESPONSE=$(curl -s -X POST "https://api.vercel.com/v13/deployments" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"name\":\"lalaomada\",\"project\":\"${{ secrets.LALAOMADA_PROJECT_ID }}\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"repo\":\"TEST-APP\",\"org\":\"Soavina132\",\"ref\":\"main\",\"sha\":\"${{ steps.sha.outputs.sha }}\"}}")
-          echo "$RESPONSE"
-          DEPLOY_ID=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
-          if [ -z "$DEPLOY_ID" ]; then
-            echo "Failed to trigger lalaomada deployment"
-            exit 1
-          fi
-          echo "lalaomada deployment triggered: $DEPLOY_ID"
