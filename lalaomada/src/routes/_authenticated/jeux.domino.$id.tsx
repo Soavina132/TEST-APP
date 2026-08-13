@@ -494,7 +494,7 @@ function DominoPage() {
                 return (
                   <div key={i} className={`flex justify-center ${playable
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
-                    : "p-0.5 border-2 border-transparent opacity-65"}`}>
+                    : "p-0.5 border-2 border-transparent"}`}>
                     {playable && <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />}
                     <DominoTile t={t} w={tileW} vertical
                       onClick={playable ? () => { if (needsChoice) setSelectedTile(selectedTile === i ? null : i); else playSide("auto", i); } : undefined}
