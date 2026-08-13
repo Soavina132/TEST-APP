@@ -182,11 +182,20 @@ function DominoPage() {
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, phase, game?.state?.break_until, id, cfg.turn_timer_seconds, isRoundTransition]);
 
-  // ── Bot think ──────────────────────────────────────────────────────────
-  // bot_think_until was removed. Bot auto-play is now driven by turn_deadline:
-  // domino_advance_turn sets a short deadline (3-5s) for bots, the timer
-  // useEffect above calls domino_tick when it expires, and domino_tick calls
-  // domino_bot_play. No separate bot_think_until needed.
+  // ── Bot auto-play ─────────────────────────────────────────────────────
+  // When it's a bot's turn, fire domino_tick after 2.5s to trigger the bot.
+  // The timer useEffect above also fires at deadline expiry, but this dedicated
+  // effect ensures the bot plays with a visible delay even if the timer
+  // doesn't pick up the short bot deadline right away.
+  useEffect(() => {
+    if (!game || game.status !== "playing" || isRoundTransition) return;
+    const currentPart = parts.find((p: any) => p.slot === game.current_turn);
+    if (!currentPart?.is_bot) return;
+    const timer = setTimeout(() => {
+      supabase.rpc("domino_tick" as any, { _game_id: id } as any).then(() => load());
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [game?.current_turn, game?.status, parts, id, isRoundTransition]);
 
   // ── Derived state ──────────────────────────────────────────────────────
   const me = parts.find(p => p.user_id === profile?.id);
