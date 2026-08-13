@@ -679,7 +679,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       reroll: "🎲 Re-lancer !",
       free_pawn: "🎁 Pion gratuit sorti !",
     };
-    let msg = toastMsgs[pe.reward || pe.type] || toastMsgs[pe.type] || "Pouvoir activé";
+    let msg = toastMsgs[pe.type] || toastMsgs[pe.reward || pe.type] || "Pouvoir activé";
     const isMyPowerEvent = participants.some(p => p.slot === pe.slot && p.user_id === myUserId);
     const isBotPower = participants.some(p => p.slot === pe.slot && p.is_bot);
     if (isMyPowerEvent) {
