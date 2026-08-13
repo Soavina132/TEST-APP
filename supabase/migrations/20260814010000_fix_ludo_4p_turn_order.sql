@@ -11,9 +11,6 @@
 -- so the correct clockwise turn order is:
 --   slot 0(red) -> slot 1(green) -> slot 2(yellow) -> slot 3(blue)
 --
--- With the wrong colors, _ludo_next_slot produced:
---   slot 0 -> slot 2 -> slot 3 -> slot 1 (WRONG)
---
 -- Also standardizing 3p colors to ['red','green','yellow']
 -- so backend _ludo_start_idx(slot) matches frontend START_IDX[color].
 -- ============================================================
@@ -88,6 +85,7 @@ GRANT EXECUTE ON FUNCTION public.player_add_bot(uuid, text) TO authenticated;
 DROP FUNCTION IF EXISTS public.ludo_start_solo_bot(integer, text);
 DROP FUNCTION IF EXISTS public.ludo_start_solo_bot(integer, numeric, text, text);
 DROP FUNCTION IF EXISTS public.ludo_start_solo_bot(integer, numeric, text, text, numeric);
+DROP FUNCTION IF EXISTS public.ludo_start_solo_bot(integer, numeric, text, text, text);
 
 CREATE OR REPLACE FUNCTION public.ludo_start_solo_bot(
   _max_players integer DEFAULT 2, _difficulty text DEFAULT 'medium',
@@ -257,7 +255,7 @@ GRANT EXECUTE ON FUNCTION public.ludo_rematch(uuid) TO authenticated;
 
 -- 7. admin_join_game: fix 3p colors
 CREATE OR REPLACE FUNCTION public.admin_join_game(_game_id uuid, _display_name text DEFAULT NULL::text)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = 'public' AS $function$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
 DECLARE
   v_uid uuid := auth.uid(); v_game public.ludo_games%ROWTYPE; v_count int; v_slot int; v_color text; v_colors text[]; v_name text;
 BEGIN
