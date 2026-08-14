@@ -273,6 +273,8 @@ interface SnakeLayout {
   height: number;
   lastHDir: 1 | -1;
   lastDir: "h" | "v";
+  contentMaxExtentX: number; // étendue max depuis l'ancrage (pour calcul du scale)
+  contentMaxExtentY: number;
 }
 
 // ── Snake layout constants ──────────────────────────────────────────────────
@@ -283,6 +285,11 @@ const SUBSEQUENT_HORIZ_COUNT = 7; // 7 tuiles horizontales à chaque fois qu'on 
 const VERT_LIMIT = 3;           // max vertical tiles per segment
 const SAFETY_MARGIN = 60; // margin around board
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
+// Stage à position d'ancrage FIXE. Le 1er domino (raw 0,0) est toujours
+// normalisé à (STAGE_HALF, STAGE_HALF). Comme cette valeur ne dépend PAS
+// du contenu, anchorCx/anchorCy ne changent jamais quand on ajoute une
+// tuile → la transition CSS n'a plus de saut de position.
+const STAGE_HALF = 2000; // > 28 * SNAKE_L (1680) — assez pour tout match
 
 interface BoardPos {
   x: number;
@@ -298,6 +305,8 @@ interface SnakeLayout {
   height: number;
   lastHDir: 1 | -1;
   lastDir: "h" | "v";
+  contentMaxExtentX: number; // étendue max depuis l'ancrage (pour calcul du scale)
+  contentMaxExtentY: number;
 }
 
 function computeCenterLayout(
@@ -450,15 +459,24 @@ function computeCenterLayout(
   // Process left side: index decreases, go left initially, go up on vertical
   processSnake(-1, -1, -1);
 
-  // Normaliser avec l'espace de sécurité
-  const ox = -minX + SAFETY_MARGIN;
-  const oy = -minY + SAFETY_MARGIN;
+  // Normalisation à position d'ancrage FIXE — la clé de la stabilité.
+  // Le 1er domino (raw 0,0) est placé à (STAGE_HALF, STAGE_HALF). Cette valeur
+  // ne change JAMAIS, donc anchorCx/anchorCy sont constants → pas de saut
+  // pendant la transition CSS quand une tuile est ajoutée.
+  const ox = STAGE_HALF;
+  const oy = STAGE_HALF;
+  // Étendue max depuis l'ancrage (pour le calcul du scale). L'ancrage est à
+  // (0,0) en raw, donc l'étendue à gauche = -minX, à droite = maxX, etc.
+  const contentMaxExtentX = Math.max(-minX, maxX) + SAFETY_MARGIN;
+  const contentMaxExtentY = Math.max(-minY, maxY) + SAFETY_MARGIN;
   return {
     positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
-    width: (maxX - minX) + SAFETY_MARGIN * 2,
-    height: (maxY - minY) + SAFETY_MARGIN * 2,
+    width: STAGE_HALF * 2,
+    height: STAGE_HALF * 2,
     lastHDir: 1 as 1 | -1,
     lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
+    contentMaxExtentX,
+    contentMaxExtentY,
   };
 }
 
@@ -514,31 +532,34 @@ export function DominoBoard({
     return () => ro.disconnect();
   }, []);
 
-  // ── Point d'ancrage (1er domino) — reste TOUJOURS fixe au centre de l'écran ──
-  // C'est la clé de la stabilité: quand une tuile est ajoutée, seule le scale
-  // change (rétrécissement), la position de la chaîne ne saute pas.
+  // ── Point d'ancrage (1er domino) — position CONSTANTE dans le stage ──
+  // L'ancrage est toujours à (STAGE_HALF, STAGE_HALF) car la normalisation
+  // est fixe. anchorCx/anchorCy ne changent JAMAIS → la transition CSS est
+  // parfaitement stable (aucun saut de position, seul le scale change).
   const anchorP = layout ? layout.positions[firstTileIdx] : null;
-  const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : 0;
-  const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : 0;
+  const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : STAGE_HALF;
+  const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : STAGE_HALF;
 
-  // ── Zoom dynamique: scale calculé pour que la chaîne tienne même asymétrique ──
-  // On calcule l'étendue MAX de chaque côté de l'ancrage (la chaîne peut être
-  // asymétrique — plus de tuiles à droite qu'à gauche). Le scale garantit que
-  // l'étendue maximale de chaque côté tient dans la moitié du conteneur.
+  // ── Zoom dynamique: scale basé sur l'étendue réelle du contenu ──
+  // contentMaxExtentX/Y = distance max depuis l'ancrage dans chaque direction.
+  // Le scale garantit que cette étendue tient dans la moitié du conteneur.
   const MIN_SCALE = 0.55;
   const MAX_SCALE = 1.35;
   let rawRatio = MAX_SCALE;
   if (layout && containerSize.w > 0 && containerSize.h > 0) {
-    const maxExtentX = Math.max(anchorCx, layout.width - anchorCx);
-    const maxExtentY = Math.max(anchorCy, layout.height - anchorCy);
-    rawRatio = Math.min(containerSize.w / (2 * maxExtentX), containerSize.h / (2 * maxExtentY));
+    rawRatio = Math.min(
+      containerSize.w / (2 * layout.contentMaxExtentX),
+      containerSize.h / (2 * layout.contentMaxExtentY)
+    );
   }
   const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, rawRatio));
 
-  // Translation: ancrage fixe au centre — ne change JAMAIS de position à l'écran
-  // quand une tuile est ajoutée. Seul le scale change → rétrécissement stable.
-  // Mathématiquement: screenAnchor = translateX + anchorCx * scale = containerSize.w/2
-  // Donc pendant la transition CSS, l'ancrage reste fixe à tous les instants.
+  // Translation: ancrage fixe au centre de l'écran.
+  // Comme anchorCx/anchorCy sont CONSTANTS, pendant la transition CSS:
+  //   screenAnchor(τ) = lerp(tx1,tx2,τ) + anchorCx * lerp(s1,s2,τ)
+  //                   = lerp(w/2 - anchorCx*s1, w/2 - anchorCx*s2, τ) + anchorCx * lerp(s1,s2,τ)
+  //                   = w/2 - anchorCx*lerp(s1,s2,τ) + anchorCx*lerp(s1,s2,τ)
+  //                   = w/2  ← TOUJOURS au centre, à chaque instant de la transition.
   const translateX = containerSize.w / 2 - anchorCx * scale;
   const translateY = containerSize.h / 2 - anchorCy * scale;
 
