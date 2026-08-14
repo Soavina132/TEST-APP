@@ -369,13 +369,20 @@ function computeCenterLayout(
     }
   }
 
-  // Normaliser avec l'espace de sécurité (≈2cm)
-  const ox = -minX + SAFETY_MARGIN;
-  const oy = -minY + SAFETY_MARGIN;
+  // Offset FIXE — ne dépend PAS de minX/minY.
+  // Quand une tuile est ajoutée à gauche, minX diminue et l'ancien offset
+  // (-minX + SAFETY) augmentait → toutes les tuiles existantes se décalaient
+  // vers la droite (effet "saut"). Avec un offset fixe pré-alloué, les
+  // positions existantes ne changent JAMAIS quand la chaîne s'étend.
+  // 28 * SNAKE_L (≈1232px) suffit pour ~28 tuiles vers la gauche/le haut.
+  const FIXED_OX = 28 * SNAKE_L + SAFETY_MARGIN;
+  const FIXED_OY = 28 * SNAKE_L + SAFETY_MARGIN;
+
   return {
-    positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
-    width: (maxX - minX) + SAFETY_MARGIN * 2,
-    height: (maxY - minY) + SAFETY_MARGIN * 2,
+    positions: positions.map((p) => ({ ...p, x: p.x + FIXED_OX, y: p.y + FIXED_OY })),
+    // La largeur/hauteur couvre de 0 jusqu'à la tuile la plus à droite/bas
+    width: (maxX + FIXED_OX) + SAFETY_MARGIN,
+    height: (maxY + FIXED_OY) + SAFETY_MARGIN,
     lastHDir: 1 as 1 | -1,
     lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
   };
