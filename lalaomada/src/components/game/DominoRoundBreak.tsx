@@ -61,8 +61,10 @@ export default function DominoRoundBreak({
                 </div>
                 <div className="text-[9px] font-bold opacity-60 uppercase">Main</div>
                 <div className="text-base font-extrabold leading-none">{pips} pts</div>
+                {targetScore > 0 && (<>
                 <div className="text-[9px] font-bold opacity-60 uppercase">Total</div>
                 <div className="text-xl font-extrabold leading-none" style={{ color: isWinner ? "#4ade80" : "#fbbf24" }}>{total}</div>
+                </>)}
               </div>
             );
           })}

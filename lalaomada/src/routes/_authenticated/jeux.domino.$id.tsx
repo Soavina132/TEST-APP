@@ -382,7 +382,7 @@ function DominoPage() {
                 score: Number(game.scores?.[p.user_id] || 0),
                 skips: Number(game.turn_skips?.[p.user_id] || 0),
                 maxSkips: Number(cfg.max_turn_skips) || 5,
-              }} side="left" />
+              }} side="left" targetScore={Number(game.target_score) || 0} />
             );
           })()}
         </div>
@@ -403,7 +403,7 @@ function DominoPage() {
                 score: Number(game.scores?.[p.user_id] || 0),
                 skips: Number(game.turn_skips?.[p.user_id] || 0),
                 maxSkips: Number(cfg.max_turn_skips) || 5,
-              }} side="right" />
+              }} side="right" targetScore={Number(game.target_score) || 0} />
             );
           })()}
         </div>
@@ -509,7 +509,7 @@ function DominoPage() {
                 score: Number(game.scores?.[me.user_id] || 0),
                 skips: Number(game.turn_skips?.[me.user_id] || 0),
                 maxSkips: Number(cfg.max_turn_skips) || 5,
-              }} side="left" size="lg" />
+              }} side="left" size="lg" targetScore={Number(game.target_score) || 0} />
             </div>
             <div className="grid flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
               {myHand.map((t, i) => {

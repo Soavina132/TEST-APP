@@ -180,7 +180,83 @@ function initials(n?: string | null) {
   return n.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 }
 
-export function PlayerHeader({ seat, side, size = "sm" }: {
+export function PlayerHeader({ seat, side, size = "sm", targetScore = 0 }: {
+  seat?: Seat; side: "left" | "right"; size?: "sm" | "lg"; targetScore?: number;
+}) {
+  const name = !seat ? (side === "left" ? "Vous" : "Adversaire")
+    : seat.isMe ? "Vous" : (seat.display_name || "Joueur");
+  const score = seat?.score ?? 0;
+  const skips = seat?.skips ?? 0;
+  const maxSkips = seat?.maxSkips ?? 5;
+  const avSize = size === "lg" ? 44 : 36;
+  const isCurrent = !!seat?.isCurrent;
+  const remaining = seat?.remaining;
+  const maxTime = 30;
+  const ringW = size === "lg" ? 3 : 2.5;
+  const totalSize = avSize + ringW * 2 + 2;
+  const radius = avSize / 2 + ringW;
+  const circumference = 2 * Math.PI * radius;
+  const progress = isCurrent && typeof remaining === "number" ? Math.max(0, Math.min(1, remaining / maxTime)) : 0;
+
+  // Color: green → amber → red as time runs out
+  const ringColor = !isCurrent ? "rgba(255,255,255,0.25)"
+    : (typeof remaining === "number" && remaining <= 5) ? "#ef4444"
+    : (typeof remaining === "number" && remaining <= 15) ? "#f59e0b"
+    : "#22c55e";
+
+  return (
+    <div className="inline-flex flex-col items-center gap-0.5 min-w-0">
+      <div className="relative shrink-0" style={{ width: totalSize, height: totalSize }}>
+        {/* Timer ring (SVG) */}
+        <svg className="absolute inset-0" width={totalSize} height={totalSize}
+          style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={totalSize / 2} cy={totalSize / 2} r={radius} fill="none"
+            stroke={isCurrent ? "rgba(255,255,255,0.12)" : ringColor}
+            strokeWidth={ringW} />
+          {isCurrent && typeof remaining === "number" && (
+            <circle cx={totalSize / 2} cy={totalSize / 2} r={radius} fill="none"
+              stroke={ringColor} strokeWidth={ringW} strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - progress)}
+              style={{
+                transition: "stroke-dashoffset 0.5s linear, stroke 0.3s",
+                filter: remaining <= 5 ? "drop-shadow(0 0 4px rgba(239,68,68,0.6))" : undefined,
+              }} />
+          )}
+        </svg>
+        {/* Avatar */}
+        <div className="absolute rounded-full overflow-hidden"
+          style={{ top: ringW + 1, left: ringW + 1, width: avSize, height: avSize }}>
+          {seat?.avatar_url ? (
+            <img src={seat.avatar_url} alt={name} width={avSize} height={avSize}
+              className="rounded-full object-cover w-full h-full" loading="lazy" />
+          ) : (
+            <div className="w-full h-full rounded-full flex items-center justify-center font-bold text-white bg-white/10"
+              style={{ fontSize: Math.max(9, Math.round(avSize / 3)) }}>
+              {initials(name)}
+            </div>
+          )}
+        </div>
+        {seat && seat.handCount > 0 && (
+          <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full
+            bg-amber-400 text-black text-[9px] font-extrabold flex items-center justify-center
+            border border-white/80 leading-none shadow-sm">{seat.handCount}</div>
+        )}
+        {skips > 0 && (
+          <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full
+            text-white text-[8px] font-bold whitespace-nowrap
+            ${skips >= maxSkips - 1 ? "bg-red-600 animate-pulse" : "bg-orange-500"}`}>
+            {skips}/{maxSkips}
+          </div>
+        )}
+      </div>
+      <div className="text-white/85 text-[11px] font-semibold truncate max-w-[90px] text-center leading-tight">{name}</div>
+      {targetScore > 0 && (
+        <div className="text-white text-lg font-black leading-none tabular-nums">{score}</div>
+      )}
+    </div>
+  );
+}: {
   seat?: Seat; side: "left" | "right"; size?: "sm" | "lg";
 }) {
   const name = !seat ? (side === "left" ? "Vous" : "Adversaire")
