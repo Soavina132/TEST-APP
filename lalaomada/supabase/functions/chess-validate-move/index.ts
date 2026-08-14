@@ -28,7 +28,8 @@ Deno.serve(async (req: Request) => {
       return json({ error: "auth required" }, 401);
     }
 
-    const body = await req.json();
+    const reqText = await req.text();
+    const body = reqText ? JSON.parse(reqText) : {};
     const { action } = body;
 
     if (action === "play") {
@@ -72,7 +73,11 @@ async function getUser(token: string): Promise<string> {
   if (!res.ok) {
     throw new Error("Token invalide ou expiré");
   }
-  const user = await res.json();
+  const userText = await res.text();
+  const user = userText ? JSON.parse(userText) : {};
+  if (!user?.id) {
+    throw new Error("Utilisateur non trouvé");
+  }
   if (!user?.id) {
     throw new Error("Utilisateur non trouvé");
   }
@@ -88,7 +93,8 @@ async function getGame(gameId: string, token: string) {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData?.message || `Erreur ${res.status} lors de la récupération de la partie`);
   }
-  const games = await res.json();
+  const gamesText = await res.text();
+  const games = gamesText ? JSON.parse(gamesText) : [];
   if (!Array.isArray(games) || games.length === 0) {
     throw new Error("Partie introuvable");
   }
@@ -106,7 +112,8 @@ async function serviceRpc(fn: string, params: Record<string, unknown>) {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData?.message || `RPC ${fn} failed: HTTP ${res.status}`);
   }
-  return res.json();
+  const rpcText = await res.text();
+  return rpcText ? JSON.parse(rpcText) : {};
 }
 
 // ── Valider et jouer un coup ──
