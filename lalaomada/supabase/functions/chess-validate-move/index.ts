@@ -1,4 +1,4 @@
-// Supabase Edge Function: chess-validate-move
+    // Supabase Edge Function: chess-validate-move
 // Valide les coups d'échecs côté serveur avec chess.js
 // Empêche la triche en mode argent réel
 //
@@ -12,8 +12,15 @@
 // - Matériel insuffisant / position morte → AUTOMATIQUE
 // - Timeout → vérifie si l'adversaire a le matériel pour mater
 
-import { Chess } from "https://esm.sh/chess.js@1.4.0";
-import { corsHeaders } from "../_shared/cors.ts";
+import { Chess } from "npm:chess.js@1.4.0";
+
+// Inline CORS headers (no external relative import — single-file deploy compatibility)
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
