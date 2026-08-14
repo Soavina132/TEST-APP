@@ -247,11 +247,11 @@ interface SnakeLayout {
 }
 
 // ── Snake layout constants ──────────────────────────────────────────────────
-const SNAKE_W = 22;     // tile short side (px)
-const SNAKE_L = 44;     // tile long side = 2 * SNAKE_W
+const SNAKE_W = 30;     // tile short side (px) — increased for readability
+const SNAKE_L = 60;     // tile long side = 2 * SNAKE_W
 const HORIZ_LIMIT = 6;  // max horizontal tiles per segment
 const VERT_LIMIT = 3;   // max vertical tiles per segment
-const SAFETY_MARGIN = 76; // ≈ 2cm à 96 DPI — espace de sécurité
+const SAFETY_MARGIN = 24; // minimal safety margin — was 76, caused over-zoom
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
 
 interface BoardPos {
@@ -460,7 +460,7 @@ export function DominoBoard({
 
   // Facteur de zoom: ne rétrécit que si nécessaire (jamais > 1), avec un
   // plancher pour garder les tuiles lisibles même sur une très longue chaîne.
-  const MIN_SCALE = 0.32;
+  const MIN_SCALE = 0.55; // don't shrink tiles too much — was 0.32, tiles became ~7px
   const scale = layout && containerSize.w > 0 && containerSize.h > 0
     ? Math.max(MIN_SCALE, Math.min(1, containerSize.w / layout.width, containerSize.h / layout.height))
     : 1;
