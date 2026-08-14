@@ -83,6 +83,11 @@ function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptAge, setAcceptAge] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [termsHtml, setTermsHtml] = useState("");
+  const [privacyHtml, setPrivacyHtml] = useState("");
   const [busy, setBusy] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
@@ -156,6 +161,16 @@ function LoginPage() {
     return () => clearInterval(t);
   }, [otpResendIn]);
 
+  // Fetch CGU + confidentialité pour affichage inline
+  useEffect(() => {
+    supabase.from("app_settings").select("terms_html, terms_text, privacy_html").eq("id", 1).maybeSingle().then(({ data }: any) => {
+      if (data) {
+        setTermsHtml((data.terms_html as string) || (data.terms_text as string) || "");
+        setPrivacyHtml((data.privacy_html as string) || "");
+      }
+    });
+  }, []);
+
   useEffect(() => {
     if (user) router.navigate({ to: "/lobby", replace: true });
   }, [user, router]);
@@ -171,7 +186,8 @@ function LoginPage() {
       if (!pseudo.trim()) return toast.error("Pseudo requis");
       if (password.length < 8) return toast.error("Mot de passe : 8 caractères minimum");
       if (password !== confirmPassword) return toast.error("Les mots de passe ne correspondent pas");
-      if (!acceptTerms) return toast.error("Veuillez accepter les conditions");
+      if (!acceptTerms) return toast.error("Veuillez accepter les conditions d'utilisation");
+      if (!acceptAge) return toast.error("Vous devez confirmer avoir au moins 18 ans");
     }
 
     const email = identifier.trim().toLowerCase();
@@ -578,27 +594,76 @@ function LoginPage() {
               </div>
             )}
 
-            {/* Terms (signup only) */}
+            {/* CGU + Privacy + +18 (signup only) */}
             {tab === "signup" && (
-              <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={acceptTerms}
-                  onChange={e => setAcceptTerms(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded accent-primary flex-shrink-0"
-                />
-                <span>
-                  J'accepte les{" "}
-                  <a href="/cgu" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                    conditions d'utilisation
-                  </a>{" "}
-                  et la{" "}
-                  <a href="/confidentialite" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                    politique de confidentialité
-                  </a>
-                  .
-                </span>
-              </label>
+              <div className="space-y-2">
+                {/* Collapsible CGU */}
+                <div className="rounded-lg border border-border/60 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowTerms(v => !v)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-foreground bg-secondary/40 hover:bg-secondary/60 transition-colors"
+                  >
+                    <span>Conditions d'utilisation</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTerms ? "rotate-180" : ""}`} />
+                  </button>
+                  {showTerms && (
+                    <div
+                      className="px-3 py-2 text-[11px] text-muted-foreground max-h-32 overflow-y-auto prose prose-xs"
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(termsHtml || "<p>Chargement…</p>") }}
+                    />
+                  )}
+                </div>
+                {/* Collapsible Privacy */}
+                <div className="rounded-lg border border-border/60 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowPrivacy(v => !v)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-foreground bg-secondary/40 hover:bg-secondary/60 transition-colors"
+                  >
+                    <span>Politique de confidentialité</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showPrivacy ? "rotate-180" : ""}`} />
+                  </button>
+                  {showPrivacy && (
+                    <div
+                      className="px-3 py-2 text-[11px] text-muted-foreground max-h-32 overflow-y-auto prose prose-xs"
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(privacyHtml || "<p>Chargement…</p>") }}
+                    />
+                  )}
+                </div>
+                {/* Accept terms */}
+                <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acceptTerms}
+                    onChange={e => setAcceptTerms(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded accent-primary flex-shrink-0"
+                  />
+                  <span>
+                    J'accepte les{" "}
+                    <a href="/cgu" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                      conditions d'utilisation
+                    </a>{" "}
+                    et la{" "}
+                    <a href="/confidentialite" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                      politique de confidentialité
+                    </a>
+                    .
+                  </span>
+                </label>
+                {/* +18 confirmation */}
+                <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acceptAge}
+                    onChange={e => setAcceptAge(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded accent-primary flex-shrink-0"
+                  />
+                  <span>
+                    Je confirme avoir au moins <strong className="text-foreground">18 ans</strong>.
+                  </span>
+                </label>
+              </div>
             )}
 
             {/* Submit */}
