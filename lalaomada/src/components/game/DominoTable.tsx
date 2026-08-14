@@ -251,10 +251,11 @@ interface SnakeLayout {
 }
 
 // ── Snake layout constants ──────────────────────────────────────────────────
-const SNAKE_W = 30;     // tile short side (px) — increased for readability
-const SNAKE_L = 60;     // tile long side = 2 * SNAKE_W
-const HORIZ_LIMIT = 5;  // 4 tuiles à gauche/droite du 1er domino, puis virage (centre partagé)
-const VERT_LIMIT = 3;   // max vertical tiles per segment
+const SNAKE_W = 30;             // tile short side (px) — increased for readability
+const SNAKE_L = 60;             // tile long side = 2 * SNAKE_W
+const FIRST_HORIZ_COUNT = 4;    // 4 tuiles à gauche/droite du 1er domino, avant le 1er virage
+const SUBSEQUENT_HORIZ_COUNT = 6; // 6 tuiles horizontales à chaque fois qu'on redirige vers l'horizontal (après un virage vertical)
+const VERT_LIMIT = 3;           // max vertical tiles per segment
 const SAFETY_MARGIN = 76; // ~2cm à 96 DPI — filet de sécurité autour du plateau
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
 
@@ -342,7 +343,7 @@ function computeCenterLayout(
 
     let dir: "h" | "v" = "h";
     let segCount = 0;
-    let segLimit = HORIZ_LIMIT - 1; // first segment has 1 less (center is shared)
+    let segLimit = FIRST_HORIZ_COUNT; // 1er segment horizontal: 4 tuiles avant virage
     let curHDir: 1 | -1 = initHDir;
 
     const total = step > 0 ? board.length - firstTileIdx - 1 : firstTileIdx;
@@ -399,7 +400,7 @@ function computeCenterLayout(
         }
         dir = dir === "h" ? "v" : "h";
         segCount = 0;
-        segLimit = dir === "h" ? HORIZ_LIMIT : VERT_LIMIT;
+        segLimit = dir === "h" ? SUBSEQUENT_HORIZ_COUNT : VERT_LIMIT;
       }
     }
   };
