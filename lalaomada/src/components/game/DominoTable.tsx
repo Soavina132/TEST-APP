@@ -327,7 +327,11 @@ function computeCenterLayout(
   const processSnake = (step: number, initHDir: 1 | -1, vDir: 1 | -1) => {
     const centerIsDouble = board[firstTileIdx].tile[0] === board[firstTileIdx].tile[1];
     const centerEdge = centerIsDouble ? SNAKE_W : SNAKE_L;
-    let x = initHDir > 0 ? centerEdge : -centerEdge;
+    // Le bord DROIT de la tuile centrale = centerEdge (0 → centerEdge).
+    // Le bord GAUCHE de la tuile centrale est TOUJOURS 0 (x=0 par construction,
+    // voir bloc "Tuile centrale" ci-dessus) — donc le curseur gauche doit
+    // démarrer à 0, PAS à -centerEdge (qui créait un trou de centerEdge px).
+    let x = initHDir > 0 ? centerEdge : 0;
     let y = 0;
 
     let dir: "h" | "v" = "h";
