@@ -379,7 +379,9 @@ function computeCenterLayout(
           // v → h: center row on the edge, reverse horizontal direction
           y -= SNAKE_W / 2; // toujours centrer sur le bord de fin, pas de facteur vDir
           curHDir = (-curHDir) as 1 | -1;
-          x += curHDir > 0 ? SNAKE_W : 0; // bord droit vers droite, bord gauche vers gauche (avant: gap de SNAKE_W)
+          x += curHDir > 0
+            ? SNAKE_W + (isDouble ? DOUBLE_EXT : 0)   // dernier vertical = double → dépasse à droite
+            : (isDouble ? -DOUBLE_EXT : 0);          // dernier vertical = double → dépasse à gauche
         }
         dir = dir === "h" ? "v" : "h";
         segCount = 0;
