@@ -276,12 +276,12 @@ interface SnakeLayout {
 }
 
 // ── Snake layout constants ──────────────────────────────────────────────────
-const SNAKE_W = 26;             // tile short side (px) — slightly smaller for more playable area
-const SNAKE_L = 52;             // tile long side = 2 * SNAKE_W
+const SNAKE_W = 30;             // tile short side (px) — base size, dynamic scale handles shrinking
+const SNAKE_L = 60;             // tile long side = 2 * SNAKE_W
 const FIRST_HORIZ_COUNT = 4;    // 4 tuiles à gauche/droite du 1er domino, avant le 1er virage
 const SUBSEQUENT_HORIZ_COUNT = 7; // 7 tuiles horizontales à chaque fois qu'on redirige vers l'horizontal (après un virage vertical)
 const VERT_LIMIT = 3;           // max vertical tiles per segment
-const SAFETY_MARGIN = 50; // reduced margin for more playable space
+const SAFETY_MARGIN = 60; // margin around board
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
 
 interface BoardPos {
@@ -515,16 +515,21 @@ export function DominoBoard({
   const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : 0;
   const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : 0;
 
-  // ── Zoom dynamique adaptatif ──
-  // Au début (peu de tuiles), les dominos sont grands (scale > 1).
+  // ── Zoom dynamique adaptatif avec easing fluide ──
+  // Au début (peu de tuiles), les dominos sont grands (scale → MAX_SCALE).
   // Au fur et à mesure que la chaîne s'allonge, le scale diminue
-  // progressivement pour garder toute la chaîne visible sur l'écran.
-  // Plancher MIN_SCALE pour garder les tuiles lisibles même sur une très longue chaîne.
-  const MIN_SCALE = 0.42;  // zoom minimum: tuiles restent lisibles
-  const MAX_SCALE = 1.6;   // zoom maximum: gros dominos au début
-  const scale = layout && containerSize.w > 0 && containerSize.h > 0
-    ? Math.max(MIN_SCALE, Math.min(MAX_SCALE, containerSize.w / layout.width, containerSize.h / layout.height))
-    : MAX_SCALE;
+  // progressivement et fluidement (ease-out cubic) pour garder toute la
+  // chaîne visible. Le scale reste élevé longtemps avant de baisser,
+  // puis décélère en douceur vers MIN_SCALE.
+  const MIN_SCALE = 0.62;   // zoom minimum: tuiles restent bien lisibles en fin de match
+  const MAX_SCALE = 1.35;   // zoom maximum: dominos bien grands au début
+  const rawRatio = layout && containerSize.w > 0 && containerSize.h > 0
+    ? Math.min(containerSize.w / layout.width, containerSize.h / layout.height)
+    : 1;
+  // Ease-out cubic: le scale reste élevé longtemps, puis diminue en douceur
+  const t = Math.max(0, Math.min(1, rawRatio));
+  const easedT = 1 - Math.pow(1 - t, 3);
+  const scale = MIN_SCALE + (MAX_SCALE - MIN_SCALE) * easedT;
 
   // Translation: place le point d'ancrage exactement au centre du conteneur.
   const translateX = containerSize.w / 2 - anchorCx * scale;
@@ -600,7 +605,7 @@ export function DominoBoard({
           width, height,
           transform: `translate(${translateX}px, ${translateY}px) scale(${scale})`,
           transformOrigin: "0 0",
-          transition: "transform 220ms ease-out",
+          transition: "transform 350ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}>
         {/* Tuiles de domino */}
         {positions.map((pos, i) => {
