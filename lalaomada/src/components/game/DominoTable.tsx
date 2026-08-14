@@ -230,13 +230,29 @@ export function PlayerHeader({ seat, side, size = "sm" }: {
   );
 }
 
-// ── Layout: 7 horizontal → reste vertical vers le bas ──
+// ── Snake layout: 6 horizontal → 3 vertical → turn → repeat ────────────────
+interface BoardPos {
+  x: number;
+  y: number;
+  dir: "h" | "v";
+  isDouble: boolean;
+}
+
+interface SnakeLayout {
+  positions: BoardPos[];
+  width: number;
+  height: number;
+  lastHDir: 1 | -1;
+  lastDir: "h" | "v";
+}
+
 // ── Snake layout constants ──────────────────────────────────────────────────
 const SNAKE_W = 22;     // tile short side (px)
 const SNAKE_L = 44;     // tile long side = 2 * SNAKE_W
-const MAX_H_TILES = 7;  // max horizontal tiles per row
-const SAFETY_MARGIN = 76; // ≈ 2cm à 96 DPI — espace de sécurité entre le bord de la table et les dominos
-const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse de la rangée/colonne
+const HORIZ_LIMIT = 6;  // max horizontal tiles per segment
+const VERT_LIMIT = 3;   // max vertical tiles per segment
+const SAFETY_MARGIN = 76; // ≈ 2cm à 96 DPI — espace de sécurité
+const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
 
 interface BoardPos {
   x: number;
@@ -259,13 +275,7 @@ function computeCenterLayout(
 ): SnakeLayout {
   const positions: BoardPos[] = new Array(board.length);
 
-  // ── Pré-allocation symétrique ──
-  // Le côté droit ne change jamais minX (les tuiles vont vers +x).
-  // Mais le côté gauche fait diminuer minX → l'offset change → tout saute.
-  // Solution: pré-allouer minX/maxX/minY/maxY symétriquement autour du 1er
-  // domino. Comme pour le droit, l'offset reste FIXE tant qu'on ne dépasse
-  // pas la réserve (≈10 tuiles de chaque côté = largement suffisant).
-  const RESERVE = 10 * SNAKE_L; // 440px de chaque côté
+  const RESERVE = 10 * SNAKE_L;
   let minX = -RESERVE, maxX = RESERVE, minY = -RESERVE, maxY = RESERVE;
 
   const track = (px: number, py: number, pw: number, ph: number) => {
@@ -273,6 +283,28 @@ function computeCenterLayout(
     if (px + pw > maxX) maxX = px + pw;
     if (py < minY) minY = py;
     if (py + ph > maxY) maxY = py + ph;
+  };
+
+  // ── Place a tile at (x, y) in direction dir ──
+  const placeTile = (idx: number, x: number, y: number, dir: "h" | "v") => {
+    const isDouble = board[idx].tile[0] === board[idx].tile[1];
+    if (dir === "h") {
+      if (isDouble) {
+        positions[idx] = { x, y: y - DOUBLE_EXT, dir: "h", isDouble };
+        track(x, y - DOUBLE_EXT, SNAKE_W, SNAKE_L);
+      } else {
+        positions[idx] = { x, y, dir: "h", isDouble };
+        track(x, y, SNAKE_L, SNAKE_W);
+      }
+    } else {
+      if (isDouble) {
+        positions[idx] = { x: x - DOUBLE_EXT, y, dir: "v", isDouble };
+        track(x - DOUBLE_EXT, y, SNAKE_L, SNAKE_W);
+      } else {
+        positions[idx] = { x, y, dir: "v", isDouble };
+        track(x, y, SNAKE_W, SNAKE_L);
+      }
+    }
   };
 
   // ── Tuile centrale (1er domino) fixée à (0, 0) ──
@@ -288,96 +320,77 @@ function computeCenterLayout(
     }
   }
 
-  // ── Côté DROITE: jusqu'à 3 tuiles horizontales, puis débordement vertical vers le BAS ──
-  const rightTotal = board.length - firstTileIdx - 1;
-  const rightH = Math.min(rightTotal, MAX_H_TILES - 1); // 3 max (with center = 7 total)
+  // ── Process one side of the snake ──
+  // step: +1 (right, index increases) or -1 (left, index decreases)
+  // initHDir: initial horizontal direction (+1 right, -1 left)
+  // vDir: vertical direction (+1 down, -1 up)
+  const processSnake = (step: number, initHDir: 1 | -1, vDir: 1 | -1) => {
+    const centerIsDouble = board[firstTileIdx].tile[0] === board[firstTileIdx].tile[1];
+    const centerEdge = centerIsDouble ? SNAKE_W : SNAKE_L;
+    let x = initHDir > 0 ? centerEdge : -centerEdge;
+    let y = 0;
 
-  // Calculer la position de départ (bord droit du domino central)
-  const centerIsDouble = board[firstTileIdx].tile[0] === board[firstTileIdx].tile[1];
-  let rightChainX = centerIsDouble ? SNAKE_W : SNAKE_L;
-  let rightChainY = 0;
+    let dir: "h" | "v" = "h";
+    let segCount = 0;
+    let segLimit = HORIZ_LIMIT - 1; // first segment has 1 less (center is shared)
+    let curHDir: 1 | -1 = initHDir;
 
-  // Tuiles horizontales vers la droite
-  for (let i = 1; i <= rightH; i++) {
-    const idx = firstTileIdx + i;
-    const isDouble = board[idx].tile[0] === board[idx].tile[1];
-    const advance = isDouble ? SNAKE_W : SNAKE_L;
-    if (isDouble) {
-      positions[idx] = { x: rightChainX, y: rightChainY - DOUBLE_EXT, dir: "h", isDouble };
-      track(rightChainX, rightChainY - DOUBLE_EXT, SNAKE_W, SNAKE_L);
-    } else {
-      positions[idx] = { x: rightChainX, y: rightChainY, dir: "h", isDouble };
-      track(rightChainX, rightChainY, SNAKE_L, SNAKE_W);
-    }
-    rightChainX += advance;
-  }
+    const total = step > 0 ? board.length - firstTileIdx - 1 : firstTileIdx;
 
-  // Débordement droite vers le BAS
-  if (rightTotal > MAX_H_TILES - 1) {
-    // Coin: centrer la colonne verticale sur le bord droit de la dernière tuile horizontale
-    rightChainX = rightChainX - SNAKE_W / 2;
-    rightChainY += SNAKE_W; // passer sous la rangée horizontale
-
-    for (let i = MAX_H_TILES; i <= rightTotal; i++) {
-      const idx = firstTileIdx + i;
+    for (let i = 0; i < total; i++) {
+      const idx = firstTileIdx + step * (i + 1);
       const isDouble = board[idx].tile[0] === board[idx].tile[1];
       const advance = isDouble ? SNAKE_W : SNAKE_L;
-      if (isDouble) {
-        positions[idx] = { x: rightChainX - DOUBLE_EXT, y: rightChainY, dir: "v", isDouble };
-        track(rightChainX - DOUBLE_EXT, rightChainY, SNAKE_L, SNAKE_W);
+
+      if (dir === "h") {
+        if (curHDir > 0) {
+          // Going right: place at x, then advance
+          placeTile(idx, x, y, "h");
+          x += advance;
+        } else {
+          // Going left: advance (decrease x), then place
+          x -= advance;
+          placeTile(idx, x, y, "h");
+        }
       } else {
-        positions[idx] = { x: rightChainX, y: rightChainY, dir: "v", isDouble };
-        track(rightChainX, rightChainY, SNAKE_W, SNAKE_L);
+        if (vDir > 0) {
+          // Going down: place at y, then advance
+          placeTile(idx, x, y, "v");
+          y += advance;
+        } else {
+          // Going up: advance (decrease y), then place
+          y -= advance;
+          placeTile(idx, x, y, "v");
+        }
       }
-      rightChainY += advance;
-    }
-  }
 
-  // ── Côté GAUCHE: jusqu'à 3 tuiles horizontales, puis débordement vertical vers le HAUT ──
-  const leftTotal = firstTileIdx;
-  const leftH = Math.min(leftTotal, MAX_H_TILES - 1); // 3 max
-
-  // Partir du bord gauche du domino central (x = 0)
-  let leftChainX = 0;
-  let leftChainY = 0;
-
-  // Tuiles horizontales vers la gauche
-  for (let i = 1; i <= leftH; i++) {
-    const idx = firstTileIdx - i;
-    const isDouble = board[idx].tile[0] === board[idx].tile[1];
-    const advance = isDouble ? SNAKE_W : SNAKE_L;
-    leftChainX -= advance;
-    if (isDouble) {
-      positions[idx] = { x: leftChainX, y: leftChainY - DOUBLE_EXT, dir: "h", isDouble };
-      track(leftChainX, leftChainY - DOUBLE_EXT, SNAKE_W, SNAKE_L);
-    } else {
-      positions[idx] = { x: leftChainX, y: leftChainY, dir: "h", isDouble };
-      track(leftChainX, leftChainY, SNAKE_L, SNAKE_W);
-    }
-  }
-
-  // Débordement gauche vers le HAUT
-  if (leftTotal > MAX_H_TILES - 1) {
-    // Coin: centrer la colonne verticale sur le bord gauche de la dernière tuile horizontale
-    leftChainX = leftChainX - SNAKE_W / 2;
-    leftChainY -= SNAKE_L; // passer au-dessus de la rangée horizontale
-
-    for (let i = MAX_H_TILES; i <= leftTotal; i++) {
-      const idx = firstTileIdx - i;
-      const isDouble = board[idx].tile[0] === board[idx].tile[1];
-      const advance = isDouble ? SNAKE_W : SNAKE_L;
-      if (isDouble) {
-        positions[idx] = { x: leftChainX - DOUBLE_EXT, y: leftChainY, dir: "v", isDouble };
-        track(leftChainX - DOUBLE_EXT, leftChainY, SNAKE_L, SNAKE_W);
-      } else {
-        positions[idx] = { x: leftChainX, y: leftChainY, dir: "v", isDouble };
-        track(leftChainX, leftChainY, SNAKE_W, SNAKE_L);
+      segCount++;
+      if (segCount >= segLimit) {
+        // Turn 90°
+        if (dir === "h") {
+          // h → v: center column on the edge, move past the row
+          x -= curHDir * SNAKE_W / 2;
+          y += vDir * SNAKE_W;
+        } else {
+          // v → h: center row on the edge, reverse horizontal direction
+          y -= vDir * SNAKE_W / 2;
+          curHDir = (-curHDir) as 1 | -1;
+          x += curHDir * SNAKE_W;
+        }
+        dir = dir === "h" ? "v" : "h";
+        segCount = 0;
+        segLimit = dir === "h" ? HORIZ_LIMIT : VERT_LIMIT;
       }
-      leftChainY -= advance;
     }
-  }
+  };
 
-  // Normaliser avec l'espace de sécurité (≈2cm) — version originale
+  // Process right side: index increases, go right initially, go down on vertical
+  processSnake(+1, +1, +1);
+
+  // Process left side: index decreases, go left initially, go up on vertical
+  processSnake(-1, -1, -1);
+
+  // Normaliser avec l'espace de sécurité
   const ox = -minX + SAFETY_MARGIN;
   const oy = -minY + SAFETY_MARGIN;
   return {
