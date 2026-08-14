@@ -1,0 +1,4 @@
+-- Fix: domino void functions -> boolean
+-- PostgREST returns empty body for void functions, causing "Unexpected end of JSON input"
+-- Changed 6 frontend-called functions to return boolean (RETURN TRUE)
+-- Functions: domino_play, domino_tick, domino_forfeit, domino_set_ready, domino_add_bot, domino_join
