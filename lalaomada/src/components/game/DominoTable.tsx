@@ -421,7 +421,7 @@ function computeCenterLayout(
         // Turn 90°
         if (dir === "h") {
           // h → v: center column on the edge, move past the row
-          x -= curHDir > 0 ? 0 : SNAKE_W; // flush: colonne commence au bord droit (→) ou avant le bord gauche (←)
+          x -= SNAKE_W / 2; // centrer la tuile verticale sur l'extrémité de la tuile horizontale
           // vDir > 0 (descend): le pattern "place puis avance" utilise y tel quel,
           //   donc il faut avancer de SNAKE_W (+ DOUBLE_EXT si la dernière tuile
           //   horizontale était un double, qui dépasse vers le bas).
@@ -435,9 +435,7 @@ function computeCenterLayout(
           // v → h: center row on the edge, reverse horizontal direction
           y -= vDir > 0 ? 0 : SNAKE_W; // flush: rangée commence au bord bas (↓) ou avant le bord haut (↑)
           curHDir = (-curHDir) as 1 | -1;
-          x += curHDir > 0
-            ? SNAKE_W + (isDouble ? DOUBLE_EXT : 0)   // dernier vertical = double → dépasse à droite
-            : (isDouble ? -DOUBLE_EXT : 0);          // dernier vertical = double → dépasse à gauche
+          x += SNAKE_W / 2; // centrer la tuile horizontale sur l'extrémité de la tuile verticale
         }
         dir = dir === "h" ? "v" : "h";
         segCount = 0;
