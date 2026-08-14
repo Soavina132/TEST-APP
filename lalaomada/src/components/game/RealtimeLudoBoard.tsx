@@ -512,7 +512,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Ref guard — instant, no state lag, works on all browsers
     if (rollLockRef.current) return;
     // State guard — check if we can roll
-    if (isSpectator || status !== "playing" || state.must_move) return;
+    if (isSpectator || status !== "playing" || state.must_move || !isMyTurn) return;
     // Lock immediately
     rollLockRef.current = true;
     setBusy(true);
@@ -652,6 +652,19 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }, 1500);
     return () => clearTimeout(t);
   }, [noMove, autoPassKey, gameId, state.turn_slot, state.dice, state.turn_started_at]);
+
+  // ═══ FIX: Clear noMoveDisplay when the turn changes ═══
+  // Without this, noMoveDisplay can get stuck if the realtime event from
+  // ludo_pass arrives before the 1.5s timeout fires (the effect cleanup
+  // clears the timeout, preventing setNoMoveDisplay(null) from running).
+  // This causes displayDice to show a stale value instead of state.dice.
+  const lastTurnCleanupRef = useRef<string>("");
+  useEffect(() => {
+    const turnKey = `${state.turn_slot}-${state.turn_started_at}`;
+    if (lastTurnCleanupRef.current === turnKey) return;
+    lastTurnCleanupRef.current = turnKey;
+    if (noMoveDisplay) setNoMoveDisplay(null);
+  }, [state.turn_slot, state.turn_started_at, noMoveDisplay]);
 
   // When no_move_display is active, show the player's slot + dice
   const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
@@ -1282,7 +1295,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
         <div className="relative" style={{ perspective: '200px' }}>
           <button
-            onPointerDown={(e) => { e.preventDefault(); roll(); }}
+            disabled={!canRoll}
+            onPointerDown={(e) => { if (!canRoll) return; e.preventDefault(); roll(); }}
             style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
             className={`group relative h-20 w-20 rounded-2xl bg-white shadow-xl ring-2 transition select-none ${
               displayPart ? COLOR_META[displayPart.color].ring : "ring-slate-300"
