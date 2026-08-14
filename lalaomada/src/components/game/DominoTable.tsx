@@ -374,7 +374,15 @@ function computeCenterLayout(
         if (dir === "h") {
           // h → v: center column on the edge, move past the row
           x -= SNAKE_W / 2; // toujours centrer sur le bord de fin, pas de facteur curHDir
-          y += vDir * SNAKE_W;
+          // vDir > 0 (descend): le pattern "place puis avance" utilise y tel quel,
+          //   donc il faut avancer de SNAKE_W (+ DOUBLE_EXT si la dernière tuile
+          //   horizontale était un double, qui dépasse vers le bas).
+          // vDir < 0 (monte): le pattern "avance puis place" reculera lui-même,
+          //   donc y doit rester à 0 (- DOUBLE_EXT si double, qui dépasse vers le haut)
+          //   — avant: y += vDir * SNAKE_W créait un trou de SNAKE_W px en montant.
+          y += vDir > 0
+            ? SNAKE_W + (isDouble ? DOUBLE_EXT : 0)
+            : (isDouble ? -DOUBLE_EXT : 0);
         } else {
           // v → h: center row on the edge, reverse horizontal direction
           y -= SNAKE_W / 2; // toujours centrer sur le bord de fin, pas de facteur vDir
