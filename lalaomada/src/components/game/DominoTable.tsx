@@ -306,8 +306,11 @@ function computeCenterLayout(
 ): SnakeLayout {
   const positions: BoardPos[] = new Array(board.length);
 
-  const RESERVE = 10 * SNAKE_L;
-  let minX = -RESERVE, maxX = RESERVE, minY = -RESERVE, maxY = RESERVE;
+  // Bbox réelle du contenu — PAS de réserve artificielle. Une réserve fixe
+  // (ex: ±600px) faussait layout.width/height pour les chaînes courtes/moyennes
+  // (le contenu réel ne l'atteint jamais), déconnectant le calcul de zoom de la
+  // vraie taille de la chaîne et causant un débordement hors écran.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
   const track = (px: number, py: number, pw: number, ph: number) => {
     if (px < minX) minX = px;
@@ -511,29 +514,28 @@ export function DominoBoard({
     return () => ro.disconnect();
   }, []);
 
-  const anchorP = layout ? layout.positions[firstTileIdx] : null;
-  const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : 0;
-  const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : 0;
-
-  // ── Zoom dynamique adaptatif avec easing fluide ──
-  // Au début (peu de tuiles), les dominos sont grands (scale → MAX_SCALE).
-  // Au fur et à mesure que la chaîne s'allonge, le scale diminue
-  // progressivement et fluidement (ease-out cubic) pour garder toute la
-  // chaîne visible. Le scale reste élevé longtemps avant de baisser,
-  // puis décélère en douceur vers MIN_SCALE.
-  const MIN_SCALE = 0.62;   // zoom minimum: tuiles restent bien lisibles en fin de match
+  // ── Zoom dynamique adaptatif ──
+  // rawRatio = le facteur EXACT nécessaire pour que TOUTE la chaîne (bbox réelle,
+  // sans réserve artificielle) tienne dans le conteneur actuel. On clamp ce ratio
+  // directement entre MIN_SCALE et MAX_SCALE — jamais d'estimation "eased" qui
+  // pourrait surestimer le scale et faire déborder des tuiles hors écran.
+  // La fluidité visuelle vient de la transition CSS "transform" (350ms), pas
+  // d'un recalcul mathématique du scale lui-même.
+  const MIN_SCALE = 0.55;   // zoom minimum: tuiles restent lisibles en fin de match
   const MAX_SCALE = 1.35;   // zoom maximum: dominos bien grands au début
   const rawRatio = layout && containerSize.w > 0 && containerSize.h > 0
     ? Math.min(containerSize.w / layout.width, containerSize.h / layout.height)
-    : 1;
-  // Ease-out cubic: le scale reste élevé longtemps, puis diminue en douceur
-  const t = Math.max(0, Math.min(1, rawRatio));
-  const easedT = 1 - Math.pow(1 - t, 3);
-  const scale = MIN_SCALE + (MAX_SCALE - MIN_SCALE) * easedT;
+    : MAX_SCALE;
+  const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, rawRatio));
 
-  // Translation: place le point d'ancrage exactement au centre du conteneur.
-  const translateX = containerSize.w / 2 - anchorCx * scale;
-  const translateY = containerSize.h / 2 - anchorCy * scale;
+  // Translation: centre la bbox RÉELLE du plateau (pas seulement la tuile
+  // d'ancrage) au centre du conteneur. Centrer sur l'ancrage seul pouvait
+  // laisser une chaîne asymétrique déborder d'un côté même si le scale
+  // calculé était correct pour la largeur totale.
+  const boardCenterX = layout ? layout.width / 2 : 0;
+  const boardCenterY = layout ? layout.height / 2 : 0;
+  const translateX = containerSize.w / 2 - boardCenterX * scale;
+  const translateY = containerSize.h / 2 - boardCenterY * scale;
 
   // ── Plateau vide ──
   if (board.length === 0) {
