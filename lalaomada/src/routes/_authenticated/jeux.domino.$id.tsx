@@ -11,7 +11,6 @@ import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
-import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import DominoRoundBreak from "@/components/game/DominoRoundBreak";
 import { DominoTile, PlayerHeader, DominoBoard, Tile } from "@/components/game/DominoTable";
@@ -349,7 +348,6 @@ function DominoPage() {
     <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1 h-full overflow-hidden overscroll-none"
       style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
 
       {/* Utility row: sound/quit */}
       <div className="flex items-center justify-end gap-1">
