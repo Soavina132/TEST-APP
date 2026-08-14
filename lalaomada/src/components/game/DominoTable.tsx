@@ -258,7 +258,15 @@ function computeCenterLayout(
   firstTileIdx: number
 ): SnakeLayout {
   const positions: BoardPos[] = new Array(board.length);
-  let minX = 0, maxX = 0, minY = 0, maxY = 0;
+
+  // ── Pré-allocation symétrique ──
+  // Le côté droit ne change jamais minX (les tuiles vont vers +x).
+  // Mais le côté gauche fait diminuer minX → l'offset change → tout saute.
+  // Solution: pré-allouer minX/maxX/minY/maxY symétriquement autour du 1er
+  // domino. Comme pour le droit, l'offset reste FIXE tant qu'on ne dépasse
+  // pas la réserve (≈10 tuiles de chaque côté = largement suffisant).
+  const RESERVE = 10 * SNAKE_L; // 440px de chaque côté
+  let minX = -RESERVE, maxX = RESERVE, minY = -RESERVE, maxY = RESERVE;
 
   const track = (px: number, py: number, pw: number, ph: number) => {
     if (px < minX) minX = px;
