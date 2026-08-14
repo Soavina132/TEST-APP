@@ -1,4 +1,4 @@
-import { useRef, useEffect, useLayoutEffect } from "react";
+import { useRef, useState, useEffect, useLayoutEffect } from "react";
 
 export type Tile = [number, number];
 
@@ -435,36 +435,54 @@ export function DominoBoard({
   // Layout complet
   const layout = board.length > 0 ? computeCenterLayout(board, firstTileIdx) : null;
 
-  // ── Auto-scroll stable ──
-  // On centre sur le 1er domino (le point d'ancrage). Avec l'offset dynamique,
-  // sa position DOM change quand on ajoute à gauche — mais useLayoutEffect +
-  // behavior "auto" ajuste le scroll AVANT le paint, donc l'utilisateur ne
-  // voit JAMAIS le déplacement. Résultat: gauche et droite identiques, stable.
+  // ── Auto-zoom arrière + auto-centrage ──
+  // On observe la taille réelle du conteneur (écran) et on calcule un facteur
+  // d'échelle pour que TOUTE la chaîne de dominos reste visible, sans jamais
+  // sortir de l'écran. Le point d'ancrage (1er domino) reste toujours centré,
+  // que ce soit à l'échelle 1 (peu de tuiles) ou dézoomé (chaîne longue).
+  // Le conteneur (ref) est TOUJOURS monté (même plateau vide) afin que le
+  // ResizeObserver reste attaché dès le premier domino posé.
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const el = ref.current;
+    const update = () => setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const anchorP = layout ? layout.positions[firstTileIdx] : null;
   const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : 0;
   const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : 0;
 
-  useLayoutEffect(() => {
-    if (!ref.current || !anchorP) return;
-    const el = ref.current;
-    el.scrollTo({
-      left: anchorCx - el.clientWidth / 2,
-      top:  anchorCy - el.clientHeight / 2,
-      behavior: "auto",  // instant — pas d'animation visible
-    });
-  }, [anchorCx, anchorCy]);
+  // Facteur de zoom: ne rétrécit que si nécessaire (jamais > 1), avec un
+  // plancher pour garder les tuiles lisibles même sur une très longue chaîne.
+  const MIN_SCALE = 0.32;
+  const scale = layout && containerSize.w > 0 && containerSize.h > 0
+    ? Math.max(MIN_SCALE, Math.min(1, containerSize.w / layout.width, containerSize.h / layout.height))
+    : 1;
 
+  // Translation: place le point d'ancrage exactement au centre du conteneur.
+  const translateX = containerSize.w / 2 - anchorCx * scale;
+  const translateY = containerSize.h / 2 - anchorCy * scale;
+
+  // ── Plateau vide ──
   if (board.length === 0) {
     return (
-      <div className="flex items-center justify-center w-full h-full">
-        <div onDragOver={dOver}
-          onDrop={() => (onDropAny ?? onDropRight)?.()}
-          onClick={() => { if (canDropAny || canDropRight) (onDropAny ?? onDropRight)?.(); }}
-          className={`rounded-2xl flex items-center justify-center w-full h-full text-xs transition-all
-            ${canDropAny || canDropRight
-              ? "bg-amber-400/15 ring-2 ring-amber-400 animate-pulse text-amber-100 font-bold"
-              : "text-white/25"}`}>
-          {canDropAny || canDropRight ? "Déposez votre tuile" : ""}
+      <div ref={ref} className="relative w-full h-full overflow-hidden">
+        <div className="flex items-center justify-center w-full h-full">
+          <div onDragOver={dOver}
+            onDrop={() => (onDropAny ?? onDropRight)?.()}
+            onClick={() => { if (canDropAny || canDropRight) (onDropAny ?? onDropRight)?.(); }}
+            className={`rounded-2xl flex items-center justify-center w-full h-full text-xs transition-all
+              ${canDropAny || canDropRight
+                ? "bg-amber-400/15 ring-2 ring-amber-400 animate-pulse text-amber-100 font-bold"
+                : "text-white/25"}`}>
+            {canDropAny || canDropRight ? "Déposez votre tuile" : ""}
+          </div>
         </div>
       </div>
     );
@@ -512,57 +530,62 @@ export function DominoBoard({
   }
 
   return (
-    <div ref={ref} className="w-full h-full overflow-auto" style={{ scrollbarWidth: "thin" }}>
-      {/* grid place-items-center centre le 1er domino quand peu de tuiles,
-          et gère correctement l'overflow quand la chaîne grandit */}
-      <div style={{ minWidth: "100%", minHeight: "100%", display: "grid", placeItems: "center" }}>
-        <div className="relative" style={{ width, height }}>
-          {/* Tuiles de domino */}
-          {positions.map((pos, i) => {
-            const { tile } = board[i];
-            // Clé STABLE basée sur la position relative au centre (firstTileIdx).
-            // Quand on ajoute à gauche, firstTileIdx augmente et les tuiles existantes
-            // gardent la même clé → React ne les re-render pas → pas de saut visuel.
-            const tileKey = i === firstTileIdx
-              ? "center"
-              : i < firstTileIdx
-                ? `l${firstTileIdx - i}`
-                : `r${i - firstTileIdx}`;
-            return (
-              <div key={tileKey} className="absolute" style={{ left: pos.x, top: pos.y }}>
-                <DominoTile
-                  t={tile}
-                  w={SNAKE_W}
-                  vertical={tileVisualVertical(pos)}
-                />
-              </div>
-            );
-          })}
+    <div ref={ref} className="relative w-full h-full overflow-hidden">
+      {/* Stage: taille fixe = boîte englobante du board. On la transforme
+          (translate + scale) pour toujours garder l'ancre centrée et TOUTE
+          la chaîne visible, sans scroll ni débordement d'écran. */}
+      <div className="absolute left-0 top-0"
+        style={{
+          width, height,
+          transform: `translate(${translateX}px, ${translateY}px) scale(${scale})`,
+          transformOrigin: "0 0",
+          transition: "transform 220ms ease-out",
+        }}>
+        {/* Tuiles de domino */}
+        {positions.map((pos, i) => {
+          const { tile } = board[i];
+          // Clé STABLE basée sur la position relative au centre (firstTileIdx).
+          // Quand on ajoute à gauche, firstTileIdx augmente et les tuiles existantes
+          // gardent la même clé → React ne les re-render pas → pas de saut visuel.
+          const tileKey = i === firstTileIdx
+            ? "center"
+            : i < firstTileIdx
+              ? `l${firstTileIdx - i}`
+              : `r${i - firstTileIdx}`;
+          return (
+            <div key={tileKey} className="absolute" style={{ left: pos.x, top: pos.y }}>
+              <DominoTile
+                t={tile}
+                w={SNAKE_W}
+                vertical={tileVisualVertical(pos)}
+              />
+            </div>
+          );
+        })}
 
-          {/* Zone de dépôt gauche */}
-          {canDropLeft && (
-            <button
-              onDragOver={dOver}
-              onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
-              onClick={() => onDropLeft?.()}
-              className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
-                flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
-              style={{ left: leftDropX, top: leftDropY, width: dropSize, height: dropSize }}
-            >←</button>
-          )}
+        {/* Zone de dépôt gauche */}
+        {canDropLeft && (
+          <button
+            onDragOver={dOver}
+            onDrop={(e) => { e.preventDefault(); onDropLeft?.(); }}
+            onClick={() => onDropLeft?.()}
+            className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
+              flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
+            style={{ left: leftDropX, top: leftDropY, width: dropSize, height: dropSize }}
+          >←</button>
+        )}
 
-          {/* Zone de dépôt droite */}
-          {canDropRight && (
-            <button
-              onDragOver={dOver}
-              onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
-              onClick={() => onDropRight?.()}
-              className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
-                flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
-              style={{ left: rightDropX, top: rightDropY, width: dropSize, height: dropSize }}
-            >→</button>
-          )}
-        </div>
+        {/* Zone de dépôt droite */}
+        {canDropRight && (
+          <button
+            onDragOver={dOver}
+            onDrop={(e) => { e.preventDefault(); onDropRight?.(); }}
+            onClick={() => onDropRight?.()}
+            className="absolute rounded-lg bg-amber-400/20 ring-2 ring-amber-400 animate-pulse
+              flex items-center justify-center text-amber-200 text-xs font-bold hover:bg-amber-400/30"
+            style={{ left: rightDropX, top: rightDropY, width: dropSize, height: dropSize }}
+          >→</button>
+        )}
       </div>
     </div>
   );
