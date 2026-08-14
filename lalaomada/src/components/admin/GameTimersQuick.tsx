@@ -44,7 +44,7 @@ export default function GameTimersQuick() {
       setApp({
         ready_timeout_seconds: Number((s as any).ready_timeout_seconds) || 60,
         turn_seconds: Number((s as any).turn_seconds) || 30,
-        game_invite_timeout_minutes: Number((s as any).game_invite_timeout_minutes) || 6,
+        game_invite_timeout_minutes: Number((s as any).game_invite_timeout_minutes) || 2,
         chess_global_timer_enabled: !!(s as any).chess_global_timer_enabled,
         chess_global_timer_minutes: Number((s as any).chess_global_timer_minutes) || 10,
         fanorona_global_timer_enabled: !!(s as any).fanorona_global_timer_enabled,

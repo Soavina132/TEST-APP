@@ -72,7 +72,7 @@ export default function GameWaitingRoom({
   const [copied, setCopied] = useState(false);
   const [avatars, setAvatars] = useState<Record<string, { pseudo?: string; avatar_url?: string }>>({});
   const [now, setNow] = useState(() => serverNow());
-  const [timeoutMin, setTimeoutMin] = useState(6);
+  const [timeoutMin, setTimeoutMin] = useState(2);
   useEffect(() => { const t = setInterval(() => setNow(serverNow()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { setWaitingRoomActive(true); return () => setWaitingRoomActive(false); }, []);
   useEffect(() => {
@@ -120,197 +120,166 @@ export default function GameWaitingRoom({
 
   const cover = slug ? COVERS[slug] : null;
 
+  const Avatar = ({ uid, url, name, size = "w-11 h-11" }: { uid: string; url?: string; name: string; size?: string }) => {
+    const initials = (name || "?").slice(0, 2).toUpperCase();
+    return (
+      <div className={`${size} rounded-full overflow-hidden shrink-0 bg-accent flex items-center justify-center font-bold text-[10px]`}>
+        {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : initials}
+      </div>
+    );
+  };
+
   return (
-    <section className="space-y-3">
+    <section className="space-y-2">
+      {/* ── Compact cover header ── */}
       {cover && (
-        <div className="relative rounded-3xl overflow-hidden shadow-2xl">
-          <img
-            src={cover.url}
-            alt={cover.title}
-            width={1024}
-            height={448}
-            loading="lazy"
-            decoding="async"
-            className="w-full object-cover aspect-[16/7]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/10" />
-          <div className="absolute bottom-4 left-5 right-5 text-white">
-            <div className="text-[10px] uppercase opacity-70 tracking-[0.2em] font-semibold">
-              Salle d'attente
+        <div className="relative rounded-2xl overflow-hidden shadow-lg h-14">
+          <img src={cover.url} alt={cover.title} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/30" />
+          <div className="absolute inset-0 flex items-center px-3 text-white">
+            <span className="text-xl mr-2">{cover.emoji}</span>
+            <div className="min-w-0">
+              <div className="text-[8px] uppercase opacity-70 tracking-[0.2em] font-semibold leading-none">Salle d'attente</div>
+              <div className="font-bold text-base leading-tight truncate">{cover.title}</div>
             </div>
-            <div className="font-extrabold text-3xl drop-shadow-xl mt-0.5 flex items-center gap-2">
-              <span aria-hidden>{cover.emoji}</span>
-              <span>{cover.title}</span>
-            </div>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold border border-white/20">
-                <Users className="w-3.5 h-3.5" />
-                {parts.length}/{maxPlayers} joueurs
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-bold">
+                <Users className="w-3 h-3" />{parts.length}/{maxPlayers}
               </div>
               {Number(stake) > 0 && (
-                <div className="flex items-center gap-1.5 bg-amber-500/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold border border-amber-400/30 text-amber-100">
-                  <Coins className="w-3.5 h-3.5" />
-                  {Number(stake).toLocaleString("fr-FR")} Ar
-                </div>
-              )}
-              {remainingMs !== null && (
-                <div className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold border backdrop-blur-sm ${expired ? "bg-red-500/25 border-red-400/40 text-red-100" : remainingMs < 60_000 ? "bg-amber-500/25 border-amber-400/40 text-amber-100" : "bg-white/15 border-white/20 text-white"}`}>
-                  <Timer className="w-3.5 h-3.5" />
-                  {expired ? "Expirée" : fmt(remainingMs)}
+                <div className="flex items-center gap-0.5 bg-amber-500/30 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-bold text-amber-100">
+                  <Coins className="w-3 h-3" />{Number(stake).toLocaleString("fr-FR")}
                 </div>
               )}
             </div>
           </div>
         </div>
       )}
-      <div className="rounded-2xl bg-card p-2.5 shadow-[var(--shadow-soft)]">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-extrabold min-w-0 truncate">
-            <span className="text-primary">{parts.length}/{maxPlayers}</span>
-            <span className="font-medium text-muted-foreground"> joueurs · {gameLabel}</span>
-          </div>
-          {remainingMs !== null && (
-            <div className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold ${expired ? "bg-destructive/10 text-destructive" : remainingMs < 60_000 ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-primary/10 text-primary"}`}>
-              <Timer className="w-3 h-3" />
-              {expired ? "Expirée" : fmt(remainingMs)}
-            </div>
-          )}
-        </div>
-        {Number(stake) > 0 && (
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            Cagnotte : <b className="text-foreground">{Number(pot).toLocaleString("fr-FR")}</b> Ar
+
+      {/* ── Timer + Room code compact bar ── */}
+      <div className="flex items-center gap-2 rounded-xl bg-card p-2 shadow-sm">
+        {remainingMs !== null && (
+          <div className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${expired ? "bg-destructive/10 text-destructive" : remainingMs < 60_000 ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-primary/10 text-primary"}`}>
+            <Timer className="w-3.5 h-3.5" />{expired ? "Expirée" : fmt(remainingMs)}
           </div>
         )}
+        {!cover && (
+          <div className="text-xs font-bold"><span className="text-primary">{parts.length}/{maxPlayers}</span><span className="text-muted-foreground"> joueurs</span></div>
+        )}
+        {Number(stake) > 0 && (
+          <div className="text-[11px] text-muted-foreground">Cagnotte: <b className="text-foreground">{Number(pot).toLocaleString("fr-FR")}</b> Ar</div>
+        )}
         {roomCode && (
-          <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-secondary px-2 py-1.5">
-            <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <span className="font-mono font-bold tracking-[0.25em] text-sm">{roomCode}</span>
-            <button onClick={copyCode} className="ml-auto p-1.5 rounded-full bg-card" aria-label="Copier">
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+          <div className="flex items-center gap-1.5 ml-auto bg-secondary px-2 py-1 rounded-lg">
+            <Lock className="w-3 h-3 text-muted-foreground" />
+            <span className="font-mono font-bold tracking-[0.2em] text-xs">{roomCode}</span>
+            <button onClick={copyCode} className="p-0.5 rounded-full hover:bg-accent" aria-label="Copier">
+              {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
             </button>
             {!full && (
-              <button onClick={share} className="p-1.5 rounded-full bg-primary text-primary-foreground" aria-label="Partager">
-                <Share2 className="w-3.5 h-3.5" />
+              <button onClick={share} className="p-0.5 rounded-full bg-primary text-primary-foreground" aria-label="Partager">
+                <Share2 className="w-3 h-3" />
               </button>
             )}
           </div>
         )}
       </div>
 
+      {/* ── Team selection (ludo groupe only) — compact ── */}
       {matchType === "groupe" && slug === "ludo" && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           {[1, 2].map((team) => {
             const teamMembers = parts.filter((p: any) => p.team === team);
             const myTeam = parts.find((p: any) => p.user_id === meUserId)?.team === team;
             const isFull = teamMembers.length >= 2;
             return (
-              <div key={team} className={`rounded-2xl p-3 border-2 space-y-2 ${myTeam ? "border-primary bg-primary/5" : "border-border/60 bg-card"}`}>
-                <div className="font-bold text-sm text-center">
-                  {team === 1 ? "🔴 Groupe 1" : "🔵 Groupe 2"}
+              <div key={team} className={`rounded-xl p-2 border-2 ${myTeam ? "border-primary bg-primary/5" : "border-border/60 bg-card"}`}>
+                <div className="font-bold text-[11px] text-center mb-1">{team === 1 ? "🔴 G1" : "🔵 G2"}</div>
+                <div className="flex items-center gap-1.5">
+                  {teamMembers.map((m: any) => {
+                    const prof = avatars[m.user_id];
+                    const name = prof?.pseudo || m.display_name || "?";
+                    return <Avatar key={m.user_id} uid={m.user_id} url={prof?.avatar_url || m.avatar_url} name={name} size="w-7 h-7" />;
+                  })}
+                  {Array.from({ length: Math.max(0, 2 - teamMembers.length) }).map((_, i) => (
+                    <button key={`e${i}`} onClick={() => onJoinTeam?.(team)} disabled={!isParticipant || isFull}
+                      className={`w-7 h-7 rounded-full border border-dashed flex items-center justify-center text-xs ${isParticipant && !isFull ? "border-primary/40 text-primary" : "border-border/40 text-muted-foreground/40"}`}>
+                      +
+                    </button>
+                  ))}
                 </div>
-                {teamMembers.map((m: any) => {
-                  const prof = avatars[m.user_id];
-                  const name = prof?.pseudo || m.display_name || "Joueur";
-                  const initials = (name || "?").slice(0, 2).toUpperCase();
-                  return (
-                    <div key={m.user_id} className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 bg-accent flex items-center justify-center font-bold text-[10px]">
-                        {(prof?.avatar_url || m.avatar_url) ? <img src={prof?.avatar_url || m.avatar_url} alt="" width={28} height={28} className="w-full h-full object-cover" /> : initials}
-                      </div>
-                      <span className="text-xs font-semibold truncate">{name}{m.user_id === meUserId ? " (vous)" : ""}</span>
-                    </div>
-                  );
-                })}
-                {Array.from({ length: Math.max(0, 2 - teamMembers.length) }).map((_, i) => (
-                  <button
-                    key={`e${i}`}
-                    onClick={() => onJoinTeam?.(team)}
-                    disabled={!isParticipant || isFull}
-                    className={`w-full py-2 rounded-lg border border-dashed flex items-center justify-center gap-1 text-xs font-semibold transition-all ${
-                      isParticipant && !isFull
-                        ? "border-primary/40 text-primary hover:bg-primary/5 active:scale-95"
-                        : "border-border/40 text-muted-foreground/50 cursor-not-allowed"
-                    }`}
-                  >
-                    {isFull ? "Complet" : (<><span className="text-base leading-none">+</span> Rejoindre</>)}
-                  </button>
-                ))}
               </div>
             );
           })}
         </div>
       )}
 
-      <div className="rounded-3xl bg-card p-5 shadow-[var(--shadow-soft)] space-y-3">
-        {parts.map((p) => {
-          const prof = avatars[p.user_id];
-          const name = prof?.pseudo || p.display_name || "Joueur";
-          const initials = (name || "?").slice(0, 2).toUpperCase();
-          return (
-            <div key={p.id || p.user_id} className="flex items-center justify-between border-t border-border/60 pt-3 first:border-0 first:pt-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-9 w-9 rounded-full overflow-hidden shrink-0 bg-accent flex items-center justify-center font-bold text-sm">
-                  {(prof?.avatar_url || p.avatar_url) ? <img src={prof?.avatar_url || p.avatar_url} alt="" width={40} height={40} loading="lazy" decoding="async" className="w-full h-full object-cover" /> : initials}
+      {/* ── Players — horizontal avatar row ── */}
+      <div className="rounded-2xl bg-card p-3 shadow-sm">
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          {parts.map((p) => {
+            const prof = avatars[p.user_id];
+            const name = prof?.pseudo || p.display_name || "Joueur";
+            return (
+              <div key={p.id || p.user_id} className="flex flex-col items-center gap-1 w-14">
+                <div className="relative">
+                  <Avatar uid={p.user_id} url={prof?.avatar_url || p.avatar_url} name={name} />
+                  {p.ready ? (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center border-2 border-card">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </span>
+                  ) : (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 border-2 border-card" />
+                  )}
                 </div>
-                <div className="font-semibold truncate">
-                  {name}{p.user_id === meUserId ? " (vous)" : ""}
-                </div>
+                <span className="text-[9px] font-semibold text-center truncate max-w-[48px]">{p.user_id === meUserId ? "Vous" : name}</span>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {matchType === "groupe" && p.team && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${p.team === 1 ? "bg-red-500/15 text-red-600" : "bg-blue-500/15 text-blue-600"}`}>
-                    {p.team === 1 ? "G1" : "G2"}
-                  </span>
-                )}
-                {p.ready ? (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Prêt
-                  </span>
-                ) : (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 font-bold">Pas prêt</span>
-                )}
-              </div>
+            );
+          })}
+          {Array.from({ length: empty }).map((_, i) => (
+            <div key={`e${i}`} className="flex flex-col items-center gap-1 w-14">
+              <div className="w-11 h-11 rounded-full border-2 border-dashed border-border/40 flex items-center justify-center text-muted-foreground/40 text-lg">+</div>
+              <span className="text-[9px] text-muted-foreground/50">Libre</span>
             </div>
-          );
-        })}
-        {Array.from({ length: empty }).map((_, i) => (
-          <div key={`e${i}`} className="border-t border-border/60 pt-3 text-sm text-muted-foreground italic">
-            Place libre…
+          ))}
+        </div>
+        {matchType === "groupe" && parts.some((p: any) => p.team) && (
+          <div className="flex justify-center gap-3 mt-2">
+            {[1, 2].map(team => {
+              const count = parts.filter((p: any) => p.team === team).length;
+              return count > 0 ? (
+                <span key={team} className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${team === 1 ? "bg-red-500/15 text-red-600" : "bg-blue-500/15 text-blue-600"}`}>
+                  {team === 1 ? "🔴" : "🔵"} {count}/2
+                </span>
+              ) : null;
+            })}
           </div>
-        ))}
+        )}
       </div>
 
-      {isParticipant && onToggleReady && (
-        <div className="rounded-3xl bg-card p-4 shadow-sm space-y-2">
-          <button
-            onClick={() => onToggleReady(!meReady)}
-            className={`relative w-full py-3.5 rounded-full text-white font-bold flex items-center justify-center gap-2 overflow-hidden transition-transform active:scale-95 ${meReady ? "" : "animate-ready-pulse"}`}
-            style={{ background: meReady ? "#ef4444" : "var(--gradient-primary)" }}
-          >
-            {!meReady && (
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-0 -translate-x-full animate-ready-shimmer"
-                style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)" }}
-              />
-            )}
-            {meReady ? (<><X className="w-4 h-4" /> Pas prêt</>) : (<><Check className="w-4 h-4" /> Je suis prêt !</>)}
-          </button>
-          <div className="text-xs text-muted-foreground text-center">
-            {readyCount}/{maxPlayers} prêt{readyCount > 1 ? "s" : ""} · {allReady ? "Démarrage…" : (parts.length < maxPlayers ? "En attente de joueurs" : "En attente des autres")}
-          </div>
-          {isTournament && (
-            <div className="text-[11px] text-amber-700 dark:text-amber-300 text-center font-semibold">
-              ⚠️ Clique sur « Prêt » avant l'expiration du timer, sinon forfait automatique.
-            </div>
+      {/* ── Ready + Quit — single row ── */}
+      {isParticipant && (
+        <div className="flex gap-2 items-center">
+          {onToggleReady && (
+            <button
+              onClick={() => onToggleReady(!meReady)}
+              className={`flex-1 py-3 rounded-full text-white font-bold text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform ${meReady ? "bg-red-500" : "bg-primary"}`}
+            >
+              {meReady ? <><X className="w-4 h-4" /> Pas prêt</> : <><Check className="w-4 h-4" /> Je suis prêt !</>}
+            </button>
           )}
+          <button onClick={onQuit} className="px-4 py-3 rounded-full bg-secondary font-semibold text-sm flex items-center gap-1.5 shrink-0">
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       )}
 
+      {/* ── Status line ── */}
       {isParticipant && (
-        <button onClick={onQuit} className="px-5 py-3 rounded-full bg-secondary font-semibold flex items-center gap-2">
-          <LogOut className="w-4 h-4" /> {Number(stake) > 0 ? "Quitter (mise remboursée)" : "Quitter"}
-        </button>
+        <div className="text-center text-[11px] text-muted-foreground">
+          {readyCount}/{maxPlayers} prêt{readyCount > 1 ? "s" : ""} · {allReady ? "Démarrage…" : parts.length < maxPlayers ? "En attente de joueurs" : "En attente des autres"}
+          {isTournament && <span className="block text-amber-600 dark:text-amber-400 font-semibold mt-0.5">⚠️ Prêt avant l'expiration sinon forfait</span>}
+        </div>
       )}
     </section>
   );
