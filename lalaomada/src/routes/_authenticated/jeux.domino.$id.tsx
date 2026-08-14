@@ -349,31 +349,23 @@ function DominoPage() {
       style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
 
-      {/* Top bar */}
-      <div className="rounded-full bg-card px-2.5 py-1 border border-border shadow-sm flex items-center justify-between">
-        <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Gain</span>
-          <span className="text-xs font-extrabold truncate">
-            {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          {game.target_score > 0 && <span className="text-[10px] text-muted-foreground font-semibold">Objectif {game.target_score} pts</span>}
-          {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
-            <button onClick={toggleSound} className="p-1 rounded-full hover:bg-secondary" title="Sons">
-              {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </button>
-          )}
-          <button onClick={forfeit} className="p-1 rounded-full hover:bg-destructive/10 text-destructive" title="Quitter">
-            <LogOut className="w-4 h-4" />
+      {/* Utility row: sound/quit */}
+      <div className="flex items-center justify-end gap-1">
+        {game.target_score > 0 && <span className="text-[10px] text-muted-foreground font-semibold mr-1">Objectif {game.target_score} pts</span>}
+        {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
+          <button onClick={toggleSound} className="p-1 rounded-full hover:bg-secondary" title="Sons">
+            {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
-        </div>
+        )}
+        <button onClick={forfeit} className="p-1 rounded-full hover:bg-destructive/10 text-destructive" title="Quitter">
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Opponents left/right + Board */}
-      <div className="flex-1 flex items-stretch gap-1 min-h-[130px]">
+      {/* Top bar: opponent left + pot center + opponent right */}
+      <div className="rounded-2xl bg-card px-2 py-2 border border-border shadow-sm flex items-center justify-between gap-1">
         {/* Left opponent */}
-        <div className="shrink-0 flex items-center">
+        <div className="shrink-0 min-w-[64px] flex justify-start">
           {(() => {
             const opps = parts.filter((p: any) => !p.isMe && !p.forfeited);
             const p = opps[0];
@@ -393,33 +385,16 @@ function DominoPage() {
           })()}
         </div>
 
-        {/* Board — felt table */}
-        <div className="flex-1 min-h-[130px] rounded-2xl overflow-hidden relative"
-          style={{
-            background: "radial-gradient(ellipse at 50% 40%, #1e7a42 0%, #0f4a26 65%, #0a3518 100%)",
-            boxShadow: "inset 0 0 50px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.3)",
-            border: "3px solid #0a3518",
-          }}>
-          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" preserveAspectRatio="none">
-            <ellipse cx="50%" cy="50%" rx="38%" ry="40%" fill="none" stroke="white" strokeWidth="1" />
-            <ellipse cx="50%" cy="50%" rx="25%" ry="28%" fill="none" stroke="white" strokeWidth="0.5" />
-          </svg>
-          <DominoBoard
-            board={board}
-            leftEnd={leftEnd}
-            rightEnd={rightEnd}
-            canDropLeft={cDL}
-            canDropRight={cDR}
-            canDropAny={cDA}
-            onDropLeft={() => cDL && playSide("left")}
-            onDropRight={() => cDR && playSide("right")}
-            onDropAny={() => cDA && playSide("auto")}
-            firstTileIdx={firstTileIdx}
-          />
+        {/* Center: pot */}
+        <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
+          <span className="text-xl font-black leading-none truncate">
+            {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")}
+          </span>
+          <span className="text-[9px] uppercase text-muted-foreground tracking-wider leading-none">Gain (Ar)</span>
         </div>
 
         {/* Right opponent */}
-        <div className="shrink-0 flex items-center">
+        <div className="shrink-0 min-w-[64px] flex justify-end">
           {(() => {
             const opps = parts.filter((p: any) => !p.isMe && !p.forfeited);
             const p = opps[1];
@@ -438,6 +413,31 @@ function DominoPage() {
             );
           })()}
         </div>
+      </div>
+
+      {/* Board — felt table */}
+      <div className="flex-1 min-h-[130px] rounded-2xl overflow-hidden relative"
+        style={{
+          background: "radial-gradient(ellipse at 50% 40%, #1e7a42 0%, #0f4a26 65%, #0a3518 100%)",
+          boxShadow: "inset 0 0 50px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.3)",
+          border: "3px solid #0a3518",
+        }}>
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" preserveAspectRatio="none">
+          <ellipse cx="50%" cy="50%" rx="38%" ry="40%" fill="none" stroke="white" strokeWidth="1" />
+          <ellipse cx="50%" cy="50%" rx="25%" ry="28%" fill="none" stroke="white" strokeWidth="0.5" />
+        </svg>
+        <DominoBoard
+          board={board}
+          leftEnd={leftEnd}
+          rightEnd={rightEnd}
+          canDropLeft={cDL}
+          canDropRight={cDR}
+          canDropAny={cDA}
+          onDropLeft={() => cDL && playSide("left")}
+          onDropRight={() => cDR && playSide("right")}
+          onDropAny={() => cDA && playSide("auto")}
+          firstTileIdx={firstTileIdx}
+        />
       </div>
 
       {/* Round break */}
