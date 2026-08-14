@@ -199,7 +199,7 @@ function DominoPage() {
   const isPlayer = !!me;
   const isMyTurn = !!(game && me && game.current_turn === me.slot && game.status === "playing" && !isRoundTransition);
   const myHand: Tile[] = (game?.state?.hands?.[String(me?.slot)] as Tile[]) || [];
-  const cols = Math.max(7, Math.min(myHand.length, 10));
+  const cols = Math.min(Math.max(7, myHand.length), 9);
   const tileW = Math.max(13, Math.min(28, Math.floor(handW / cols) - 4));
   const { board, leftEnd, rightEnd } = normalizeBoard(game?.state?.board, game?.state?.left_end, game?.state?.right_end);
   const firstTileIdx = Math.max(0, Math.min(board.length - 1, game?.state?.first_tile_idx ?? 0));
@@ -244,6 +244,7 @@ function DominoPage() {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
       playDraw();
+      setRemaining(30);
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
