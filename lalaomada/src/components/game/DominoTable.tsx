@@ -54,14 +54,17 @@ function PipFace({ n, size, vertical }: { n: number; size: number; vertical: boo
 // ── Domino Tile — premium ivory ceramic casino look ─────────────────────────
 export function DominoTile({
   t, onClick, selected, w = 36, vertical = false, faceDown = false,
-  highlight = false, draggable, onDragStart, onDragEnd,
+  highlight = false, draggable, onDragStart, onDragEnd, flipped = false,
 }: {
   t?: Tile; onClick?: () => void; selected?: boolean; w?: number;
   vertical?: boolean; faceDown?: boolean; highlight?: boolean;
-  draggable?: boolean;
+  draggable?: boolean; flipped?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
 }) {
+  // flipped = true → inverser les deux moitiés (pour segments à contre-sens)
+  const va = flipped ? t![1] : t![0];
+  const vb = flipped ? t![0] : t![1];
   const long = w * 2;
   const W = vertical ? w : long;
   const H = vertical ? long : w;
@@ -129,18 +132,18 @@ export function DominoTile({
       {/* top gloss highlight */}
       <div className="absolute inset-x-0 top-0 h-1/3 rounded-t-[5px] pointer-events-none"
         style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%)" }} />
-      <Half v={t![0]} />
+      <Half v={va} />
       {divider}
-      <Half v={t![1]} />
+      <Half v={vb} />
     </div>
   ) : (
     <div className="w-full h-full flex rounded-[5px] relative overflow-hidden"
       style={{ background: bodyGradient }}>
       <div className="absolute inset-x-0 top-0 h-1/3 rounded-t-[5px] pointer-events-none"
         style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%)" }} />
-      <Half v={t![0]} />
+      <Half v={va} />
       {divider}
-      <Half v={t![1]} />
+      <Half v={vb} />
     </div>
   );
 
@@ -236,6 +239,7 @@ interface BoardPos {
   y: number;
   dir: "h" | "v";
   isDouble: boolean;
+  flipped: boolean;
 }
 
 interface SnakeLayout {
@@ -259,6 +263,7 @@ interface BoardPos {
   y: number;
   dir: "h" | "v";
   isDouble: boolean;
+  flipped: boolean;
 }
 
 interface SnakeLayout {
@@ -286,22 +291,22 @@ function computeCenterLayout(
   };
 
   // ── Place a tile at (x, y) in direction dir ──
-  const placeTile = (idx: number, x: number, y: number, dir: "h" | "v") => {
+  const placeTile = (idx: number, x: number, y: number, dir: "h" | "v", flipped: boolean) => {
     const isDouble = board[idx].tile[0] === board[idx].tile[1];
     if (dir === "h") {
       if (isDouble) {
-        positions[idx] = { x, y: y - DOUBLE_EXT, dir: "h", isDouble };
+        positions[idx] = { x, y: y - DOUBLE_EXT, dir: "h", isDouble, flipped };
         track(x, y - DOUBLE_EXT, SNAKE_W, SNAKE_L);
       } else {
-        positions[idx] = { x, y, dir: "h", isDouble };
+        positions[idx] = { x, y, dir: "h", isDouble, flipped };
         track(x, y, SNAKE_L, SNAKE_W);
       }
     } else {
       if (isDouble) {
-        positions[idx] = { x: x - DOUBLE_EXT, y, dir: "v", isDouble };
+        positions[idx] = { x: x - DOUBLE_EXT, y, dir: "v", isDouble, flipped };
         track(x - DOUBLE_EXT, y, SNAKE_L, SNAKE_W);
       } else {
-        positions[idx] = { x, y, dir: "v", isDouble };
+        positions[idx] = { x, y, dir: "v", isDouble, flipped };
         track(x, y, SNAKE_W, SNAKE_L);
       }
     }
@@ -312,10 +317,10 @@ function computeCenterLayout(
     const idx = firstTileIdx;
     const isDouble = board[idx].tile[0] === board[idx].tile[1];
     if (isDouble) {
-      positions[idx] = { x: 0, y: -DOUBLE_EXT, dir: "h", isDouble };
+      positions[idx] = { x: 0, y: -DOUBLE_EXT, dir: "h", isDouble, flipped: false };
       track(0, -DOUBLE_EXT, SNAKE_W, SNAKE_L);
     } else {
-      positions[idx] = { x: 0, y: 0, dir: "h", isDouble };
+      positions[idx] = { x: 0, y: 0, dir: "h", isDouble, flipped: false };
       track(0, 0, SNAKE_L, SNAKE_W);
     }
   }
@@ -325,6 +330,7 @@ function computeCenterLayout(
   // initHDir: initial horizontal direction (+1 right, -1 left)
   // vDir: vertical direction (+1 down, -1 up)
   const processSnake = (step: number, initHDir: 1 | -1, vDir: 1 | -1) => {
+    const isFlipped = (): boolean => dir === "h" && curHDir !== initHDir;
     const centerIsDouble = board[firstTileIdx].tile[0] === board[firstTileIdx].tile[1];
     const centerEdge = centerIsDouble ? SNAKE_W : SNAKE_L;
     // Le bord DROIT de la tuile centrale = centerEdge (0 → centerEdge).
@@ -349,22 +355,22 @@ function computeCenterLayout(
       if (dir === "h") {
         if (curHDir > 0) {
           // Going right: place at x, then advance
-          placeTile(idx, x, y, "h");
+          placeTile(idx, x, y, "h", isFlipped());
           x += advance;
         } else {
           // Going left: advance (decrease x), then place
           x -= advance;
-          placeTile(idx, x, y, "h");
+          placeTile(idx, x, y, "h", isFlipped());
         }
       } else {
         if (vDir > 0) {
           // Going down: place at y, then advance
-          placeTile(idx, x, y, "v");
+          placeTile(idx, x, y, "v", isFlipped());
           y += advance;
         } else {
           // Going up: advance (decrease y), then place
           y -= advance;
-          placeTile(idx, x, y, "v");
+          placeTile(idx, x, y, "v", isFlipped());
         }
       }
 
@@ -572,6 +578,7 @@ export function DominoBoard({
                 t={tile}
                 w={SNAKE_W}
                 vertical={tileVisualVertical(pos)}
+                flipped={pos.flipped}
               />
             </div>
           );
