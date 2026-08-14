@@ -117,17 +117,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => { if (user) await loadProfile(user.id); };
   const signOut = async () => {
-    // Clear local state immediately so the UI reacts instantly, then clear the
-    // local session (scope: "local" avoids waiting on a network round-trip to
-    // revoke the refresh token server-side — no more delay before redirecting).
+    // 1. Clear local state immediately so the UI reacts instantly
     setSession(null);
     setUser(null);
     setProfile(null);
     setIsAdmin(false);
+    setLoading(true);
+
+    // 2. Remove all realtime channels to prevent stale subscriptions
     try {
-      await supabase.auth.signOut({ scope: "local" });
+      supabase.removeAllChannels();
     } catch {
-      // Even if the network call fails/is slow, the local session is already gone.
+      // ignore
+    }
+
+    // 3. Sign out from Supabase — global scope invalidates the refresh token
+    //    server-side too, so a stale localStorage entry can't restore the session
+    try {
+      await supabase.auth.signOut({ scope: "global" });
+    } catch {
+      // Even if the network call fails, we still nuke localStorage below
+    }
+
+    // 4. Nuclear fallback: forcefully remove all Supabase keys from localStorage
+    //    so getSession() can never find a stale session on next page load
+    try {
+      const keys = Object.keys(localStorage).filter(k =>
+        k.startsWith("sb-") ||
+        k.includes("supabase") ||
+        k.includes("auth-token") ||
+        k.includes("lalaomada")
+      );
+      keys.forEach(k => localStorage.removeItem(k));
+    } catch {
+      // ignore
     }
   };
 
