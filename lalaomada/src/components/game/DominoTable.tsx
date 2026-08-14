@@ -279,7 +279,7 @@ interface SnakeLayout {
 const SNAKE_W = 30;             // tile short side (px) — increased for readability
 const SNAKE_L = 60;             // tile long side = 2 * SNAKE_W
 const FIRST_HORIZ_COUNT = 4;    // 4 tuiles à gauche/droite du 1er domino, avant le 1er virage
-const SUBSEQUENT_HORIZ_COUNT = 6; // 6 tuiles horizontales à chaque fois qu'on redirige vers l'horizontal (après un virage vertical)
+const SUBSEQUENT_HORIZ_COUNT = 7; // 7 tuiles horizontales à chaque fois qu'on redirige vers l'horizontal (après un virage vertical)
 const VERT_LIMIT = 3;           // max vertical tiles per segment
 const SAFETY_MARGIN = 76; // ~2cm à 96 DPI — filet de sécurité autour du plateau
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
