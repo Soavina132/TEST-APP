@@ -133,6 +133,13 @@ function pickBotMove(fen: string, level: number): { uci: string; san: string; fe
       if (m.san?.includes("+")) s += 3;
       if (m.san?.includes("#")) s += 1000;
       if (m.promotion) s += 8;
+      // Vérifier si la pièce sera recapturée
+      const after = new Chess(chess.fen());
+      after.move(m);
+      const oppMoves = after.moves({ verbose: true }) as any[];
+      const myPieceVal = PIECE_VAL[m.piece] ?? 0;
+      const willBeRecaptured = oppMoves.some((om: any) => om.to === m.to && om.captured === m.piece);
+      if (willBeRecaptured) s -= myPieceVal * 10;
       s += Math.random() * 0.5;
       return { m, s };
     });
@@ -227,6 +234,12 @@ function ChessPage() {
   }, [id, isValidGameId, profile?.id]);
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
+
+  // Auto-timeout: settle les parties où le temps a expiré (même si l'utilisateur était absent)
+  useEffect(() => {
+    if (!isValidGameId) return;
+    void supabase.rpc("chess_auto_timeout" as any, { _game_id: id } as any).then(() => load());
+  }, [id, isValidGameId]);
 
   useEffect(() => { void load(); }, [load]);
 
