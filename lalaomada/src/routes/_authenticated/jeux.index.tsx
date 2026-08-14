@@ -390,7 +390,7 @@ function JeuxPage() {
             })}
           </div>
         </section>
-      )
+      )}
 
       {/* SECTION 1 — Créer une partie */}
       <section className="space-y-2 flex-shrink-0">
