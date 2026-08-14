@@ -1,0 +1,27 @@
+-- FIX: GRANT EXECUTE sur tous les helpers _ludo_* pour authenticated
+GRANT EXECUTE ON FUNCTION public._ludo_ensure_state(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_movable_pawns(jsonb, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_next_slot(uuid, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_clear_shield(jsonb, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_check_game_over(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_init_state(integer, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_start_for(uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_start_idx(integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_is_safe(integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_is_blocked(jsonb, integer, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_count_on_cell(jsonb, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_active_humans(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_advance_turn(uuid, integer, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_auto_move(uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_check_afk(uuid, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_check_last_standing(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_check_power_tile(jsonb, integer, integer, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_check_stalemate(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_gen_power_tiles(integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_log_state_change() TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_playable_pawns(jsonb, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_purge(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_push_move(uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_relocate_power_tile(jsonb, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_set_ready_deadline() TO authenticated;
+GRANT EXECUTE ON FUNCTION public._ludo_sync_turn_snapshot() TO authenticated;
