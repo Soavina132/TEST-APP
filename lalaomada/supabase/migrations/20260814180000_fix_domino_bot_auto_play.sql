@@ -1,0 +1,9 @@
+-- Migration: Fix domino bot auto-play
+-- 1. _domino_autoplay_bots: After each action (play/draw/pass), arm the next
+--    bot's think delay (2s) so domino_tick_all detects it within 5s.
+--    Also re-arm after drawing so the bot tries to play the drawn tile quickly.
+-- 2. domino_tick: If bot's turn and bot_think_until is NULL (new round/start),
+--    arm the bot immediately instead of waiting for turn_deadline.
+-- 3. domino_tick_all: Added condition to detect un-armed bots (phase=play,
+--    bot_think_until IS NULL, current player is a bot) so they get armed
+--    within 5s of a new round or game start.
