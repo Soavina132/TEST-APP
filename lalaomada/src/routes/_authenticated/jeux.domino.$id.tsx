@@ -369,7 +369,7 @@ function DominoPage() {
         {/* Left opponent */}
         <div className="shrink-0 min-w-[64px] flex justify-start">
           {(() => {
-            const opps = parts.filter((p: any) => !p.isMe && !p.forfeited);
+            const opps = parts.filter((p: any) => p.user_id !== profile?.id && !p.forfeited);
             const p = opps[0];
             if (!p) return null;
             return (
@@ -390,7 +390,7 @@ function DominoPage() {
         {/* Right opponent */}
         <div className="shrink-0 min-w-[64px] flex justify-end">
           {(() => {
-            const opps = parts.filter((p: any) => !p.isMe && !p.forfeited);
+            const opps = parts.filter((p: any) => p.user_id !== profile?.id && !p.forfeited);
             const p = opps[1];
             if (!p) return null;
             return (
