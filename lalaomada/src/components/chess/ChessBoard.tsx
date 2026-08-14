@@ -11,7 +11,7 @@ const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 
 /* ------------------------ Piece (classic Unicode, 3D shadow) ------------------------ */
 const PIECE_GLYPH: Record<string, string> = {
-  wK: "♚", wQ: "♛", wR: "♜", wB: "♝", wN: "♞", wP: "♟",
+  wK: "♔", wQ: "♕", wR: "♖", wB: "♗", wN: "♘", wP: "♙",
   bK: "♚", bQ: "♛", bR: "♜", bB: "♝", bN: "♞", bP: "♟",
 };
 
@@ -26,6 +26,7 @@ const PieceSVG = memo(function PieceSVG({ piece, dragging = false }: { piece: Pi
       style={{
         fontSize: "88cqmin",
         lineHeight: 1,
+        paintOrder: "stroke fill",
         color: isWhite ? "#ffffff" : "#111014",
         WebkitTextStroke: isWhite ? "1.8px #0a0a0a" : "1.2px #4a3a2a",
         textShadow: isWhite
@@ -57,6 +58,7 @@ function PromotionModal({ color, onSelect, onCancel }: { color: "w" | "b"; onSel
                 onClick={() => onSelect(p)}
                 className="w-14 h-14 rounded-lg flex items-center justify-center text-4xl hover:bg-accent transition-colors border border-border"
                 style={{
+                  paintOrder: "stroke fill",
                   color: color === "w" ? "#ffffff" : "#111014",
                   WebkitTextStroke: color === "w" ? "1.5px #0a0a0a" : "1px #4a3a2a",
                   textShadow: color === "w"
