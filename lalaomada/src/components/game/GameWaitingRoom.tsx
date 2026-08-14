@@ -1,6 +1,6 @@
 import { serverNow } from "@/lib/server-time";
 import { LogOut, Copy, Check, X, Share2, Lock, Timer, Users, Coins } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setWaitingRoomActive } from "@/lib/game-ui-state";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,7 +74,17 @@ export default function GameWaitingRoom({
   const [now, setNow] = useState(() => serverNow());
   const [timeoutMin, setTimeoutMin] = useState(2);
   useEffect(() => { const t = setInterval(() => setNow(serverNow()), 1000); return () => clearInterval(t); }, []);
-  useEffect(() => { setWaitingRoomActive(true); return () => setWaitingRoomActive(false); }, []);
+  useEffect(() => {
+    setWaitingRoomActive(true);
+    return () => {
+      setWaitingRoomActive(false);
+      // When leaving the waiting room, set ready=false if was ready
+      // The RPC will silently fail if the game already started (status != 'open')
+      if (meReadyRef.current && onToggleReadyRef.current) {
+        onToggleReadyRef.current(false).catch(() => {});
+      }
+    };
+  }, []);
   useEffect(() => {
     supabase.from("app_settings").select("game_invite_timeout_minutes").eq("id", 1).maybeSingle()
       .then(({ data }) => { if ((data as any)?.game_invite_timeout_minutes) setTimeoutMin(Number((data as any).game_invite_timeout_minutes)); });
@@ -86,6 +96,11 @@ export default function GameWaitingRoom({
   const empty = Math.max(0, maxPlayers - parts.length);
   const me = parts.find(p => p.user_id === meUserId);
   const meReady = !!me?.ready;
+  // Track ready state in a ref for the unmount cleanup
+  const meReadyRef = useRef(meReady);
+  meReadyRef.current = meReady;
+  const onToggleReadyRef = useRef(onToggleReady);
+  onToggleReadyRef.current = onToggleReady;
   const readyCount = parts.filter(p => p.ready).length;
   const allReady = parts.length === maxPlayers && readyCount === maxPlayers;
   const full = parts.length >= maxPlayers;
@@ -263,13 +278,14 @@ export default function GameWaitingRoom({
           {onToggleReady && (
             <button
               onClick={() => onToggleReady(!meReady)}
-              className={`flex-1 py-3 rounded-full text-white font-bold text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform ${meReady ? "bg-red-500" : "bg-primary"}`}
+              className={`flex-1 py-2.5 rounded-full text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform ${meReady ? "bg-red-500" : "bg-primary"}`}
             >
               {meReady ? <><X className="w-4 h-4" /> Pas prêt</> : <><Check className="w-4 h-4" /> Je suis prêt !</>}
             </button>
           )}
-          <button onClick={onQuit} className="px-4 py-3 rounded-full bg-secondary font-semibold text-sm flex items-center gap-1.5 shrink-0">
-            <LogOut className="w-4 h-4" />
+          <button onClick={onQuit} className="px-3 py-2.5 rounded-full bg-secondary font-semibold text-[11px] flex items-center gap-1 shrink-0">
+            <LogOut className="w-3.5 h-3.5" />
+            {Number(stake) > 0 ? "Remboursé" : "Quitter"}
           </button>
         </div>
       )}
