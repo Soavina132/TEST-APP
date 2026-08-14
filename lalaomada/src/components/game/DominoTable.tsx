@@ -417,23 +417,36 @@ export function DominoBoard({
 
   // Layout complet (mémoïsé implicitement — pure function du board+firstTileIdx)
   const layout = board.length > 0 ? computeCenterLayout(board, firstTileIdx) : null;
-  const anchorPos = layout ? layout.positions[firstTileIdx] : null;
-  const anchorCenterX = anchorPos ? anchorPos.x + tileVisualSize(anchorPos).w / 2 : 0;
-  const anchorCenterY = anchorPos ? anchorPos.y + tileVisualSize(anchorPos).h / 2 : 0;
 
-  // Auto-scroll: le domino CENTRAL (1er joué) reste TOUJOURS pile au centre de
-  // l'écran — on scrolle en fonction de sa position réelle, pas du centre de la
-  // boîte englobante (qui bouge à chaque tuile ajoutée d'un côté ou de l'autre).
-  // Résultat: le 1er domino ne bouge plus jamais, seule la chaîne s'étend autour.
+  // Auto-scroll "rythme": on centre sur le **milieu de la chaîne** (mi-point
+  // entre l'extrémité gauche et l'extrémité droite), pas sur le 1er domino.
+  // Au début, ce milieu = le 1er domino (donc il est centré).
+  // Quand la chaîne grandit d'un côté, le milieu se déplace doucement —
+  // le 1er domino dérive en douceur au lieu de sauter brusquement.
+  const leftEndP  = layout ? layout.positions[0] : null;
+  const rightEndP = layout ? layout.positions[layout.positions.length - 1] : null;
+
+  let scrollTargetX = 0, scrollTargetY = 0;
+  if (leftEndP && rightEndP) {
+    const ls = tileVisualSize(leftEndP);
+    const rs = tileVisualSize(rightEndP);
+    const leftCx  = leftEndP.x + ls.w / 2;
+    const leftCy  = leftEndP.y + ls.h / 2;
+    const rightCx = rightEndP.x + rs.w / 2;
+    const rightCy = rightEndP.y + rs.h / 2;
+    scrollTargetX = (leftCx + rightCx) / 2;
+    scrollTargetY = (leftCy + rightCy) / 2;
+  }
+
   useEffect(() => {
-    if (!ref.current || !anchorPos) return;
+    if (!ref.current || !layout) return;
     const el = ref.current;
     el.scrollTo({
-      left: BOARD_PAD + anchorCenterX - el.clientWidth / 2,
-      top: BOARD_PAD + anchorCenterY - el.clientHeight / 2,
+      left: BOARD_PAD + scrollTargetX - el.clientWidth / 2,
+      top:  BOARD_PAD + scrollTargetY - el.clientHeight / 2,
       behavior: "smooth",
     });
-  }, [anchorCenterX, anchorCenterY]);
+  }, [scrollTargetX, scrollTargetY]);
 
   if (board.length === 0) {
     return (
