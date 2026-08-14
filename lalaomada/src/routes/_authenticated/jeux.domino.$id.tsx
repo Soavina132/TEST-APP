@@ -385,14 +385,6 @@ function DominoPage() {
           })()}
         </div>
 
-        {/* Center: pot */}
-        <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
-          <span className="text-xl font-black leading-none truncate">
-            {Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")}
-          </span>
-          <span className="text-[9px] uppercase text-muted-foreground tracking-wider leading-none">Gain (Ar)</span>
-        </div>
-
         {/* Right opponent */}
         <div className="shrink-0 min-w-[64px] flex justify-end">
           {(() => {
