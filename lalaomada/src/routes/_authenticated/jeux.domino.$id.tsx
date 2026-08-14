@@ -510,11 +510,9 @@ function DominoPage() {
 
       {/* Hand + controls */}
       {me && game.status === "playing" && !isRoundTransition && (
-        <div className={`space-y-1.5 shrink-0 relative ${noMove ? "rounded-xl border-2 border-red-500 p-1.5 shadow-[0_0_16px_rgba(239,68,68,0.5)] animate-pulse" : ""}`}>
-          {noMove && (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold shadow-lg flex items-center gap-1 whitespace-nowrap">
-              <Ban className="w-3 h-3" /> PAS DE COUP
-            </div>
+        <div className={`space-y-1.5 shrink-0 relative`}>
+          {isMyTurn && !canPlay && (
+            <p className="text-center text-xs text-muted-foreground py-0.5">Pas de domino jouable</p>
           )}
           <div className="flex items-end gap-2 pb-1">
             <div className="shrink-0">
