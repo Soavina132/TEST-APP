@@ -3,6 +3,7 @@ import { useRef, useEffect } from "react";
 export type Tile = [number, number];
 
 // ── Pip positions on 3×3 grid ──────────────────────────────────────────────
+// NEVER change these — they define which dots appear for each value 0-6
 const PIPS: Record<number, [number, number][]> = {
   0: [],
   1: [[1,1]],
@@ -13,8 +14,9 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[0,0],[1,0],[2,0],[0,2],[1,2],[2,2]],
 };
 
+// ── Premium ivory pip face ─────────────────────────────────────────────────
 function PipFace({ n, size }: { n: number; size: number }) {
-  const dot = Math.max(2.5, size * 0.16);
+  const dot = Math.max(2.5, size * 0.17);
   const pos = PIPS[n] || [];
   return (
     <div className="relative w-full h-full">
@@ -22,10 +24,14 @@ function PipFace({ n, size }: { n: number; size: number }) {
         <div key={i} className="absolute rounded-full"
           style={{
             width: dot, height: dot,
-            background: "#1a1a2e",
+            background: "radial-gradient(circle at 35% 35%, #2a2a4a 0%, #1a1a2e 60%, #0d0d1a 100%)",
             top: `${r * 36 + 14}%`, left: `${c * 36 + 14}%`,
             transform: "translate(-50%, -50%)",
-            boxShadow: "inset 0 1px 1.5px rgba(0,0,0,0.35), 0 0.5px 0.5px rgba(255,255,255,0.4)",
+            boxShadow: [
+              "inset 0 1px 2px rgba(0,0,0,0.5)",
+              "inset 0 -1px 1px rgba(255,255,255,0.15)",
+              "0 0.5px 0.5px rgba(255,255,255,0.5)",
+            ].join(", "),
           }}
         />
       ))}
@@ -33,7 +39,7 @@ function PipFace({ n, size }: { n: number; size: number }) {
   );
 }
 
-// ── Domino Tile — realistic ivory look ─────────────────────────────────────
+// ── Domino Tile — premium ivory ceramic casino look ─────────────────────────
 export function DominoTile({
   t, onClick, selected, w = 36, vertical = false, faceDown = false,
   highlight = false, draggable, onDragStart, onDragEnd,
@@ -48,41 +54,78 @@ export function DominoTile({
   const W = vertical ? w : long;
   const H = vertical ? long : w;
 
-  // Face-down: dark green back
+  // ── Face-down: premium dark green back ──
   if (faceDown) {
     return (
       <div style={{ width: W, height: H }}
-        className="rounded-[4px] shrink-0 shadow-md">
-        <div className="w-full h-full rounded-[4px] border border-emerald-900/40"
-          style={{ background: "linear-gradient(135deg, #0d4525 0%, #1a6b3a 50%, #0d4525 100%)" }}>
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="w-2/3 h-1/3 rounded-full border border-emerald-400/20" />
+        className="rounded-[5px] shrink-0">
+        <div className="w-full h-full rounded-[5px] relative overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, #0a3820 0%, #15643a 50%, #0a3820 100%)",
+            border: "1px solid rgba(20,80,45,0.7)",
+            boxShadow: "inset 0 1px 2px rgba(255,255,255,0.08), 0 2px 5px rgba(0,0,0,0.4)",
+          }}>
+          {/* subtle diamond pattern */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-[3px] border border-emerald-300/15"
+              style={{ width: "60%", height: "45%", transform: "rotate(45deg)" }} />
           </div>
+          {/* top gloss */}
+          <div className="absolute inset-x-0 top-0 h-1/3 rounded-t-[5px]"
+            style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%)" }} />
         </div>
       </div>
     );
   }
 
-  const bg = selected ? "#e0f2fe" : highlight ? "#fef9c3" : "#f5f0e6";
+  // ── Tile body colors ──
+  const bodyGradient = selected
+    ? "linear-gradient(145deg, #e0f2fe 0%, #d0ecfa 50%, #c2e0f6 100%)"
+    : highlight
+    ? "linear-gradient(145deg, #fef9c3 0%, #fdf3a8 50%, #fcec98 100%)"
+    : "linear-gradient(145deg, #faf6ed 0%, #f3ecd9 50%, #e8dcc4 100%)";
+
+  const borderColor = selected ? "#7dd3fc" : highlight ? "#fde047" : "#c4b89a";
+
+  // Each half is always w × w, so use w for pip sizing in both orientations
+  const pipSize = w;
 
   const Half = ({ v }: { v: number }) => (
     <div className="flex-1 relative" style={{ padding: w * 0.04 }}>
-      <PipFace n={v} size={vertical ? w : w * 0.5} />
+      <PipFace n={v} size={pipSize} />
     </div>
   );
 
+  // Gold divider line
   const divider = vertical
-    ? <div className="w-[80%] mx-auto h-[1.5px] bg-stone-400/40 rounded-full" />
-    : <div className="h-[80%] my-auto w-[1.5px] bg-stone-400/40 rounded-full" />;
+    ? <div className="w-[80%] mx-auto rounded-full"
+        style={{
+          height: "1.5px",
+          background: "linear-gradient(90deg, transparent, #c9b87a 15%, #d4c48a 50%, #c9b87a 85%, transparent)",
+          boxShadow: "0 0.5px 0 rgba(255,255,255,0.4)",
+        }} />
+    : <div className="h-[80%] my-auto rounded-full"
+        style={{
+          width: "1.5px",
+          background: "linear-gradient(180deg, transparent, #c9b87a 15%, #d4c48a 50%, #c9b87a 85%, transparent)",
+          boxShadow: "0.5px 0 0 rgba(255,255,255,0.4)",
+        }} />;
 
   const inner = vertical ? (
-    <div className="w-full h-full flex flex-col rounded-[4px]" style={{ background: bg }}>
+    <div className="w-full h-full flex flex-col rounded-[5px] relative overflow-hidden"
+      style={{ background: bodyGradient }}>
+      {/* top gloss highlight */}
+      <div className="absolute inset-x-0 top-0 h-1/3 rounded-t-[5px] pointer-events-none"
+        style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%)" }} />
       <Half v={t![0]} />
       {divider}
       <Half v={t![1]} />
     </div>
   ) : (
-    <div className="w-full h-full flex rounded-[4px]" style={{ background: bg }}>
+    <div className="w-full h-full flex rounded-[5px] relative overflow-hidden"
+      style={{ background: bodyGradient }}>
+      <div className="absolute inset-x-0 top-0 h-1/3 rounded-t-[5px] pointer-events-none"
+        style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%)" }} />
       <Half v={t![0]} />
       {divider}
       <Half v={t![1]} />
@@ -93,11 +136,19 @@ export function DominoTile({
     <button onClick={onClick} disabled={!onClick && !draggable}
       draggable={draggable} onDragStart={onDragStart} onDragEnd={onDragEnd}
       style={{ width: W, height: H, touchAction: draggable ? "none" : undefined }}
-      className={`shrink-0 rounded-[4px] transition-all duration-150 ${
-        selected ? "-translate-y-2 ring-2 ring-sky-400 shadow-lg" : "shadow-[0_2px_5px_rgba(0,0,0,0.3)]"
+      className={`shrink-0 rounded-[5px] transition-all duration-150 ${
+        selected
+          ? "-translate-y-2 ring-2 ring-sky-400 shadow-[0_6px_14px_rgba(0,0,0,0.35),0_2px_4px_rgba(0,0,0,0.2)]"
+          : "shadow-[0_2px_6px_rgba(0,0,0,0.3),0_1px_2px_rgba(0,0,0,0.15)]"
       } ${onClick || draggable ? "hover:-translate-y-0.5 active:scale-95 cursor-pointer" : "cursor-default"
-      } border border-stone-300/50`}>
-      {inner}
+      }`}>
+      <div className="w-full h-full rounded-[5px] relative"
+        style={{
+          border: `1px solid ${borderColor}`,
+          boxShadow: "inset 0 1px 1.5px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.06)",
+        }}>
+        {inner}
+      </div>
     </button>
   );
 }
