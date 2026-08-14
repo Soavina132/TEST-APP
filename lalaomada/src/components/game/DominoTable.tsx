@@ -507,8 +507,16 @@ export function DominoBoard({
           {/* Tuiles de domino */}
           {positions.map((pos, i) => {
             const { tile } = board[i];
+            // Clé STABLE basée sur la position relative au centre (firstTileIdx).
+            // Quand on ajoute à gauche, firstTileIdx augmente et les tuiles existantes
+            // gardent la même clé → React ne les re-render pas → pas de saut visuel.
+            const tileKey = i === firstTileIdx
+              ? "center"
+              : i < firstTileIdx
+                ? `l${firstTileIdx - i}`
+                : `r${i - firstTileIdx}`;
             return (
-              <div key={i} className="absolute" style={{ left: pos.x, top: pos.y }}>
+              <div key={tileKey} className="absolute" style={{ left: pos.x, top: pos.y }}>
                 <DominoTile
                   t={tile}
                   w={SNAKE_W}
