@@ -425,7 +425,18 @@ function computeCenterLayout(
         }
         dir = dir === "h" ? "v" : "h";
         segCount = 0;
-        segLimit = dir === "h" ? SUBSEQUENT_HORIZ_COUNT : VERT_LIMIT;
+        if (dir === "h") {
+          // Look ahead: 8 tiles if the upcoming horizontal segment contains a double, else 7
+          let hasDouble = false;
+          for (let j = 1; j <= SUBSEQUENT_HORIZ_COUNT; j++) {
+            const nextIdx = firstTileIdx + step * (i + 1 + j);
+            if (nextIdx < 0 || nextIdx >= board.length) break;
+            if (board[nextIdx].tile[0] === board[nextIdx].tile[1]) { hasDouble = true; break; }
+          }
+          segLimit = hasDouble ? SUBSEQUENT_HORIZ_COUNT + 1 : SUBSEQUENT_HORIZ_COUNT;
+        } else {
+          segLimit = VERT_LIMIT;
+        }
       }
     }
   };
