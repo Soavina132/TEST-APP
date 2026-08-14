@@ -514,28 +514,33 @@ export function DominoBoard({
     return () => ro.disconnect();
   }, []);
 
-  // ── Zoom dynamique adaptatif ──
-  // rawRatio = le facteur EXACT nécessaire pour que TOUTE la chaîne (bbox réelle,
-  // sans réserve artificielle) tienne dans le conteneur actuel. On clamp ce ratio
-  // directement entre MIN_SCALE et MAX_SCALE — jamais d'estimation "eased" qui
-  // pourrait surestimer le scale et faire déborder des tuiles hors écran.
-  // La fluidité visuelle vient de la transition CSS "transform" (350ms), pas
-  // d'un recalcul mathématique du scale lui-même.
-  const MIN_SCALE = 0.55;   // zoom minimum: tuiles restent lisibles en fin de match
-  const MAX_SCALE = 1.35;   // zoom maximum: dominos bien grands au début
-  const rawRatio = layout && containerSize.w > 0 && containerSize.h > 0
-    ? Math.min(containerSize.w / layout.width, containerSize.h / layout.height)
-    : MAX_SCALE;
+  // ── Point d'ancrage (1er domino) — reste TOUJOURS fixe au centre de l'écran ──
+  // C'est la clé de la stabilité: quand une tuile est ajoutée, seule le scale
+  // change (rétrécissement), la position de la chaîne ne saute pas.
+  const anchorP = layout ? layout.positions[firstTileIdx] : null;
+  const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : 0;
+  const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : 0;
+
+  // ── Zoom dynamique: scale calculé pour que la chaîne tienne même asymétrique ──
+  // On calcule l'étendue MAX de chaque côté de l'ancrage (la chaîne peut être
+  // asymétrique — plus de tuiles à droite qu'à gauche). Le scale garantit que
+  // l'étendue maximale de chaque côté tient dans la moitié du conteneur.
+  const MIN_SCALE = 0.55;
+  const MAX_SCALE = 1.35;
+  let rawRatio = MAX_SCALE;
+  if (layout && containerSize.w > 0 && containerSize.h > 0) {
+    const maxExtentX = Math.max(anchorCx, layout.width - anchorCx);
+    const maxExtentY = Math.max(anchorCy, layout.height - anchorCy);
+    rawRatio = Math.min(containerSize.w / (2 * maxExtentX), containerSize.h / (2 * maxExtentY));
+  }
   const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, rawRatio));
 
-  // Translation: centre la bbox RÉELLE du plateau (pas seulement la tuile
-  // d'ancrage) au centre du conteneur. Centrer sur l'ancrage seul pouvait
-  // laisser une chaîne asymétrique déborder d'un côté même si le scale
-  // calculé était correct pour la largeur totale.
-  const boardCenterX = layout ? layout.width / 2 : 0;
-  const boardCenterY = layout ? layout.height / 2 : 0;
-  const translateX = containerSize.w / 2 - boardCenterX * scale;
-  const translateY = containerSize.h / 2 - boardCenterY * scale;
+  // Translation: ancrage fixe au centre — ne change JAMAIS de position à l'écran
+  // quand une tuile est ajoutée. Seul le scale change → rétrécissement stable.
+  // Mathématiquement: screenAnchor = translateX + anchorCx * scale = containerSize.w/2
+  // Donc pendant la transition CSS, l'ancrage reste fixe à tous les instants.
+  const translateX = containerSize.w / 2 - anchorCx * scale;
+  const translateY = containerSize.h / 2 - anchorCy * scale;
 
   // ── Plateau vide ──
   if (board.length === 0) {
