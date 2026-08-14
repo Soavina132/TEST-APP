@@ -1,0 +1,13 @@
+-- Migration: Fix "argument 1: key must not be null" crash at end of round
+--
+-- Bug: _domino_end_round built jsonb objects (hand_pips, final_hands, scores)
+-- keyed by p.user_id::text. For bot participants, user_id is NULL, so
+-- jsonb_build_object(NULL, ...) threw a Postgres error:
+--   "argument 1: key must not be null"
+-- This crashed every round-end against a bot, breaking score tracking,
+-- the reveal/break phase, and effectively freezing bot games.
+--
+-- Fix: use COALESCE(p.user_id::text, 'bot_' || p.slot::text) as the key
+-- for bots, matching the pattern already used elsewhere (e.g. in an
+-- earlier version of this function that got overwritten by a later
+-- migration without the bot fallback).

@@ -1,0 +1,19 @@
+-- ============================================================
+-- FIX: Flux d'argent — corriger tous les bugs de paiement
+--
+-- Bugs corrigés:
+-- 1. chess_forfeit utilisait _chess_payout (ancienne fonction sans gestion des bots)
+--    ET set status='finished' avant le payout → le payout ne s'exécutait jamais
+-- 2. chess_claim_win acceptait n'importe quel gagnant → vulnérabilité
+-- 3. chess_auto_end acceptait n'importe quel gagnant → vulnérabilité
+-- 4. chess_check_global_timeout utilisait mauvais noms de colonnes (balance/user_id/kind)
+--    + ne déduisait pas la commission + ne gérait pas les bots
+-- 5. _chess_payout (ancienne) n'avait pas de FOR UPDATE + payait les bots
+-- 6. _chess_settle était callable par n'importe qui via l'API REST
+-- ============================================================
+
+-- 1. chess_forfeit: utiliser _chess_settle
+-- 2. chess_claim_win / chess_auto_end: stubs (bloquer l'accès direct)
+-- 3. chess_check_global_timeout: utiliser _chess_settle
+-- 4. _chess_payout: stub
+-- 5. Révoquer EXECUTE sur toutes les fonctions internes _chess_*

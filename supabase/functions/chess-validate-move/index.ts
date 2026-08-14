@@ -28,7 +28,8 @@ Deno.serve(async (req: Request) => {
       return json({ error: "auth required" }, 401);
     }
 
-    const body = await req.json();
+    const reqText = await req.text();
+    const body = reqText ? JSON.parse(reqText) : {};
     const { action } = body;
 
     if (action === "play") {
@@ -44,7 +45,6 @@ Deno.serve(async (req: Request) => {
 });
 
 // ── Headers pour requêtes authentifiées (user JWT) ──
-// apikey = ANON_KEY (requis par PostgREST), Authorization = user JWT (pour RLS)
 function userHeaders(token: string): Record<string, string> {
   return {
     "Content-Type": "application/json",
@@ -73,7 +73,11 @@ async function getUser(token: string): Promise<string> {
   if (!res.ok) {
     throw new Error("Token invalide ou expiré");
   }
-  const user = await res.json();
+  const userText = await res.text();
+  const user = userText ? JSON.parse(userText) : {};
+  if (!user?.id) {
+    throw new Error("Utilisateur non trouvé");
+  }
   if (!user?.id) {
     throw new Error("Utilisateur non trouvé");
   }
@@ -89,7 +93,8 @@ async function getGame(gameId: string, token: string) {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData?.message || `Erreur ${res.status} lors de la récupération de la partie`);
   }
-  const games = await res.json();
+  const gamesText = await res.text();
+  const games = gamesText ? JSON.parse(gamesText) : [];
   if (!Array.isArray(games) || games.length === 0) {
     throw new Error("Partie introuvable");
   }
@@ -107,35 +112,8 @@ async function serviceRpc(fn: string, params: Record<string, unknown>) {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData?.message || `RPC ${fn} failed: HTTP ${res.status}`);
   }
-  return res.json();
-}
-
-// ── Service role PATCH ──
-async function servicePatch(table: string, filter: string, data: Record<string, unknown>) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
-    method: "PATCH",
-    headers: serviceHeaders(),
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData?.message || `PATCH ${table} failed: HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
-// ── Service role INSERT ──
-async function serviceInsert(table: string, data: Record<string, unknown>) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: "POST",
-    headers: serviceHeaders(),
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData?.message || `INSERT ${table} failed: HTTP ${res.status}`);
-  }
-  return res.json();
+  const rpcText = await res.text();
+  return rpcText ? JSON.parse(rpcText) : {};
 }
 
 // ── Valider et jouer un coup ──
@@ -205,36 +183,27 @@ async function handlePlay(body: any, token: string) {
     return json({ error: "illegal move" }, 400);
   }
 
-  // 4. Le coup est valide — mettre à jour la DB
+  // 4. Le coup est valide — appliquer atomiquement via _chess_apply_move
   const fenAfter = chess.fen();
   const newTurn = game.turn === "w" ? "b" : "w";
   const moverId = is_bot ? botId : uid;
   const moverColor = is_bot ? botColor! : myColor;
 
-  // Insérer le coup
-  await serviceInsert("chess_moves", {
-    game_id,
-    ply: game.ply + 1,
-    san: move.san,
-    uci,
-    fen_after: fenAfter,
-    by_user: moverId,
+  // Appel atomique: lock la partie, insère le coup, update la partie
+  // Pas de race condition possible
+  const applyResult = await serviceRpc("_chess_apply_move", {
+    _game_id: game_id,
+    _fen_after: fenAfter,
+    _turn: newTurn,
+    _san: move.san,
+    _uci: uci,
+    _by_user: moverId,
+    _elapsed_ms: elapsed_ms || 0,
+    _mover_color: moverColor,
+    _clear_draw_offer: game.draw_offered_by === uid ? uid : null,
   });
 
-  // Mettre à jour la partie
-  await servicePatch("chess_games", `id=eq.${game_id}`, {
-    fen: fenAfter,
-    turn: newTurn,
-    ply: game.ply + 1,
-    last_move_at: new Date().toISOString(),
-    white_time_ms: moverColor === "w"
-      ? Math.max(0, game.white_time_ms - (elapsed_ms || 0))
-      : game.white_time_ms,
-    black_time_ms: moverColor === "b"
-      ? Math.max(0, game.black_time_ms - (elapsed_ms || 0))
-      : game.black_time_ms,
-    draw_offered_by: game.draw_offered_by === uid ? null : game.draw_offered_by,
-  });
+  const newPly = applyResult?.ply || game.ply + 1;
 
   // 5. Vérifier la fin de partie
   let gameEnd = null;
@@ -266,7 +235,7 @@ async function handlePlay(body: any, token: string) {
     fen: fenAfter,
     san: move.san,
     turn: newTurn,
-    ply: game.ply + 1,
+    ply: newPly,
     game_end: gameEnd,
   });
 }
