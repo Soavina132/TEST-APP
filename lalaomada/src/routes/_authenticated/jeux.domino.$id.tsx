@@ -17,6 +17,7 @@ import DominoRoundBreak from "@/components/game/DominoRoundBreak";
 import { DominoTile, PlayerHeader, DominoBoard, Tile } from "@/components/game/DominoTable";
 import { useGameConfig } from "@/hooks/game/use-game-config";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { useT } from "@/lib/i18n";
 import { useDominoSounds } from "@/hooks/game/use-domino-sounds";
 import { playClack, playDraw, playPass } from "@/lib/sounds/game-sounds";
 import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
@@ -110,6 +111,7 @@ function normalizeBoard(raw: any[], sL?: unknown, sR?: unknown) {
 
 // ── Component ───────────────────────────────────────────────────────────
 function DominoPage() {
+  const { t } = useT();
   const { id } = Route.useParams();
   const { profile, isAdmin } = useAuth();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
@@ -353,18 +355,29 @@ function DominoPage() {
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
       <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
 
-      {/* Utility row: sound/quit */}
-      <div className="flex items-center justify-end gap-1">
-        {game.target_score > 0 && <span className="text-[10px] text-muted-foreground font-semibold mr-1">Objectif {game.target_score} pts</span>}
-        {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
-          <button onClick={toggleSound} className="p-1 rounded-full hover:bg-secondary" title="Sons">
-            {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          </button>
-        )}
-        <button onClick={forfeit} className="p-1 rounded-full hover:bg-destructive/10 text-destructive" title="Quitter">
-          <LogOut className="w-4 h-4" />
-        </button>
-      </div>
+      {/* Barre gagnant + quitter — identique au Ludo */}
+      {(() => {
+        const payout = Math.round(Number(game.pot) * (100 - Number(game.commission_pct)) / 100);
+        return (
+          <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
+            <div className="flex items-baseline gap-1 min-w-0">
+              {game.target_score > 0 && <span className="text-[8px] uppercase text-muted-foreground tracking-wider hidden sm:inline">Objectif {game.target_score} pts · </span>}
+              <span className="text-[8px] uppercase text-muted-foreground tracking-wider">{t("prize_winner")}</span>
+              <span className="text-xs font-extrabold truncate">{payout.toLocaleString("fr-FR")} Ar</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
+                <button onClick={toggleSound} className="w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center active:scale-90 transition" title="Sons">
+                  {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                </button>
+              )}
+              <button onClick={forfeit} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
+                <LogOut className="w-2.5 h-2.5" /> {t("quit_refunded")}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Top bar: opponent left + pot center + opponent right */}
       <div className="rounded-2xl bg-card px-2 py-2 border border-border shadow-sm flex items-center justify-between gap-1">
