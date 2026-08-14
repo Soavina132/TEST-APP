@@ -40,9 +40,10 @@ async function chessServerPlay(supabase: any, action: string, params: Record<str
     },
     body: JSON.stringify({ action, ...params }),
   });
-  const data = await res.json();
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
   if (!res.ok || data.error) {
-    throw new Error(data.error || `HTTP ${res.status}`);
+    throw new Error(data.error || `Erreur serveur (HTTP ${res.status})`);
   }
   return data;
 }
