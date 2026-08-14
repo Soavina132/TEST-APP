@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useLayoutEffect } from "react";
 
 export type Tile = [number, number];
 
@@ -369,20 +369,13 @@ function computeCenterLayout(
     }
   }
 
-  // Offset FIXE — ne dépend PAS de minX/minY.
-  // Quand une tuile est ajoutée à gauche, minX diminue et l'ancien offset
-  // (-minX + SAFETY) augmentait → toutes les tuiles existantes se décalaient
-  // vers la droite (effet "saut"). Avec un offset fixe pré-alloué, les
-  // positions existantes ne changent JAMAIS quand la chaîne s'étend.
-  // 28 * SNAKE_L (≈1232px) suffit pour ~28 tuiles vers la gauche/le haut.
-  const FIXED_OX = 28 * SNAKE_L + SAFETY_MARGIN;
-  const FIXED_OY = 28 * SNAKE_L + SAFETY_MARGIN;
-
+  // Normaliser avec l'espace de sécurité (≈2cm) — version originale
+  const ox = -minX + SAFETY_MARGIN;
+  const oy = -minY + SAFETY_MARGIN;
   return {
-    positions: positions.map((p) => ({ ...p, x: p.x + FIXED_OX, y: p.y + FIXED_OY })),
-    // La largeur/hauteur couvre de 0 jusqu'à la tuile la plus à droite/bas
-    width: (maxX + FIXED_OX) + SAFETY_MARGIN,
-    height: (maxY + FIXED_OY) + SAFETY_MARGIN,
+    positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
+    width: (maxX - minX) + SAFETY_MARGIN * 2,
+    height: (maxY - minY) + SAFETY_MARGIN * 2,
     lastHDir: 1 as 1 | -1,
     lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
   };
@@ -404,10 +397,6 @@ function tileVisualSize(pos: BoardPos): { w: number; h: number } {
   };
 }
 
-// Grande marge de défilement autour du plateau — garantit qu'on peut TOUJOURS
-// scroller exactement jusqu'au domino central, quel que soit son décalage interne.
-const BOARD_PAD = 1400;
-
 // ── Board: 7 horizontal → reste vertical vers le bas ────────────────────────
 export function DominoBoard({
   board, canDropLeft, canDropRight, canDropAny,
@@ -422,38 +411,27 @@ export function DominoBoard({
   const ref = useRef<HTMLDivElement | null>(null);
   const dOver = (e: React.DragEvent) => e.preventDefault();
 
-  // Layout complet (mémoïsé implicitement — pure function du board+firstTileIdx)
+  // Layout complet
   const layout = board.length > 0 ? computeCenterLayout(board, firstTileIdx) : null;
 
-  // Auto-scroll "rythme": on centre sur le **milieu de la chaîne** (mi-point
-  // entre l'extrémité gauche et l'extrémité droite), pas sur le 1er domino.
-  // Au début, ce milieu = le 1er domino (donc il est centré).
-  // Quand la chaîne grandit d'un côté, le milieu se déplace doucement —
-  // le 1er domino dérive en douceur au lieu de sauter brusquement.
-  const leftEndP  = layout ? layout.positions[0] : null;
-  const rightEndP = layout ? layout.positions[layout.positions.length - 1] : null;
+  // ── Auto-scroll stable ──
+  // On centre sur le 1er domino (le point d'ancrage). Avec l'offset dynamique,
+  // sa position DOM change quand on ajoute à gauche — mais useLayoutEffect +
+  // behavior "auto" ajuste le scroll AVANT le paint, donc l'utilisateur ne
+  // voit JAMAIS le déplacement. Résultat: gauche et droite identiques, stable.
+  const anchorP = layout ? layout.positions[firstTileIdx] : null;
+  const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : 0;
+  const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : 0;
 
-  let scrollTargetX = 0, scrollTargetY = 0;
-  if (leftEndP && rightEndP) {
-    const ls = tileVisualSize(leftEndP);
-    const rs = tileVisualSize(rightEndP);
-    const leftCx  = leftEndP.x + ls.w / 2;
-    const leftCy  = leftEndP.y + ls.h / 2;
-    const rightCx = rightEndP.x + rs.w / 2;
-    const rightCy = rightEndP.y + rs.h / 2;
-    scrollTargetX = (leftCx + rightCx) / 2;
-    scrollTargetY = (leftCy + rightCy) / 2;
-  }
-
-  useEffect(() => {
-    if (!ref.current || !layout) return;
+  useLayoutEffect(() => {
+    if (!ref.current || !anchorP) return;
     const el = ref.current;
     el.scrollTo({
-      left: BOARD_PAD + scrollTargetX - el.clientWidth / 2,
-      top:  BOARD_PAD + scrollTargetY - el.clientHeight / 2,
-      behavior: "smooth",
+      left: anchorCx - el.clientWidth / 2,
+      top:  anchorCy - el.clientHeight / 2,
+      behavior: "auto",  // instant — pas d'animation visible
     });
-  }, [scrollTargetX, scrollTargetY]);
+  }, [anchorCx, anchorCy]);
 
   if (board.length === 0) {
     return (
@@ -471,7 +449,7 @@ export function DominoBoard({
     );
   }
 
-  const { positions, width, height } = layout!;
+  const { positions, width, height } = computeCenterLayout(board, firstTileIdx);
 
   // ── Positions des zones de dépôt ──
   // L'extrémité gauche = board[0] (premier élément du tableau)
@@ -514,9 +492,9 @@ export function DominoBoard({
 
   return (
     <div ref={ref} className="w-full h-full overflow-auto" style={{ scrollbarWidth: "thin" }}>
-      {/* Marge large: garantit que le domino central peut toujours être
-          scrollé exactement au centre visuel, quelle que soit sa position interne */}
-      <div style={{ padding: BOARD_PAD }}>
+      {/* grid place-items-center centre le 1er domino quand peu de tuiles,
+          et gère correctement l'overflow quand la chaîne grandit */}
+      <div style={{ minWidth: "100%", minHeight: "100%", display: "grid", placeItems: "center" }}>
         <div className="relative" style={{ width, height }}>
           {/* Tuiles de domino */}
           {positions.map((pos, i) => {
