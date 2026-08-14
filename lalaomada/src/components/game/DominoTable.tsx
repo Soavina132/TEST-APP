@@ -515,12 +515,16 @@ export function DominoBoard({
   const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : 0;
   const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : 0;
 
-  // Facteur de zoom: ne rétrécit que si nécessaire (jamais > 1), avec un
-  // plancher pour garder les tuiles lisibles même sur une très longue chaîne.
-  const MIN_SCALE = 0.42; // more zoom-out allowed so long chains stay visible
+  // ── Zoom dynamique adaptatif ──
+  // Au début (peu de tuiles), les dominos sont grands (scale > 1).
+  // Au fur et à mesure que la chaîne s'allonge, le scale diminue
+  // progressivement pour garder toute la chaîne visible sur l'écran.
+  // Plancher MIN_SCALE pour garder les tuiles lisibles même sur une très longue chaîne.
+  const MIN_SCALE = 0.42;  // zoom minimum: tuiles restent lisibles
+  const MAX_SCALE = 1.6;   // zoom maximum: gros dominos au début
   const scale = layout && containerSize.w > 0 && containerSize.h > 0
-    ? Math.max(MIN_SCALE, Math.min(1, containerSize.w / layout.width, containerSize.h / layout.height))
-    : 1;
+    ? Math.max(MIN_SCALE, Math.min(MAX_SCALE, containerSize.w / layout.width, containerSize.h / layout.height))
+    : MAX_SCALE;
 
   // Translation: place le point d'ancrage exactement au centre du conteneur.
   const translateX = containerSize.w / 2 - anchorCx * scale;
