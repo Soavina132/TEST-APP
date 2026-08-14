@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Users, Coins, KeyRound, Lock, PlayCircle, Folder, Trophy, RotateCw, Target, Globe } from "lucide-react";
+import { ArrowLeft, Plus, Users, Coins, KeyRound, Lock, PlayCircle, Folder, Trophy, RotateCw, Target } from "lucide-react";
 import AdminRenameDialog from "@/components/admin/AdminRenameDialog";
 import ludoCover from "@/assets/games/ludo.asset.json";
 import dominoCover from "@/assets/games/domino.asset.json";
@@ -100,7 +100,7 @@ function extractGameId(data: unknown): string | null {
   return typeof value === "string" && UUID_RE.test(value) ? value : null;
 }
 
-type Tab = "public" | "private" | "code" | "mine" | "open";
+type Tab = "public" | "private" | "code" | "mine";
 
 function Lobby() {
   const { slug: rawSlug } = Route.useParams();
@@ -179,11 +179,15 @@ function Lobby() {
   };
 
   const loadPublic = async () => {
-    // Use list_all_open_games RPC (returns players_count, host_name, etc.)
-    const { data } = await supabase.rpc("list_all_open_games" as any);
-    const all = (data as any[]) || [];
-    // Filter to only this game's slug
-    setPublicGames(all.filter((r: any) => r.slug === slug));
+    if (slug === "ludo") {
+      const { data } = await supabase.rpc("list_public_open_games" as any);
+      setPublicGames((data as any[]) || []);
+    } else {
+      const { data } = await supabase.from(GAME_TABLE[slug] as any)
+        .select("*").eq("status", "open").eq("is_private", false)
+        .order("created_at", { ascending: false }).limit(20);
+      setPublicGames((data as any[]) || []);
+    }
   };
 
   const loadMine = async () => {
@@ -238,14 +242,11 @@ function Lobby() {
   useEffect(() => {
     loadPublic(); loadMine(); loadFreeGameInfo();
     let debounceTimer: ReturnType<typeof setTimeout>;
-    const refresh = () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => { loadPublic(); loadMine(); }, 500);
-    };
     const ch = supabase.channel("lobby-" + slug)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, refresh)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: GAME_TABLE[slug] }, refresh)
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: GAME_TABLE[slug] }, refresh)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { loadPublic(); loadMine(); }, 500);
+      })
       .subscribe();
     return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -572,10 +573,9 @@ function Lobby() {
 
 
       <div className="px-3 pt-1 pb-3 flex flex-col gap-2 flex-1 min-h-0">
-        <div className="grid grid-cols-5 gap-1.5 shrink-0">
+        <div className="grid grid-cols-4 gap-1.5 shrink-0">
           {supportsPublicJoin && <TabBtn label="Gratuit" active={tab === "public"} onClick={() => setTab("public")} icon={<span className="text-sm leading-none">🆓</span>} />}
           <TabBtn label="Mise" active={tab === "private"} onClick={() => setTab("private")} icon={<span className="text-sm leading-none">💰</span>} />
-          <TabBtn label="Ouvertes" active={tab === "open"} onClick={() => setTab("open")} icon={<Globe className="w-3.5 h-3.5" />} />
           <TabBtn label="Code" active={tab === "code"} onClick={() => setTab("code")} icon={<span className="text-sm leading-none">🔑</span>} />
           <TabBtn label="Mes" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
         </div>
@@ -765,49 +765,6 @@ function Lobby() {
             {visibility === "private" && (
               <div className="text-[11px] text-muted-foreground text-center">Un code à 6 caractères sera généré pour inviter tes amis.</div>
             )}
-          </section>
-        )}
-
-        {tab === "open" && (
-          <section className="space-y-2">
-            {publicGames.length === 0 && (
-              <div className="rounded-2xl bg-card border border-white/6 p-6 text-center shadow-sm">
-                <Globe className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
-                <div className="font-bold text-sm">Aucune partie ouverte</div>
-                <div className="text-[11px] text-muted-foreground mt-1">Crée une partie publique et d'autres joueurs pourront la rejoindre ici.</div>
-              </div>
-            )}
-            {publicGames.map((g: any) => {
-              const playersCount = g.players_count ?? 0;
-              const maxPlayers = g.max_players ?? 2;
-              const isFull = playersCount >= maxPlayers;
-              const stakeStr = Number(g.stake) > 0 ? `${Number(g.stake).toLocaleString("fr-FR")} Ar` : "Gratuit";
-              return (
-                <div key={g.game_id || g.id} className="rounded-2xl bg-card border border-white/6 p-3 flex items-center gap-3 shadow-sm">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center text-lg shrink-0">
-                    🌐
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm truncate">
-                      {g.host_name || "Joueur"}
-                      {Number(g.stake) > 0 && <span className="ml-2 text-[10px] font-bold text-amber-500">{stakeStr}</span>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isFull ? "bg-red-500/15 text-red-400" : "bg-primary/15 text-primary"}`}>
-                        <Users className="inline w-2.5 h-2.5 -mt-0.5 mr-0.5" />{playersCount}/{maxPlayers}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(g.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                  </div>
-                  <button onClick={() => joinExisting(g.game_id || g.id)} disabled={isFull || busy}
-                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-md shadow-primary/20 active:scale-95 transition-all shrink-0 disabled:opacity-50">
-                    {isFull ? "Plein" : (<><PlayCircle className="w-3.5 h-3.5" /> Rejoindre</>)}
-                  </button>
-                </div>
-              );
-            })}
           </section>
         )}
 
