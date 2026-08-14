@@ -26,6 +26,27 @@ import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 
+/* -------- Server-side move validation via Edge Function -------- */
+async function chessServerPlay(supabase: any, action: string, params: Record<string, unknown>) {
+  const { data: session } = await supabase.auth.getSession();
+  const token = session?.session?.access_token;
+  if (!token) throw new Error("Non authentifié");
+  const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "";
+  const res = await fetch(`${supabaseUrl}/functions/v1/chess-validate-move`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({ action, ...params }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
 export const Route = createFileRoute("/_authenticated/jeux/chess/$id")({
   component: ChessPage,
   head: () => ({ meta: [{ title: "Échecs — Lalao MADA" }] }),
@@ -367,12 +388,13 @@ function ChessPage() {
   const play = useCallback(async (uci: string, san: string, fenAfter: string) => {
     if (!game) return;
     unlockAudio();
-    const { error } = await supabase.rpc("chess_play" as any, {
-      _id: game.id, _uci: uci, _san: san, _fen_after: fenAfter, _elapsed_ms: elapsedSinceMove,
-    } as any);
-    if (error) {
-      console.error("chess_play error", error);
-      toast.error(error.message ?? "Coup invalide");
+    try {
+      await chessServerPlay(supabase, "play", {
+        game_id: game.id, uci, elapsed_ms: elapsedSinceMove, is_bot: false,
+      });
+    } catch (e: any) {
+      console.error("chess_play error", e);
+      toast.error(e.message ?? "Coup invalide");
       return;
     }
     void load();
@@ -416,15 +438,15 @@ function ChessPage() {
       const mv = preMove ?? pickBotMove(game.fen, level);
       if (!mv) { setBotThinking(false); return; }
       const gameElapsed = Math.max(0, serverNow() - new Date(game.last_move_at ?? game.started_at ?? new Date(serverNow()).toISOString()).getTime());
-      const { error } = await supabase.rpc("chess_bot_play" as any, {
-        _id: game.id, _uci: mv.uci, _san: mv.san, _fen_after: mv.fenAfter, _elapsed_ms: gameElapsed,
-      } as any);
-      if (error) {
-        console.error("bot_play error", error);
-        botTriggeredRef.current = -1;
-        toast.error(error.message ?? "Erreur bot");
-      } else {
+      try {
+        await chessServerPlay(supabase, "play", {
+          game_id: game.id, uci: mv.uci, elapsed_ms: gameElapsed, is_bot: true,
+        });
         void load();
+      } catch (e: any) {
+        console.error("bot_play error", e);
+        botTriggeredRef.current = -1;
+        toast.error(e.message ?? "Erreur bot");
       }
       setBotThinking(false);
     }, delay);
@@ -449,14 +471,14 @@ function ChessPage() {
     else if (chess.isInsufficientMaterial()) { draw = true; reason = "insufficient"; }
     else if (chess.isDraw()) { draw = true; reason = "draw_50"; }
     (async () => {
-      const { error } = await supabase.rpc("chess_finish" as any, {
-        _id: game.id, _winner: winner, _draw: draw, _reason: reason,
-      } as any);
-      if (error) {
-        console.error("chess_finish error", error);
-        endTriggeredRef.current = -1;
-      } else {
+      try {
+        await chessServerPlay(supabase, "finish", {
+          game_id: game.id, winner, draw, reason,
+        });
         void load();
+      } catch (e) {
+        console.error("chess_finish error", e);
+        endTriggeredRef.current = -1;
       }
     })();
   }, [game, isActive, load]);
@@ -480,9 +502,13 @@ function ChessPage() {
           .maybeSingle();
         if ((data as any)?.status === "playing") {
           const winner = loserColor === "w" ? game.black_id : game.white_id;
-          await supabase.rpc("chess_finish" as any, {
-            _id: game.id, _winner: winner, _draw: false, _reason: "timeout",
-          } as any);
+          try {
+            await chessServerPlay(supabase, "finish", {
+              game_id: game.id, winner, draw: false, reason: "timeout",
+            });
+          } catch (e) {
+            console.error("chess_finish timeout error", e);
+          }
           void load();
         }
       }, 1200);
