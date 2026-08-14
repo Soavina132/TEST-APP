@@ -249,7 +249,7 @@ interface SnakeLayout {
 // ── Snake layout constants ──────────────────────────────────────────────────
 const SNAKE_W = 30;     // tile short side (px) — increased for readability
 const SNAKE_L = 60;     // tile long side = 2 * SNAKE_W
-const HORIZ_LIMIT = 6;  // max horizontal tiles per segment
+const HORIZ_LIMIT = 5;  // 4 tuiles à gauche/droite du 1er domino, puis virage (centre partagé)
 const VERT_LIMIT = 3;   // max vertical tiles per segment
 const SAFETY_MARGIN = 76; // ~2cm à 96 DPI — filet de sécurité autour du plateau
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
