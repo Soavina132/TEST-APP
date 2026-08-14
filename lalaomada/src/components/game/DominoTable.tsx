@@ -156,8 +156,8 @@ export function DominoTile({
       }`}>
       <div className="w-full h-full rounded-[5px] relative"
         style={{
-          border: `1px solid ${borderColor}`,
-          boxShadow: "inset 0 1px 1.5px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.06)",
+          border: "none",
+          boxShadow: `inset 0 0 0 0.5px ${borderColor}, inset 0 1px 1.5px rgba(255,255,255,0.5), inset 0 -1px 1px rgba(0,0,0,0.06)`,
         }}>
         {inner}
       </div>
@@ -251,7 +251,7 @@ const SNAKE_W = 30;     // tile short side (px) — increased for readability
 const SNAKE_L = 60;     // tile long side = 2 * SNAKE_W
 const HORIZ_LIMIT = 6;  // max horizontal tiles per segment
 const VERT_LIMIT = 3;   // max vertical tiles per segment
-const SAFETY_MARGIN = 24; // minimal safety margin — was 76, caused over-zoom
+const SAFETY_MARGIN = 76; // ~2cm à 96 DPI — filet de sécurité autour du plateau
 const DOUBLE_EXT = (SNAKE_L - SNAKE_W) / 2; // de combien un double dépasse
 
 interface BoardPos {
