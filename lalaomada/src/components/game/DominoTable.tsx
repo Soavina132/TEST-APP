@@ -440,14 +440,15 @@ function computeCenterLayout(
         dir = dir === "h" ? "v" : "h";
         segCount = 0;
         if (dir === "h") {
-          // Look ahead: 7 tiles if the upcoming horizontal segment contains a double, else 6
-          let hasDouble = false;
+          // Look ahead: count doubles in the upcoming horizontal segment
+          let doubleCount = 0;
           for (let j = 1; j <= SUBSEQUENT_HORIZ_COUNT; j++) {
             const nextIdx = firstTileIdx + step * (i + 1 + j);
             if (nextIdx < 0 || nextIdx >= board.length) break;
-            if (board[nextIdx].tile[0] === board[nextIdx].tile[1]) { hasDouble = true; break; }
+            if (board[nextIdx].tile[0] === board[nextIdx].tile[1]) doubleCount++;
           }
-          segLimit = hasDouble ? SUBSEQUENT_HORIZ_COUNT + 1 : SUBSEQUENT_HORIZ_COUNT;
+          // 8 par défaut, +1 si 2 doubles ou plus dans le segment
+          segLimit = doubleCount >= 2 ? SUBSEQUENT_HORIZ_COUNT + 1 : SUBSEQUENT_HORIZ_COUNT;
         } else {
           segLimit = VERT_LIMIT;
         }
