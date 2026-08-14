@@ -16,6 +16,7 @@ import GamePauseControl from "@/components/game/GamePauseControl";
 import GameInstructionsBanner from "@/components/game/GameInstructionsBanner";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
+import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
 import GameWaitingRoom from "@/components/game/GameWaitingRoom";
 import GameBoardSkin from "@/components/game/GameBoardSkin";
 import TurnBanner from "@/components/game/TurnBanner";
@@ -1824,6 +1825,7 @@ function RamiPage() {
       }}
     >
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
       {/* ── Top bar: pot + deck info + controls, all in one line ── */}
       <div className="rounded-xl bg-card/95 px-2.5 py-1 border border-border shadow-sm flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
