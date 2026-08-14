@@ -370,45 +370,74 @@ function DominoPage() {
         </div>
       </div>
 
-      {/* Opponents */}
-      <div className="flex justify-center gap-4 py-1.5">
-        {parts.filter(p => !p.isMe && !p.forfeited).map(p => (
-          <PlayerHeader key={p.user_id} seat={{
-            user_id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url,
-            slot: p.slot,
-            handCount: p.hand_count ?? (game?.state?.hands?.[String(p.slot)] as Tile[] | undefined)?.length ?? 0,
-            isCurrent: game.current_turn === p.slot,
-            remaining: game.current_turn === p.slot ? remaining : undefined,
-            score: Number(game.scores?.[p.user_id] || 0),
-            skips: Number(game.turn_skips?.[p.user_id] || 0),
-            maxSkips: Number(cfg.max_turn_skips) || 5,
-          }} side="right" />
-        ))}
-      </div>
+      {/* Opponents left/right + Board */}
+      <div className="flex-1 flex items-stretch gap-1 min-h-[130px]">
+        {/* Left opponent */}
+        <div className="shrink-0 flex items-center">
+          {(() => {
+            const opps = parts.filter((p: any) => !p.isMe && !p.forfeited);
+            const p = opps[0];
+            if (!p) return null;
+            return (
+              <PlayerHeader key={p.user_id} seat={{
+                user_id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url,
+                slot: p.slot,
+                handCount: p.hand_count ?? (game?.state?.hands?.[String(p.slot)] as Tile[] | undefined)?.length ?? 0,
+                isCurrent: game.current_turn === p.slot,
+                remaining: game.current_turn === p.slot ? remaining : undefined,
+                score: Number(game.scores?.[p.user_id] || 0),
+                skips: Number(game.turn_skips?.[p.user_id] || 0),
+                maxSkips: Number(cfg.max_turn_skips) || 5,
+              }} side="left" />
+            );
+          })()}
+        </div>
 
-      {/* Board — felt table */}
-      <div className="flex-1 min-h-[130px] rounded-2xl overflow-hidden relative"
-        style={{
-          background: "radial-gradient(ellipse at 50% 40%, #1e7a42 0%, #0f4a26 65%, #0a3518 100%)",
-          boxShadow: "inset 0 0 50px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.3)",
-          border: "3px solid #0a3518",
-        }}>
-        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" preserveAspectRatio="none">
-          <ellipse cx="50%" cy="50%" rx="38%" ry="40%" fill="none" stroke="white" strokeWidth="1" />
-          <ellipse cx="50%" cy="50%" rx="25%" ry="28%" fill="none" stroke="white" strokeWidth="0.5" />
-        </svg>
-        <DominoBoard
-          board={board}
-          leftEnd={leftEnd}
-          rightEnd={rightEnd}
-          canDropLeft={cDL}
-          canDropRight={cDR}
-          canDropAny={cDA}
-          onDropLeft={() => cDL && playSide("left")}
-          onDropRight={() => cDR && playSide("right")}
-          onDropAny={() => cDA && playSide("auto")}
-          firstTileIdx={firstTileIdx}
-        />
+        {/* Board — felt table */}
+        <div className="flex-1 min-h-[130px] rounded-2xl overflow-hidden relative"
+          style={{
+            background: "radial-gradient(ellipse at 50% 40%, #1e7a42 0%, #0f4a26 65%, #0a3518 100%)",
+            boxShadow: "inset 0 0 50px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.3)",
+            border: "3px solid #0a3518",
+          }}>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" preserveAspectRatio="none">
+            <ellipse cx="50%" cy="50%" rx="38%" ry="40%" fill="none" stroke="white" strokeWidth="1" />
+            <ellipse cx="50%" cy="50%" rx="25%" ry="28%" fill="none" stroke="white" strokeWidth="0.5" />
+          </svg>
+          <DominoBoard
+            board={board}
+            leftEnd={leftEnd}
+            rightEnd={rightEnd}
+            canDropLeft={cDL}
+            canDropRight={cDR}
+            canDropAny={cDA}
+            onDropLeft={() => cDL && playSide("left")}
+            onDropRight={() => cDR && playSide("right")}
+            onDropAny={() => cDA && playSide("auto")}
+            firstTileIdx={firstTileIdx}
+          />
+        </div>
+
+        {/* Right opponent */}
+        <div className="shrink-0 flex items-center">
+          {(() => {
+            const opps = parts.filter((p: any) => !p.isMe && !p.forfeited);
+            const p = opps[1];
+            if (!p) return null;
+            return (
+              <PlayerHeader key={p.user_id} seat={{
+                user_id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url,
+                slot: p.slot,
+                handCount: p.hand_count ?? (game?.state?.hands?.[String(p.slot)] as Tile[] | undefined)?.length ?? 0,
+                isCurrent: game.current_turn === p.slot,
+                remaining: game.current_turn === p.slot ? remaining : undefined,
+                score: Number(game.scores?.[p.user_id] || 0),
+                skips: Number(game.turn_skips?.[p.user_id] || 0),
+                maxSkips: Number(cfg.max_turn_skips) || 5,
+              }} side="right" />
+            );
+          })()}
+        </div>
       </div>
 
       {/* Round break */}
