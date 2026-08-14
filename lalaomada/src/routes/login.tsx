@@ -33,6 +33,9 @@ async function callEdgeFunction(fnName: string, payload: unknown) {
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    ref: (search.ref as string) || undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Connexion — Lalao MADA" },
@@ -67,14 +70,16 @@ function phoneToSyntheticEmail(phone: string) {
 function LoginPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<"login" | "signup">("login");
+  const searchParams = Route.useSearch();
+  const refFromUrl = searchParams.ref || "";
+  const [tab, setTab] = useState<"login" | "signup">(refFromUrl ? "signup" : "login");
   const [identifier, setIdentifier] = useState(
     typeof window !== "undefined" ? localStorage.getItem("lalaomada_remembered_identifier") || "" : ""
   );
   const [pseudo, setPseudo] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [referral, setReferral] = useState("");
+  const [referral, setReferral] = useState(refFromUrl);
   const [showPw, setShowPw] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [acceptTerms, setAcceptTerms] = useState(false);
