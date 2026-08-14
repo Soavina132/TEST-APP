@@ -14,10 +14,22 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[0,0],[1,0],[2,0],[0,2],[1,2],[2,2]],
 };
 
+// PIPS for HORIZONTAL tiles: values 0-5 are rotation-symmetric, only 6 changes.
+// 6 horizontal = 3 columns × 2 rows (transposed from 2 columns × 3 rows)
+const PIPS_HORIZONTAL: Record<number, [number, number][]> = {
+  0: [],
+  1: [[1,1]],
+  2: [[0,0],[2,2]],
+  3: [[0,0],[1,1],[2,2]],
+  4: [[0,0],[0,2],[2,0],[2,2]],
+  5: [[0,0],[0,2],[1,1],[2,0],[2,2]],
+  6: [[0,0],[0,1],[0,2],[2,0],[2,1],[2,2]],
+};
+
 // ── Premium ivory pip face ─────────────────────────────────────────────────
-function PipFace({ n, size }: { n: number; size: number }) {
+function PipFace({ n, size, vertical }: { n: number; size: number; vertical: boolean }) {
   const dot = Math.max(2.5, size * 0.17);
-  const pos = PIPS[n] || [];
+  const pos = (vertical ? PIPS : PIPS_HORIZONTAL)[n] || [];
   return (
     <div className="relative w-full h-full">
       {pos.map(([r, c], i) => (
@@ -92,7 +104,7 @@ export function DominoTile({
 
   const Half = ({ v }: { v: number }) => (
     <div className="flex-1 relative" style={{ padding: w * 0.04 }}>
-      <PipFace n={v} size={pipSize} />
+      <PipFace n={v} size={pipSize} vertical={vertical} />
     </div>
   );
 
