@@ -36,11 +36,11 @@ function PipFace({ n, size, vertical }: { n: number; size: number; vertical: boo
         <div key={i} className="absolute rounded-full"
           style={{
             width: dot, height: dot,
-            background: "radial-gradient(circle at 35% 35%, #2a2a4a 0%, #1a1a2e 60%, #0d0d1a 100%)",
+            background: "radial-gradient(circle at 35% 35%, #1a1a1a 0%, #000000 60%, #000000 100%)",
             top: `${r * 36 + 14}%`, left: `${c * 36 + 14}%`,
             transform: "translate(-50%, -50%)",
             boxShadow: [
-              "inset 0 1px 2px rgba(0,0,0,0.5)",
+              "inset 0 1px 2px rgba(0,0,0,0.7)",
               "inset 0 -1px 1px rgba(255,255,255,0.15)",
               "0 0.5px 0.5px rgba(255,255,255,0.5)",
             ].join(", "),
@@ -92,12 +92,12 @@ export function DominoTile({
 
   // ── Tile body colors ──
   const bodyGradient = selected
-    ? "linear-gradient(145deg, #e0f2fe 0%, #d0ecfa 50%, #c2e0f6 100%)"
+    ? "linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 50%, #d0ecfa 100%)"
     : highlight
-    ? "linear-gradient(145deg, #fef9c3 0%, #fdf3a8 50%, #fcec98 100%)"
-    : "linear-gradient(145deg, #faf6ed 0%, #f3ecd9 50%, #e8dcc4 100%)";
+    ? "linear-gradient(145deg, #fefce8 0%, #fef9c3 50%, #fdf3a8 100%)"
+    : "linear-gradient(145deg, #ffffff 0%, #fefcf7 50%, #f5f0e6 100%)";
 
-  const borderColor = selected ? "#7dd3fc" : highlight ? "#fde047" : "#c4b89a";
+  const borderColor = selected ? "#38bdf8" : highlight ? "#facc15" : "#b0a280";
 
   // Each half is always w × w, so use w for pip sizing in both orientations
   const pipSize = w;
