@@ -7,28 +7,13 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || SERVICE_KEY;
 
 function json(data: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-// Helper: fetch JSON avec gestion d'erreur
-async function sbFetch(url: string, opts: RequestInit, token: string) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "apikey": token,
-    "Authorization": `Bearer ${token}`,
-    ...(opts.headers as Record<string, string> || {}),
-  };
-  const res = await fetch(url, { ...opts, headers });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
-  }
-  return data;
 }
 
 Deno.serve(async (req: Request) => {
@@ -38,8 +23,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
-    if (!token) {
+    const userToken = authHeader.replace("Bearer ", "");
+    if (!userToken) {
       return json({ error: "auth required" }, 401);
     }
 
@@ -47,9 +32,9 @@ Deno.serve(async (req: Request) => {
     const { action } = body;
 
     if (action === "play") {
-      return await handlePlay(body, token);
+      return await handlePlay(body, userToken);
     } else if (action === "finish") {
-      return await handleFinish(body, token);
+      return await handleFinish(body, userToken);
     } else {
       return json({ error: "unknown action" }, 400);
     }
@@ -58,11 +43,30 @@ Deno.serve(async (req: Request) => {
   }
 });
 
+// ── Headers pour requêtes authentifiées (user JWT) ──
+// apikey = ANON_KEY (requis par PostgREST), Authorization = user JWT (pour RLS)
+function userHeaders(token: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "apikey": ANON_KEY,
+    "Authorization": `Bearer ${token}`,
+  };
+}
+
+// ── Headers pour requêtes service role ──
+function serviceHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "apikey": SERVICE_KEY,
+    "Authorization": `Bearer ${SERVICE_KEY}`,
+  };
+}
+
 // ── Récupérer l'utilisateur ──
 async function getUser(token: string): Promise<string> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
-      "apikey": token,
+      "apikey": ANON_KEY,
       "Authorization": `Bearer ${token}`,
     },
   });
@@ -76,13 +80,10 @@ async function getUser(token: string): Promise<string> {
   return user.id;
 }
 
-// ── Récupérer une partie ──
+// ── Récupérer une partie (avec token utilisateur) ──
 async function getGame(gameId: string, token: string) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/chess_games?id=eq.${gameId}&select=*`, {
-    headers: {
-      "apikey": token,
-      "Authorization": `Bearer ${token}`,
-    },
+    headers: userHeaders(token),
   });
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
@@ -99,11 +100,7 @@ async function getGame(gameId: string, token: string) {
 async function serviceRpc(fn: string, params: Record<string, unknown>) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": SERVICE_KEY,
-      "Authorization": `Bearer ${SERVICE_KEY}`,
-    },
+    headers: serviceHeaders(),
     body: JSON.stringify(params),
   });
   if (!res.ok) {
@@ -117,11 +114,7 @@ async function serviceRpc(fn: string, params: Record<string, unknown>) {
 async function servicePatch(table: string, filter: string, data: Record<string, unknown>) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": SERVICE_KEY,
-      "Authorization": `Bearer ${SERVICE_KEY}`,
-    },
+    headers: serviceHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -135,11 +128,7 @@ async function servicePatch(table: string, filter: string, data: Record<string, 
 async function serviceInsert(table: string, data: Record<string, unknown>) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": SERVICE_KEY,
-      "Authorization": `Bearer ${SERVICE_KEY}`,
-    },
+    headers: serviceHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) {
