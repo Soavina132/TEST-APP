@@ -206,8 +206,10 @@ function DominoPage() {
 
   const tileMatches = useCallback((t: Tile) => {
     if (!board.length) {
-      const fd = game?.state?.first_move_double;
-      if (typeof fd === "number") return t[0] === fd && t[1] === fd;
+      // first_move_double can be number, string, or null in the JSON state
+      const rawFd = game?.state?.first_move_double;
+      const fd = typeof rawFd === "number" ? rawFd : (rawFd != null ? Number(rawFd) : NaN);
+      if (!isNaN(fd) && fd >= 0) return t[0] === fd && t[1] === fd;
       if (ftr === "under6") return (t[0] + t[1]) < 6;
       return true;
     }

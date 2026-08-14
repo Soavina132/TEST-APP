@@ -256,57 +256,6 @@ export function PlayerHeader({ seat, side, size = "sm", targetScore = 0 }: {
       )}
     </div>
   );
-}: {
-  seat?: Seat; side: "left" | "right"; size?: "sm" | "lg";
-}) {
-  const name = !seat ? (side === "left" ? "Vous" : "Adversaire")
-    : seat.isMe ? "Vous" : (seat.display_name || "Joueur");
-  const score = seat?.score ?? 0;
-  const skips = seat?.skips ?? 0;
-  const maxSkips = seat?.maxSkips ?? 5;
-  const avSize = size === "lg" ? 44 : 36;
-  const ring = seat?.isCurrent ? "#22c55e" : "rgba(255,255,255,0.25)";
-
-  return (
-    <div className="inline-flex flex-col items-center gap-0.5 min-w-0">
-      <div className="relative shrink-0">
-        {seat?.avatar_url ? (
-          <img src={seat.avatar_url} alt={name} width={avSize} height={avSize}
-            className="rounded-full object-cover"
-            style={{ width: avSize, height: avSize, border: `2px solid ${ring}`,
-              boxShadow: seat?.isCurrent ? "0 0 12px rgba(34,197,94,0.5)" : undefined }}
-            loading="lazy" />
-        ) : (
-          <div className="rounded-full flex items-center justify-center font-bold text-white bg-white/10"
-            style={{ width: avSize, height: avSize, border: `2px solid ${ring}`,
-              boxShadow: seat?.isCurrent ? "0 0 12px rgba(34,197,94,0.5)" : undefined,
-              fontSize: Math.max(9, Math.round(avSize / 3)) }}>
-            {initials(name)}
-          </div>
-        )}
-        {seat && seat.handCount > 0 && (
-          <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full
-            bg-amber-400 text-black text-[9px] font-extrabold flex items-center justify-center
-            border border-white/80 leading-none shadow-sm">{seat.handCount}</div>
-        )}
-        {skips > 0 && (
-          <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full
-            text-white text-[8px] font-bold whitespace-nowrap
-            ${skips >= maxSkips - 1 ? "bg-red-600 animate-pulse" : "bg-orange-500"}`}>
-            {skips}/{maxSkips}
-          </div>
-        )}
-      </div>
-      <div className="text-white/85 text-[11px] font-semibold truncate max-w-[90px] text-center leading-tight">{name}</div>
-      <div className="text-white text-lg font-black leading-none tabular-nums">{score}</div>
-      {seat?.isCurrent && typeof seat.remaining === "number" && (
-        <div className={`mt-0.5 text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded leading-none
-          ${seat.remaining <= 5 ? "bg-red-600 text-white animate-pulse" : "bg-black/40 text-white/90"}`}>
-          {seat.remaining}s
-        </div>
-      )}
-    </div>
-  );
 }
 
 // ── Snake layout: 6 horizontal → 3 vertical → turn → repeat ────────────────
