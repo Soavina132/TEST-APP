@@ -273,8 +273,10 @@ interface SnakeLayout {
   height: number;
   lastHDir: 1 | -1;
   lastDir: "h" | "v";
-  contentMaxExtentX: number; // étendue max depuis l'ancrage (pour calcul du scale)
+  contentMaxExtentX: number; // demi-largeur de la bbox (pour calcul du scale)
   contentMaxExtentY: number;
+  contentCenterX: number; // centre X de la bbox dans le stage (pour centrage visuel)
+  contentCenterY: number; // centre Y de la bbox dans le stage
 }
 
 // ── Snake layout constants ──────────────────────────────────────────────────
@@ -305,8 +307,10 @@ interface SnakeLayout {
   height: number;
   lastHDir: 1 | -1;
   lastDir: "h" | "v";
-  contentMaxExtentX: number; // étendue max depuis l'ancrage (pour calcul du scale)
+  contentMaxExtentX: number; // demi-largeur de la bbox (pour calcul du scale)
   contentMaxExtentY: number;
+  contentCenterX: number; // centre X de la bbox dans le stage (pour centrage visuel)
+  contentCenterY: number; // centre Y de la bbox dans le stage
 }
 
 function computeCenterLayout(
@@ -467,8 +471,13 @@ function computeCenterLayout(
   const oy = STAGE_HALF;
   // Étendue max depuis l'ancrage (pour le calcul du scale). L'ancrage est à
   // (0,0) en raw, donc l'étendue à gauche = -minX, à droite = maxX, etc.
-  const contentMaxExtentX = Math.max(-minX, maxX) + SAFETY_MARGIN;
-  const contentMaxExtentY = Math.max(-minY, maxY) + SAFETY_MARGIN;
+  // Centrage sur le MILIEU DU CONTENU, pas sur l'ancre (1er domino).
+  // Étendue = demi-largeur de la bbox (pas distance depuis l'ancre).
+  // → le serpent reste visuellement centré même si un côté est beaucoup plus long.
+  const contentMaxExtentX = (maxX - minX) / 2 + SAFETY_MARGIN;
+  const contentMaxExtentY = (maxY - minY) / 2 + SAFETY_MARGIN;
+  const contentCenterX = (minX + maxX) / 2 + ox;
+  const contentCenterY = (minY + maxY) / 2 + oy;
   return {
     positions: positions.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy })),
     width: STAGE_HALF * 2,
@@ -477,6 +486,8 @@ function computeCenterLayout(
     lastDir: (positions.length > 0 ? positions[positions.length - 1].dir : "h") as "h" | "v",
     contentMaxExtentX,
     contentMaxExtentY,
+    contentCenterX,
+    contentCenterY,
   };
 }
 
@@ -532,17 +543,15 @@ export function DominoBoard({
     return () => ro.disconnect();
   }, []);
 
-  // ── Point d'ancrage (1er domino) — position CONSTANTE dans le stage ──
-  // L'ancrage est toujours à (STAGE_HALF, STAGE_HALF) car la normalisation
-  // est fixe. anchorCx/anchorCy ne changent JAMAIS → la transition CSS est
-  // parfaitement stable (aucun saut de position, seul le scale change).
-  const anchorP = layout ? layout.positions[firstTileIdx] : null;
-  const anchorCx = anchorP ? anchorP.x + tileVisualSize(anchorP).w / 2 : STAGE_HALF;
-  const anchorCy = anchorP ? anchorP.y + tileVisualSize(anchorP).h / 2 : STAGE_HALF;
+  // ── Centrage sur le MILIEU DU CONTENU (bbox), pas sur le 1er domino ──
+  // Le centre de la bounding box est calculé dans computeCenterLayout et
+  // évolue progressivement quand on ajoute des tuiles → la transition CSS
+  // (350ms) lisse le déplacement, aucun saut brusque.
+  const contentCx = layout ? layout.contentCenterX : STAGE_HALF;
+  const contentCy = layout ? layout.contentCenterY : STAGE_HALF;
 
-  // ── Zoom dynamique: scale basé sur l'étendue réelle du contenu ──
-  // contentMaxExtentX/Y = distance max depuis l'ancrage dans chaque direction.
-  // Le scale garantit que cette étendue tient dans la moitié du conteneur.
+  // ── Zoom dynamique: scale basé sur la demi-largeur/hauteur de la bbox ──
+  // Le scale garantit que TOUTE la bbox tient dans le conteneur.
   const MIN_SCALE = 0.55;
   const MAX_SCALE = 1.35;
   let rawRatio = MAX_SCALE;
@@ -554,14 +563,11 @@ export function DominoBoard({
   }
   const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, rawRatio));
 
-  // Translation: ancrage fixe au centre de l'écran.
-  // Comme anchorCx/anchorCy sont CONSTANTS, pendant la transition CSS:
-  //   screenAnchor(τ) = lerp(tx1,tx2,τ) + anchorCx * lerp(s1,s2,τ)
-  //                   = lerp(w/2 - anchorCx*s1, w/2 - anchorCx*s2, τ) + anchorCx * lerp(s1,s2,τ)
-  //                   = w/2 - anchorCx*lerp(s1,s2,τ) + anchorCx*lerp(s1,s2,τ)
-  //                   = w/2  ← TOUJOURS au centre, à chaque instant de la transition.
-  const translateX = containerSize.w / 2 - anchorCx * scale;
-  const translateY = containerSize.h / 2 - anchorCy * scale;
+  // Translation: centre de la bbox au centre de l'écran.
+  // contentCx/Cy changent progressivement (1 tuile à la fois), la transition
+  // CSS interpolate le déplacement de façon fluide.
+  const translateX = containerSize.w / 2 - contentCx * scale;
+  const translateY = containerSize.h / 2 - contentCy * scale;
 
   // ── Plateau vide ──
   if (board.length === 0) {
