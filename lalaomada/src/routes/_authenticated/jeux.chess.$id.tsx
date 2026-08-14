@@ -6,7 +6,7 @@ import { GameLoader } from "@/components/game/GameLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { ArrowLeft, Flag, Handshake, Copy, RotateCw, LogOut, Plus, Pause, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Flag, Handshake, Copy, RotateCw, LogOut, Plus, Pause, Volume2, VolumeX, Scale } from "lucide-react";
 import { copyText } from "@/lib/clipboard";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import { Button } from "@/components/ui/button";
@@ -211,6 +211,7 @@ function ChessPage() {
   const [busy, setBusy] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
   const [botThinking, setBotThinking] = useState(false);
+  const [canClaimDraw, setCanClaimDraw] = useState(false);
   const botTriggeredRef = useRef<number>(-1);
   const endTriggeredRef = useRef<number>(-1);
   const lastSoundPly = useRef<number>(-1);
@@ -336,6 +337,24 @@ function ChessPage() {
 
   const isActive = game?.status === "playing";
 
+  /* -------- Check if draw is claimable (50-move or threefold) -------- */
+  useEffect(() => {
+    if (!game || game.status !== "playing" || !myColor) {
+      setCanClaimDraw(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await chessServerPlay(supabase, "can_claim_draw", { game_id: game.id });
+        if (!cancelled) setCanClaimDraw(!!result.can_claim);
+      } catch {
+        if (!cancelled) setCanClaimDraw(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [game?.id, game?.ply, game?.fen, game?.status, myColor]);
+
   /* -------- Global game timer (chess) -------- */
   const globalTimer = useGlobalGameTimer({
     game: "chess",
@@ -412,8 +431,12 @@ function ChessPage() {
     const plyAtSchedule = game.ply;
     const level = game.bot_intelligence ?? 2;
 
-    const preChess = new Chess(game.fen);
-    const preMove = preChess.isGameOver() ? null : pickBotMove(game.fen, level);
+    // Patch FEN for 50-move rule (chess.js blocks moves when halfmove >= 100)
+    const _botFenParts = game.fen.split(" ");
+    if (_botFenParts.length >= 5 && (parseInt(_botFenParts[4], 10) || 0) >= 100) _botFenParts[4] = "99";
+    const _botFen = _botFenParts.join(" ");
+    const preChess = new Chess(_botFen);
+    const preMove = preChess.isGameOver() ? null : pickBotMove(_botFen, level);
     const legalCount = preChess.isGameOver() ? 0 : preChess.moves().length;
     let complexity = 0;
     if (preMove) {
@@ -434,9 +457,9 @@ function ChessPage() {
     const timer = setTimeout(async () => {
       if (botTriggeredRef.current === plyAtSchedule) { setBotThinking(false); return; }
       botTriggeredRef.current = plyAtSchedule;
-      const chess = new Chess(game.fen);
+      const chess = new Chess(_botFen);
       if (chess.isGameOver()) { setBotThinking(false); return; }
-      const mv = preMove ?? pickBotMove(game.fen, level);
+      const mv = preMove ?? pickBotMove(_botFen, level);
       if (!mv) { setBotThinking(false); return; }
       const gameElapsed = Math.max(0, serverNow() - new Date(game.last_move_at ?? game.started_at ?? new Date(serverNow()).toISOString()).getTime());
       try {
@@ -455,11 +478,20 @@ function ChessPage() {
   }, [game, isActive, myColor, load]);
 
   /* -------- End detection -------- */
+  // Only detect AUTOMATIC ends (checkmate, stalemate, insufficient material, 75-move, 5x repetition)
+  // Claimable draws (50-move, threefold) are NOT auto-settled here — the server handles them
   useEffect(() => {
     if (!game || !isActive) return;
     if (endTriggeredRef.current === game.ply) return;
-    const chess = new Chess(game.fen);
-    if (!chess.isGameOver()) return;
+    // Patch FEN for 50-move rule (chess.js blocks moves when halfmove >= 100)
+    const fenParts = game.fen.split(" ");
+    const halfmove = fenParts.length >= 5 ? (parseInt(fenParts[4], 10) || 0) : 0;
+    if (halfmove >= 100) fenParts[4] = "99";
+    const patchedFen = fenParts.join(" ");
+    const chess = new Chess(patchedFen);
+    // Only check automatic ends (not threefold/50-move which are claimable)
+    const isAutoEnd = chess.isCheckmate() || chess.isStalemate() || chess.isInsufficientMaterial() || halfmove >= 150;
+    if (!isAutoEnd) return;
     endTriggeredRef.current = game.ply;
     let winner: string | null = null;
     let draw = false;
@@ -468,9 +500,9 @@ function ChessPage() {
       winner = chess.turn() === "w" ? game.black_id : game.white_id;
       reason = "checkmate";
     } else if (chess.isStalemate()) { draw = true; reason = "stalemate"; }
-    else if (chess.isThreefoldRepetition()) { draw = true; reason = "repetition"; }
     else if (chess.isInsufficientMaterial()) { draw = true; reason = "insufficient"; }
-    else if (chess.isDraw()) { draw = true; reason = "draw_50"; }
+    else if (halfmove >= 150) { draw = true; reason = "draw_75"; }
+    if (!winner && !draw) return;
     (async () => {
       try {
         await chessServerPlay(supabase, "finish", {
@@ -502,10 +534,10 @@ function ChessPage() {
           .eq("id", game.id)
           .maybeSingle();
         if ((data as any)?.status === "playing") {
-          const winner = loserColor === "w" ? game.black_id : game.white_id;
+          // Don't send winner — let the server check if opponent has mating material
           try {
             await chessServerPlay(supabase, "finish", {
-              game_id: game.id, winner, draw: false, reason: "timeout",
+              game_id: game.id, reason: "timeout",
             });
           } catch (e) {
             console.error("chess_finish timeout error", e);
@@ -546,6 +578,22 @@ function ChessPage() {
         await supabase.rpc("chess_offer_draw" as any, { _game_id: game.id } as any);
         toast.success("Nulle proposée");
       }
+    } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
+  };
+  const doClaimDraw = async () => {
+    if (!game) return;
+    const ok = await confirm({
+      title: "Réclamer la nulle ?",
+      description: "Vous pouvez réclamer la nulle (règle des 50 coups ou répétition triple). L'adversaire ne peut pas refuser.",
+      confirmLabel: "Réclamer la nulle",
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await chessServerPlay(supabase, "claim_draw", { game_id: game.id });
+      toast.success("Nulle réclamée");
+      void load();
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
@@ -831,7 +879,7 @@ function ChessPage() {
 
       {/* Actions */}
       {isActive && myColor && (
-        <div className="flex gap-2 px-3 py-2">
+        <div className="flex gap-2 px-3 py-2 flex-wrap">
           <Button variant="outline" className="flex-1" onClick={doResign} disabled={busy}>
             <Flag className="w-4 h-4 mr-1.5" /> Abandonner
           </Button>
@@ -844,6 +892,16 @@ function ChessPage() {
             >
               <Handshake className="w-4 h-4 mr-1.5" />
               {drawOfferedByOpp ? "Accepter nulle" : "Nulle"}
+            </Button>
+          )}
+          {canClaimDraw && (
+            <Button
+              variant="outline"
+              className="flex-1 border-amber-500/50 text-amber-600 dark:text-amber-400"
+              onClick={doClaimDraw}
+              disabled={busy}
+            >
+              <Scale className="w-4 h-4 mr-1.5" /> Réclamer nulle
             </Button>
           )}
         </div>
@@ -874,13 +932,21 @@ function ChessPage() {
       {game.status === "finished" && (() => {
         const reasonLabel: Record<string, string> = {
           checkmate: "Échec et mat",
-          stalemate: "Pat",
+          stalemate: "Pat (stalemate)",
           timeout: "Temps écoulé",
+          timeout_insufficient_material: "Temps écoulé — nulle (matériel insuffisant)",
           resign: "Abandon",
+          forfeit: "Forfait",
           draw_agreed: "Nulle acceptée",
-          repetition: "Répétition",
+          repetition: "Répétition triple",
+          threefold_repetition: "Répétition triple",
+          fivefold_repetition: "Répétition quintuple",
           insufficient: "Matériel insuffisant",
+          insufficient_material: "Matériel insuffisant",
           draw_50: "Règle des 50 coups",
+          fifty_move_rule: "Règle des 50 coups",
+          draw_75: "Règle des 75 coups",
+          seventyfive_move_rule: "Règle des 75 coups",
         };
         const participants = [
           game.white_id ? {

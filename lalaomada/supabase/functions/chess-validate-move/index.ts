@@ -1,6 +1,16 @@
 // Supabase Edge Function: chess-validate-move
 // Valide les coups d'échecs côté serveur avec chess.js
 // Empêche la triche en mode argent réel
+//
+// Règles officielles FIDE:
+// - Échec, échec et mat, pat → détectés par chess.js
+// - Roque, prise en passant, promotion (4 choix) → validés par chess.js
+// - Règle des 50 coups → RÉCLAMABLE (ne termine pas automatiquement)
+// - Règle des 75 coups → AUTOMATIQUE (halfmove >= 150)
+// - Répétition triple → RÉCLAMABLE (ne termine pas automatiquement)
+// - Répétition quintuple → AUTOMATIQUE (count >= 5)
+// - Matériel insuffisant / position morte → AUTOMATIQUE
+// - Timeout → vérifie si l'adversaire a le matériel pour mater
 
 import { Chess } from "https://esm.sh/chess.js@1.4.0";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -36,6 +46,10 @@ Deno.serve(async (req: Request) => {
       return await handlePlay(body, userToken);
     } else if (action === "finish") {
       return await handleFinish(body, userToken);
+    } else if (action === "claim_draw") {
+      return await handleClaimDraw(body, userToken);
+    } else if (action === "can_claim_draw") {
+      return await handleCanClaimDraw(body, userToken);
     } else {
       return json({ error: "unknown action" }, 400);
     }
@@ -78,9 +92,6 @@ async function getUser(token: string): Promise<string> {
   if (!user?.id) {
     throw new Error("Utilisateur non trouvé");
   }
-  if (!user?.id) {
-    throw new Error("Utilisateur non trouvé");
-  }
   return user.id;
 }
 
@@ -114,6 +125,67 @@ async function serviceRpc(fn: string, params: Record<string, unknown>) {
   }
   const rpcText = await res.text();
   return rpcText ? JSON.parse(rpcText) : {};
+}
+
+// ── Extraire le halfmove clock du FEN ──
+function getHalfmoveClock(fen: string): number {
+  const parts = fen.split(" ");
+  return parts.length >= 5 ? (parseInt(parts[4], 10) || 0) : 0;
+}
+
+// ── Patcher le FEN pour contourner le blocage de chess.js ──
+// chess.js considère isGameOver() = true quand halfmove >= 100 (50-move rule)
+// On remet le halfmove clock à 99 pour permettre de continuer à jouer
+// puisque la règle des 50 coups est RÉCLAMABLE (pas automatique)
+function patchFenFor50Move(fen: string): string {
+  const parts = fen.split(" ");
+  if (parts.length >= 5) {
+    const halfmove = parseInt(parts[4], 10) || 0;
+    if (halfmove >= 100) {
+      parts[4] = "99";
+      return parts.join(" ");
+    }
+  }
+  return fen;
+}
+
+// ── Vérifier si une nulle est réclamable ──
+async function handleCanClaimDraw(body: any, token: string) {
+  const { game_id } = body;
+  if (!game_id) {
+    return json({ error: "missing game_id" }, 400);
+  }
+
+  const game = await getGame(game_id, token);
+  if (game.status !== "playing") {
+    return json({ can_claim: false });
+  }
+
+  const result = await serviceRpc("_chess_can_claim_draw", { _game_id: game_id });
+  return json({ ok: true, ...result });
+}
+
+// ── Réclamer la nulle (50 coups ou triple répétition) ──
+async function handleClaimDraw(body: any, token: string) {
+  const { game_id } = body;
+  if (!game_id) {
+    return json({ error: "missing game_id" }, 400);
+  }
+
+  const game = await getGame(game_id, token);
+  if (game.status !== "playing") {
+    return json({ error: "game not active" }, 400);
+  }
+
+  const uid = await getUser(token);
+  if (uid !== game.white_id && uid !== game.black_id) {
+    return json({ error: "not a participant" }, 403);
+  }
+
+  // Appeler la fonction SQL qui vérifie et settle
+  await serviceRpc("chess_claim_draw", { _game_id: game_id });
+
+  return json({ ok: true, draw: true, reason: "claimed" });
 }
 
 // ── Valider et jouer un coup ──
@@ -164,10 +236,10 @@ async function handlePlay(body: any, token: string) {
   }
 
   // 3. Valider le coup avec chess.js
-  const chess = new Chess(game.fen);
-  if (chess.isGameOver()) {
-    return json({ error: "game already over" }, 400);
-  }
+  // Patch le FEN si halfmove clock >= 100 pour contourner le blocage isGameOver()
+  // (la règle des 50 coups est réclamable, pas automatique)
+  const patchedFen = patchFenFor50Move(game.fen);
+  const chess = new Chess(patchedFen);
 
   const from = uci.slice(0, 2);
   const to = uci.slice(2, 4);
@@ -190,7 +262,6 @@ async function handlePlay(body: any, token: string) {
   const moverColor = is_bot ? botColor! : myColor;
 
   // Appel atomique: lock la partie, insère le coup, update la partie
-  // Pas de race condition possible
   const applyResult = await serviceRpc("_chess_apply_move", {
     _game_id: game_id,
     _fen_after: fenAfter,
@@ -206,29 +277,58 @@ async function handlePlay(body: any, token: string) {
   const newPly = applyResult?.ply || game.ply + 1;
 
   // 5. Vérifier la fin de partie
+  // On ne utilise PAS chess.isGameOver() car il inclut 50-move et threefold
+  // qui sont RÉCLAMABLES (pas automatiques)
   let gameEnd = null;
-  if (chess.isGameOver()) {
-    let winner: string | null = null;
-    let draw = false;
-    let reason = "";
-    if (chess.isCheckmate()) {
-      winner = chess.turn() === "w" ? game.black_id : game.white_id;
-      reason = "checkmate";
-    } else if (chess.isStalemate()) {
-      draw = true; reason = "stalemate";
-    } else if (chess.isThreefoldRepetition()) {
-      draw = true; reason = "repetition";
-    } else if (chess.isInsufficientMaterial()) {
-      draw = true; reason = "insufficient";
-    } else if (chess.isDraw()) {
-      draw = true; reason = "draw_50";
-    }
-    await serviceRpc("_chess_settle", { _id: game_id, _winner: winner, _draw: draw, _reason: reason });
-    gameEnd = { winner, draw, reason };
-  } else {
-    // Vérifier règles officielles (50 coups, répétition, matériel insuffisant)
-    await serviceRpc("_chess_check_game_end", { _game_id: game_id, _fen_after: fenAfter });
+
+  // Échec et mat → AUTOMATIQUE
+  if (chess.isCheckmate()) {
+    const winner = chess.turn() === "w" ? game.black_id : game.white_id;
+    await serviceRpc("_chess_settle", { _id: game_id, _winner: winner, _draw: false, _reason: "checkmate" });
+    gameEnd = { winner, draw: false, reason: "checkmate" };
   }
+  // Pat → AUTOMATIQUE
+  else if (chess.isStalemate()) {
+    await serviceRpc("_chess_settle", { _id: game_id, _winner: null, _draw: true, _reason: "stalemate" });
+    gameEnd = { winner: null, draw: true, reason: "stalemate" };
+  }
+  // Matériel insuffisant / position morte → AUTOMATIQUE
+  else if (chess.isInsufficientMaterial()) {
+    await serviceRpc("_chess_settle", { _id: game_id, _winner: null, _draw: true, _reason: "insufficient_material" });
+    gameEnd = { winner: null, draw: true, reason: "insufficient_material" };
+  }
+  // Vérifier les règles automatiques restantes (75 coups, 5x répétition)
+  // ET enregistrer la position dans l'historique (pour répétition)
+  else {
+    const halfmoveAfter = getHalfmoveClock(fenAfter);
+
+    // Règle des 75 coups (halfmove >= 150) → AUTOMATIQUE
+    if (halfmoveAfter >= 150) {
+      await serviceRpc("_chess_settle", { _id: game_id, _winner: null, _draw: true, _reason: "seventyfive_move_rule" });
+      gameEnd = { winner: null, draw: true, reason: "seventyfive_move_rule" };
+    } else {
+      // _chess_check_game_end va:
+      // - vérifier le matériel insuffisant (recheck côté SQL)
+      // - enregistrer la position dans l'historique
+      // - vérifier la répétition quintuple (auto) vs triple (réclamable)
+      // - vérifier la règle des 75 coups
+      await serviceRpc("_chess_check_game_end", { _game_id: game_id, _fen_after: fenAfter });
+    }
+  }
+
+  // 6. Vérifier si une nulle est réclamable (pour info du frontend)
+  let canClaimDraw = false;
+  let drawClaimInfo: any = null;
+  if (!gameEnd) {
+    try {
+      drawClaimInfo = await serviceRpc("_chess_can_claim_draw", { _game_id: game_id });
+      canClaimDraw = drawClaimInfo?.can_claim || false;
+    } catch { /* ignore */ }
+  }
+
+  // 7. Vérifier l'état du roi (échec)
+  const inCheck = chess.inCheck();
+  const opponentInCheck = chess.inCheck();
 
   return json({
     ok: true,
@@ -236,7 +336,10 @@ async function handlePlay(body: any, token: string) {
     san: move.san,
     turn: newTurn,
     ply: newPly,
+    in_check: opponentInCheck,
     game_end: gameEnd,
+    can_claim_draw: canClaimDraw,
+    draw_info: drawClaimInfo,
   });
 }
 
@@ -259,63 +362,74 @@ async function handleFinish(body: any, token: string) {
     return json({ error: "not a participant" }, 403);
   }
 
-  // Valider avec chess.js
-  const chess = new Chess(game.fen);
-
   if (reason === "timeout") {
     // Vérifier le timeout côté serveur
     const now = Date.now();
     const lastMove = game.last_move_at || game.started_at;
     const elapsed = now - new Date(lastMove).getTime();
     const moverTime = game.turn === "w" ? game.white_time_ms : game.black_time_ms;
-    
+    const moverColor = game.turn;
+    const winnerColor = moverColor === "w" ? "b" : "w";
+    const realWinner = winnerColor === "w" ? game.white_id : game.black_id;
+
     if (moverTime > 0 && elapsed < moverTime) {
       // Le joueur a encore du temps — vérifier le temps global
       if (game.game_deadline && now < new Date(game.game_deadline).getTime()) {
         return json({ error: "timeout not reached yet" }, 400);
       }
     }
-    // Timeout confirmé — le perdant est celui dont c'est le tour
-    const realWinner = game.turn === "w" ? game.black_id : game.white_id;
-    await serviceRpc("_chess_settle", { _id: game_id, _winner: realWinner, _draw: false, _reason: "timeout" });
-    return json({ ok: true, winner: realWinner, draw: false, reason: "timeout" });
+
+    // Vérifier si l'adversaire a assez de matériel pour mater
+    // via la fonction SQL _chess_has_mating_material
+    const gameFen = game.fen;
+    let winnerHasMaterial = true;
+    try {
+      const matResult = await serviceRpc("_chess_has_mating_material", { _fen: gameFen, _color: winnerColor });
+      winnerHasMaterial = matResult === true || matResult?.result === true || matResult === true;
+    } catch { /* default to true if check fails */ }
+
+    if (winnerHasMaterial) {
+      await serviceRpc("_chess_settle", { _id: game_id, _winner: realWinner, _draw: false, _reason: "timeout" });
+      return json({ ok: true, winner: realWinner, draw: false, reason: "timeout" });
+    } else {
+      // L'adversaire ne peut pas mater → nulle
+      await serviceRpc("_chess_settle", { _id: game_id, _winner: null, _draw: true, _reason: "timeout_insufficient_material" });
+      return json({ ok: true, winner: null, draw: true, reason: "timeout_insufficient_material" });
+    }
   }
 
   // Pour checkmate/stalemate/draw — valider avec chess.js
-  if (!chess.isGameOver()) {
-    return json({ error: "game not over" }, 400);
-  }
+  const patchedFen = patchFenFor50Move(game.fen);
+  const chess = new Chess(patchedFen);
 
-  let realWinner: string | null = null;
-  let realDraw = false;
-  let realReason = "";
-
+  // Ne pas utiliser isGameOver() car il inclut 50-move et threefold (réclamables)
+  // Vérifier uniquement les fins automatiques
   if (chess.isCheckmate()) {
-    realWinner = chess.turn() === "w" ? game.black_id : game.white_id;
-    realReason = "checkmate";
-  } else if (chess.isStalemate()) {
-    realDraw = true; realReason = "stalemate";
-  } else if (chess.isThreefoldRepetition()) {
-    realDraw = true; realReason = "repetition";
-  } else if (chess.isInsufficientMaterial()) {
-    realDraw = true; realReason = "insufficient";
-  } else if (chess.isDraw()) {
-    realDraw = true; realReason = "draw_50";
-  } else {
-    return json({ error: "unknown game end state" }, 400);
+    const realWinner = chess.turn() === "w" ? game.black_id : game.white_id;
+    if (!realWinner || winner !== realWinner) {
+      return json({ error: "winner mismatch" }, 400);
+    }
+    await serviceRpc("_chess_settle", { _id: game_id, _winner: realWinner, _draw: false, _reason: "checkmate" });
+    return json({ ok: true, winner: realWinner, draw: false, reason: "checkmate" });
   }
 
-  // Vérifier que le gagnant envoyé par le client correspond
-  if (!realDraw && winner !== realWinner) {
-    return json({ error: "winner mismatch" }, 400);
+  if (chess.isStalemate()) {
+    await serviceRpc("_chess_settle", { _id: game_id, _winner: null, _draw: true, _reason: "stalemate" });
+    return json({ ok: true, winner: null, draw: true, reason: "stalemate" });
   }
 
-  await serviceRpc("_chess_settle", {
-    _id: game_id,
-    _winner: realWinner,
-    _draw: realDraw,
-    _reason: realReason,
-  });
+  if (chess.isInsufficientMaterial()) {
+    await serviceRpc("_chess_settle", { _id: game_id, _winner: null, _draw: true, _reason: "insufficient_material" });
+    return json({ ok: true, winner: null, draw: true, reason: "insufficient_material" });
+  }
 
-  return json({ ok: true, winner: realWinner, draw: realDraw, reason: realReason });
+  // Vérifier 75 coups et 5x répétition (automatiques)
+  const halfmove = getHalfmoveClock(game.fen);
+  if (halfmove >= 150) {
+    await serviceRpc("_chess_settle", { _id: game_id, _winner: null, _draw: true, _reason: "seventyfive_move_rule" });
+    return json({ ok: true, winner: null, draw: true, reason: "seventyfive_move_rule" });
+  }
+
+  // Pour les fins réclamables (50 coups, triple répétition), utiliser claim_draw
+  return json({ error: "game not over (use claim_draw for claimable draws)" }, 400);
 }
