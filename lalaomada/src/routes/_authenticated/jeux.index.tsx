@@ -537,11 +537,14 @@ function JeuxPage() {
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-sm truncate">{def.label}</span>
-                    {game.is_private && <span className="text-[10px]">🔒</span>}
-                    <span className={`ml-auto mr-14 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                <div className="flex-1 min-w-0 pr-1">
+                  <div className="flex items-center gap-1">
+                    <span className="font-black text-sm leading-tight break-words">{def.label}</span>
+                    {game.is_private && <span className="text-[10px] flex-shrink-0">🔒</span>}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                    <span className={`inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${
                       isFull ? "bg-red-500/20 text-red-400"
                         : game.max_players - game.players_count === 1
                           ? "bg-amber-500/20 text-amber-400"
@@ -550,13 +553,13 @@ function JeuxPage() {
                       <Users className="inline w-2.5 h-2.5 -mt-0.5 mr-0.5" />
                       {game.players_count}/{game.max_players}
                     </span>
-                  </div>
 
-                  {game.host_name && (
-                    <div className="text-[10px] text-muted-foreground truncate mt-0.5">
-                      par <span className="font-semibold text-foreground/80">{game.host_name}</span>
-                    </div>
-                  )}
+                    {game.host_name && (
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        par <span className="font-semibold text-foreground/80">{game.host_name}</span>
+                      </span>
+                    )}
+                  </div>
 
                   {dominoChips.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
