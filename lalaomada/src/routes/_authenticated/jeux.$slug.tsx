@@ -693,7 +693,6 @@ function Lobby() {
         {tab === "private" && (
           <section className="space-y-2">
             <div className="rounded-2xl bg-card border border-white/6 p-1.5 shadow-sm divide-y divide-white/5">
-              <SummaryRow icon="⚔️" label="Adversaire" value={opponentMode === "bot" ? "🎯 vs Bot" : "👥 vs Amis"} onClick={() => setSheet("opponent_mode")} />
               {slug === "ludo" && (
                 <SummaryRow icon="🎯" label="Équipe" value={matchType === "solo" ? "🎯 Solo" : "👥 Groupe"} onClick={() => setSheet("opponent")} />
               )}
