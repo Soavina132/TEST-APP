@@ -183,12 +183,12 @@ function SecuritePage() {
     if (disableCode.length !== 6) return toast.error("Entrez le code a 6 chiffres");
     setDisabling2FA(true);
     try {
-      // Step 1: Verify the TOTP code using the edge function
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) throw new Error("Session invalide");
 
+      // Secure disable: verify code AND disable 2FA in one atomic edge function call
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-totp`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/disable-2fa`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -198,13 +198,10 @@ function SecuritePage() {
       });
       const result = await response.json();
 
-      if (!result.valid) {
-        throw new Error("Code 2FA incorrect");
+      if (!result.success) {
+        throw new Error(result.error || "Code 2FA incorrect");
       }
 
-      // Step 2: Code is valid — disable 2FA
-      const { error } = await supabase.rpc("disable_totp" as any);
-      if (error) throw error;
       await refreshProfile();
       setTwoFactorEnabled(false);
       setDisableCode("");
