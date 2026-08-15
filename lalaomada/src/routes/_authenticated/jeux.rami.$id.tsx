@@ -25,6 +25,11 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { useLongPressDrag } from "@/hooks/use-long-press-drag";
 import ramiCover from "@/assets/games/rami.asset.json";
 import { GameLoader } from "@/components/game/GameLoader";
+// ── Haptic feedback helper ──
+function haptic(pattern: number | number[]) {
+  try { if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(pattern); } catch {}
+}
+
 import { setMuted as setSfxMuted, isMuted as isSfxMuted, sfx } from "@/lib/game-sounds";
 // Felt and card back images removed — now using pure CSS gradients for performance
 
@@ -795,6 +800,17 @@ function ensureDealKeyframes() {
       0%   { transform: rotateY(180deg); }
       100% { transform: rotateY(0deg); }
     }
+    @keyframes cardArrive {
+      0%   { opacity: 0; transform: translateY(-40px) scale(0.6) rotate(-8deg); }
+      50%  { opacity: 1; transform: translateY(4px) scale(1.08) rotate(2deg); }
+      100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+    }
+    .card-arrive { animation: cardArrive 0.45s ease-out; }
+    @keyframes turnPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6), 0 0 20px rgba(251, 191, 36, 0.3); }
+      50%      { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0), 0 0 30px rgba(251, 191, 36, 0.5); }
+    }
+    .turn-active-pulse { animation: turnPulse 1.5s ease-in-out infinite; }
   `;
   document.head.appendChild(style);
 }
@@ -1185,12 +1201,13 @@ function RamiPage() {
 
   // Apply custom order or sort mode
   const orderedHandCards = useMemo(() => {
-    if (customOrder !== null) {
-      // Keep user's custom order; append any newly drawn cards not yet in the order
+    // If user has a custom order AND no sort mode active, respect it
+    if (customOrder !== null && sortMode === 'none') {
       const inOrder = customOrder.filter(c => handCards.includes(c));
       const extras = handCards.filter(c => !inOrder.includes(c));
       return [...inOrder, ...extras];
     }
+    // If sort mode is active, sort everything (including new cards) into position
     const cards = [...handCards];
     if (sortMode === 'suit') {
       cards.sort((a, b) => {
@@ -1324,6 +1341,7 @@ function RamiPage() {
   // Note: remaining changes every second, but setAfkWarning(true) is idempotent
 
   const toggleSel = useCallback((c: number) => {
+    haptic(8);
     setSelected(s => s.includes(c) ? s.filter(x => x !== c) : [...s, c]);
   }, []);
 
@@ -1344,6 +1362,7 @@ function RamiPage() {
         toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
       } else {
         toast.success(`✓ ${MELD_LABEL[kind]} validé`);
+      haptic(30);
       }
     } catch (e: any) {
       toast.error(e.message || "Combinaison invalide");
@@ -1454,6 +1473,7 @@ function RamiPage() {
     const to = centerOf(handRef.current);
     // cardFx removed
     sfx.ramiDraw();
+    haptic(10);
     await call("rami_draw", { _game_id: id, _from: "deck" });
     // cardFx removed
   };
@@ -1464,6 +1484,7 @@ function RamiPage() {
     const to = centerOf(handRef.current);
     // cardFx removed
     sfx.ramiDraw();
+    haptic(10);
     await call("rami_draw", { _game_id: id, _from: "discard" });
     // cardFx removed
   };
@@ -1502,6 +1523,7 @@ function RamiPage() {
     const to = centerOf(discardRefs.current[myKey]);
     // cardFx removed
     sfx.ramiDiscard();
+    haptic(15);
     await call("rami_discard", { _game_id: id, _card: card });
     // cardFx removed
   };
@@ -1522,7 +1544,40 @@ function RamiPage() {
     if (error) { toast.error(error.message || "Combinaisons invalides"); return; }
     toast.success("🏆 Bravo, tu gagnes la partie !");
     sfx.ramiWin();
+    haptic([0, 40, 30, 40, 30, 60]);
     setStaged([]); setSelected([]);
+  };
+
+
+  // ── Auto-arranger: detect ALL valid combos in hand and stage them ──
+  const autoArrange = async () => {
+    if (!isMyTurn || phase !== "play") return;
+    const combos = detectCombos(handCards, jokerMode, randomJoker);
+    if (combos.length === 0) {
+      toast.info("Aucune combinaison détectée dans ta main");
+      haptic(20);
+      return;
+    }
+    // Stage each detected combo
+    const newStaged: number[][] = [];
+    const usedCards = new Set<number>();
+    for (const combo of combos) {
+      // Skip if any card already used in a previous combo
+      if (combo.cards.some(c => usedCards.has(c))) continue;
+      const valid = validateMeld(combo.cards, jokerMode, randomJoker);
+      if (valid === 'valid') {
+        newStaged.push([...combo.cards]);
+        combo.cards.forEach(c => usedCards.add(c));
+      }
+    }
+    if (newStaged.length === 0) {
+      toast.info("Aucune combinaison valide à poser automatiquement");
+      return;
+    }
+    setStaged(prev => [...prev, ...newStaged]);
+    setSelected([]);
+    haptic([0, 20, 10, 20]);
+    toast.success(`✨ ${newStaged.length} combinaison${newStaged.length > 1 ? "s" : ""} posée${newStaged.length > 1 ? "s" : ""} automatiquement !`);
   };
 
   // Optimal play suggester
@@ -1929,6 +1984,30 @@ function RamiPage() {
 
       {/* ── Score info moved to top bar ── */}
 
+      {/* ── Progression indicator ── */}
+      {game?.status === "playing" && isPlayer && (() => {
+        const myMeldCount = melds.filter(m => m.player === profile?.id).length + staged.length;
+        // Rami classique: need at least 4 combos to empty hand of 13 cards
+        // (min 3+3+3+4 or similar combos covering all 14 cards minus 1 discard)
+        const targetCombos = 4;
+        const progressPct = Math.min(100, (myMeldCount / targetCombos) * 100);
+        return (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-card/90 border border-border">
+            <span className="text-[9px] font-bold text-muted-foreground shrink-0">Combos</span>
+            <div className="flex-1 flex gap-0.5">
+              {Array.from({ length: targetCombos }).map((_, i) => (
+                <div key={i} className={`flex-1 h-1.5 rounded-full transition-all ${
+                  i < myMeldCount ? "bg-emerald-500" : "bg-white/10"
+                }`} />
+              ))}
+            </div>
+            <span className={`text-[9px] font-black shrink-0 ${myMeldCount >= targetCombos ? "text-emerald-400" : "text-muted-foreground"}`}>
+              {myMeldCount}/{targetCombos}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* ── Combo hints badge ── */}
       {game?.status === "playing" && isPlayer && availableCombos.length > 0 && selected.length === 0 && staged.length === 0 && (
         <div className="flex gap-1 flex-wrap px-2 py-1 rounded-lg bg-card/95 border border-border shadow-sm">
@@ -2141,7 +2220,7 @@ function RamiPage() {
                 disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
                 onClick={drawDeck}
                 className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
-                  isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
+                  isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg turn-active-pulse" : ""
                 }`}
                 style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
               >
@@ -2166,7 +2245,7 @@ function RamiPage() {
                   disabled={!(isMyTurn && phase === "draw" && !busy && topDiscard !== undefined)}
                   onClick={drawDiscard}
                   className={`relative rounded-md active:scale-95 transition-transform ${
-                    isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg" : ""
+                    isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
                   } ${""}`}
                 >
                   <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
@@ -2375,12 +2454,26 @@ function RamiPage() {
 
           {/* Deadwood indicator — points remaining in hand */}
           {handCards.length > 0 && game?.status === "playing" && (
-            <div className="flex items-center gap-1.5 px-1 mb-0.5">
+            <div className="flex items-center gap-1.5 px-1 mb-0.5 flex-wrap">
               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                 handPoints <= 10 ? "bg-emerald-500/20 text-emerald-400" : handPoints <= 30 ? "bg-amber-500/20 text-amber-400" : "bg-destructive/20 text-destructive"
               }`}>
                 💀 {handPoints} pts restants
               </span>
+              <button
+                onClick={() => setSortMode(sortMode === 'suit' ? 'rank' : sortMode === 'rank' ? 'none' : 'suit')}
+                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full transition ${
+                  sortMode === 'suit' ? "bg-blue-500/30 text-blue-300" : sortMode === 'rank' ? "bg-purple-500/30 text-purple-300" : "bg-white/10 text-white/60 hover:bg-white/20"
+                }`}
+              >
+                {sortMode === 'suit' ? "♠♥ Tri couleur" : sortMode === 'rank' ? "Tri valeur" : "Trier"}
+              </button>
+              <button
+                onClick={() => setReorderMode(true)}
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 transition flex items-center gap-0.5"
+              >
+                <ArrowLeftRight className="w-2.5 h-2.5" /> Réordonner
+              </button>
               <button
                 onClick={() => setShowActionLog(s => !s)}
                 className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 transition"
@@ -2419,11 +2512,11 @@ function RamiPage() {
                 const perRow = Math.ceil(n / 2);
                 const rows = [orderedHandCards.slice(0, perRow), orderedHandCards.slice(perRow)];
                 const avail = (typeof window !== "undefined" ? Math.min(window.innerWidth, 480) : 360) - 24;
-                const cw = Math.max(30, Math.min(42, Math.floor((avail - (perRow - 1) * 3) / Math.max(perRow, 1))));
+                const cw = Math.max(38, Math.min(48, Math.floor((avail - (perRow - 1) * 4) / Math.max(perRow, 1))));
                 const ch = Math.round(cw * 1.35);
                 let globalIdx = 0;
                 return rows.map((row, ri) => (
-                  <div key={`row-${ri}`} className="flex justify-center items-end gap-1" data-drop-target="hand-end">
+                  <div key={`row-${ri}`} className="flex justify-center items-end gap-1.5" data-drop-target="hand-end">
                     {row.map((c) => {
                       const i = globalIdx++;
                       const isSel = selected.includes(c);
@@ -2481,7 +2574,7 @@ function RamiPage() {
                           )}
                           {newCard === c && (
                             <>
-                              <div className="absolute inset-0 rounded-lg ring-2 ring-amber-400 pointer-events-none" />
+                              <div className="absolute inset-0 rounded-lg ring-2 ring-amber-400 pointer-events-none card-arrive" />
                               <div className="absolute -top-2 -right-1 z-[60] px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[9px] font-extrabold shadow-md pointer-events-none animate-scale-in">
                                 NEW
                               </div>
@@ -2514,6 +2607,31 @@ function RamiPage() {
 
 
               {/* sevenFx animation removed for performance */}
+
+              {/* ── Always-visible action bar ── */}
+              {isMyTurn && phase === "play" && !reorderMode && selected.length === 0 && staged.length === 0 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={autoArrange}
+                    disabled={busy}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black text-xs shadow-md active:scale-95 transition-all disabled:opacity-40"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Auto-arranger
+                  </button>
+                  <button
+                    onClick={discardOne}
+                    disabled={busy || selected.length !== 1}
+                    className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-destructive text-white font-bold text-xs disabled:opacity-30 active:scale-95 transition-all"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Défausser
+                  </button>
+                  <button onClick={() => setReorderMode(true)}
+                    className="flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg bg-white/8 text-muted-foreground font-semibold text-xs active:scale-95 transition-all"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
               {/* ── Compact action bar: single row, contextual ── */}
               {selected.length > 0 && (
