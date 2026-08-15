@@ -205,8 +205,8 @@ function DominoPage() {
   const firstTileIdx = Math.max(0, Math.min(board.length - 1, game?.state?.first_tile_idx ?? 0));
   const stockSize = (game?.state?.stock || []).length;
   const ftr: "libre" | "under6" = game?.state?.first_tile_rule === "under6" || game?.first_tile_rule === "under6" ? "under6" : "libre";
-  const deadTiles: number[] = (game?.state?.dead_tiles?.[String(me?.slot)] as number[]) || [];
-  const isDeadTile = (idx: number) => deadTiles.includes(idx);
+  const deadTiles: number[][] = (game?.state?.dead_tiles?.[String(me?.slot)] as number[][]) || [];
+  const isDeadTile = (idx: number) => { const t = myHand[idx]; return !!t && deadTiles.some(dt => dt[0] === t[0] && dt[1] === t[1]); };
   const vatoMaty = !!game?.vato_maty;
 
   const tileMatches = useCallback((t: Tile, idx?: number) => {
@@ -551,7 +551,7 @@ function DominoPage() {
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
                     : "p-0.5 border-2 border-transparent opacity-65"}`}>
                     {playable && <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />}
-                    {isDeadTile(i) && <span className="absolute inset-0 rounded-md bg-red-900/40 border border-red-500/50 pointer-events-none" title="Vato maty" />}
+                    {isDeadTile(i) && <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-background shadow z-10 pointer-events-none" title="Vato maty" />}
                     <DominoTile t={t} w={tileW} vertical
                       onClick={playable ? () => { if (needsChoice) setSelectedTile(selectedTile === i ? null : i); else playSide("auto", i); } : undefined}
                       draggable={playable}
