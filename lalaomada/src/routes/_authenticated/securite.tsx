@@ -178,14 +178,31 @@ function SecuritePage() {
     }
   };
 
-  // ── 2FA: Disable ──
+  // ── 2FA: Disable (verify code before disabling) ──
   const disable2FA = async () => {
     if (disableCode.length !== 6) return toast.error("Entrez le code a 6 chiffres");
-    // For disabling, we need to verify the code against the server-side secret
-    // We verify client-side first (the user just scanned the QR, they have the secret in their app)
-    // Then call the server RPC to remove it
     setDisabling2FA(true);
     try {
+      // Step 1: Verify the TOTP code using the edge function
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error("Session invalide");
+
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-totp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ code: disableCode }),
+      });
+      const result = await response.json();
+
+      if (!result.valid) {
+        throw new Error("Code 2FA incorrect");
+      }
+
+      // Step 2: Code is valid — disable 2FA
       const { error } = await supabase.rpc("disable_totp" as any);
       if (error) throw error;
       await refreshProfile();

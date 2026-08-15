@@ -298,29 +298,47 @@ function LoginPage() {
     }
   };
 
-  // ── 2FA verification: verify TOTP code, then sign in again ──
+  // ── 2FA verification: sign in with credentials, then verify TOTP code ──
   const onVerify2FA = async (e: FormEvent) => {
     e.preventDefault();
     if (twoFACode.length !== 6) return toast.error("Entrez le code à 6 chiffres");
-    // TOTP verification is now server-side; proceed to re-authenticate
-    // The code will be validated by Supabase auth MFA if configured
     setVerifying2FA(true);
     try {
-      // Re-authenticate with the original credentials
+      // Step 1: Sign in with credentials to get a session
       const email = identifier.trim().toLowerCase();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
+      let signInResult = await supabase.auth.signInWithPassword({ email, password });
+      if (signInResult.error) {
         // Try phone fallback again
         if (isPhoneLike(identifier)) {
           const phone = normalizePhone(identifier);
           const { data: lookup } = await supabase.rpc("get_email_by_phone" as any, { _phone: phone } as any);
           const legacyEmail = (lookup as string) || phoneToSyntheticEmail(phone);
-          const r = await supabase.auth.signInWithPassword({ email: legacyEmail, password });
-          if (r.error) throw error;
-        } else {
-          throw error;
+          signInResult = await supabase.auth.signInWithPassword({ email: legacyEmail, password });
         }
+        if (signInResult.error) throw signInResult.error;
       }
+
+      // Step 2: Verify the TOTP code using the edge function
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error("Session invalide");
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-totp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ code: twoFACode }),
+      });
+      const result = await response.json();
+
+      if (!result.valid) {
+        // Code is wrong — sign out and show error
+        await supabase.auth.signOut();
+        throw new Error("Code 2FA incorrect");
+      }
+
+      // Code is valid — user is now fully authenticated
       toast.success("Bienvenue !");
       setTwoFAStep(false);
     } catch (err: any) {
