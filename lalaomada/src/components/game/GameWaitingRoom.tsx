@@ -95,12 +95,11 @@ export default function GameWaitingRoom({
     setWaitingRoomActive(true);
     return () => {
       setWaitingRoomActive(false);
-      // When leaving the waiting room, set ready=false if was ready
+      // When leaving the waiting room (navigating away, NOT quitting), only unready
+      // Do NOT auto-quit or refund — only the explicit Quit button or timeout does that
       if (meReadyRef.current && onToggleReadyRef.current) {
         onToggleReadyRef.current(false).catch(() => {});
       }
-      // Auto-refund: if game still in waiting/open, call onQuit to refund the user
-      autoQuit("unmount");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
