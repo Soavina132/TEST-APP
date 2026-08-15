@@ -1,4 +1,3 @@
-// cache-bust-v2
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,7 +106,7 @@ function Lobby() {
   const { profile, isAdmin, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
-  const [tab, setTab] = useState<Tab>("public");
+  const __cache_bust = "v2-" + Date.now(); const [tab, setTab] = useState<Tab>("public"); void __cache_bust;
   const [publicGames, setPublicGames] = useState<any[]>([]);
   const [mine, setMine] = useState<{ ongoing: any[]; finished: any[] }>({ ongoing: [], finished: [] });
   const [mineTab, setMineTab] = useState<"ongoing" | "finished">("ongoing");
