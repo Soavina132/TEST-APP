@@ -3,7 +3,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useRealtimePlayerCount } from "@/hooks/use-realtime-player-count";
 import { toast } from "sonner";
 import { Users, RefreshCw, Plus, KeyRound, Play, Coins } from "lucide-react";
 import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
@@ -109,52 +108,6 @@ type OpenGame = {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Composant : compteur de joueurs en temps réel par carte de partie
-// ─────────────────────────────────────────────────────────────────────────────
-function LivePlayerCount({ game }: { game: OpenGame }) {
-  const { liveCount, flash } = useRealtimePlayerCount(
-    game.id,
-    GAME_TABLE[game.slug],
-    game.players_count,
-  );
-  const remaining = game.max_players - liveCount;
-
-  return (
-    <div className="flex items-center gap-1.5">
-      {/* Dots — filled = occupied slot */}
-      <div className="flex gap-0.5">
-        {Array.from({ length: game.max_players }).map((_, i) => (
-          <div
-            key={i}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              i < liveCount
-                ? `bg-primary ${flash ? "scale-125" : ""}`
-                : "bg-white/15"
-            }`}
-          />
-        ))}
-      </div>
-      {/* Label */}
-      {remaining <= 0 ? (
-        <span className="text-[10px] font-bold text-red-400">Complet</span>
-      ) : remaining === 1 ? (
-        <span className={`text-[10px] font-bold text-amber-400 animate-pulse transition-transform ${flash ? "scale-110" : ""}`}>
-          1 place restante !
-        </span>
-      ) : (
-        <span
-          className={`text-[10px] transition-all duration-300 ${
-            flash ? "text-primary font-bold" : "text-muted-foreground"
-          }`}
-        >
-          {remaining} places
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Page principale
 // ─────────────────────────────────────────────────────────────────────────────
 function JeuxPage() {
@@ -255,6 +208,7 @@ function JeuxPage() {
         max_players: r.max_players ?? 2, players_count: r.players_count ?? 0,
         host_id: r.host_id || null, host_name: r.host_name || "Joueur",
         target_score: r.target_score ?? null,
+        draw_mode: r.draw_mode ?? null,
       }));
     setOpenGames(flat);
     setLoadingGames(false);
@@ -271,9 +225,11 @@ function JeuxPage() {
       debounceTimer = setTimeout(() => loadOpenGames({ silent: true }), 800);
     };
     const ch = supabase.channel("open-games-all");
-    ALL_DISPLAYED_SLUGS.forEach(slug =>
-      ch.on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, refresh)
-    );
+    ALL_DISPLAYED_SLUGS.forEach(slug => {
+      ch.on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, refresh);
+      ch.on("postgres_changes", { event: "UPDATE", schema: "public", table: GAME_TABLE[slug] }, refresh);
+      ch.on("postgres_changes", { event: "DELETE", schema: "public", table: GAME_TABLE[slug] }, refresh);
+    });
     ch.subscribe();
     return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
   }, [loadOpenGames]);
@@ -549,7 +505,6 @@ function JeuxPage() {
           {filteredGames.map(game => {
             const def = GAMES.find(g => g.slug === game.slug)!;
             const CoverMini = COVER_COMPONENTS[game.slug];
-            const stakeStr = game.stake > 0 ? `${Number(game.stake).toLocaleString("fr-FR")} Ar` : "Gratuit";
             const isFull = game.players_count >= game.max_players;
             const isBusy = joiningId === game.id;
             // Domino-specific chips
