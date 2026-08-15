@@ -1116,7 +1116,29 @@ function RamiPage() {
     }
   }, [game?.state?.melds, game?.state?.discards, game?.state?.last_discard_by, parts]);
 
-  // Animation d'intro supprimée : la partie démarre directement.
+  // ── Intro overlay: show who starts first ──
+  const [showFirstPlayerIntro, setShowFirstPlayerIntro] = useState(false);
+  const [firstPlayerName, setFirstPlayerName] = useState("");
+  const prevStatusRef3 = useRef<string>("");
+
+  useEffect(() => {
+    if (prevStatusRef3.current !== "playing" && game?.status === "playing" && game?.state?.first_player !== undefined) {
+      const firstSlot = game.state.first_player;
+      const firstPlayer = parts.find(p => p.slot === firstSlot);
+      const name = firstPlayer?.display_name || (firstPlayer?.is_bot ? "Bot" : "Joueur");
+      setFirstPlayerName(name);
+      setShowFirstPlayerIntro(true);
+      // Auto-hide after 2.5s
+      setTimeout(() => setShowFirstPlayerIntro(false), 2500);
+      // Also show toast
+      if (firstPlayer?.user_id === profile?.id) {
+        toast.success("🎲 Tu commences la partie ! Pioche une carte.");
+      } else {
+        toast.info(`🎲 ${name} commence la partie`);
+      }
+    }
+    prevStatusRef3.current = game?.status || "";
+  }, [game?.status, game?.state?.first_player, parts, profile?.id]);
 
 
   const me = parts.find(p => p.user_id === profile?.id);
@@ -1959,6 +1981,43 @@ function RamiPage() {
       )}
       {/* FlyingCard removed for performance */}
 
+      {/* ── Turn Banner: shows whose turn it is ── */}
+      {game?.status === "playing" && !isSpectating && (() => {
+        const currentSlot = game.current_turn;
+        const currentP = parts.find(p => p.slot === currentSlot);
+        const oppName = currentP?.display_name || (currentP?.is_bot ? "Bot" : "Joueur");
+        const phaseLabel = phase === "draw" ? "Pioche une carte 🂠" : phase === "play" ? "Pose tes combinaisons ou défausse" : "";
+        return (
+          <div className="space-y-1">
+            <TurnBanner isMyTurn={isMyTurn} opponentName={oppName} />
+            {isMyTurn && phaseLabel && (
+              <div className="text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-pulse">
+                {phaseLabel}
+              </div>
+            )}
+            {!isMyTurn && (
+              <div className="text-center text-[11px] font-semibold text-muted-foreground">
+                {phase === "draw" ? `${oppName} pioche…` : phase === "play" ? `${oppName} joue…` : ""}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── First player intro overlay ── */}
+      {showFirstPlayerIntro && game?.status === "playing" && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 pointer-events-none">
+          <div className="text-center animate-in fade-in zoom-in duration-500">
+            <div className="text-5xl mb-2">🎲</div>
+            <div className="text-lg font-black text-white drop-shadow-lg">
+              {me?.user_id === profile?.id && game?.state?.first_player === me?.slot
+                ? "Tu commences !"
+                : `${firstPlayerName} commence`}
+            </div>
+            <div className="text-xs text-white/70 mt-1">Choix aléatoire du premier joueur</div>
+          </div>
+        </div>
+      )}
 
       {game.status === "finished" && (
         <GameEndScreen slug="rami" meUserId={profile?.id} winnerId={game.winner_id}
@@ -2232,7 +2291,9 @@ function RamiPage() {
                 )}
               </button>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
-                deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
+                isMyTurn && phase === "draw" && deckCount > 0
+                  ? "bg-yellow-500 text-black animate-pulse font-bold"
+                  : deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
               }`}>
                 Pioche · {deckCount}
               </span>
@@ -2262,7 +2323,11 @@ function RamiPage() {
                   ⋯
                 </button>
               </div>
-              <span className="text-[10px] font-semibold text-white/90 bg-black/60 px-2.5 py-1 rounded-full">Défausse</span>
+              <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
+                isMyTurn && phase === "draw" && topDiscard !== undefined
+                  ? "bg-emerald-500 text-black animate-pulse font-bold"
+                  : "text-white/90 bg-black/60"
+              }`}>Défausse</span>
             </div>
 
             {/* Joker aléatoire */}
