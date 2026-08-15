@@ -334,7 +334,7 @@ BEGIN
 
   st := jsonb_set(st, ARRAY['hands', my_slot::text], new_hand);
   st := jsonb_set(st, '{left_end}', to_jsonb(new_left));
-  st := jsonb_set(st, '{right_end}', to_jsonb::jsonb);
+  st := jsonb_set(st, '{right_end}', to_jsonb(new_right));
   st := jsonb_set(st, '{passes}', to_jsonb(0));
   st := jsonb_set(st, '{first_move_double}', 'null'::jsonb);
   st := jsonb_set(st, '{first_tile_idx}', to_jsonb(_fti));
