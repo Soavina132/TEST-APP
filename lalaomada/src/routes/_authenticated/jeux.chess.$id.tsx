@@ -228,8 +228,21 @@ function ChessPage() {
       destructive: true,
     });
     if (!ok) return;
-    if (game?.id) await supabase.rpc("chess_resign" as any, { _game_id: game.id } as any);
-    navigate({ to: "/jeux" });
+    try {
+      if (game?.id) {
+        const { error } = await supabase.rpc("chess_resign" as any, { _game_id: game.id } as any);
+        if (error) {
+          // Si la partie est déjà terminée, on navigue quand même
+          if (!error.message.includes('not found') && !error.message.includes('status')) {
+            toast.error(error.message);
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn("chess_resign error:", e?.message);
+    } finally {
+      navigate({ to: "/jeux" });
+    }
   }, [game, confirm, navigate]);
 
   /* -------- Load game -------- */
