@@ -9,20 +9,17 @@ export const Route = createFileRoute("/_authenticated/live")({
   head: () => ({ meta: [{ title: "LIVE — Lalao MADA" }] }),
 });
 
-type Sort = "popular" | "recent" | "ending";
-
 function LivePage() {
   const { t } = useT();
   const navigate = useNavigate();
   const [games, setGames] = useState<any[]>([]);
-  const [sort, setSort] = useState<Sort>("popular");
   const [enabled, setEnabled] = useState(true);
 
   const load = async () => {
     const { data: s } = await supabase.from("app_settings").select("live_enabled").eq("id", 1).maybeSingle();
     setEnabled(!!s?.live_enabled);
     const { data } = await supabase.rpc("list_live_games" as any);
-    setGames(((data as any[]) || []).filter(g => g.game_type !== "rami" && g.game_type !== "fanorona"));
+    setGames((data as any[]) || []);
   };
 
   useEffect(() => {
@@ -75,10 +72,10 @@ function LivePage() {
     }
   };
 
+  // Sort by most spectators first, then most recent
   const sorted = [...games].sort((a, b) => {
-    if (sort === "popular") return b.spectators_count - a.spectators_count;
-    if (sort === "recent") return new Date(b.started_at).getTime() - new Date(a.started_at).getTime();
-    return new Date(a.started_at).getTime() - new Date(b.started_at).getTime();
+    if (b.spectators_count !== a.spectators_count) return b.spectators_count - a.spectators_count;
+    return new Date(b.started_at).getTime() - new Date(a.started_at).getTime();
   });
 
   if (!enabled) return <main className="p-8 text-center text-muted-foreground">{t("live_disabled_msg")}</main>;
@@ -86,12 +83,7 @@ function LivePage() {
   return (
     <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
       <h1 className="text-2xl font-extrabold flex items-center gap-2"><Radio className="text-destructive" /> {t("live_title_full")}</h1>
-      <div className="flex gap-2">
-        {([["popular","popular_sort"],["recent","recent_sort"],["ending","advanced_sort"]] as [Sort,string][]).map(([k,lkey]) => (
-          <button key={k} onClick={() => setSort(k as Sort)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold ${sort===k ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{t(lkey as any)}</button>
-        ))}
-      </div>
+
       {sorted.length === 0 && (
         <div className="rounded-3xl bg-card p-8 text-center text-muted-foreground">{t("no_live_games")}</div>
       )}
