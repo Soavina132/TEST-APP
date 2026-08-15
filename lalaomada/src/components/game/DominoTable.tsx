@@ -55,10 +55,11 @@ function PipFace({ n, size, vertical }: { n: number; size: number; vertical: boo
 export function DominoTile({
   t, onClick, selected, w = 36, vertical = false, faceDown = false,
   highlight = false, draggable, onDragStart, onDragEnd, flipped = false,
+  dead = false,
 }: {
   t?: Tile; onClick?: () => void; selected?: boolean; w?: number;
   vertical?: boolean; faceDown?: boolean; highlight?: boolean;
-  draggable?: boolean; flipped?: boolean;
+  draggable?: boolean; flipped?: boolean; dead?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
 }) {

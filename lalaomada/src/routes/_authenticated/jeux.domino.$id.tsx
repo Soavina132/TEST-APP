@@ -542,16 +542,26 @@ function DominoPage() {
             </div>
             <div className="grid flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
               {myHand.map((t, i) => {
+                const dead = isDeadTile(i);
                 const playable = isMyTurn && tileMatches(t, i);
                 const cL = board.length > 0 && (t[0] === leftEnd || t[1] === leftEnd);
                 const cR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
                 const needsChoice = playable && cL && cR;
                 return (
-                  <div key={i} className={`flex justify-center ${playable
-                    ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
+                  <div key={i} className={`flex justify-center relative ${dead
+                    ? "p-0.5 rounded-lg border-2 border-red-500/70 grayscale opacity-50"
+                    : playable
+                    ? "p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
                     : "p-0.5 border-2 border-transparent opacity-65"}`}>
                     {playable && <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />}
-                    {isDeadTile(i) && <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-background shadow z-10 pointer-events-none" title="Vato maty" />}
+                    {dead && (
+                      <span className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded-full bg-red-600 text-white text-[7px] font-extrabold leading-none whitespace-nowrap shadow">MATY</span>
+                        <svg className="w-4 h-4 text-red-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                          <path d="M6 6 L18 18 M18 6 L6 18" />
+                        </svg>
+                      </span>
+                    )}
                     <DominoTile t={t} w={tileW} vertical
                       onClick={playable ? () => { if (needsChoice) setSelectedTile(selectedTile === i ? null : i); else playSide("auto", i); } : undefined}
                       draggable={playable}
