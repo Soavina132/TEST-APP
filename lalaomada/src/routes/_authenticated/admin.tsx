@@ -928,6 +928,9 @@ function UsersList() {
   const [items, setItems] = useState<any[]>([]);
   const [showList, setShowList] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [userDetails, setUserDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const isBotUser = (u: any) => u?.is_bot === true
     || /@bot\.lalaomada\.internal$/i.test(u?.email || "")
     || /@lalao\.local$/i.test(u?.email || "")
@@ -966,6 +969,62 @@ function UsersList() {
     toast.success(`Compte de ${u.pseudo} supprimé définitivement.`);
     load();
   };
+
+  // ── Expand user to show full controls ──
+  const toggleExpand = async (u: any) => {
+    if (expandedId === u.id) { setExpandedId(null); setUserDetails(null); return; }
+    setExpandedId(u.id);
+    setDetailsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("admin_get_user_details" as any, { _user_id: u.id } as any);
+      if (error) throw error;
+      setUserDetails(data);
+    } catch { setUserDetails(null); }
+    finally { setDetailsLoading(false); }
+  };
+
+  // ── Admin actions ──
+  const changeEmail = async (u: any) => {
+    const email = prompt("Nouvel email:", u.email); if (!email || email === u.email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("Email invalide");
+    const { error } = await supabase.rpc("admin_update_user_email" as any, { _user_id: u.id, _email: email.trim().toLowerCase() } as any);
+    if (error) return toast.error(error.message);
+    toast.success("Email modifié"); load(); toggleExpand(u);
+  };
+  const changePseudo = async (u: any) => {
+    const pseudo = prompt("Nouveau pseudo:", u.pseudo); if (!pseudo || pseudo === u.pseudo) return;
+    const { error } = await supabase.rpc("admin_update_user_pseudo" as any, { _user_id: u.id, _pseudo: pseudo.trim() } as any);
+    if (error) return toast.error(error.message);
+    toast.success("Pseudo modifié"); load(); toggleExpand(u);
+  };
+  const changePhone = async (u: any) => {
+    const phone = prompt("Nouveau téléphone:", u.phone || ""); if (phone === null) return;
+    const { error } = await supabase.rpc("admin_update_user_phone" as any, { _user_id: u.id, _phone: phone.trim() } as any);
+    if (error) return toast.error(error.message);
+    toast.success("Téléphone modifié"); load(); toggleExpand(u);
+  };
+  const verifyPhone = async (u: any) => {
+    const { error } = await supabase.rpc("admin_verify_user_phone" as any, { _user_id: u.id } as any);
+    if (error) return toast.error(error.message);
+    toast.success("Téléphone vérifié"); load(); toggleExpand(u);
+  };
+  const disable2FA = async (u: any) => {
+    const ok = await confirm({ title: "Désactiver le 2FA de cet utilisateur ?", description: "L'authentification à 2 facteurs sera supprimée pour ce compte.", destructive: true });
+    if (!ok) return;
+    const { error } = await supabase.rpc("admin_disable_user_2fa" as any, { _user_id: u.id } as any);
+    if (error) return toast.error(error.message);
+    toast.success("2FA désactivée"); toggleExpand(u);
+  };
+  const resetPassword = async (u: any) => {
+    const pwd = prompt("Nouveau mot de passe (min 8 caractères):"); if (!pwd) return;
+    if (pwd.length < 8) return toast.error("Minimum 8 caractères");
+    const ok = await confirm({ title: `Réinitialiser le mot de passe de ${u.pseudo} ?`, destructive: true });
+    if (!ok) return;
+    const { error } = await supabase.rpc("admin_reset_user_password" as any, { _user_id: u.id, _new_password: pwd } as any);
+    if (error) return toast.error(error.message);
+    toast.success("Mot de passe réinitialisé");
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -973,7 +1032,7 @@ function UsersList() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="text-base font-bold">👥 Joueurs</div>
-              <div className="text-xs text-muted-foreground">Recherche, tri et gestion des comptes</div>
+              <div className="text-xs text-muted-foreground">Recherche, tri et gestion des comptes — contrôle total</div>
             </div>
             {showList && (
               <span className="text-[11px] px-2 py-1 rounded-full bg-secondary font-semibold">{items.length}</span>
@@ -1022,28 +1081,79 @@ function UsersList() {
             {loading && <div className="text-center text-xs text-muted-foreground py-6">Chargement…</div>}
             {!loading && items.length === 0 && <div className="text-center text-xs text-muted-foreground py-6">Aucun joueur</div>}
             {!loading && items.map(u => (
-              <div key={u.id} className="p-3 rounded-xl bg-secondary/40 border border-border/40 hover:border-border transition space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-sm flex items-center gap-1.5 flex-wrap">
-                      <span className="truncate">{u.pseudo}</span>
-                      {u.is_admin && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">admin</span>}
-                      {u.banned && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive text-white">banni</span>}
-                      {!u.phone_verified && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">non vérifié</span>}
+              <div key={u.id} className="rounded-xl bg-secondary/40 border border-border/40 hover:border-border transition space-y-0 overflow-hidden">
+                {/* ── Row: user info + quick actions ── */}
+                <div className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-sm flex items-center gap-1.5 flex-wrap">
+                        <span className="truncate">{u.pseudo}</span>
+                        {u.is_admin && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">admin</span>}
+                        {u.banned && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive text-white">banni</span>}
+                        {!u.phone_verified && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">non vérifié</span>}
+                        {u.two_factor_enabled && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">2FA</span>}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
+                      <div className="text-[10px] font-mono text-muted-foreground/80 mt-0.5">{u.unique_code}</div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
-                    <div className="text-[10px] font-mono text-muted-foreground/80 mt-0.5">{u.unique_code}</div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[10px] uppercase text-muted-foreground">Solde</div>
+                      <div className="font-bold text-sm">{Math.round(Number(u.balance_ar)).toLocaleString("fr-FR")}<span className="text-[10px] font-normal ml-0.5">Ar</span></div>
+                    </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-[10px] uppercase text-muted-foreground">Solde</div>
-                    <div className="font-bold text-sm">{Math.round(Number(u.balance_ar)).toLocaleString("fr-FR")}<span className="text-[10px] font-normal ml-0.5">Ar</span></div>
+                  <div className="flex gap-1.5 pt-1 border-t border-border/40">
+                    <button onClick={() => adjust(u.id)} className="flex-1 px-2 py-1.5 rounded-lg bg-card text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition">💰 Solde</button>
+                    <button onClick={() => ban(u.id, !u.banned)} className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition ${u.banned ? "bg-emerald-500 text-white" : "bg-card hover:bg-destructive hover:text-white"}`}>{u.banned ? "Débannir" : "Bannir"}</button>
+                    <button onClick={() => toggleExpand(u)} className="flex-1 px-2 py-1.5 rounded-lg bg-card text-xs font-semibold hover:bg-secondary transition">⚙️ Gérer</button>
+                    <button onClick={() => permanentlyDelete(u)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-card hover:bg-rose-900 hover:text-white transition" title="Supprimer">🗑</button>
                   </div>
                 </div>
-                <div className="flex gap-1.5 pt-1 border-t border-border/40">
-                  <button onClick={() => adjust(u.id)} className="flex-1 px-2 py-1.5 rounded-lg bg-card text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition">💰 Solde</button>
-                  <button onClick={() => ban(u.id, !u.banned)} className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition ${u.banned ? "bg-emerald-500 text-white" : "bg-card hover:bg-destructive hover:text-white"}`}>{u.banned ? "Débannir" : "Bannir"}</button>
-                  <button onClick={() => permanentlyDelete(u)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-card hover:bg-rose-900 hover:text-white transition" title="Supprimer">🗑</button>
-                </div>
+
+                {/* ── Expanded: full controls ── */}
+                {expandedId === u.id && (
+                  <div className="border-t border-border/60 bg-card/50 p-3 space-y-2">
+                    {detailsLoading ? (
+                      <div className="text-center text-xs text-muted-foreground py-3">Chargement…</div>
+                    ) : (
+                      <>
+                        {/* Info badges */}
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${u.phone_verified ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
+                            📞 {u.phone_verified ? "Tél vérifié" : "Tél non vérifié"}
+                          </span>
+                          <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${userDetails?.has_2fa ? "bg-sky-500/10 text-sky-600" : "bg-secondary text-muted-foreground"}`}>
+                            🔐 2FA: {userDetails?.has_2fa ? "Active" : "Inactive"}
+                          </span>
+                          <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${userDetails?.is_admin ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                            {userDetails?.is_admin ? "👑 Admin" : "👤 Joueur"}
+                          </span>
+                        </div>
+
+                        {/* Action buttons grid */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button onClick={() => changeEmail(u)} className="px-2.5 py-2 rounded-lg bg-secondary text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition flex items-center justify-center gap-1">📧 Email</button>
+                          <button onClick={() => changePseudo(u)} className="px-2.5 py-2 rounded-lg bg-secondary text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition flex items-center justify-center gap-1">✏️ Pseudo</button>
+                          <button onClick={() => changePhone(u)} className="px-2.5 py-2 rounded-lg bg-secondary text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition flex items-center justify-center gap-1">📞 Téléphone</button>
+                          {!u.phone_verified && (
+                            <button onClick={() => verifyPhone(u)} className="px-2.5 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 text-xs font-semibold hover:bg-emerald-500/20 transition flex items-center justify-center gap-1">✅ Vérifier tél</button>
+                          )}
+                          {userDetails?.has_2fa && (
+                            <button onClick={() => disable2FA(u)} className="px-2.5 py-2 rounded-lg bg-destructive/10 text-destructive text-xs font-semibold hover:bg-destructive/20 transition flex items-center justify-center gap-1">🔓 Désactiver 2FA</button>
+                          )}
+                          <button onClick={() => resetPassword(u)} className="px-2.5 py-2 rounded-lg bg-amber-500/10 text-amber-600 text-xs font-semibold hover:bg-amber-500/20 transition flex items-center justify-center gap-1">🔑 Mot de passe</button>
+                        </div>
+
+                        {/* Current values */}
+                        <div className="rounded-lg bg-secondary/40 p-2.5 space-y-1 text-[11px]">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Email:</span><span className="font-mono truncate ml-2">{u.email}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Téléphone:</span><span className="font-mono">{u.phone || "—"}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Pseudo:</span><span>{u.pseudo}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Solde:</span><span className="font-bold">{Math.round(Number(u.balance_ar)).toLocaleString("fr-FR")} Ar</span></div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
