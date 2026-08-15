@@ -1564,9 +1564,16 @@ function RamiPage() {
     });
     setBusy(false);
     if (error) { toast.error(error.message || "Combinaisons invalides"); return; }
-    toast.success("🏆 Bravo, tu gagnes la partie !");
-    sfx.ramiWin();
-    haptic([0, 40, 30, 40, 30, 60]);
+    // Check if the player actually won (won=false means melds were saved but hand not empty)
+    const won = (data as any)?.won === true;
+    if (won) {
+      toast.success("🏆 Bravo, tu gagnes la partie !");
+      sfx.ramiWin();
+      haptic([0, 40, 30, 40, 30, 60]);
+    } else {
+      toast.info("✅ Combinaisons posées — continue à jouer");
+      haptic(20);
+    }
     setStaged([]); setSelected([]);
   };
 
