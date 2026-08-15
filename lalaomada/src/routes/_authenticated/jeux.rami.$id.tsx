@@ -226,7 +226,7 @@ const CARD_POINTS = (c: number): number => {
 function isJokerCard(c: number, jokerMode: string, randomJoker: number | null): boolean {
   const base = CARD_BASE(c);
   // Physical jokers (cards 52,53 only — 2 per deck) — in classique/double
-  if ((base === 52 || base === 53) && (jokerMode === 'classique' || jokerMode === 'double')) return true;
+  if (base >= 52 && (jokerMode === 'classique' || jokerMode === 'double')) return true;
   // Color-opposite jokers — only in aleatoire/double
   if ((jokerMode === 'aleatoire' || jokerMode === 'double') && randomJoker !== null) {
     const rjBase = CARD_BASE(randomJoker);
