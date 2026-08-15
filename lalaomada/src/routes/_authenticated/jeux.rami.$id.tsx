@@ -506,6 +506,17 @@ function getSelectionFeedback(
   return { hint: "Combinaison invalide", severity: 'error' };
 }
 
+// ── Pure meld detection (no jokers used) ──────────────────────────────────
+function isPureMeld(cards: number[], jokerMode: string, randomJoker: number | null): boolean {
+  return cards.length >= 3 && !cards.some(c => isJokerCard(c, jokerMode, randomJoker));
+}
+
+// ── Going Rummy detection: winner had zero melds before winning discard ──
+function isGoingRummy(melds: { player: string; cards: number[]; type?: string }[], winnerId: string): boolean {
+  const winnerMelds = melds.filter(m => m.player === winnerId);
+  return winnerMelds.length > 0 && winnerMelds.reduce((s, m) => s + m.cards.length, 0) >= 13;
+}
+
 // ── Layoff candidates ─────────────────────────────────────────────────────
 function getLayoffCandidates(
   melds: { player: string; cards: number[] }[],
@@ -1167,11 +1178,20 @@ function RamiPage() {
   const myRefunded = !!(profile?.id && refunded[profile.id]);
 
   // Action log from game state
-  const actionLog: string[] = useMemo(() => {
+  const actionLog: any[] = useMemo(() => {
     const log = game?.state?.action_log;
     if (!Array.isArray(log)) return [];
-    return log.slice(-6).reverse();
+    return log.slice(-10).reverse();
   }, [game?.state?.action_log]);
+
+  // Going Rummy detection: check if winner won without prior melds
+  const goingRummy = useMemo(() => {
+    if (game?.status !== "finished" || !game?.winner_id) return false;
+    if (game?.state?.going_rummy === true) return true;
+    const winnerMelds = melds.filter(m => m.player === game.winner_id);
+    const totalCards = winnerMelds.reduce((s, m) => s + m.cards.length, 0);
+    return totalCards === 13 && winnerMelds.length <= 2;
+  }, [game?.status, game?.winner_id, game?.state?.going_rummy, melds]);
 
   const stagedFlat = useMemo(() => staged.flat(), [staged]);
   const handCards = useMemo(() => myHand.filter(c => !stagedFlat.includes(c)), [myHand, stagedFlat]);
@@ -1347,6 +1367,7 @@ function RamiPage() {
   // ── 7 cartes : le joueur clique lui-même ses combinaisons posées ───────
   const [pickedMelds, setPickedMelds] = useState<number[]>([]);
   const [showDiscardHistory, setShowDiscardHistory] = useState(false);
+  const [showActionLog, setShowActionLog] = useState(false);
   const usedExtraTime = !!(profile?.id && (game?.state?.extra_time || {})[profile.id]);
 
   const toggleMeldPick = (i: number) =>
@@ -1843,7 +1864,9 @@ function RamiPage() {
             🏆 {Math.round(Number(game.pot) * (100 - (Number((game as any).commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
           </span>
           {game?.status === "playing" && (
-            <span className="text-[9px] font-semibold text-emerald-500 whitespace-nowrap">
+            <span className={`text-[9px] font-semibold whitespace-nowrap ${
+              deckCount === 0 ? "text-red-500" : deckCount <= 10 ? "text-amber-500" : "text-emerald-500"
+            }`}>
               🂠 {deckCount}
             </span>
           )}
@@ -1894,6 +1917,16 @@ function RamiPage() {
         </div>
       )}
       {/* FlyingCard removed for performance */}
+      {goingRummy && game?.status === "finished" && (
+        <div className="rounded-xl p-3 bg-gradient-to-r from-amber-500/20 via-fuchsia-500/15 to-amber-500/20 border border-amber-500/40 text-center">
+          <div className="text-2xl mb-1">🎯</div>
+          <div className="font-black text-sm text-amber-400">GOING RAMI !</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            Le gagnant a posé toutes ses cartes d'un coup — pénalité double pour les autres joueurs !
+          </div>
+        </div>
+      )}
+
       {game.status === "finished" && (
         <GameEndScreen slug="rami" meUserId={profile?.id} winnerId={game.winner_id}
           participants={parts} stake={Number(game.stake)} pot={Number(game.pot)}
@@ -2043,32 +2076,49 @@ function RamiPage() {
           const canLayoff = layoffCandidates.has(i);
           const canBreak = mine && !!isMyTurn && phase === "play" && selected.length === 0 && !busy;
           const picked = false; // auto-detect: no manual picking
+          const pure = !isSevenMeld && isPureMeld(m.cards, jokerMode, randomJoker);
           return (
-            <button
-              key={`meld-${i}`}
-              onClick={() => {
-                if (canLayoff) layoff(i);
-                else if (canBreak) unmeld(i);
-              }}
-              onDoubleClick={() => { if (canBreak) unmeld(i); }}
-              disabled={!canLayoff && !mine}
-              className={`relative flex rounded-lg p-1 transition-all shrink-0 bg-black/10 ${
-                picked
-                  ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
-                  : isSevenMeld
-                    ? "ring-2 ring-amber-400 shadow-[0_0_14px_-4px_rgba(251,191,36,0.9)]"
-                    : canLayoff
-                      ? "ring-2 ring-emerald-400"
-                      : "ring-1 ring-white/10"
-              }`}
-              style={{ boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}
-            >
-              {m.cards.map((c, ci) => (
-                <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -13 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
-                  <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 25, height: 35 }} />
-                </div>
-              ))}
-            </button>
+            <div key={`meld-wrap-${i}`} className="relative flex flex-col items-center gap-0.5">
+              <button
+                key={`meld-${i}`}
+                onClick={() => {
+                  if (canLayoff) layoff(i);
+                  else if (canBreak) unmeld(i);
+                }}
+                onDoubleClick={() => { if (canBreak) unmeld(i); }}
+                disabled={!canLayoff && !mine}
+                className={`relative flex rounded-lg p-1 transition-all shrink-0 bg-black/10 ${
+                  picked
+                    ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
+                    : isSevenMeld
+                      ? "ring-2 ring-amber-400 shadow-[0_0_14px_-4px_rgba(251,191,36,0.9)]"
+                      : canLayoff
+                        ? "ring-2 ring-emerald-400"
+                        : pure
+                          ? "ring-1 ring-cyan-400/50"
+                          : "ring-1 ring-white/10"
+                }`}
+                style={{ boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}
+              >
+                {m.cards.map((c, ci) => (
+                  <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -13 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
+                    <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 25, height: 35 }} />
+                  </div>
+                ))}
+              </button>
+              {revealed && !isSevenMeld && (
+                <span className={`text-[7px] font-bold px-1 py-0.5 rounded-full whitespace-nowrap ${
+                  pure ? "bg-cyan-500/20 text-cyan-300" : "bg-purple-500/20 text-purple-300"
+                }`}>
+                  {pure ? "Pure" : "Joker"}
+                </span>
+              )}
+              {isSevenMeld && (
+                <span className="text-[7px] font-bold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 whitespace-nowrap">
+                  7 Cartes
+                </span>
+              )}
+            </div>
           );
         };
 
@@ -2118,8 +2168,15 @@ function RamiPage() {
                 style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
               >
                 <Card faceDown styleOverride={{ width: 60, height: 84 }} />
+                {deckCount > 0 && deckCount <= 10 && (
+                  <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[8px] font-bold text-white animate-pulse">
+                    !
+                  </div>
+                )}
               </button>
-              <span className="text-[10px] font-semibold text-white/90 bg-black/60 px-2.5 py-1 rounded-full">
+              <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
+                deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
+              }`}>
                 Pioche · {deckCount}
               </span>
             </div>
@@ -2230,6 +2287,77 @@ function RamiPage() {
         </div>
       )}
 
+      {/* ── Action Log panel ── */}
+      {showActionLog && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/70 flex items-end sm:items-center justify-center p-3"
+          onClick={() => setShowActionLog(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-card text-card-foreground p-3 max-h-[70vh] overflow-y-auto space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center gap-1.5">
+                <span className="text-base">📋</span> Journal des actions
+              </h3>
+              <button onClick={() => setShowActionLog(false)} className="text-xs font-bold px-2 py-1 rounded-lg bg-muted">
+                Fermer
+              </button>
+            </div>
+            {actionLog.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aucune action pour le moment.</p>
+            ) : (
+              <div className="space-y-1">
+                {actionLog.map((entry: any, idx: number) => {
+                  const t = entry?.t || "?";
+                  const p = entry?.p || "";
+                  const player = parts.find((pp: any) => pp.user_id === p);
+                  const name = player?.display_name?.slice(0, 10) || (player?.is_bot ? "Bot" : "?");
+                  const isMe = p === profile?.id;
+                  const cardNum = entry?.card;
+                  const cardLabel = cardNum !== undefined ? (() => {
+                    const b = cardNum % 56;
+                    if (b >= 52) return "Joker";
+                    const s = Math.floor(b / 13);
+                    const r = b % 13;
+                    return `${RANK_CHARS[r]}${SUIT_CHARS[s]}`;
+                  })() : null;
+
+                  const icons: Record<string, string> = {
+                    start: "🎬", draw: "📥", bot_draw: "🤖📥", meld: "✅",
+                    layoff: "➕", discard: "📤", tick: "⏰",
+                  };
+                  const labels: Record<string, string> = {
+                    start: "Partie démarrée", draw: "a pioché",
+                    meld: "a posé une combinaison",
+                    layoff: "a ajouté à une combinaison", discard: "s'est défaussé",
+                    tick: "Tour expiré (auto)",
+                  };
+
+                  return (
+                    <div key={idx} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] ${
+                      isMe ? "bg-primary/8 border border-primary/15" : "bg-white/4 border border-white/6"
+                    }`}>
+                      <span className="text-base shrink-0">{icons[t] || "•"}</span>
+                      <span className={`font-bold ${isMe ? "text-primary" : "text-muted-foreground"}`}>
+                        {isMe ? "Moi" : name}
+                      </span>
+                      <span className="text-muted-foreground">{labels[t] || t}</span>
+                      {cardLabel && (
+                        <span className="ml-auto font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/30 text-white/80">
+                          {cardLabel}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* 7 cartes : détection automatique — bouton apparaît quand 7 cartes valides sont posées */}
       {!!me && sevenCardsEnabled && !alreadySeven && canClaimSeven && (
@@ -2263,6 +2391,23 @@ function RamiPage() {
               <button onClick={() => { setReorderMode(true); }}
                 className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/10 text-white/50 active:scale-90 ml-auto">
                 ✋ Réordonner
+              </button>
+            </div>
+          )}
+
+          {/* Deadwood indicator — points remaining in hand */}
+          {handCards.length > 0 && game?.status === "playing" && (
+            <div className="flex items-center gap-1.5 px-1 mb-0.5">
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                handPoints <= 10 ? "bg-emerald-500/20 text-emerald-400" : handPoints <= 30 ? "bg-amber-500/20 text-amber-400" : "bg-destructive/20 text-destructive"
+              }`}>
+                💀 {handPoints} pts restants
+              </span>
+              <button
+                onClick={() => setShowActionLog(s => !s)}
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 transition"
+              >
+                📋 Journal
               </button>
             </div>
           )}
