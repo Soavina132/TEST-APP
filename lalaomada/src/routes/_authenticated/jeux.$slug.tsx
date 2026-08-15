@@ -580,7 +580,7 @@ function Lobby() {
           <TabBtn label="Code" active={tab === "code"} onClick={() => setTab("code")} icon={<span className="text-sm leading-none">🔑</span>} />
           <TabBtn label="Mes" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
         </div>
-        {((tab === "public" && opponentMode === "friends") || (tab === "private" && opponentMode === "friends")) && (
+        {((tab === "public" && opponentMode === "friends") || tab === "private") && (
           <div className="grid grid-cols-2 gap-1.5 shrink-0" role="tablist" aria-label="Visibilité">
             <button onClick={() => setVisibility("public")} aria-pressed={visibility === "public"}
               className={`px-2 py-1.5 rounded-lg font-semibold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-[0.97] border ${
