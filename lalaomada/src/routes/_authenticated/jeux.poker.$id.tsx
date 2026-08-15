@@ -339,10 +339,10 @@ function PokerPage() {
     }));
     const canAddBot = (isAdmin || (Number(game.stake) === 0 && isPlayer)) && players.length < game.max_players;
     const quitPoker = async () => {
-      if (game.created_by === user?.id && players.length === 1) {
-        await refund();
-        return;
-      }
+      const { error } = await supabase.rpc("poker_quit" as any, { _game_id: id } as any);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Mise remboursée");
+      refreshProfile();
       navigate({ to: "/jeux/$slug", params: { slug: "poker" }, search: {} });
     };
     return (
