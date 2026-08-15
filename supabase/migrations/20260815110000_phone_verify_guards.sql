@@ -1,0 +1,5 @@
+-- Migration: phone verification guards are implemented at the frontend level
+-- for blocking access to paid games when phone is not verified.
+-- Backend-level guards would require modifying each join/create function.
+-- Frontend guards cover: lobby join, join by code, waiting room access,
+-- and game creation (via checkGuards in jeux.nouveau.$slug.tsx).

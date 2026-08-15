@@ -473,7 +473,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         const { error } = await supabase.rpc("fanorona_bot_play" as any, { _game_id: id } as any);
         if (error) console.error("fanorona_bot_play error", error);
       } catch (e) { console.error("bot play failed", e); }
-    }, 800 + Math.random() * 700);
+    }, 1500 + Math.random() * 1500);
     return () => clearTimeout(timer);
   }, [game?.status, game?.current_turn, moveCount, botChainFrom, id]);
 
@@ -514,6 +514,16 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   }
 
   if (game.status === "open") {
+    if (Number(game.stake) > 0 && !profile?.phone_verified) {
+      return (
+        <main className="max-w-md mx-auto px-4 py-8 flex flex-col items-center justify-center gap-3 text-center">
+          <ShieldAlert className="w-10 h-10 text-amber-500" />
+          <p className="text-sm font-semibold">Numéro non vérifié</p>
+          <p className="text-xs text-muted-foreground">Vérifiez votre numéro de téléphone pour rejoindre cette partie payante.</p>
+          <button onClick={() => navigate({ to: "/securite" })} className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold">Vérifier mon numéro</button>
+        </main>
+      );
+    }
     return (
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         <GameWaitingRoom

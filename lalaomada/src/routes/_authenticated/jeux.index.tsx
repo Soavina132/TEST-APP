@@ -293,6 +293,15 @@ function JeuxPage() {
       const detectedSlug = row.slug as Slug;
       const gameId       = row.game_id as string;
       const fn = JOIN_CODE_RPC[detectedSlug];
+      // Check phone verification for paid games
+      if (row.stake && Number(row.stake) > 0 && !(profile as any)?.phone_verified) {
+        toast.error("Numéro non vérifié", {
+          description: "Vérifiez votre numéro avant de rejoindre une partie payante.",
+          action: { label: "Vérifier", onClick: () => setShowPhoneVerify(true) },
+          duration: 8000,
+        });
+        return;
+      }
       const { error: joinErr } = await supabase.rpc(fn as any, { _code: trimmed } as any);
       if (joinErr) throw joinErr;
       refreshProfile();
@@ -313,6 +322,14 @@ function JeuxPage() {
     const fn = JOIN_RPC[game.slug];
     if (!fn) { toast.error("Rejoins par code pour ce jeu."); return; }
     const bal = Number(profile?.balance_ar || 0);
+    if (game.stake > 0 && !(profile as any)?.phone_verified) {
+      toast.error("Numéro non vérifié", {
+        description: "Vérifiez votre numéro avant de rejoindre une partie payante.",
+        action: { label: "Vérifier", onClick: () => setShowPhoneVerify(true) },
+        duration: 8000,
+      });
+      return;
+    }
     if (game.stake > 0 && bal < game.stake) {
       toast.error("Solde insuffisant", { action: { label: "Déposer", onClick: () => setShowDepositPopup(true) } });
       return;

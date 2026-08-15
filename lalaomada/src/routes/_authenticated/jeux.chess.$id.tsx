@@ -690,6 +690,14 @@ function ChessPage() {
     };
     return (
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+        {Number(game.stake) > 0 && !profile?.phone_verified ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-8 px-4 text-center">
+            <ShieldAlert className="w-10 h-10 text-amber-500" />
+            <p className="text-sm font-semibold">Numéro non vérifié</p>
+            <p className="text-xs text-muted-foreground">Vérifiez votre numéro de téléphone pour rejoindre cette partie payante.</p>
+            <button onClick={() => navigate({ to: "/securite" })} className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold">Vérifier mon numéro</button>
+          </div>
+        ) : (
         <GameWaitingRoom
           isTournament={false}
           slug="chess"
@@ -710,6 +718,7 @@ function ChessPage() {
           }}
         />
 
+        )}
         {canAddBot && (
           <button
             onClick={async () => {
