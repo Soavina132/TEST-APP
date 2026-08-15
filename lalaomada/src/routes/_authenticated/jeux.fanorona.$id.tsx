@@ -539,6 +539,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
           isParticipant={!!me}
           shareSlug="fanorona"
           createdAt={game.created_at}
+          gameStatus={game.status}
           onQuit={async () => { await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any); navigate({ to: "/jeux" }); }}
           onToggleReady={async (ready: boolean) => { await supabase.rpc("fanorona_set_ready" as any, { _game_id: id, _ready: ready } as any); }}
         />

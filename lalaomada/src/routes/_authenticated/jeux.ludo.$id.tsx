@@ -152,6 +152,7 @@ function GamePage() {
           meUserId={profile?.id}
           isParticipant={isParticipant}
           createdAt={game.created_at}
+          gameStatus={game.status}
           onQuit={quit}
           onToggleReady={async (ready): Promise<void> => {
             const { error } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: ready } as any);

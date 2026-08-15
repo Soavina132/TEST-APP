@@ -1828,6 +1828,7 @@ function RamiPage() {
           meUserId={profile?.id}
           isParticipant={!!me}
           createdAt={game.created_at}
+          gameStatus={game.status}
           onQuit={forfeit}
           onToggleReady={async (ready) => {
             const { error } = await supabase.rpc("rami_set_ready" as any, { _game_id: id, _ready: ready } as any);

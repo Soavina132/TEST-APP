@@ -331,6 +331,7 @@ function DominoPage() {
           meUserId={profile?.id}
           isParticipant={!!me}
           createdAt={game.created_at}
+          gameStatus={game.status}
           onQuit={forfeit}
           onToggleReady={async (r) => {
             const { error } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: r } as any);

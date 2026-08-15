@@ -51,6 +51,7 @@ export default function GameWaitingRoom({
   isTournament = false,
   matchType = "solo",
   onJoinTeam,
+  gameStatus = "open",
 }: {
   gameLabel: string;
   parts: Participant[];
@@ -68,22 +69,33 @@ export default function GameWaitingRoom({
   isTournament?: boolean;
   matchType?: "solo" | "groupe";
   onJoinTeam?: (team: number) => void | Promise<void>;
+  gameStatus?: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [avatars, setAvatars] = useState<Record<string, { pseudo?: string; avatar_url?: string }>>({});
   const [now, setNow] = useState(() => serverNow());
-  const [timeoutMin, setTimeoutMin] = useState(2);
+  const [timeoutMin, setTimeoutMin] = useState(4);
   useEffect(() => { const t = setInterval(() => setNow(serverNow()), 1000); return () => clearInterval(t); }, []);
+  // Auto-quit function: calls onQuit only once, only if game is still in waiting/open
+  const autoQuit = async (reason: string) => {
+    if (hasAutoQuitRef.current) return;
+    if (gameStatusRef.current !== "open" && gameStatusRef.current !== "waiting") return;
+    hasAutoQuitRef.current = true;
+    try { await onQuitRef.current(); } catch {}
+  };
+
   useEffect(() => {
     setWaitingRoomActive(true);
     return () => {
       setWaitingRoomActive(false);
       // When leaving the waiting room, set ready=false if was ready
-      // The RPC will silently fail if the game already started (status != 'open')
       if (meReadyRef.current && onToggleReadyRef.current) {
         onToggleReadyRef.current(false).catch(() => {});
       }
+      // Auto-refund: if game still in waiting/open, call onQuit to refund the user
+      autoQuit("unmount");
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     supabase.from("app_settings").select("game_invite_timeout_minutes").eq("id", 1).maybeSingle()
@@ -92,6 +104,14 @@ export default function GameWaitingRoom({
   const expiresAt = createdAt ? new Date(createdAt).getTime() + timeoutMin * 60_000 : null;
   const remainingMs = expiresAt ? Math.max(0, expiresAt - now) : null;
   const expired = remainingMs !== null && remainingMs === 0;
+
+  // ── Auto-quit when timer expires (refund the user) ──
+  useEffect(() => {
+    if (expired && !hasAutoQuitRef.current && isParticipant) {
+      autoQuit("timeout");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expired]);
   const fmt = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
   const empty = Math.max(0, maxPlayers - parts.length);
   const me = parts.find(p => p.user_id === meUserId);
@@ -101,6 +121,12 @@ export default function GameWaitingRoom({
   meReadyRef.current = meReady;
   const onToggleReadyRef = useRef(onToggleReady);
   onToggleReadyRef.current = onToggleReady;
+  // Refs for auto-refund on unmount/expire
+  const onQuitRef = useRef(onQuit);
+  onQuitRef.current = onQuit;
+  const gameStatusRef = useRef(gameStatus);
+  gameStatusRef.current = gameStatus;
+  const hasAutoQuitRef = useRef(false);
   const readyCount = parts.filter(p => p.ready).length;
   const allReady = parts.length === maxPlayers && readyCount === maxPlayers;
   const full = parts.length >= maxPlayers;
