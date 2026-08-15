@@ -511,12 +511,6 @@ function isPureMeld(cards: number[], jokerMode: string, randomJoker: number | nu
   return cards.length >= 3 && !cards.some(c => isJokerCard(c, jokerMode, randomJoker));
 }
 
-// ── Going Rummy detection: winner had zero melds before winning discard ──
-function isGoingRummy(melds: { player: string; cards: number[]; type?: string }[], winnerId: string): boolean {
-  const winnerMelds = melds.filter(m => m.player === winnerId);
-  return winnerMelds.length > 0 && winnerMelds.reduce((s, m) => s + m.cards.length, 0) >= 13;
-}
-
 // ── Layoff candidates ─────────────────────────────────────────────────────
 function getLayoffCandidates(
   melds: { player: string; cards: number[] }[],
@@ -1184,14 +1178,6 @@ function RamiPage() {
     return log.slice(-10).reverse();
   }, [game?.state?.action_log]);
 
-  // Going Rummy detection: check if winner won without prior melds
-  const goingRummy = useMemo(() => {
-    if (game?.status !== "finished" || !game?.winner_id) return false;
-    if (game?.state?.going_rummy === true) return true;
-    const winnerMelds = melds.filter(m => m.player === game.winner_id);
-    const totalCards = winnerMelds.reduce((s, m) => s + m.cards.length, 0);
-    return totalCards === 13 && winnerMelds.length <= 2;
-  }, [game?.status, game?.winner_id, game?.state?.going_rummy, melds]);
 
   const stagedFlat = useMemo(() => staged.flat(), [staged]);
   const handCards = useMemo(() => myHand.filter(c => !stagedFlat.includes(c)), [myHand, stagedFlat]);
@@ -1917,15 +1903,7 @@ function RamiPage() {
         </div>
       )}
       {/* FlyingCard removed for performance */}
-      {goingRummy && game?.status === "finished" && (
-        <div className="rounded-xl p-3 bg-gradient-to-r from-amber-500/20 via-fuchsia-500/15 to-amber-500/20 border border-amber-500/40 text-center">
-          <div className="text-2xl mb-1">🎯</div>
-          <div className="font-black text-sm text-amber-400">GOING RAMI !</div>
-          <div className="text-[10px] text-muted-foreground mt-0.5">
-            Le gagnant a posé toutes ses cartes d'un coup — pénalité double pour les autres joueurs !
-          </div>
-        </div>
-      )}
+
 
       {game.status === "finished" && (
         <GameEndScreen slug="rami" meUserId={profile?.id} winnerId={game.winner_id}
