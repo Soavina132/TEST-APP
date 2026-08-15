@@ -460,18 +460,12 @@ function Lobby() {
       } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "fanorona") {
-      if (opponentMode === "bot") {
-        const { data, error } = await supabase.rpc("fanorona_create_solo" as any, {
-          _stake: 0, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory, _bot_intelligence: fanoronaBotDifficulty,
-        } as any);
-        if (error) throw error; id = extractGameId(data);
-      } else {
-        const { data, error } = await supabase.rpc("fanorona_create" as any, {
-          _stake: stake, _private: priv, _commission: commission,
-          _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory,
-        } as any);
-        if (error) throw error; id = extractGameId(data);
-      }
+      // Mise tab = always human vs human (no bots). Use fanorona_create with waiting room.
+      const { data, error } = await supabase.rpc("fanorona_create" as any, {
+        _stake: stake, _private: priv, _commission: commission,
+        _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory,
+      } as any);
+      if (error) throw error; id = extractGameId(data);
     } else if (slug === "chess") {
       const { data, error } = await supabase.rpc("chess_create_stake" as any, { _stake: stake, _time_min: chessTime, _private: priv } as any);
       if (error) throw error; id = extractGameId(data);
