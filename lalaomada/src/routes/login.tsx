@@ -227,7 +227,7 @@ function LoginPage() {
         else localStorage.removeItem("lalaomada_remembered_identifier");
         toast.success("Bienvenue !");
       } else {
-        // Inscription e-mail — OTP obligatoire avant connexion
+        // Inscription e-mail — confirmation requise par email
         const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
@@ -241,22 +241,14 @@ function LoginPage() {
         if (signUpErr) throw signUpErr;
 
         // Si mailer_autoconfirm est activé, Supabase crée une session immédiatement.
-        // On la détruit pour empêcher la connexion automatique et forcer la vérification OTP.
+        // On la détruit pour empêcher la connexion automatique — l'utilisateur doit
+        // cliquer sur le lien de confirmation dans l'email avant de pouvoir se connecter.
         if (signUpData.session) {
           await supabase.auth.signOut();
         }
 
-        // Envoyer un code OTP à 6 chiffres par email
-        const { error: otpErr } = await supabase.auth.signInWithOtp({
-          email,
-          options: { shouldCreateUser: false },
-        });
-        if (otpErr) throw otpErr;
-
-        setOtpEmail(email);
-        setOtpStep(true);
-        setOtpResendIn(60);
-        toast.success("Code de vérification envoyé par email");
+        setVerifyEmailAddr(email);
+        setShowVerifyEmail(true);
       }
     } catch (err: any) {
       toast.error(err?.message || "Erreur");
@@ -270,21 +262,15 @@ function LoginPage() {
     if (otpCode.length !== 6) return toast.error("Entrez le code à 6 chiffres");
     setBusy(true);
     try {
-      const { data: verifyData, error } = await supabase.auth.verifyOtp({
+      const { error } = await supabase.auth.verifyOtp({
         email: otpEmail,
         token: otpCode,
         type: "email",
       });
       if (error) throw error;
-
-      // S'assurer que le mot de passe est bien défini (au cas où signUp ne l'a pas persisté)
-      if (verifyData.user) {
-        const { error: upErr } = await supabase.auth.updateUser({ password });
-        if (upErr) {
-          // Non bloquant : le mot de passe a pu être défini lors du signUp
-          console.warn("updateUser password failed:", upErr.message);
-        }
-      }
+      // Set the password now that the email is verified
+      const { error: upErr } = await supabase.auth.updateUser({ password });
+      if (upErr) throw upErr;
       toast.success("E-mail vérifié — compte créé !");
       setOtpStep(false);
     } catch (err: any) {
