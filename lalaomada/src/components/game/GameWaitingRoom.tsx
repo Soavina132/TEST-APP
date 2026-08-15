@@ -52,6 +52,7 @@ export default function GameWaitingRoom({
   matchType = "solo",
   onJoinTeam,
   gameStatus = "open",
+  gameId,
 }: {
   gameLabel: string;
   parts: Participant[];
@@ -70,18 +71,24 @@ export default function GameWaitingRoom({
   matchType?: "solo" | "groupe";
   onJoinTeam?: (team: number) => void | Promise<void>;
   gameStatus?: string;
+  gameId?: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [avatars, setAvatars] = useState<Record<string, { pseudo?: string; avatar_url?: string }>>({});
   const [now, setNow] = useState(() => serverNow());
   const [timeoutMin, setTimeoutMin] = useState(4);
   useEffect(() => { const t = setInterval(() => setNow(serverNow()), 1000); return () => clearInterval(t); }, []);
-  // Auto-quit function: calls onQuit only once, only if game is still in waiting/open
+  // Auto-quit function: calls safe_leave_waiting_room (server-side status check)
+  // This does NOTHING if the game has already started — only refunds if still in waiting/open
   const autoQuit = async (reason: string) => {
     if (hasAutoQuitRef.current) return;
-    if (gameStatusRef.current !== "open" && gameStatusRef.current !== "waiting") return;
+    if (!isParticipant || !gameId || !slug) return;
     hasAutoQuitRef.current = true;
-    try { await onQuitRef.current(); } catch {}
+    try {
+      await supabase.rpc("safe_leave_waiting_room" as any, {
+        _game_type: slug, _game_id: gameId,
+      } as any);
+    } catch {}
   };
 
   useEffect(() => {
@@ -122,10 +129,8 @@ export default function GameWaitingRoom({
   const onToggleReadyRef = useRef(onToggleReady);
   onToggleReadyRef.current = onToggleReady;
   // Refs for auto-refund on unmount/expire
-  const onQuitRef = useRef(onQuit);
-  onQuitRef.current = onQuit;
-  const gameStatusRef = useRef(gameStatus);
-  gameStatusRef.current = gameStatus;
+
+
   const hasAutoQuitRef = useRef(false);
   const readyCount = parts.filter(p => p.ready).length;
   const allReady = parts.length === maxPlayers && readyCount === maxPlayers;
