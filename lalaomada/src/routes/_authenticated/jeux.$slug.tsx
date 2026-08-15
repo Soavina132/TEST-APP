@@ -244,7 +244,7 @@ function Lobby() {
     loadPublic(); loadMine(); loadFreeGameInfo();
     let debounceTimer: ReturnType<typeof setTimeout>;
     const ch = supabase.channel("lobby-" + slug)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: slug === "rami" ? "status=eq.waiting" : "status=eq.open" }, () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => { loadPublic(); loadMine(); }, 500);
       })
@@ -427,7 +427,7 @@ function Lobby() {
           if (error) throw error; id = extractGameId(data);
         }
       } else if (slug === "chess") {
-        const { data, error } = await supabase.rpc("chess_create_friends" as any, { _time_min: chessTime } as any);
+        const { data, error } = await supabase.rpc("chess_create_friends" as any, { _time_min: chessTime, _private: priv } as any);
         if (error) throw error;
         id = extractGameId(data);
       } else if (slug === "rami") {
@@ -473,7 +473,7 @@ function Lobby() {
         if (error) throw error; id = extractGameId(data);
       }
     } else if (slug === "chess") {
-      const { data, error } = await supabase.rpc("chess_create_stake" as any, { _stake: stake, _time_min: chessTime } as any);
+      const { data, error } = await supabase.rpc("chess_create_stake" as any, { _stake: stake, _time_min: chessTime, _private: priv } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "rami") {
       const { data, error } = await supabase.rpc("rami_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards } as any);

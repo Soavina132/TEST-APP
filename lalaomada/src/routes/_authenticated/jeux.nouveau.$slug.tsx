@@ -170,6 +170,12 @@ function Lobby() {
     if (slug === "ludo") {
       const { data } = await supabase.rpc("list_public_open_games" as any);
       setPublicGames((data as any[]) || []);
+    } else if (slug === "rami") {
+      // Rami uses status='waiting' not 'open'
+      const { data } = await supabase.from(GAME_TABLE[slug] as any)
+        .select("*").in("status", ["open", "waiting"]).eq("is_private", false)
+        .order("created_at", { ascending: false }).limit(20);
+      setPublicGames((data as any[]) || []);
     } else {
       const { data } = await supabase.from(GAME_TABLE[slug] as any)
         .select("*").eq("status", "open").eq("is_private", false)
