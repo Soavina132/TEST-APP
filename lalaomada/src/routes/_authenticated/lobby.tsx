@@ -67,7 +67,6 @@ function LobbyPage() {
       ...g, player_count: g.players_count, _state: "open" as const,
     }));
     const liveList = ((liveRes.data as any[]) || [])
-      .filter((g: any) => g.game_type !== "rami" && g.game_type !== "fanorona")
       .map((g: any) => ({
         id: g.id,
         game_slug: g.game_type,

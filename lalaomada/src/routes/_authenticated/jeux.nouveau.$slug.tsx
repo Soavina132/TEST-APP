@@ -331,7 +331,7 @@ function Lobby() {
         const { data, error } = await supabase.rpc("fanorona_create" as any, { _stake: 0, _private: priv, _commission: commission, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory } as any);
         if (error) throw error; id = extractGameId(data);
       } else if (slug === "chess") {
-        const { data, error } = await supabase.rpc("chess_create_friends" as any, { _time_min: chessTime } as any);
+        const { data, error } = await supabase.rpc("chess_create_friends" as any, { _time_min: chessTime, _private: priv } as any);
         if (error) throw error;
         id = extractGameId(data);
       } else if (slug === "rami") {
@@ -370,7 +370,7 @@ function Lobby() {
       } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "chess") {
-      const { data, error } = await supabase.rpc("chess_create_stake" as any, { _stake: stake, _time_min: chessTime } as any);
+      const { data, error } = await supabase.rpc("chess_create_stake" as any, { _stake: stake, _time_min: chessTime, _private: priv } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "rami") {
       const { data, error } = await supabase.rpc("rami_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode } as any);
@@ -485,7 +485,7 @@ function Lobby() {
           <TabBtn label="Code" active={tab === "code"} onClick={() => setTab("code")} icon={<span className="text-sm leading-none">🔑</span>} />
           <TabBtn label="Mes" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
         </div>
-        {((tab === "public" && matchType === "friends") || (tab === "private" && matchType === "friends")) && (
+        {matchType === "friends" && (
           <div className="grid grid-cols-2 gap-1.5 shrink-0" role="tablist" aria-label="Visibilité">
             <button onClick={() => setVisibility("public")} aria-pressed={visibility === "public"}
               className={`px-2 py-1.5 rounded-lg font-semibold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-[0.97] border ${
