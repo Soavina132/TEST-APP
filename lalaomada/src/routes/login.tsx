@@ -99,6 +99,7 @@ function LoginPage() {
 
   // ── 2FA (Google Authenticator) ──
   const [twoFAStep, setTwoFAStep] = useState(false);
+  const [authPending, setAuthPending] = useState(false);  // blocks auto-nav during 2FA check
   const [twoFACode, setTwoFACode] = useState("");
   // twoFASecret removed — verification is now server-side
   const [verifying2FA, setVerifying2FA] = useState(false);
@@ -172,8 +173,8 @@ function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (user) router.navigate({ to: "/lobby", replace: true });
-  }, [user, router]);
+    if (user && !authPending) router.navigate({ to: "/lobby", replace: true });
+  }, [user, router, authPending]);
 
 
 
@@ -194,6 +195,7 @@ function LoginPage() {
     setBusy(true);
     try {
       if (tab === "login") {
+        setAuthPending(true);  // block auto-nav during 2FA check
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           // Fallback: ancien compte téléphone converti en faux email
@@ -217,12 +219,14 @@ function LoginPage() {
             // Sign out temporarily — user must verify 2FA before gaining access
             await supabase.auth.signOut();
             setTwoFAStep(true);
+            setAuthPending(false);  // allow the 2FA form to show (user is null now, so no nav)
             if (rememberMe) localStorage.setItem("lalaomada_remembered_identifier", identifier.trim());
             else localStorage.removeItem("lalaomada_remembered_identifier");
             return; // Don't show success yet
           }
         }
 
+        setAuthPending(false);  // no 2FA — allow auto-nav to lobby
         if (rememberMe) localStorage.setItem("lalaomada_remembered_identifier", identifier.trim());
         else localStorage.removeItem("lalaomada_remembered_identifier");
         toast.success("Bienvenue !");
@@ -318,6 +322,8 @@ function LoginPage() {
         if (signInResult.error) throw signInResult.error;
       }
 
+      setAuthPending(true);  // block auto-nav while verifying TOTP
+
       // Step 2: Verify the TOTP code using the edge function
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) throw new Error("Session invalide");
@@ -335,10 +341,12 @@ function LoginPage() {
       if (!result.valid) {
         // Code is wrong — sign out and show error
         await supabase.auth.signOut();
+        setAuthPending(false);  // user is null now, allow staying on 2FA form
         throw new Error("Code 2FA incorrect");
       }
 
       // Code is valid — user is now fully authenticated
+      setAuthPending(false);  // allow auto-nav to lobby
       toast.success("Bienvenue !");
       setTwoFAStep(false);
     } catch (err: any) {
