@@ -205,10 +205,13 @@ function DominoPage() {
   const firstTileIdx = Math.max(0, Math.min(board.length - 1, game?.state?.first_tile_idx ?? 0));
   const stockSize = (game?.state?.stock || []).length;
   const ftr: "libre" | "under6" = game?.state?.first_tile_rule === "under6" || game?.first_tile_rule === "under6" ? "under6" : "libre";
+  const deadTiles: number[] = (game?.state?.dead_tiles?.[String(me?.slot)] as number[]) || [];
+  const isDeadTile = (idx: number) => deadTiles.includes(idx);
+  const vatoMaty = !!game?.vato_maty;
 
-  const tileMatches = useCallback((t: Tile) => {
+  const tileMatches = useCallback((t: Tile, idx?: number) => {
+    if (idx !== undefined && isDeadTile(idx)) return false;
     if (!board.length) {
-      // first_move_double can be number, string, or null in the JSON state
       const rawFd = game?.state?.first_move_double;
       const fd = typeof rawFd === "number" ? rawFd : (rawFd != null ? Number(rawFd) : NaN);
       if (!isNaN(fd) && fd >= 0) return t[0] === fd && t[1] === fd;
@@ -216,9 +219,9 @@ function DominoPage() {
       return true;
     }
     return t[0] === leftEnd || t[1] === leftEnd || t[0] === rightEnd || t[1] === rightEnd;
-  }, [board.length, game?.state?.first_move_double, leftEnd, rightEnd, ftr]);
+  }, [board.length, game?.state?.first_move_double, leftEnd, rightEnd, ftr, deadTiles]);
 
-  const canPlay = myHand.some(tileMatches);
+  const canPlay = myHand.some((t, i) => tileMatches(t, i));
   const drawMode = game?.state?.draw_mode === "without" ? "without" : "with" as const;
   const noMove = !!(isMyTurn && board.length > 0 && !canPlay && (drawMode === "without" || stockSize === 0));
 
@@ -358,9 +361,9 @@ function DominoPage() {
 
   // Game state
   const dragged = selectedTile !== null ? myHand[selectedTile] : null;
-  const cDL = !!(isMyTurn && dragged && (board.length === 0 ? tileMatches(dragged) : dragged[0] === leftEnd || dragged[1] === leftEnd));
-  const cDR = !!(isMyTurn && dragged && (board.length === 0 ? tileMatches(dragged) : dragged[0] === rightEnd || dragged[1] === rightEnd));
-  const cDA = !!(isMyTurn && dragged && tileMatches(dragged));
+  const cDL = !!(isMyTurn && dragged && (board.length === 0 ? tileMatches(dragged, myHand.findIndex(t => t[0] === dragged[0] && t[1] === dragged[1])) : dragged[0] === leftEnd || dragged[1] === leftEnd));
+  const cDR = !!(isMyTurn && dragged && (board.length === 0 ? tileMatches(dragged, myHand.findIndex(t => t[0] === dragged[0] && t[1] === dragged[1])) : dragged[0] === rightEnd || dragged[1] === rightEnd));
+  const cDA = !!(isMyTurn && dragged && tileMatches(dragged, myHand.findIndex(t => t[0] === dragged[0] && t[1] === dragged[1])));
 
   return (
     <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1 h-full overflow-hidden overscroll-none"
@@ -539,7 +542,7 @@ function DominoPage() {
             </div>
             <div className="grid flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
               {myHand.map((t, i) => {
-                const playable = isMyTurn && tileMatches(t);
+                const playable = isMyTurn && tileMatches(t, i);
                 const cL = board.length > 0 && (t[0] === leftEnd || t[1] === leftEnd);
                 const cR = board.length > 0 && (t[0] === rightEnd || t[1] === rightEnd);
                 const needsChoice = playable && cL && cR;
@@ -548,6 +551,7 @@ function DominoPage() {
                     ? "relative p-0.5 rounded-lg bg-amber-400/15 border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
                     : "p-0.5 border-2 border-transparent opacity-65"}`}>
                     {playable && <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-400 border border-background shadow" />}
+                    {isDeadTile(i) && <span className="absolute inset-0 rounded-md bg-red-900/40 border border-red-500/50 pointer-events-none" title="Vato maty" />}
                     <DominoTile t={t} w={tileW} vertical
                       onClick={playable ? () => { if (needsChoice) setSelectedTile(selectedTile === i ? null : i); else playSide("auto", i); } : undefined}
                       draggable={playable}

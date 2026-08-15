@@ -119,6 +119,7 @@ function Lobby() {
   const [matchType, setMatchType] = useState<"bot" | "friends">("friends");
   const [drawMode, setDrawMode] = useState<"with" | "without">("with");
   const [firstTileRule, setFirstTileRule] = useState<"libre" | "under6">("libre");
+  const [vatoMaty, setVatoMaty] = useState<boolean>(false);
   const [targetScore, setTargetScore] = useState(100);
   const [fanoronaVariant, setFanoronaVariant] = useState<"telo" | "dimy" | "tsivy">("tsivy");
   const [fanoronaMandatory, setFanoronaMandatory] = useState<boolean>(true);
@@ -269,7 +270,7 @@ function Lobby() {
           _mode: mode === "points" ? "points" : "classic",
           _commission: commission,
           _target_score: mode === "points" ? targetScore : 0,
-          _draw_mode: drawMode, _first_tile_rule: firstTileRule,
+          _draw_mode: drawMode, _first_tile_rule: firstTileRule, _vato_maty: vatoMaty,
         } as any);
         if (error) throw error;
         id = extractGameId(data);
@@ -324,7 +325,7 @@ function Lobby() {
         const { data, error } = await supabase.rpc("domino_create" as any, {
           _stake: 0, _max: maxP, _private: priv, _mode: mode === "points" ? "points" : "classic",
           _commission: commission, _target_score: mode === "points" ? targetScore : 0,
-          _draw_mode: drawMode, _first_tile_rule: firstTileRule,
+          _draw_mode: drawMode, _first_tile_rule: firstTileRule, _vato_maty: vatoMaty,
         } as any);
         if (error) throw error; id = extractGameId(data);
       } else if (slug === "fanorona") {
@@ -361,6 +362,7 @@ function Lobby() {
         _commission: commission, _target_score: mode === "points" ? targetScore : 0,
         _draw_mode: drawMode,
         _first_tile_rule: firstTileRule,
+        _vato_maty: vatoMaty,
       } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "fanorona") {
@@ -521,6 +523,7 @@ function Lobby() {
                   <SummaryRow icon="🎲" label="Format" value={mode === "points" ? `Par points (${targetScore})` : "Victoire directe"} onClick={() => setSheet("domino_mode")} />
                   <SummaryRow icon="🁣" label="Pioche" value={drawMode === "with" ? "Avec" : "Sans"} onClick={() => setSheet("domino_draw")} />
                   <SummaryRow icon="🎬" label="Premier coup" value={firstTileRule === "libre" ? "Libre" : "1er <6"} onClick={() => setSheet("domino_first")} />
+                  <SummaryRow icon="💀" label="Vato maty" value={vatoMaty ? "Misy" : "Tsy misy"} onClick={() => setVatoMaty(v => !v)} />
                 </>
               )}
               {slug === "ludo" && (
@@ -596,6 +599,7 @@ function Lobby() {
                   <SummaryRow icon="🎲" label="Format" value={mode === "points" ? `Par points (${targetScore})` : "Victoire directe"} onClick={() => setSheet("domino_mode")} />
                   <SummaryRow icon="🁣" label="Pioche" value={drawMode === "with" ? "Avec" : "Sans"} onClick={() => setSheet("domino_draw")} />
                   <SummaryRow icon="🎬" label="Premier coup" value={firstTileRule === "libre" ? "Libre" : "1er <6"} onClick={() => setSheet("domino_first")} />
+                  <SummaryRow icon="💀" label="Vato maty" value={vatoMaty ? "Misy" : "Tsy misy"} onClick={() => setVatoMaty(v => !v)} />
                 </>
               )}
               {slug === "fanorona" && (
