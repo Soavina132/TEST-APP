@@ -1,5 +1,3 @@
-// cache-bust: v2.1 vato_maty+2fa-fix
-
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -525,7 +523,7 @@ function Lobby() {
                   <SummaryRow icon="🎲" label="Format" value={mode === "points" ? `Par points (${targetScore})` : "Victoire directe"} onClick={() => setSheet("domino_mode")} />
                   <SummaryRow icon="🁣" label="Pioche" value={drawMode === "with" ? "Avec" : "Sans"} onClick={() => setSheet("domino_draw")} />
                   <SummaryRow icon="🎬" label="Premier coup" value={firstTileRule === "libre" ? "Libre" : "1er <6"} onClick={() => setSheet("domino_first")} />
-                  <SummaryRow icon="💀" label="Vato maty" value={vatoMaty ? "Misy" : "Tsy misy"} onClick={() => setVatoMaty(v => !v)} />
+                  <SummaryRow icon="💀" label="Vato Maty" value={vatoMaty ? "Misy" : "Tsy misy"} onClick={() => setVatoMaty(v => !v)} />
                 </>
               )}
               {slug === "ludo" && (
@@ -601,7 +599,7 @@ function Lobby() {
                   <SummaryRow icon="🎲" label="Format" value={mode === "points" ? `Par points (${targetScore})` : "Victoire directe"} onClick={() => setSheet("domino_mode")} />
                   <SummaryRow icon="🁣" label="Pioche" value={drawMode === "with" ? "Avec" : "Sans"} onClick={() => setSheet("domino_draw")} />
                   <SummaryRow icon="🎬" label="Premier coup" value={firstTileRule === "libre" ? "Libre" : "1er <6"} onClick={() => setSheet("domino_first")} />
-                  <SummaryRow icon="💀" label="Vato maty" value={vatoMaty ? "Misy" : "Tsy misy"} onClick={() => setVatoMaty(v => !v)} />
+                  <SummaryRow icon="💀" label="Vato Maty" value={vatoMaty ? "Misy" : "Tsy misy"} onClick={() => setVatoMaty(v => !v)} />
                 </>
               )}
               {slug === "fanorona" && (
