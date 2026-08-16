@@ -152,7 +152,7 @@ function LobbyPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login" });
+    if (!loading && !user) navigate({ to: "/login", search: { ref: undefined } });
   }, [user, loading, navigate]);
 
   useEffect(() => {

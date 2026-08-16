@@ -96,7 +96,7 @@ export default function GameWaitingRoom({
       // When leaving the waiting room (navigating away, NOT quitting), only unready
       // Do NOT auto-quit or refund — only the explicit Quit button or timeout does that
       if (meReadyRef.current && onToggleReadyRef.current) {
-        onToggleReadyRef.current(false).catch(() => {});
+        Promise.resolve(onToggleReadyRef.current(false)).catch(() => {});
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

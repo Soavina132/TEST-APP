@@ -48,7 +48,7 @@ export function DeleteAccountDialog({ open, onClose }: Props) {
     // 3. Sign out and redirect
     await signOut();
     toast.success("Votre compte a été supprimé définitivement.");
-    navigate({ to: "/login" });
+    navigate({ to: "/login", search: { ref: undefined } });
   };
 
   return (

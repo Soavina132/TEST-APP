@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import PhoneVerifyBanner from "@/components/PhoneVerifyBanner";
-import { LogOut, Plus, Ban, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Plus, Ban, Volume2, VolumeX, ShieldAlert } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";

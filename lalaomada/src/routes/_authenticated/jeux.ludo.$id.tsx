@@ -7,7 +7,7 @@ import { copyText } from "@/lib/clipboard";
 import RealtimeLudoBoard from "@/components/game/RealtimeLudoBoard";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import { toast } from "sonner";
-import { LogOut, Eye, Plus, Pause, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Eye, Plus, Pause, Volume2, VolumeX, ShieldAlert } from "lucide-react";
 import { setMuted as setSfxMuted, isMuted as isSfxMuted } from "@/lib/game-sounds";
 import { useT } from "@/lib/i18n";
 import GameEndScreen from "@/components/game/GameEndScreen";

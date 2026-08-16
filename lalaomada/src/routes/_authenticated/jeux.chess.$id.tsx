@@ -6,7 +6,7 @@ import { GameLoader } from "@/components/game/GameLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { ArrowLeft, Flag, Handshake, Copy, RotateCw, LogOut, Plus, Pause, Volume2, VolumeX, Scale } from "lucide-react";
+import { ArrowLeft, Flag, Handshake, Copy, RotateCw, LogOut, Plus, Pause, Volume2, VolumeX, Scale, ShieldAlert } from "lucide-react";
 import { copyText } from "@/lib/clipboard";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import { Button } from "@/components/ui/button";

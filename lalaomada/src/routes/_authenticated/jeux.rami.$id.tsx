@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { LogOut, Trash2, X, Check, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX, Eye, Sparkles } from "lucide-react";
+import { LogOut, Trash2, X, Check, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX, Eye, Sparkles, ShieldAlert, Plus } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
@@ -2216,7 +2216,7 @@ function RamiPage() {
         const totalSeconds = cfg.turn_timer_seconds || 30;
         const ringPct = (remaining / totalSeconds) * 100;
         const ringColor = remaining <= 5 ? "#ef4444" : remaining <= 10 ? "#f59e0b" : "#22c55e";
-        const myName = (profile?.full_name || "Moi").slice(0, 10);
+        const myName = (profile?.pseudo || "Moi").slice(0, 10);
         const initial = myName.charAt(0).toUpperCase();
         const gradients = [
           "linear-gradient(145deg,#60a5fa,#2563eb)",
@@ -2381,7 +2381,7 @@ function RamiPage() {
                   </button>
                   <button
                     onClick={discardOne}
-                    disabled={busy || selected.length !== 1}
+                    disabled={busy || (selected.length as number) !== 1}
                     className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-destructive text-white font-bold text-xs disabled:opacity-30 active:scale-95 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Défausser
@@ -2441,7 +2441,7 @@ function RamiPage() {
                         {selectionKind === 'seven' ? "7 cartes" : selectionKind ? `Valider ${MELD_LABEL[selectionKind]}` : "Valider"}
                       </button>
                     )}
-                    <button onClick={discardOne} disabled={busy || selected.length !== 1}
+                    <button onClick={discardOne} disabled={busy || (selected.length as number) !== 1}
                       className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-destructive text-white font-bold text-xs disabled:opacity-30 active:scale-95 transition-all">
                       <Trash2 className="w-3.5 h-3.5" /> Défausser
                     </button>

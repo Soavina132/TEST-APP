@@ -8,7 +8,7 @@ import { copyText } from "@/lib/clipboard";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
-import { LogOut, Pause, Copy, Timer, RotateCw, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { LogOut, Pause, Copy, Timer, RotateCw, SkipForward, Volume2, VolumeX, ShieldAlert } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GamePauseControl from "@/components/game/GamePauseControl";
 import GameEndScreen from "@/components/game/GameEndScreen";

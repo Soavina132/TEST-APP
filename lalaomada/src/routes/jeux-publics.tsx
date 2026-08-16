@@ -187,7 +187,7 @@ export default function JeuxPublicsPage() {
     if (user) {
       navigate({ to: "/jeux/$slug" as any, params: { slug } as any });
     } else {
-      navigate({ to: "/login" });
+      navigate({ to: "/login", search: { ref: undefined } });
     }
   }
 
@@ -195,7 +195,7 @@ export default function JeuxPublicsPage() {
     if (user) {
       navigate({ to: "/jeux/$slug" as any, params: { slug } as any });
     } else {
-      navigate({ to: "/login" });
+      navigate({ to: "/login", search: { ref: undefined } });
     }
   }
 
@@ -210,7 +210,7 @@ export default function JeuxPublicsPage() {
           <div className="flex items-center justify-between mb-5">
             <button
               type="button"
-              onClick={() => navigate({ to: "/login" })}
+              onClick={() => navigate({ to: "/login", search: { ref: undefined } })}
               className="w-9 h-9 rounded-full flex items-center justify-center bg-card/70 border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -232,7 +232,7 @@ export default function JeuxPublicsPage() {
               <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
                 Entraînez-vous contre notre IA avant d'affronter de vrais joueurs.
                 {!user && !loading && (
-                  <> <button onClick={() => navigate({ to: "/login" })} className="text-primary font-semibold hover:underline">Connectez-vous</button> pour jouer.</>
+                  <> <button onClick={() => navigate({ to: "/login", search: { ref: undefined } })} className="text-primary font-semibold hover:underline">Connectez-vous</button> pour jouer.</>
                 )}
               </p>
             </div>
@@ -340,7 +340,7 @@ export default function JeuxPublicsPage() {
             </div>
             <button
               type="button"
-              onClick={() => navigate({ to: "/login" })}
+              onClick={() => navigate({ to: "/login", search: { ref: undefined } })}
               className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white shadow-md shadow-primary/20 active:scale-95 transition-all"
               style={{ background: "linear-gradient(135deg, #ef4444 0%, #f97316 50%, #eab308 100%)" }}
             >

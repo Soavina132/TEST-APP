@@ -36,7 +36,7 @@ function AuthLayout() {
   const isHome = path === "/lobby" || path === "/";
 
   if (loading) return <AppSplash />;
-  if (!user) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" search={{ ref: undefined }} />;
   if (profile?.banned) return (
     <div className="min-h-screen flex items-center justify-center p-6 text-center">
       <div className="rounded-3xl bg-card p-8 max-w-sm shadow-lg">

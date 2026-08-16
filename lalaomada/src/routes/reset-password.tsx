@@ -26,7 +26,7 @@ function ResetPasswordPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        navigate({ to: "/login", replace: true });
+        navigate({ to: "/login", search: { ref: undefined }, replace: true });
       } else {
         setHasSession(true);
       }
@@ -73,7 +73,7 @@ function ResetPasswordPage() {
               <button
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  navigate({ to: "/login", replace: true });
+                  navigate({ to: "/login", search: { ref: undefined }, replace: true });
                 }}
                 className="w-full py-3.5 rounded-xl text-white font-bold text-sm shadow-md active:scale-[.98] transition-all"
                 style={{ background: "var(--gradient-primary)" }}
