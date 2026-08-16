@@ -204,7 +204,7 @@ function Lobby() {
         .order("created_at", { ascending: false }).limit(60);
       const rows = (data as any[]) || [];
       setMine({
-        ongoing: rows.filter(r => r.status === "open" || r.status === "playing"),
+        ongoing: rows.filter(r => ["open", "waiting", "playing"].includes(r.status)),
         finished: rows.filter(r => r.status === "finished" || r.status === "cancelled")
           .map(r => ({ ...r, won: r.winner_id === profile.id })),
       });
@@ -215,7 +215,7 @@ function Lobby() {
       .select("*, game:" + GAME_TABLE[slug] + "(*)").eq("user_id", profile.id);
     const rows = (parts as any[]) || [];
     setMine({
-      ongoing: rows.filter(r => r.game?.status === "open" || r.game?.status === "playing")
+      ongoing: rows.filter(r => ["open", "waiting", "playing"].includes(r.game?.status))
         .map(r => ({ ...r.game, my_forfeited: r.forfeited })),
       finished: rows.filter(r => r.game?.status === "finished" || r.game?.status === "cancelled")
         .map(r => ({ ...r.game, won: r.game?.winner_id === profile?.id, forfeited: r.forfeited })),
@@ -796,11 +796,11 @@ function Lobby() {
                 {mine.ongoing.length === 0 && <div className="rounded-3xl bg-card p-6 text-center text-muted-foreground">Aucune partie en cours.</div>}
                 {mine.ongoing.map((g: any) => (
                   <div key={g.id} className="rounded-2xl bg-card border border-white/6 p-3.5 flex items-center gap-3 shadow-sm hover:border-primary/20 transition-colors">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${g.status === "open" ? "bg-amber-500/10 border border-amber-500/15" : "bg-primary/10 border border-primary/15"}`}>
-                      {g.status === "open" ? "⏳" : "🎮"}
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${(g.status === "open" || g.status === "waiting") ? "bg-amber-500/10 border border-amber-500/15" : "bg-primary/10 border border-primary/15"}`}>
+                      {(g.status === "open" || g.status === "waiting") ? "⏳" : "🎮"}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-sm">{g.status === "open" ? "En attente" : "Partie en cours"}</div>
+                      <div className="font-bold text-sm">{(g.status === "open" || g.status === "waiting") ? "En attente" : "Partie en cours"}</div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[11px] text-muted-foreground">Mise {Number(g.stake || 0).toLocaleString("fr-FR")} Ar</span>
                         {g.is_private && g.room_code && (
