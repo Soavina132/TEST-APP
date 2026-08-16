@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
-import { LogOut, Trash2, X, Check, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX, Eye } from "lucide-react";
+import { LogOut, Trash2, X, Check, ChevronLeft, ChevronRight, ArrowLeftRight, Pause, Volume2, VolumeX, Eye, Sparkles } from "lucide-react";
 import GameSocialFab from "@/components/game/GameSocialFab";
 import GameEndScreen from "@/components/game/GameEndScreen";
 import GameStateMessage from "@/components/game/GameStateMessage";
