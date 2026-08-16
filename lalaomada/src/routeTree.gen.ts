@@ -52,6 +52,7 @@ import { Route as AuthenticatedJeuxLudoIdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedJeuxNouveauSlugRouteImport } from './routes/_authenticated/jeux.nouveau.$slug'
 import { Route as AuthenticatedJeuxPokerIdRouteImport } from './routes/_authenticated/jeux.poker.$id'
 import { Route as AuthenticatedJeuxRamiIdRouteImport } from './routes/_authenticated/jeux.rami.$id'
+import { Route as AuthenticatedJeuxPenaltyIdRouteImport } from './routes/_authenticated/jeux.penalty.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -278,6 +279,12 @@ const AuthenticatedJeuxRamiIdRoute = AuthenticatedJeuxRamiIdRouteImport.update({
   getParentRoute: () => AuthenticatedJeuxRoute,
 } as any)
 
+const AuthenticatedJeuxPenaltyIdRoute = AuthenticatedJeuxPenaltyIdRouteImport.update({
+  id: '/penalty/$id',
+  path: '/penalty/$id',
+  getParentRoute: () => AuthenticatedJeuxRoute,
+} as any)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cgu': typeof CguRoute
@@ -321,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
   '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
   '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
+  '/jeux/penalty/$id': typeof AuthenticatedJeuxPenaltyIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -364,6 +372,7 @@ export interface FileRoutesByTo {
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
   '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
   '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
+  '/jeux/penalty/$id': typeof AuthenticatedJeuxPenaltyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -410,6 +419,7 @@ export interface FileRoutesById {
   '/_authenticated/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
   '/_authenticated/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
   '/_authenticated/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
+  '/_authenticated/jeux/penalty/$id': typeof AuthenticatedJeuxPenaltyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -544,6 +554,7 @@ export interface FileRouteTypes {
     | '/_authenticated/jeux/nouveau/$slug'
     | '/_authenticated/jeux/poker/$id'
     | '/_authenticated/jeux/rami/$id'
+    | '/_authenticated/jeux/penalty/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -861,6 +872,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJeuxRamiIdRouteImport
       parentRoute: typeof AuthenticatedJeuxRoute
     }
+    '/_authenticated/jeux/penalty/$id': {
+      id: '/_authenticated/jeux/penalty/$id'
+      path: '/penalty/$id'
+      fullPath: '/jeux/penalty/$id'
+      preLoaderRoute: typeof AuthenticatedJeuxPenaltyIdRouteImport
+      parentRoute: typeof AuthenticatedJeuxRoute
+    }
   }
 }
 
@@ -874,6 +892,7 @@ interface AuthenticatedJeuxRouteChildren {
   AuthenticatedJeuxNouveauSlugRoute: typeof AuthenticatedJeuxNouveauSlugRoute
   AuthenticatedJeuxPokerIdRoute: typeof AuthenticatedJeuxPokerIdRoute
   AuthenticatedJeuxRamiIdRoute: typeof AuthenticatedJeuxRamiIdRoute
+  AuthenticatedJeuxPenaltyIdRoute: typeof AuthenticatedJeuxPenaltyIdRoute
 }
 
 const AuthenticatedJeuxRouteChildren: AuthenticatedJeuxRouteChildren = {
@@ -886,6 +905,7 @@ const AuthenticatedJeuxRouteChildren: AuthenticatedJeuxRouteChildren = {
   AuthenticatedJeuxNouveauSlugRoute: AuthenticatedJeuxNouveauSlugRoute,
   AuthenticatedJeuxPokerIdRoute: AuthenticatedJeuxPokerIdRoute,
   AuthenticatedJeuxRamiIdRoute: AuthenticatedJeuxRamiIdRoute,
+  AuthenticatedJeuxPenaltyIdRoute: AuthenticatedJeuxPenaltyIdRoute,
 }
 
 const AuthenticatedJeuxRouteWithChildren =
