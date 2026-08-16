@@ -65,3 +65,5 @@ lalaomada/resources/
 lalaomada/*.apk
 lalaomada/dist/
 lalaomada/src/routes/_authenticated/jeux.rami.$id.tsx.bak
+.vercel
+.env*
