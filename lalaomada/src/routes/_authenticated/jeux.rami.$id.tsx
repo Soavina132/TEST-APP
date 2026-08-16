@@ -1114,6 +1114,9 @@ function RamiPage() {
 
   // ── Intro overlay: show who starts first ──
   const [showFirstPlayerIntro, setShowFirstPlayerIntro] = useState(false);
+  // 7-card melds from other players: show for 10 seconds then auto-hide
+  const [visibleSevenMelds, setVisibleSevenMelds] = useState<Set<string>>(new Set());
+  const [shownSevenMelds, setShownSevenMelds] = useState<Set<string>>(new Set());
   const [firstPlayerName, setFirstPlayerName] = useState("");
   const prevStatusRef3 = useRef<string>("");
 
@@ -1215,6 +1218,43 @@ function RamiPage() {
   // 1er tour: 0 melds + action_log quasi vide
   const isFirstTurn = (game?.state?.melds as any[] || []).length === 0
     && (game?.state?.action_log as any[] || []).length <= 1;
+
+  // Track 7-card melds from other players — show for 10s then auto-hide
+  useEffect(() => {
+    if (!melds || !profile?.id) return;
+    const newSeven: string[] = [];
+    melds.forEach((m: any, i: number) => {
+      if (m.player !== profile.id && (m.type === "seven" || m.seven === true)) {
+        const meldKey = `${m.player}-${i}`;
+        if (!shownSevenMelds.has(meldKey)) {
+          newSeven.push(meldKey);
+        }
+      }
+    });
+    if (newSeven.length > 0) {
+      // Show them
+      setVisibleSevenMelds(prev => {
+        const next = new Set(prev);
+        newSeven.forEach(k => next.add(k));
+        return next;
+      });
+      setShownSevenMelds(prev => {
+        const next = new Set(prev);
+        newSeven.forEach(k => next.add(k));
+        return next;
+      });
+      // Auto-hide after 10 seconds
+      newSeven.forEach(key => {
+        setTimeout(() => {
+          setVisibleSevenMelds(prev => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+        }, 10000);
+      });
+    }
+  }, [melds, profile?.id]);
 
 
   const stagedFlat = useMemo(() => staged.flat(), [staged]);
@@ -1512,9 +1552,17 @@ function RamiPage() {
     // cardFx removed
   };
   const drawDiscard = async () => {
-    const pile = discards[lastDiscardBy] || [];
-    const top = pile[pile.length - 1];
-    const from = centerOf(discardRefs.current[lastDiscardBy]);
+    // Find the correct discard pile key
+    const _ldb = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
+    const pile = (_ldb && (discards[_ldb] || []).length > 0)
+      ? discards[_ldb]
+      : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
+    if (pile.length === 0) {
+      toast.error("La défausse est vide");
+      return;
+    }
+    const refKey = _ldb || Object.keys(discards).find(k => (discards[k] || []).length > 0) || "";
+    const from = centerOf(discardRefs.current[refKey] || discardRefs.current[_ldb]);
     const to = centerOf(handRef.current);
     // cardFx removed
     sfx.ramiDraw();
@@ -1906,9 +1954,11 @@ function RamiPage() {
     );
   }
 
-  const drawablePile = (discards[lastDiscardBy] || []).length > 0
-    ? discards[lastDiscardBy]
-    : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) || []);
+  // More robust: handle last_discard_by being array/null/undefined
+  const _lastBy = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
+  const drawablePile = (_lastBy && (discards[_lastBy] || []).length > 0)
+    ? discards[_lastBy]
+    : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
   const topDiscard = drawablePile.length > 0 ? drawablePile[drawablePile.length - 1] : undefined;
   const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
     && phase === "draw";
@@ -1989,8 +2039,8 @@ function RamiPage() {
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
 
         // ── Opponent avatar card: compact with timer ring ──
-        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, isLast }: {
-          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; isLast: boolean
+        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast }: {
+          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; hasSeven: boolean; isLast: boolean
         }) {
           const name = (p.display_name || "Joueur").slice(0, 10);
           const initial = name.charAt(0).toUpperCase();
@@ -2038,6 +2088,7 @@ function RamiPage() {
                   <div className="flex items-center gap-1">
                     <span className="text-[9px] text-white/55 font-semibold">{n} cartes</span>
                     {meldCount > 0 && <span className="text-[8px] text-amber-300/90 font-bold">✦{meldCount}</span>}
+                    {hasSeven && <span className="text-[8px] text-amber-400 font-bold animate-pulse">⭐7</span>}
                   </div>
                 </div>
               </div>
@@ -2064,6 +2115,7 @@ function RamiPage() {
         });
 
         const meldCountOf = (uid: string) => melds.filter(m => m.player === uid).length;
+        const hasSevenOf = (uid: string) => melds.some(m => m.player === uid && (m.type === "seven" || (m as any).seven === true));
         const isSeven = (m: { type?: string; seven?: boolean }) =>
           m.type === "seven" || m.seven === true;
         const myMelds = melds
@@ -2141,6 +2193,7 @@ function RamiPage() {
             {others.map((p, i) => (
               <OppBadge key={keyOf(p)} p={p} turn={game.current_turn === p.slot}
                 n={handLenOf(keyOf(p))} meldCount={meldCountOf(p.user_id || "")}
+                hasSeven={hasSevenOf(p.user_id || "")}
                 isLast={i === others.length - 1} />
             ))}
           </div>
@@ -2226,14 +2279,36 @@ function RamiPage() {
           </div>
         );
 
-        // ═══ ZONE 3: Melds strip — toutes les combinaisons posées sur la table ═══
-        const allMelds = melds.map((m, i) => ({ m, i, mine: !!profile?.id && m.player === profile.id }));
+        // ═══ ZONE 3: Melds strip — mes melds + 7 cartes des autres (10s) ═══
+        const allMelds = melds
+          .map((m, i) => ({ m, i, mine: !!profile?.id && m.player === profile.id }))
+          .filter(({ m, i, mine }) => {
+            if (mine) return true; // toujours mes melds
+            // 7 cartes des autres: seulement si visible (10s)
+            const isSeven = m.type === "seven" || (m as any).seven === true;
+            if (!isSeven) return false; // cacher les melds normaux des autres
+            const meldKey = `${m.player}-${i}`;
+            return visibleSevenMelds.has(meldKey);
+          });
         const myMeldsStrip = allMelds.length > 0 ? (
           <div className="flex flex-wrap items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] max-h-[80px] overflow-y-auto"
             style={{ background: `linear-gradient(0deg, ${activeTheme.feltEdge || "#0b3a1f"}ee, transparent)` }}>
-            {allMelds.map(({ m, i, mine }) => (
-              <MeldRow key={i} m={m} i={i} mine={mine} />
-            ))}
+            {allMelds.map(({ m, i, mine }) => {
+              // For 7-card melds from others, show player name
+              const isSevenMeld = m.type === "seven" || (m as any).seven === true;
+              const showName = !mine && isSevenMeld;
+              const playerName = showName
+                ? (sorted.find(s => ((s.user_id as string) || `bot:${s.slot}`) === m.player)?.display_name || "Joueur").slice(0, 10)
+                : null;
+              return (
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  {showName && playerName && (
+                    <span className="text-[8px] font-bold text-amber-300 animate-pulse">⭐ {playerName}</span>
+                  )}
+                  <MeldRow m={m} i={i} mine={mine} />
+                </div>
+              );
+            })}
           </div>
         ) : null;
 

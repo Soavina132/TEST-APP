@@ -95,7 +95,7 @@ BEGIN
     'deck', to_jsonb(_deck),
     'discards', _discards,
     'discard', '[]'::jsonb,
-    'last_discard_by', '[]'::jsonb,
+    'last_discard_by', null::jsonb,
     'hands', _hands,
     'melds', '[]'::jsonb,
     'action_log', _action_log,
