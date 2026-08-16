@@ -572,7 +572,7 @@ function Lobby() {
           {supportsPublicJoin && <TabBtn label="Gratuit" active={tab === "public"} onClick={() => setTab("public")} icon={<span className="text-sm leading-none">🆓</span>} />}
           <TabBtn label="Mise" active={tab === "private"} onClick={() => setTab("private")} icon={<span className="text-sm leading-none">💰</span>} />
           <TabBtn label="Code" active={tab === "code"} onClick={() => setTab("code")} icon={<span className="text-sm leading-none">🔑</span>} />
-          <TabBtn label="Mes" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
+          <TabBtn label="Mes parties" active={tab === "mine"} onClick={() => setTab("mine")} icon={<span className="text-sm leading-none">📂</span>} />
         </div>
         {((tab === "public" && opponentMode === "friends") || tab === "private") && (
           <div className="grid grid-cols-2 gap-1.5 shrink-0" role="tablist" aria-label="Visibilité">
