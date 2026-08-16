@@ -35,7 +35,7 @@ type Slug = GameSlug;
 // ─────────────────────────────────────────────────────────────────────────────
 // Covers — vraies images photoréalistes stylées
 // ─────────────────────────────────────────────────────────────────────────────
-const COVER_IMAGES: Record<Slug, string> = {
+const COVER_IMAGES: Partial<Record<Slug, string>> = {
   ludo: ludoImg,
   domino: dominoImg,
   fanorona: fanoronaImg,
@@ -66,7 +66,8 @@ const COVER_COMPONENTS: Record<Slug, () => React.ReactElement> = {
   fanorona: () => <GameCover slug="fanorona" label="Fanorona" />,
   chess:    () => <GameCover slug="chess" label="Échecs" />,
   rami:     () => <GameCover slug="rami" label="Rami" />,
-  poker:    () => <GameCover slug="poker" label="Poker" />};
+  poker:    () => <GameCover slug="poker" label="Poker" />,
+  penalty:  () => <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-600 to-green-800"><span className="text-6xl">⚽</span></div>};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Définition des jeux
@@ -78,23 +79,24 @@ const GAMES: GameDef[] = [
   { slug: "fanorona", label: "Fanorona", desc: "2 joueurs",   emoji: "⚫" },
   { slug: "chess",    label: "Échecs",   desc: "2 joueurs",   emoji: "♟️" },
   { slug: "rami",     label: "Rami",     desc: "2-4 joueurs", emoji: "🃏" },
-  { slug: "poker",    label: "Poker",    desc: "2-9 joueurs", emoji: "🂡" }];
+  { slug: "poker",    label: "Poker",    desc: "2-9 joueurs", emoji: "🂡" },
+  { slug: "penalty",   label: "Penalty",   desc: "2 joueurs",   emoji: "⚽" }];
 
-const ALL_DISPLAYED_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker"];
-const DIRECT_JOIN_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker"];
+const ALL_DISPLAYED_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker", "penalty"];
+const DIRECT_JOIN_SLUGS: Slug[] = ["ludo", "domino", "fanorona", "chess", "rami", "poker", "penalty"];
 
 const HOST_COL: Record<Slug, string> = {
   ludo: "host_id", domino: "host_id", fanorona: "host_id",
-  chess: "host_id", rami: "created_by", poker: "created_by"};
+  chess: "host_id", rami: "created_by", poker: "created_by", penalty: "host_id"};
 const ROUTE: Record<Slug, string> = {
   ludo: "/jeux/ludo/$id", domino: "/jeux/domino/$id", fanorona: "/jeux/fanorona/$id",
-  chess: "/jeux/chess/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id"};
+  chess: "/jeux/chess/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id", penalty: "/jeux/penalty/$id"};
 const JOIN_CODE_RPC: Record<Slug, string> = {
   ludo: "join_game_by_code", domino: "domino_join_code", fanorona: "fanorona_join_code",
-  chess: "chess_join_code", rami: "rami_join_code", poker: "poker_join_code"};
+  chess: "chess_join_code", rami: "rami_join_code", poker: "poker_join_code", penalty: "penalty_join_code"};
 const JOIN_RPC: Record<string, string> = {
   ludo: "join_game", domino: "domino_join", fanorona: "fanorona_join",
-  chess: "chess_join", rami: "rami_join", poker: "poker_join"};
+  chess: "chess_join", rami: "rami_join", poker: "poker_join", penalty: "penalty_join"};
 
 type OpenGame = {
   id: string; slug: Slug; stake: number; pot: number;

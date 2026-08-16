@@ -12,7 +12,7 @@ export const SUIT_COLORS = ["#111827", "#dc2626", "#dc2626", "#111827"] as const
 export const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] as const;
 
 // Game slug → Supabase table mapping (used by lobby & jeux.$slug)
-export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
+export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker" | "penalty";
 
 export const GAME_TABLE: Record<GameSlug, string> = {
   ludo: "ludo_games",
@@ -21,4 +21,5 @@ export const GAME_TABLE: Record<GameSlug, string> = {
   chess: "chess_games",
   rami: "rami_games",
   poker: "poker_games",
+  penalty: "penalty_games",
 };

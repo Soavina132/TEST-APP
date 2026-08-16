@@ -5,7 +5,7 @@
  */
 
 export type LobbyTab = "public" | "private" | "code" | "mine";
-export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
+export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker" | "penalty";
 
 const GAME_LABELS: Record<GameSlug, string> = {
   ludo: "Ludo",
@@ -14,6 +14,7 @@ const GAME_LABELS: Record<GameSlug, string> = {
   chess: "Échecs",
   rami: "Rami",
   poker: "Poker",
+  penalty: "Penalty",
 };
 
 type Tip = { icon: string; label: string; desc: string };

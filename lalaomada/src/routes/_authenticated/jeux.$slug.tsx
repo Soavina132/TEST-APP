@@ -84,13 +84,14 @@ const META: Record<Slug, { label: string; cover: string; maxOpts: number[] }> = 
   chess: { label: "Échecs", cover: chessCover.url, maxOpts: [2] },
   rami: { label: "Rami", cover: ramiCover.url, maxOpts: [2, 3, 4] },
   poker: { label: "Poker", cover: pokerCover.url, maxOpts: [2, 3, 4, 5, 6, 7, 8, 9] },
+  penalty: { label: "Penalty", cover: "", maxOpts: [2] },
 };
 
 const ROUTE: Record<Slug, any> = {
-  ludo: "/jeux/ludo/$id", domino: "/jeux/domino/$id", fanorona: "/jeux/fanorona/$id", chess: "/jeux/chess/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id",
+  ludo: "/jeux/ludo/$id", domino: "/jeux/domino/$id", fanorona: "/jeux/fanorona/$id", chess: "/jeux/chess/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id", penalty: "/jeux/penalty/$id",
 };
 const PART_TABLE: Record<Slug, string | null> = {
-  ludo: "ludo_participants", domino: "domino_participants", fanorona: "fanorona_participants", chess: null, rami: "rami_participants", poker: "poker_players",
+  ludo: "ludo_participants", domino: "domino_participants", fanorona: "fanorona_participants", chess: null, rami: "rami_participants", poker: "poker_players", penalty: null,
 };
 
 
@@ -143,6 +144,9 @@ function Lobby() {
   const [code, setCode] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [commission] = useState(10);
+  const [penaltyBalls, setPenaltyBalls] = useState(5);
+  const [penaltyKeeperChoices, setPenaltyKeeperChoices] = useState(2);
+
   const [busy, setBusy] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<((name?: string) => Promise<void>) | null>(null);
@@ -436,6 +440,9 @@ function Lobby() {
       } else if (slug === "poker") {
         const { data, error } = await supabase.rpc("poker_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
         if (error) throw error; id = extractGameId(data);
+      } else if (slug === "penalty") {
+        const { data, error } = await supabase.rpc("penalty_create" as any, { _stake: 0, _private: priv, _commission: commission, _num_balls: penaltyBalls, _num_keeper_choices: penaltyKeeperChoices } as any);
+        if (error) throw error; id = extractGameId(data);
       }
       if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
     } finally { void savedStake; }
@@ -502,6 +509,9 @@ function Lobby() {
         if (error) throw error;
       } else if (slug === "rami") {
         const { error } = await supabase.rpc("rami_join" as any, { _game_id: gameId } as any);
+        if (error) throw error;
+      } else if (slug === "penalty") {
+        const { error } = await supabase.rpc("penalty_join" as any, { _game_id: gameId } as any);
         if (error) throw error;
       }
       refreshProfile(); goTo(gameId);
@@ -657,6 +667,12 @@ function Lobby() {
               {slug === "chess" && (
                 <SummaryRow icon="⏱️" label="Temps / joueur" value={chessTime === 999 ? "Illimité" : `${chessTime} min`} onClick={() => setSheet("chess_time")} />
               )}
+              {slug === "penalty" && (
+                <>
+                  <SummaryRow icon="⚽" label="Ballons" value={`${penaltyBalls}`} onClick={() => setSheet("penalty_balls")} />
+                  <SummaryRow icon="🧤" label="Choix gardien" value={`${penaltyKeeperChoices}`} onClick={() => setSheet("penalty_keeper")} />
+                </>
+              )}
             </div>
 
             {opponentMode === "friends" && visibility === "private" && (
@@ -736,6 +752,12 @@ function Lobby() {
 
               {slug === "chess" && (
                 <SummaryRow icon="⏱️" label="Temps / joueur" value={chessTime === 999 ? "Illimité" : `${chessTime} min`} onClick={() => setSheet("chess_time")} />
+              )}
+              {slug === "penalty" && (
+                <>
+                  <SummaryRow icon="⚽" label="Ballons" value={`${penaltyBalls}`} onClick={() => setSheet("penalty_balls")} />
+                  <SummaryRow icon="🧤" label="Choix gardien" value={`${penaltyKeeperChoices}`} onClick={() => setSheet("penalty_keeper")} />
+                </>
               )}
             </div>
 

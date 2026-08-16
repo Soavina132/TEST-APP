@@ -23,7 +23,7 @@ type Participant = {
   team?: number | null;
 };
 
-type GameSlug = "chess" | "domino" | "fanorona" | "ludo" | "poker" | "rami";
+type GameSlug = "chess" | "domino" | "fanorona" | "ludo" | "poker" | "rami" | "penalty";
 
 const COVERS: Record<GameSlug, { url: string; emoji: string; title: string }> = {
   chess:    { url: chessCover.url,    emoji: "♟️", title: "Échecs" },
@@ -32,6 +32,7 @@ const COVERS: Record<GameSlug, { url: string; emoji: string; title: string }> = 
   ludo:     { url: ludoCover.url,     emoji: "🎲", title: "Ludo" },
   poker:    { url: pokerCover.url,    emoji: "🂡",  title: "Poker" },
   rami:     { url: ramiCover.url,     emoji: "🃏", title: "Rami" },
+  penalty:  { url: "", emoji: "⚽", title: "Penalty" },
 };
 
 export default function GameWaitingRoom({
