@@ -214,6 +214,18 @@ function Lobby() {
       });
       return;
     }
+    if (slug === "penalty") {
+      const { data: rows } = await supabase.from("penalty_games" as any)
+        .select("*").or(`player1_id.eq.${profile.id},player2_id.eq.${profile.id}`)
+        .order("created_at", { ascending: false }).limit(60);
+      const allRows = (rows as any[]) || [];
+      setMine({
+        ongoing: allRows.filter(r => ["open", "playing"].includes(r.status)),
+        finished: allRows.filter(r => r.status === "finished" || r.status === "cancelled")
+          .map(r => ({ ...r, won: r.winner_id === profile?.id })),
+      });
+      return;
+    }
     const part = PART_TABLE[slug]!;
     const { data: parts } = await supabase.from(part as any)
       .select("*, game:" + GAME_TABLE[slug] + "(*)").eq("user_id", profile.id);
@@ -482,6 +494,9 @@ function Lobby() {
     } else if (slug === "poker") {
       const { data, error } = await supabase.rpc("poker_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
       if (error) throw error; id = extractGameId(data);
+    } else if (slug === "penalty") {
+      const { data, error } = await supabase.rpc("penalty_create" as any, { _stake: stake, _private: priv, _commission: commission, _num_balls: penaltyBalls, _num_keeper_choices: penaltyKeeperChoices } as any);
+      if (error) throw error; id = extractGameId(data);
     }
     if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
   };
@@ -526,6 +541,7 @@ function Lobby() {
         slug === "domino" ? "domino_join_code" :
         slug === "fanorona" ? "fanorona_join_code" :
         slug === "chess" ? "chess_join_friends" : slug === "poker" ? "poker_join_code" :
+        slug === "penalty" ? "penalty_join_code" :
         "rami_join_code";
       const { data, error } = await supabase.rpc(fn as any, { _code: code.trim().toUpperCase() } as any);
       if (error) throw error;

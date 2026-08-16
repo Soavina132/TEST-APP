@@ -307,7 +307,8 @@ function JeuxPage() {
   const visibleGames  = GAMES.filter(g => getGameStatus(g.slug) !== "hidden");
   const filteredGames = openGames
     .filter(g => filterSlug === "all" || g.slug === filterSlug)
-    .filter(g => filterStake === "all" || (filterStake === "free" ? g.stake === 0 : g.stake > 0));
+    .filter(g => filterStake === "all" || (filterStake === "free" ? g.stake === 0 : g.stake > 0))
+    .filter(g => g.host_id !== profile?.id);  // Don't show own games
   const filterOptions = [
     { slug: "all", label: "Tous", count: openGames.length },
     ...ALL_DISPLAYED_SLUGS
