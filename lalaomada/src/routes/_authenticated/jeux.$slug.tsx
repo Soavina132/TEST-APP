@@ -402,6 +402,13 @@ function Lobby() {
           const { error: berr } = await supabase.rpc("poker_add_bot" as any, { _game_id: id } as any);
           if (berr) throw berr;
         }
+      } else if (slug === "penalty") {
+        const { data, error } = await supabase.rpc("penalty_create_solo" as any, {
+          _num_balls: penaltyBalls, _num_keeper_choices: penaltyKeeperChoices, _bot_difficulty: 3,
+        } as any);
+        if (error) throw error;
+        id = extractGameId(data);
+        if (!id) throw new Error("Identifiant de partie invalide");
       } else {
         // Jeu non supporté en mode bot : partie publique classique
         await createNewFree(false);

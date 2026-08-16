@@ -47,6 +47,7 @@ type GameRow = {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  bot_difficulty: number | null;
 };
 
 type RoundRow = {
@@ -135,18 +136,20 @@ function PenaltyGame() {
   }) as any;
 
   const meId = profile?.id;
+  const isBotGame = game?.bot_difficulty != null && !game?.player2_id;
   const isPlayer1 = game?.player1_id === meId;
   const isPlayer2 = game?.player2_id === meId;
-  const isSpectator = !isPlayer1 && !isPlayer2;
+  const isSpectator = !isPlayer1 && !isPlayer2 && !isBotGame;
   const myScore = isPlayer1 ? game?.p1_score ?? 0 : isPlayer2 ? game?.p2_score ?? 0 : 0;
   const oppScore = isPlayer1 ? game?.p2_score ?? 0 : isPlayer2 ? game?.p1_score ?? 0 : 0;
   const myName = profile?.pseudo || "Moi";
-  const oppName = isPlayer1 ? p2Profile?.pseudo : isPlayer2 ? p1Profile?.pseudo : "Adversaire";
-  const oppAvatar = isPlayer1 ? p2Profile?.avatar_url : isPlayer2 ? p1Profile?.avatar_url : null;
+  const oppName = isBotGame ? "Bot" : (isPlayer1 ? p2Profile?.pseudo : isPlayer2 ? p1Profile?.pseudo : "Adversaire");
+  const oppAvatar = isBotGame ? null : (isPlayer1 ? p2Profile?.avatar_url : isPlayer2 ? p1Profile?.avatar_url : null);
   const myAvatar = profile?.avatar_url;
 
-  const amShooter = game?.current_shooter === meId;
-  const amKeeper = game?.current_shooter && game?.current_shooter !== meId && (isPlayer1 || isPlayer2);
+  // Bot game: current_shooter = meId → human shoots, NULL → bot shoots (human keeps)
+  const amShooter = isBotGame ? game?.current_shooter === meId : game?.current_shooter === meId;
+  const amKeeper = isBotGame ? (!game?.current_shooter && !!isPlayer1) : (game?.current_shooter && game?.current_shooter !== meId && (isPlayer1 || isPlayer2));
   const numZonesToPick = amShooter ? 1 : amKeeper ? game?.num_keeper_choices ?? 2 : 0;
 
 
