@@ -1523,13 +1523,18 @@ function RamiPage() {
   const submitAllStaged = async () => {
     if (staged.length === 0) return;
     setBusy(true);
-    let anyError = false;
-    for (const cards of staged) {
-      const { error } = await supabase.rpc("rami_meld" as any, { _game_id: id, _cards: cards });
-      if (error) { toast.error(error.message || "Combinaison invalide"); anyError = true; break; }
+    try {
+      let anyError = false;
+      for (const cards of staged) {
+        const { error } = await supabase.rpc("rami_meld" as any, { _game_id: id, _cards: cards });
+        if (error) { toast.error(error.message || "Combinaison invalide"); anyError = true; break; }
+      }
+      if (!anyError) { setStaged([]); toast.success("Toutes les combinaisons posées !"); }
+    } catch (e: any) {
+      toast.error(e.message || "Erreur réseau, réessaie");
+    } finally {
+      setBusy(false);
     }
-    if (!anyError) { setStaged([]); toast.success("Toutes les combinaisons posées !"); }
-    setBusy(false);
   };
 
   const discardOne = async () => {
@@ -1552,24 +1557,29 @@ function RamiPage() {
     const layout = staged.map(g => [...g]);
     const discardCard = selected[0];
     setBusy(true);
-    const { data, error } = await supabase.rpc("rami_validate_hand" as any, {
-      _game_id: id,
-      _layout: layout as any,
-      _discard_card: discardCard,
-    });
-    setBusy(false);
-    if (error) { toast.error(error.message || "Combinaisons invalides"); return; }
-    // Check if the player actually won (won=false means melds were saved but hand not empty)
-    const won = (data as any)?.won === true;
-    if (won) {
-      toast.success("🏆 Bravo, tu gagnes la partie !");
-      sfx.ramiWin();
-      haptic([0, 40, 30, 40, 30, 60]);
-    } else {
-      toast.info("✅ Combinaisons posées — continue à jouer");
-      haptic(20);
+    try {
+      const { data, error } = await supabase.rpc("rami_validate_hand" as any, {
+        _game_id: id,
+        _layout: layout as any,
+        _discard_card: discardCard,
+      });
+      if (error) { toast.error(error.message || "Combinaisons invalides"); return; }
+      // Check if the player actually won (won=false means melds were saved but hand not empty)
+      const won = (data as any)?.won === true;
+      if (won) {
+        toast.success("🏆 Bravo, tu gagnes la partie !");
+        sfx.ramiWin();
+        haptic([0, 40, 30, 40, 30, 60]);
+      } else {
+        toast.info("✅ Combinaisons posées — continue à jouer");
+        haptic(20);
+      }
+      setStaged([]); setSelected([]);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur réseau, réessaie");
+    } finally {
+      setBusy(false);
     }
-    setStaged([]); setSelected([]);
   };
 
 
@@ -2157,8 +2167,8 @@ function RamiPage() {
                 <button
                   disabled={!(isMyTurn && phase === "draw" && !busy && topDiscard !== undefined)}
                   onClick={drawDiscard}
-                  className={`relative rounded-md active:scale-95 transition-transform ${
-                    isMyTurn && phase === "draw" && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
+                  className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
+                    isMyTurn && phase === "draw" && !busy && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
                   } ${""}`}
                 >
                   <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
@@ -2170,7 +2180,7 @@ function RamiPage() {
 
               </div>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
-                isMyTurn && phase === "draw" && topDiscard !== undefined
+                isMyTurn && phase === "draw" && !busy && topDiscard !== undefined
                   ? "bg-emerald-500 text-black animate-pulse font-bold"
                   : "text-white/90 bg-black/60"
               }`}>Défausse</span>
