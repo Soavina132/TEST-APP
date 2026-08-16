@@ -1128,7 +1128,7 @@ function RamiPage() {
       setTimeout(() => setShowFirstPlayerIntro(false), 2500);
       // Also show toast
       if (firstPlayer?.user_id === profile?.id) {
-        toast.success("🎲 Tu commences la partie ! Pioche une carte.");
+        toast.success("🎲 Tu commences la partie ! Organise tes cartes et défausse-en une.");
       } else {
         toast.info(`🎲 ${name} commence la partie`);
       }
@@ -1212,7 +1212,7 @@ function RamiPage() {
     return log.slice(-10).reverse();
   }, [game?.state?.action_log]);
 
-  // 1er tour: 0 melds + action_log quasi vide → le 1er joueur peut piocher sur la défausse
+  // 1er tour: 0 melds + action_log quasi vide
   const isFirstTurn = (game?.state?.melds as any[] || []).length === 0
     && (game?.state?.action_log as any[] || []).length <= 1;
 
@@ -1911,7 +1911,9 @@ function RamiPage() {
     : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) || []);
   const topDiscard = drawablePile.length > 0 ? drawablePile[drawablePile.length - 1] : undefined;
   const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
-    && (phase === "draw" || (phase === "play" && isFirstTurn));
+    && phase === "draw";
+  // 1er joueur en phase 'play' avec défausse vide = doit organiser et défausser
+  const firstPlayerNoDiscard = isFirstTurn && phase === "play" && topDiscard === undefined;
 
 
   // Build discard entries: one per participant + seed (if still present)
@@ -2176,7 +2178,7 @@ function RamiPage() {
                   ? "bg-yellow-500 text-black animate-pulse font-bold"
                   : deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
               }`}>
-                Pioche · {deckCount}
+                {firstPlayerNoDiscard ? "En attente" : `Pioche · ${deckCount}`}
               </span>
             </div>
 
@@ -2204,6 +2206,15 @@ function RamiPage() {
                   : "text-white/90 bg-black/60"
               }`}>Défausse</span>
             </div>
+
+            {/* Indice 1er joueur: organise et défausse */}
+            {firstPlayerNoDiscard && isMyTurn && (
+              <div className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-400/30 animate-pulse">
+                <span className="text-[11px] font-bold text-amber-300 text-center leading-tight">
+                  🎴 Tu as 14 cartes<br/>Organise et défausse-en une
+                </span>
+              </div>
+            )}
 
             {/* Joker aléatoire */}
             {randomJoker !== null && (
