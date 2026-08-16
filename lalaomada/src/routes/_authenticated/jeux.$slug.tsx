@@ -987,6 +987,31 @@ function Lobby() {
         <button onClick={closeSheet} className="mt-3 w-full py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm">Valider</button>
       </BottomSheet>
 
+      <BottomSheet open={sheet === "penalty_balls"} onClose={closeSheet} title="Nombre de ballons">
+        <div className="rounded-2xl bg-card border border-white/6 p-2.5 shadow-sm">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-foreground/70 mb-1.5">⚽ Ballons (1–20)</div>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(n => (
+              <button key={n} onClick={() => { setPenaltyBalls(n); closeSheet(); }}
+                className={`py-1.5 px-1 rounded-lg font-semibold text-xs transition-all active:scale-[0.97] border ${
+                  penaltyBalls === n
+                    ? "bg-primary text-primary-foreground border-primary/0 shadow-md shadow-primary/20"
+                    : "bg-secondary border-white/6 text-muted-foreground hover:text-foreground"
+                }`}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      </BottomSheet>
+      <BottomSheet open={sheet === "penalty_keeper"} onClose={closeSheet} title="Choix du gardien">
+        <ModeBlock columns={3} options={[
+          { v: "1", l: "🧤 1 zone" },
+          { v: "2", l: "🧤 2 zones" },
+          { v: "3", l: "🧤 3 zones" },
+        ]} value={String(penaltyKeeperChoices)} onChange={(v) => { setPenaltyKeeperChoices(Number(v)); closeSheet(); }} />
+      </BottomSheet>
+
       <AdminRenameDialog
         open={renameOpen}
         defaultName={profile?.pseudo || ""}
