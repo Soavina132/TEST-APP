@@ -30,7 +30,7 @@ function AuthLayout() {
   const path = loc.pathname;
   const waiting = useWaitingRoomActive();
   // Match both legacy routes (/domino/xxx) and actual game routes (/jeux/domino/xxx)
-  const inGameRoute = /^\/(jeux\/)?(chess|domino|fanorona|rami|poker|ludo|game)\//.test(path);
+  const inGameRoute = /^\/(jeux\/)?(chess|domino|fanorona|rami|ludo|game)\//.test(path);
   const inGame = inGameRoute && !waiting;
   const inChat = path === "/chat" || path.startsWith("/discussion/");
   const isHome = path === "/lobby" || path === "/";

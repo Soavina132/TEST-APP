@@ -65,7 +65,7 @@ function AdminPage() {
         "profiles","deposits","withdrawals","transactions","admin_logs","admin_broadcasts",
         "chess_games","chess_moves","domino_games","domino_participants",
         "fanorona_games","fanorona_participants","ludo_games","ludo_participants",
-        "rami_games","rami_participants","poker_games","poker_players",
+        "rami_games","rami_participants",
         "tournament_matches","tournament_entrants","referral_events","referral_settings",
         "notifications","chat_rooms","chat_members","chat_messages","chat_mutes",
         "bug_reports","support_messages","money_offers","password_reset_requests",
@@ -350,7 +350,7 @@ const SEARCH_INDEX: AdminSearchEntry[] = [
   { id: "players-persona", tab: "joueurs", tabLabel: "Joueurs", title: "🎭 Persona admin", description: "Alias public de l'admin", keywords: "alias persona apparence admin avatar" },
   // Parties
   { id: "games-live", tab: "jeux", tabLabel: "Jeux", title: "🎮 Parties en cours", description: "Suivi live des parties", keywords: "live partie active jeu terminer annuler" },
-  { id: "games-config", tab: "jeux", tabLabel: "Jeux", title: "⚙️ Réglages par jeu", description: "Règles, couvertures, badges, capacité", keywords: "regles cover image badge capacite instructions ludo chess domino rami fanorona poker" },
+  { id: "games-config", tab: "jeux", tabLabel: "Jeux", title: "⚙️ Réglages par jeu", description: "Règles, couvertures, badges, capacité", keywords: "regles cover image badge capacite instructions ludo chess domino rami fanorona" },
   // Tournois
   { id: "tournaments-main", tab: "jeux", tabLabel: "Jeux", title: "🏆 Tournois", description: "Créer, arbitrer, suivre", keywords: "tournoi bracket inscription arbitrage forfait test bot" },
   { id: "tournaments-seasons", tab: "jeux", tabLabel: "Jeux", title: "📅 Saisons & classements", description: "Cycles de compétition", keywords: "saison season leaderboard cycle" },
@@ -1908,7 +1908,7 @@ function LeaderboardAdmin() {
 
   const slugs = [
     { id: "all", label: "Tous" }, { id: "ludo", label: "Ludo" }, { id: "domino", label: "Domino" },
-    { id: "chess", label: "Échecs" }, { id: "fanorona", label: "Fanorona" }, { id: "rami", label: "Rami" }, { id: "poker", label: "Poker" },
+    { id: "chess", label: "Échecs" }, { id: "fanorona", label: "Fanorona" }, { id: "rami", label: "Rami" },
   ];
 
   return (
@@ -2272,7 +2272,6 @@ function AppConfigForm() {
     { slug: "fanorona", label: "Fanorona" },
     { slug: "chess",    label: "Échecs"   },
     { slug: "rami",     label: "Rami"     },
-    { slug: "poker",    label: "Poker"    },
   ];
   const disabledGames: string[] = Array.isArray(s.games_disabled) ? s.games_disabled : [];
 

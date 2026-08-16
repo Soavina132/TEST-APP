@@ -26,19 +26,15 @@ src/
 │   ├── _authenticated/     # Pages authentifiées
 │   │   ├── jeux.tsx           # Layout parent /jeux
 │   │   ├── jeux.index.tsx     # /jeux — liste des jeux
-│   │   ├── jeux.$slug.tsx     # /jeux/poker — lobby d'un jeu
-│   │   ├── jeux.nouveau.$slug # /jeux/nouveau/poker → redirect /jeux/poker
 │   │   ├── jeux.chess.$id     # /jeux/chess/123 — partie d'échecs
 │   │   ├── jeux.domino.$id    # /jeux/domino/456 — partie de domino
 │   │   ├── jeux.fanorona.$id  # /jeux/fanorona/789 — partie de fanorona
 │   │   ├── jeux.ludo.$id      # /jeux/ludo/abc — partie de ludo
-│   │   ├── jeux.poker.$id     # /jeux/poker/def — partie de poker
 │   │   ├── jeux.rami.$id      # /jeux/rami/ghi — partie de rami
 │   │   ├── chess.$id          # /chess/123 → redirect /jeux/chess/123
 │   │   ├── domino.$id         # /domino/456 → redirect /jeux/domino/456
 │   │   ├── fanorona.$id       # /fanorona/789 → redirect /jeux/fanorona/789
 │   │   ├── game.$id           # /game/abc → redirect /jeux/ludo/abc
-│   │   ├── poker.$id          # /poker/def → redirect /jeux/poker/def
 │   │   ├── rami.$id           # /rami/ghi → redirect /jeux/rami/ghi
 │   │   └── ...                # admin, lobby, profile, chat, tournaments, etc.
 │   └── *.tsx               # Pages publiques (login, index, jeux-publics)
@@ -50,13 +46,10 @@ src/
 | URL | Route file | Description |
 |-----|-----------|-------------|
 | `/jeux` | `jeux.index.tsx` | Liste de tous les jeux |
-| `/jeux/poker` | `jeux.$slug.tsx` | Lobby d'un jeu (créer/rejoindre) |
-| `/jeux/nouveau/poker` | `jeux.nouveau.$slug.tsx` | → redirect `/jeux/poker` |
 | `/jeux/chess/123` | `jeux.chess.$id.tsx` | Partie d'échecs |
 | `/jeux/domino/456` | `jeux.domino.$id.tsx` | Partie de domino |
 | `/jeux/fanorona/789` | `jeux.fanorona.$id.tsx` | Partie de fanorona |
 | `/jeux/ludo/abc` | `jeux.ludo.$id.tsx` | Partie de ludo |
-| `/jeux/poker/def` | `jeux.poker.$id.tsx` | Partie de poker |
 | `/jeux/rami/ghi` | `jeux.rami.$id.tsx` | Partie de rami |
 | `/chess/123` | `chess.$id.tsx` | → redirect `/jeux/chess/123` |
 | `/domino/456` | `domino.$id.tsx` | → redirect `/jeux/domino/456` |

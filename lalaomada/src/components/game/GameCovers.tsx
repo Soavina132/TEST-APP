@@ -1,6 +1,6 @@
 import React from "react";
 
-export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
+export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" ;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Covers CSS — 0 octet réseau, chargement instantané
@@ -155,22 +155,6 @@ export function RamiCover() {
   );
 }
 
-export function PokerCover() {
-  const suits = [
-    { s: "♠", c: "text-white" }, { s: "♣", c: "text-white" },
-    { s: "♥", c: "text-red-400" }, { s: "♦", c: "text-red-400" },
-  ];
-  return (
-    <div className="w-full h-full bg-gradient-to-br from-green-900 via-green-800 to-emerald-900 flex flex-col items-center justify-center gap-1">
-      <div className="flex gap-2">
-        {suits.map(s => (
-          <span key={s.s} className={`text-2xl leading-none select-none ${s.c}`}>{s.s}</span>
-        ))}
-      </div>
-      <div className="text-white text-[10px] font-black tracking-widest mt-1">POKER</div>
-    </div>
-  );
-}
 
 // Map slug → composant cover
 export const COVER_COMPONENTS: Record<GameSlug, () => React.ReactElement> = {
@@ -179,7 +163,6 @@ export const COVER_COMPONENTS: Record<GameSlug, () => React.ReactElement> = {
   fanorona: FanoronaCover,
   chess:    ChessCover,
   rami:     RamiCover,
-  poker:    PokerCover,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,5 +175,4 @@ export const GAME_DEFS: GameDef[] = [
   { slug: "fanorona", label: "Fanorona", desc: "2 joueurs",   emoji: "⚫" },
   { slug: "chess",    label: "Échecs",   desc: "2 joueurs",   emoji: "♟️" },
   { slug: "rami",     label: "Rami",     desc: "2-4 joueurs", emoji: "🃏" },
-  { slug: "poker",    label: "Poker",    desc: "2-9 joueurs", emoji: "🂡" },
 ];

@@ -41,7 +41,7 @@ export const Route = createFileRoute("/login")({
       { title: "Connexion — Lalao MADA" },
       { name: "description", content: "Connectez-vous ou créez un compte sur Lalao MADA, la plateforme #1 de jeux en ligne à Madagascar." },
       { property: "og:title", content: "Connexion — Lalao MADA" },
-      { property: "og:description", content: "Rejoignez Lalao MADA : Ludo, Domino, Fanorona, Échecs, Poker, Rami — mises en Ariary." },
+      { property: "og:description", content: "Rejoignez Lalao MADA : Ludo, Domino, Fanorona, Échecs, Rami — mises en Ariary." },
     ],
   }),
 });

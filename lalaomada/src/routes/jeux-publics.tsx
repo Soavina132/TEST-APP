@@ -64,17 +64,6 @@ const ALL_GAMES = [
     cover: <ChessCover />,
   },
   {
-    slug: "poker",
-    name: "Poker",
-    emoji: "🃏",
-    desc: "Texas Hold'em — misez en Ariary",
-    gradient: "from-violet-500 to-purple-700",
-    ring: "ring-violet-500/30",
-    tag: "Texas Hold'em",
-    botSupported: false,
-    cover: <PokerCover />,
-  },
-  {
     slug: "rami",
     name: "Rami",
     emoji: "🂡",

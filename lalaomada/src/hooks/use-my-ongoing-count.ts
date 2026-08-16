@@ -25,7 +25,7 @@ export function useMyOngoingCount(): number {
 
     const tables = [
       "ludo_games", "domino_games", "fanorona_games",
-      "chess_games", "rami_games", "poker_games",
+      "chess_games", "rami_games",
     ];
     const ch = supabase.channel(`my-ongoing-${user.id}`);
     tables.forEach(t => {

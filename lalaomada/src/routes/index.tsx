@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Lalao MADA — Jouez. Gagnez. Retirez en Ariary." },
-      { name: "description", content: "La plateforme #1 de jeux en ligne à Madagascar : Ludo, Domino, Fanorona, Échecs, Poker, Rami — mises en Ariary via Mobile Money." },
+      { name: "description", content: "La plateforme #1 de jeux en ligne à Madagascar : Ludo, Domino, Fanorona, Échecs, Rami — mises en Ariary via Mobile Money." },
       { property: "og:title", content: "Lalao MADA — Jouez. Gagnez. Retirez en Ariary." },
       { property: "og:description", content: "Rejoignez la première plateforme de jeux multijoueur malagasy." },
       { property: "og:type", content: "website" },

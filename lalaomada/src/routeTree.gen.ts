@@ -42,7 +42,6 @@ import { Route as AuthenticatedGameIdRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedJeuxIndexRouteImport } from './routes/_authenticated/jeux.index'
 import { Route as AuthenticatedJeuxSlugRouteImport } from './routes/_authenticated/jeux.$slug'
 import { Route as AuthenticatedJoueurIdRouteImport } from './routes/_authenticated/joueur.$id'
-import { Route as AuthenticatedPokerIdRouteImport } from './routes/_authenticated/poker.$id'
 import { Route as AuthenticatedRamiIdRouteImport } from './routes/_authenticated/rami.$id'
 import { Route as AuthenticatedTournamentsIdRouteImport } from './routes/_authenticated/tournaments_.$id'
 import { Route as AuthenticatedJeuxChessIdRouteImport } from './routes/_authenticated/jeux.chess.$id'
@@ -50,9 +49,7 @@ import { Route as AuthenticatedJeuxDominoIdRouteImport } from './routes/_authent
 import { Route as AuthenticatedJeuxFanoronaIdRouteImport } from './routes/_authenticated/jeux.fanorona.$id'
 import { Route as AuthenticatedJeuxLudoIdRouteImport } from './routes/_authenticated/jeux.ludo.$id'
 import { Route as AuthenticatedJeuxNouveauSlugRouteImport } from './routes/_authenticated/jeux.nouveau.$slug'
-import { Route as AuthenticatedJeuxPokerIdRouteImport } from './routes/_authenticated/jeux.poker.$id'
 import { Route as AuthenticatedJeuxRamiIdRouteImport } from './routes/_authenticated/jeux.rami.$id'
-import { Route as AuthenticatedJeuxPenaltyIdRouteImport } from './routes/_authenticated/jeux.penalty.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -222,11 +219,6 @@ const AuthenticatedJoueurIdRoute = AuthenticatedJoueurIdRouteImport.update({
   path: '/joueur/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedPokerIdRoute = AuthenticatedPokerIdRouteImport.update({
-  id: '/poker/$id',
-  path: '/poker/$id',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedRamiIdRoute = AuthenticatedRamiIdRouteImport.update({
   id: '/rami/$id',
   path: '/rami/$id',
@@ -267,21 +259,9 @@ const AuthenticatedJeuxNouveauSlugRoute =
     path: '/nouveau/$slug',
     getParentRoute: () => AuthenticatedJeuxRoute,
   } as any)
-const AuthenticatedJeuxPokerIdRoute =
-  AuthenticatedJeuxPokerIdRouteImport.update({
-    id: '/poker/$id',
-    path: '/poker/$id',
-    getParentRoute: () => AuthenticatedJeuxRoute,
-  } as any)
 const AuthenticatedJeuxRamiIdRoute = AuthenticatedJeuxRamiIdRouteImport.update({
   id: '/rami/$id',
   path: '/rami/$id',
-  getParentRoute: () => AuthenticatedJeuxRoute,
-} as any)
-
-const AuthenticatedJeuxPenaltyIdRoute = AuthenticatedJeuxPenaltyIdRouteImport.update({
-  id: '/penalty/$id',
-  path: '/penalty/$id',
   getParentRoute: () => AuthenticatedJeuxRoute,
 } as any)
 
@@ -317,7 +297,6 @@ export interface FileRoutesByFullPath {
   '/game/$id': typeof AuthenticatedGameIdRoute
   '/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/joueur/$id': typeof AuthenticatedJoueurIdRoute
-  '/poker/$id': typeof AuthenticatedPokerIdRoute
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux/': typeof AuthenticatedJeuxIndexRoute
@@ -326,9 +305,7 @@ export interface FileRoutesByFullPath {
   '/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
   '/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
-  '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
   '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
-  '/jeux/penalty/$id': typeof AuthenticatedJeuxPenaltyIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -361,7 +338,6 @@ export interface FileRoutesByTo {
   '/game/$id': typeof AuthenticatedGameIdRoute
   '/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/joueur/$id': typeof AuthenticatedJoueurIdRoute
-  '/poker/$id': typeof AuthenticatedPokerIdRoute
   '/rami/$id': typeof AuthenticatedRamiIdRoute
   '/tournaments/$id': typeof AuthenticatedTournamentsIdRoute
   '/jeux': typeof AuthenticatedJeuxIndexRoute
@@ -370,9 +346,7 @@ export interface FileRoutesByTo {
   '/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
   '/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
-  '/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
   '/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
-  '/jeux/penalty/$id': typeof AuthenticatedJeuxPenaltyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -408,7 +382,6 @@ export interface FileRoutesById {
   '/_authenticated/game/$id': typeof AuthenticatedGameIdRoute
   '/_authenticated/jeux/$slug': typeof AuthenticatedJeuxSlugRoute
   '/_authenticated/joueur/$id': typeof AuthenticatedJoueurIdRoute
-  '/_authenticated/poker/$id': typeof AuthenticatedPokerIdRoute
   '/_authenticated/rami/$id': typeof AuthenticatedRamiIdRoute
   '/_authenticated/tournaments_/$id': typeof AuthenticatedTournamentsIdRoute
   '/_authenticated/jeux/': typeof AuthenticatedJeuxIndexRoute
@@ -417,9 +390,7 @@ export interface FileRoutesById {
   '/_authenticated/jeux/fanorona/$id': typeof AuthenticatedJeuxFanoronaIdRoute
   '/_authenticated/jeux/ludo/$id': typeof AuthenticatedJeuxLudoIdRoute
   '/_authenticated/jeux/nouveau/$slug': typeof AuthenticatedJeuxNouveauSlugRoute
-  '/_authenticated/jeux/poker/$id': typeof AuthenticatedJeuxPokerIdRoute
   '/_authenticated/jeux/rami/$id': typeof AuthenticatedJeuxRamiIdRoute
-  '/_authenticated/jeux/penalty/$id': typeof AuthenticatedJeuxPenaltyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -455,7 +426,6 @@ export interface FileRouteTypes {
     | '/game/$id'
     | '/jeux/$slug'
     | '/joueur/$id'
-    | '/poker/$id'
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux/'
@@ -464,7 +434,6 @@ export interface FileRouteTypes {
     | '/jeux/fanorona/$id'
     | '/jeux/ludo/$id'
     | '/jeux/nouveau/$slug'
-    | '/jeux/poker/$id'
     | '/jeux/rami/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -498,7 +467,6 @@ export interface FileRouteTypes {
     | '/game/$id'
     | '/jeux/$slug'
     | '/joueur/$id'
-    | '/poker/$id'
     | '/rami/$id'
     | '/tournaments/$id'
     | '/jeux'
@@ -507,7 +475,6 @@ export interface FileRouteTypes {
     | '/jeux/fanorona/$id'
     | '/jeux/ludo/$id'
     | '/jeux/nouveau/$slug'
-    | '/jeux/poker/$id'
     | '/jeux/rami/$id'
   id:
     | '__root__'
@@ -543,7 +510,6 @@ export interface FileRouteTypes {
     | '/_authenticated/game/$id'
     | '/_authenticated/jeux/$slug'
     | '/_authenticated/joueur/$id'
-    | '/_authenticated/poker/$id'
     | '/_authenticated/rami/$id'
     | '/_authenticated/tournaments_/$id'
     | '/_authenticated/jeux/'
@@ -552,9 +518,7 @@ export interface FileRouteTypes {
     | '/_authenticated/jeux/fanorona/$id'
     | '/_authenticated/jeux/ludo/$id'
     | '/_authenticated/jeux/nouveau/$slug'
-    | '/_authenticated/jeux/poker/$id'
     | '/_authenticated/jeux/rami/$id'
-    | '/_authenticated/jeux/penalty/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -802,13 +766,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJoueurIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/poker/$id': {
-      id: '/_authenticated/poker/$id'
-      path: '/poker/$id'
-      fullPath: '/poker/$id'
-      preLoaderRoute: typeof AuthenticatedPokerIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/rami/$id': {
       id: '/_authenticated/rami/$id'
       path: '/rami/$id'
@@ -858,25 +815,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedJeuxNouveauSlugRouteImport
       parentRoute: typeof AuthenticatedJeuxRoute
     }
-    '/_authenticated/jeux/poker/$id': {
-      id: '/_authenticated/jeux/poker/$id'
-      path: '/poker/$id'
-      fullPath: '/jeux/poker/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxPokerIdRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
     '/_authenticated/jeux/rami/$id': {
       id: '/_authenticated/jeux/rami/$id'
       path: '/rami/$id'
       fullPath: '/jeux/rami/$id'
       preLoaderRoute: typeof AuthenticatedJeuxRamiIdRouteImport
-      parentRoute: typeof AuthenticatedJeuxRoute
-    }
-    '/_authenticated/jeux/penalty/$id': {
-      id: '/_authenticated/jeux/penalty/$id'
-      path: '/penalty/$id'
-      fullPath: '/jeux/penalty/$id'
-      preLoaderRoute: typeof AuthenticatedJeuxPenaltyIdRouteImport
       parentRoute: typeof AuthenticatedJeuxRoute
     }
   }
@@ -890,9 +833,7 @@ interface AuthenticatedJeuxRouteChildren {
   AuthenticatedJeuxFanoronaIdRoute: typeof AuthenticatedJeuxFanoronaIdRoute
   AuthenticatedJeuxLudoIdRoute: typeof AuthenticatedJeuxLudoIdRoute
   AuthenticatedJeuxNouveauSlugRoute: typeof AuthenticatedJeuxNouveauSlugRoute
-  AuthenticatedJeuxPokerIdRoute: typeof AuthenticatedJeuxPokerIdRoute
   AuthenticatedJeuxRamiIdRoute: typeof AuthenticatedJeuxRamiIdRoute
-  AuthenticatedJeuxPenaltyIdRoute: typeof AuthenticatedJeuxPenaltyIdRoute
 }
 
 const AuthenticatedJeuxRouteChildren: AuthenticatedJeuxRouteChildren = {
@@ -903,9 +844,7 @@ const AuthenticatedJeuxRouteChildren: AuthenticatedJeuxRouteChildren = {
   AuthenticatedJeuxFanoronaIdRoute: AuthenticatedJeuxFanoronaIdRoute,
   AuthenticatedJeuxLudoIdRoute: AuthenticatedJeuxLudoIdRoute,
   AuthenticatedJeuxNouveauSlugRoute: AuthenticatedJeuxNouveauSlugRoute,
-  AuthenticatedJeuxPokerIdRoute: AuthenticatedJeuxPokerIdRoute,
   AuthenticatedJeuxRamiIdRoute: AuthenticatedJeuxRamiIdRoute,
-  AuthenticatedJeuxPenaltyIdRoute: AuthenticatedJeuxPenaltyIdRoute,
 }
 
 const AuthenticatedJeuxRouteWithChildren =
@@ -934,7 +873,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFanoronaIdRoute: typeof AuthenticatedFanoronaIdRoute
   AuthenticatedGameIdRoute: typeof AuthenticatedGameIdRoute
   AuthenticatedJoueurIdRoute: typeof AuthenticatedJoueurIdRoute
-  AuthenticatedPokerIdRoute: typeof AuthenticatedPokerIdRoute
   AuthenticatedRamiIdRoute: typeof AuthenticatedRamiIdRoute
   AuthenticatedTournamentsIdRoute: typeof AuthenticatedTournamentsIdRoute
 }
@@ -962,7 +900,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFanoronaIdRoute: AuthenticatedFanoronaIdRoute,
   AuthenticatedGameIdRoute: AuthenticatedGameIdRoute,
   AuthenticatedJoueurIdRoute: AuthenticatedJoueurIdRoute,
-  AuthenticatedPokerIdRoute: AuthenticatedPokerIdRoute,
   AuthenticatedRamiIdRoute: AuthenticatedRamiIdRoute,
   AuthenticatedTournamentsIdRoute: AuthenticatedTournamentsIdRoute,
 }

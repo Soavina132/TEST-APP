@@ -227,7 +227,6 @@ function RankingsPage() {
           { slug: "fanorona", label: "Fanorona", icon: "🔴" },
           { slug: "chess", label: "Échecs", icon: "♟️" },
           { slug: "rami", label: "Rami", icon: "🃏" },
-          { slug: "poker", label: "Poker", icon: "♠️" },
         ].map(g => (
           <button
             key={g.slug}

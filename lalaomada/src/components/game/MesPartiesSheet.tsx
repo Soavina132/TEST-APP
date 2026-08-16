@@ -23,7 +23,6 @@ const ROUTE: Record<string, string> = {
   domino:   "/jeux/domino/$id",
   fanorona: "/jeux/fanorona/$id",
   rami:     "/jeux/rami/$id",
-  poker:    "/jeux/poker/$id",
 };
 
 const EMOJI: Record<string, string> = {
@@ -32,7 +31,6 @@ const EMOJI: Record<string, string> = {
   domino:   "🁣",
   fanorona: "♟",
   rami:     "🂡",
-  poker:    "🃏",
 };
 
 const LABEL: Record<string, string> = {
@@ -41,21 +39,18 @@ const LABEL: Record<string, string> = {
   domino:   "Domino",
   fanorona: "Fanorona",
   rami:     "Rami",
-  poker:    "Poker",
 };
 
 const PART_TABLE: Record<string, string | null> = {
   domino:   "domino_participants",
   fanorona: "fanorona_participants",
   rami:     "rami_participants",
-  poker:    "poker_players",
 };
 
 const GAME_TABLE: Record<string, string> = {
   domino:   "domino_games",
   fanorona: "fanorona_games",
   rami:     "rami_games",
-  poker:    "poker_games",
 };
 
 export default function MesPartiesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -92,7 +87,7 @@ export default function MesPartiesSheet({ open, onClose }: { open: boolean; onCl
         }
       });
 
-      // ── Domino / Fanorona / Rami / Poker ─────────────────
+      // ── Domino / Fanorona / Rami ─────────────────
       await Promise.all(
         Object.entries(PART_TABLE).map(async ([slug, partTable]) => {
           if (!partTable) return;

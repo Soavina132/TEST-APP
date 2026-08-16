@@ -10,12 +10,11 @@ import dominoCover from "@/assets/games/domino.asset.json";
 import ramiCover from "@/assets/games/rami.asset.json";
 import chessCover from "@/assets/games/chess.asset.json";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
-import pokerCover from "@/assets/games/poker.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
 
 const COVER_BY_SLUG: Record<string, string> = {
   ludo: ludoCover.url, domino: dominoCover.url, fanorona: fanoronaCover.url,
-  chess: chessCover.url, rami: ramiCover.url, poker: pokerCover.url,
+  chess: chessCover.url, rami: ramiCover.url,
 };
 
 export const Route = createFileRoute("/_authenticated/jeux/nouveau/$slug")({
@@ -28,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/jeux/nouveau/$slug")({
   }),
 });
 
-type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker";
+type Slug = "ludo" | "domino" | "fanorona" | "chess" | "rami" ;
 const STAKES = [100, 500, 1000, 2000, 5000];
 
 const COVER_PLACEHOLDER: Record<string, string> = {
@@ -76,17 +75,16 @@ const META: Record<Slug, { label: string; cover: string; maxOpts: number[] }> = 
   fanorona: { label: "Fanorona", cover: fanoronaCover.url, maxOpts: [2] },
   chess: { label: "Échecs", cover: chessCover.url, maxOpts: [2] },
   rami: { label: "Rami", cover: ramiCover.url, maxOpts: [2, 3, 4] },
-  poker: { label: "Poker", cover: pokerCover.url, maxOpts: [2, 3, 4, 5, 6, 7, 8, 9] },
 };
 
 const ROUTE: Record<Slug, any> = {
-  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id", chess: "/chess/$id", rami: "/rami/$id", poker: "/poker/$id",
+  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id", chess: "/chess/$id", rami: "/rami/$id",
 };
 const GAME_TABLE: Record<Slug, string> = {
-  ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games", chess: "chess_games", rami: "rami_games", poker: "poker_games",
+  ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games", chess: "chess_games", rami: "rami_games",
 };
 const PART_TABLE: Record<Slug, string | null> = {
-  ludo: "ludo_participants", domino: "domino_participants", fanorona: "fanorona_participants", chess: null, rami: "rami_participants", poker: "poker_players",
+  ludo: "ludo_participants", domino: "domino_participants", fanorona: "fanorona_participants", chess: null, rami: "rami_participants",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -127,9 +125,6 @@ function Lobby() {
   const [ramiGameMode, setRamiGameMode] = useState<"bordel" | "naturel">("bordel");
   const [ramiSevenCards, setRamiSevenCards] = useState<boolean>(true);
   const [ramiBotDifficulty, setRamiBotDifficulty] = useState<"easy" | "medium" | "hard">("medium");
-  // Poker : blindes + cave (jetons de table, indépendants de la mise en Ar)
-  const [pokerBlinds, setPokerBlinds] = useState<{ sb: number; bb: number }>({ sb: 10, bb: 20 });
-  const [pokerBuyIn, setPokerBuyIn] = useState(2000);
   const [chessBotDifficulty, setChessBotDifficulty] = useState<"very_easy" | "easy" | "medium" | "hard" | "expert">("medium");
   const [chessBotColor, setChessBotColor] = useState<"white" | "black">("white");
   const [chessTime, setChessTime] = useState<number>(10);
@@ -345,9 +340,6 @@ function Lobby() {
       } else if (slug === "rami") {
         const { data, error } = await supabase.rpc("rami_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards } as any);
         if (error) throw error; id = extractGameId(data);
-      } else if (slug === "poker") {
-        const { data, error } = await supabase.rpc("poker_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
-        if (error) throw error; id = extractGameId(data);
       }
       if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
     } finally { void savedStake; }
@@ -383,9 +375,6 @@ function Lobby() {
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "rami") {
       const { data, error } = await supabase.rpc("rami_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards } as any);
-      if (error) throw error; id = extractGameId(data);
-    } else if (slug === "poker") {
-      const { data, error } = await supabase.rpc("poker_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _small_blind: pokerBlinds.sb, _big_blind: pokerBlinds.bb, _buy_in: pokerBuyIn } as any);
       if (error) throw error; id = extractGameId(data);
     }
     if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
@@ -427,9 +416,6 @@ function Lobby() {
         const fn = slug === "domino" ? "domino_join" : "fanorona_join";
         const { error } = await supabase.rpc(fn as any, { _game_id: gameId } as any);
         if (error) throw error;
-      } else if (slug === "poker") {
-        const { error } = await supabase.rpc("poker_join" as any, { _game_id: gameId } as any);
-        if (error) throw error;
       } else if (slug === "rami") {
         const { error } = await supabase.rpc("rami_join" as any, { _game_id: gameId } as any);
         if (error) throw error;
@@ -445,7 +431,7 @@ function Lobby() {
       const fn = slug === "ludo" ? "join_game_by_code" :
         slug === "domino" ? "domino_join_code" :
         slug === "fanorona" ? "fanorona_join_code" :
-        slug === "chess" ? "chess_join_friends" : slug === "poker" ? "poker_join_code" :
+        slug === "chess" ? "chess_join_friends" :
         "rami_join_code";
       const { data, error } = await supabase.rpc(fn as any, { _code: code.trim().toUpperCase() } as any);
       if (error) throw error;
@@ -545,12 +531,6 @@ function Lobby() {
                   <SummaryRow icon={chessBotColor === "white" ? "⚪" : "⚫"} label="Couleur" value={chessBotColor === "white" ? "Blancs" : "Noirs"} onClick={() => setSheet("chess_color")} />
                 </>
               )}
-              {slug === "poker" && (
-                <>
-                  <SummaryRow icon="🪙" label="Blindes" value={`${pokerBlinds.sb} / ${pokerBlinds.bb}`} onClick={() => setSheet("poker_blinds")} />
-                  <SummaryRow icon="💵" label="Cave (jetons)" value={pokerBuyIn.toLocaleString("fr-FR")} onClick={() => setSheet("poker_buyin")} />
-                </>
-              )}
 
               {slug === "rami" && (
                 <>
@@ -621,12 +601,6 @@ function Lobby() {
                 </>
               )}
 
-              {slug === "poker" && (
-                <>
-                  <SummaryRow icon="🪙" label="Blindes" value={`${pokerBlinds.sb} / ${pokerBlinds.bb}`} onClick={() => setSheet("poker_blinds")} />
-                  <SummaryRow icon="💵" label="Cave (jetons)" value={pokerBuyIn.toLocaleString("fr-FR")} onClick={() => setSheet("poker_buyin")} />
-                </>
-              )}
 
               {slug === "chess" && (
                 <SummaryRow icon="⏱️" label="Temps / joueur" value={chessTime === 999 ? "Illimité" : `${chessTime} min`} onClick={() => setSheet("chess_time")} />
@@ -807,27 +781,6 @@ function Lobby() {
           { v: "medium", l: "⭐⭐", sub: "Moyen" },
           { v: "hard", l: "⭐⭐⭐", sub: "Difficile" },
         ]} value={ramiBotDifficulty} onChange={(v) => { setRamiBotDifficulty(v as any); closeSheet(); }} />
-      </BottomSheet>
-      <BottomSheet open={sheet === "poker_blinds"} onClose={closeSheet} title="Blindes (petite / grosse)">
-        <ModeBlock columns={2} options={[
-          { v: "10", l: "10 / 20", sub: "Micro" },
-          { v: "25", l: "25 / 50", sub: "Basse" },
-          { v: "50", l: "50 / 100", sub: "Moyenne" },
-          { v: "100", l: "100 / 200", sub: "Haute" },
-        ]} value={String(pokerBlinds.sb)} onChange={(v) => {
-          const sb = Number(v);
-          setPokerBlinds({ sb, bb: sb * 2 });
-          setPokerBuyIn((b) => Math.max(b, sb * 2 * 20));
-          closeSheet();
-        }} />
-      </BottomSheet>
-      <BottomSheet open={sheet === "poker_buyin"} onClose={closeSheet} title="Cave de départ (jetons)">
-        <ModeBlock columns={2} options={[
-          { v: String(pokerBlinds.bb * 20), l: `${(pokerBlinds.bb * 20).toLocaleString("fr-FR")}`, sub: "20 BB" },
-          { v: String(pokerBlinds.bb * 50), l: `${(pokerBlinds.bb * 50).toLocaleString("fr-FR")}`, sub: "50 BB" },
-          { v: String(pokerBlinds.bb * 100), l: `${(pokerBlinds.bb * 100).toLocaleString("fr-FR")}`, sub: "100 BB" },
-          { v: String(pokerBlinds.bb * 200), l: `${(pokerBlinds.bb * 200).toLocaleString("fr-FR")}`, sub: "200 BB" },
-        ]} value={String(pokerBuyIn)} onChange={(v) => { setPokerBuyIn(Number(v)); closeSheet(); }} />
       </BottomSheet>
       <BottomSheet open={sheet === "chess_diff"} onClose={closeSheet} title="Difficulté du bot">
         <ModeBlock columns={5} options={[
@@ -1060,7 +1013,7 @@ function SettingsPanel({ maxP, setMaxP, stake, setStake, commission, showMaxP, m
 }
 
 function GameRow({ g, onJoin, slug }: { g: any; onJoin: () => void; slug: Slug }) {
-  const emoji: Record<string, string> = { ludo:"🎲", domino:"🁣", fanorona:"⚫", chess:"♟️", rami:"🃏", poker:"🂡" };
+  const emoji: Record<string, string> = { ludo:"🎲", domino:"🁣", fanorona:"⚫", chess:"♟️", rami:"🃏" };
   const playersCount = g.players_count ?? 0;
   const maxPlayers = g.max_players ?? 2;
   const isPrivate = !!g.is_private;

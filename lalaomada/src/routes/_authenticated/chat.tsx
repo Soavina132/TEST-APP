@@ -11,7 +11,6 @@ import dominoGroup from "@/assets/groups/domino-group.jpg";
 import fanoronaGroup from "@/assets/groups/fanorona-group.jpg";
 import chessGroup from "@/assets/groups/chess-group.jpg";
 import ramiGroup from "@/assets/groups/rami-group.jpg";
-import pokerGroup from "@/assets/groups/poker-group.jpg";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   component: ChatHub,
@@ -32,7 +31,6 @@ const GAME_META: Record<string, { slug: string; cover: string; label: string; ac
   chess:   { slug: "chess",   cover: chessGroup,   label: "Groupe Échec",    accent: "from-orange-400/20 to-orange-500/5" },
   echec:   { slug: "chess",   cover: chessGroup,   label: "Groupe Échec",    accent: "from-orange-400/20 to-orange-500/5" },
   rami:    { slug: "rami",    cover: ramiGroup,    label: "Groupe Rami",     accent: "from-rose-400/20 to-rose-500/5" },
-  poker:   { slug: "poker",   cover: pokerGroup,   label: "Groupe Poker",    accent: "from-red-500/20 to-neutral-700/5" },
 };
 
 

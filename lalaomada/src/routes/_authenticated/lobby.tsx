@@ -29,7 +29,6 @@ const GAME_DEFS: Record<string, { emoji: string; label: string }> = {
   domino:   { emoji: "🁣", label: "Domino" },
   fanorona: { emoji: "♟",  label: "Fanorona" },
   chess:    { emoji: "♜",  label: "Échecs" },
-  poker:    { emoji: "🃏", label: "Poker" },
   rami:     { emoji: "🂡", label: "Rami" },
 };
 
@@ -163,7 +162,7 @@ function LobbyPage() {
     loadTournaments();
 
     let gamesDebounce: ReturnType<typeof setTimeout>;
-    const gamesTables = ["ludo_games", "domino_games", "fanorona_games", "chess_games", "poker_games", "rami_games"];
+    const gamesTables = ["ludo_games", "domino_games", "fanorona_games", "chess_games", "rami_games"];
     const gamesChannel = supabase.channel("lobby-games");
     gamesTables.forEach(table => {
       gamesChannel.on("postgres_changes" as any,

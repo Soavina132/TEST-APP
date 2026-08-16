@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import confetti from "canvas-confetti";
 import { useConfirm } from "@/components/ConfirmDialog";
 
-export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker" | "penalty";
+export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" ;
 
 type Participant = { user_id: string; display_name: string; slot?: number };
 

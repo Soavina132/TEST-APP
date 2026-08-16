@@ -5,7 +5,7 @@
  */
 
 export type LobbyTab = "public" | "private" | "code" | "mine";
-export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" | "poker" | "penalty";
+export type GameSlug = "ludo" | "domino" | "fanorona" | "chess" | "rami" ;
 
 const GAME_LABELS: Record<GameSlug, string> = {
   ludo: "Ludo",
@@ -13,8 +13,6 @@ const GAME_LABELS: Record<GameSlug, string> = {
   fanorona: "Fanorona",
   chess: "Échecs",
   rami: "Rami",
-  poker: "Poker",
-  penalty: "Penalty",
 };
 
 type Tip = { icon: string; label: string; desc: string };
@@ -50,10 +48,6 @@ const GAME_SPECIFIC_TIPS: Record<GameSlug, Tip[]> = {
     { icon: "7️⃣", label: "7 Cartes", desc: "Bonus optionnel (n'affecte pas le nombre de cartes distribuées, toujours 13) : le premier joueur qui pose une combinaison pure de 7 cartes d'un coup (un brelan/carré + une suite, sans Joker) récupère immédiatement sa mise, moins la moitié de la commission. La partie continue normalement ensuite." },
     { icon: "📜", label: "Mode de jeu", desc: "Naturel : tu dois d'abord poser ta propre combinaison avant de pouvoir ajouter des cartes sur celles des autres joueurs. Bordel : tu peux ajouter des cartes sur n'importe quelle combinaison posée, dès ton premier tour." },
     { icon: "⭐", label: "Niveau des bots", desc: "Facile, Moyen ou Difficile — influence la qualité des combinaisons et des défausses du Bot." },
-  ],
-  poker: [
-    { icon: "🪙", label: "Blindes", desc: "Petite Blinde (SB) et Grosse Blinde (BB) : les mises obligatoires payées avant chaque main par les deux joueurs à la gauche du donneur, pour lancer les enchères." },
-    { icon: "💵", label: "Cave (jetons)", desc: "Le nombre de jetons que chaque joueur reçoit en début de partie. Une fois tous ses jetons perdus, le joueur est éliminé de la table." },
   ],
 };
 

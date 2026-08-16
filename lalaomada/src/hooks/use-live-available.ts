@@ -28,7 +28,6 @@ export function useLiveAvailable(): number {
         .on("postgres_changes", { event: "*", schema: "public", table: "chess_games" }, load)
         .on("postgres_changes", { event: "*", schema: "public", table: "fanorona_games" }, load)
         .on("postgres_changes", { event: "*", schema: "public", table: "rami_games" }, load)
-        .on("postgres_changes", { event: "*", schema: "public", table: "poker_games" }, load)
         .on("postgres_changes", { event: "*", schema: "public", table: "game_spectators" }, load)
         .subscribe();
     } catch (error) {

@@ -10,26 +10,25 @@ const ROUTE: Record<string, string> = {
   domino:   "/jeux/domino/$id",
   fanorona: "/jeux/fanorona/$id",
   rami:     "/jeux/rami/$id",
-  poker:    "/jeux/poker/$id",
 };
 
 const EMOJI: Record<string, string> = {
-  ludo: "🎲", chess: "♜", domino: "🁣", fanorona: "♟", rami: "🂡", poker: "🃏",
+  ludo: "🎲", chess: "♜", domino: "🁣", fanorona: "♟", rami: "🂡",
 };
 
 const LABEL: Record<string, string> = {
-  ludo: "Ludo", chess: "Échecs", domino: "Domino", fanorona: "Fanorona", rami: "Rami", poker: "Poker",
+  ludo: "Ludo", chess: "Échecs", domino: "Domino", fanorona: "Fanorona", rami: "Rami",
 };
 
 // Tables for forfeit/quit operations
 const GAME_TABLE: Record<string, string> = {
   ludo: "ludo_games", chess: "chess_games", domino: "domino_games",
-  fanorona: "fanorona_games", rami: "rami_games", poker: "poker_games",
+  fanorona: "fanorona_games", rami: "rami_games",
 };
 
 const PART_TABLE: Record<string, string | null> = {
   ludo: "ludo_participants", chess: null, domino: "domino_participants",
-  fanorona: "fanorona_participants", rami: "rami_participants", poker: "poker_players",
+  fanorona: "fanorona_participants", rami: "rami_participants",
 };
 
 type OngoingGame = {
@@ -68,7 +67,7 @@ export default function OngoingGameBanner() {
     let debounce: ReturnType<typeof setTimeout>;
     const debouncedLoad = () => { clearTimeout(debounce); debounce = setTimeout(load, 500); };
     const ch = supabase.channel(`ongoing-banner-${user.id}`);
-    ["ludo_games", "domino_games", "fanorona_games", "chess_games", "rami_games", "poker_games"].forEach(t => {
+    ["ludo_games", "domino_games", "fanorona_games", "chess_games", "rami_games"].forEach(t => {
       ch.on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: t, filter: "status=eq.playing" }, debouncedLoad);
     });
     ch.subscribe();

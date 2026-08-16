@@ -39,21 +39,21 @@ function getBadge(level: number) {
 
 // ── Game types metadata ─────────────────────────────────────────────────────
 const EMOJI: Record<string, string> = {
-  ludo: "🎲", chess: "♜", domino: "🁣", fanorona: "♟", rami: "🂡", poker: "🃏",
+  ludo: "🎲", chess: "♜", domino: "🁣", fanorona: "♟", rami: "🂡",
 };
 const LABEL: Record<string, string> = {
-  ludo: "Ludo", chess: "Échecs", domino: "Domino", fanorona: "Fanorona", rami: "Rami", poker: "Poker",
+  ludo: "Ludo", chess: "Échecs", domino: "Domino", fanorona: "Fanorona", rami: "Rami",
 };
 const ROUTE: Record<string, string> = {
   ludo: "/jeux/ludo/$id", chess: "/jeux/chess/$id", domino: "/jeux/domino/$id",
-  fanorona: "/jeux/fanorona/$id", rami: "/jeux/rami/$id", poker: "/jeux/poker/$id",
+  fanorona: "/jeux/fanorona/$id", rami: "/jeux/rami/$id",
 };
 const PART_TABLE: Record<string, string | null> = {
   domino: "domino_participants", fanorona: "fanorona_participants",
-  rami: "rami_participants", poker: "poker_players",
+  rami: "rami_participants",
 };
 const GAME_TABLE: Record<string, string> = {
-  domino: "domino_games", fanorona: "fanorona_games", rami: "rami_games", poker: "poker_games",
+  domino: "domino_games", fanorona: "fanorona_games", rami: "rami_games",
 };
 
 type MatchItem = {
