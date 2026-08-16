@@ -1,6 +1,6 @@
 import { UUID_RE } from "@/lib/game-constants";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GameLoader } from "@/components/game/GameLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +21,10 @@ const ZONE_LABELS = ["", "Haut-Gauche", "Haut-Centre", "Haut-Droite", "Bas-Gauch
 const ZONE_SHORT = ["", "G-H", "C-H", "D-H", "G-B", "C-B", "D-B"];
 const TURN_DURATION = 30;
 
+const STADIUM_BG = "https://base44.app/api/apps/6a8117572131062f5284967e/files/mp/public/6a8117572131062f5284967e/58d4386eb_stadium_bg.png";
+const KEEPER_SPRITE = "https://base44.app/api/apps/6a8117572131062f5284967e/files/mp/public/6a8117572131062f5284967e/82b82f0a3_keeper_v2.png";
+const BALL_SPRITE = "https://base44.app/api/apps/6a8117572131062f5284967e/files/mp/public/6a8117572131062f5284967e/d552f562f_ball_v2.png";
+
 type GameRow = {
   id: string; host_id: string; player1_id: string | null; player2_id: string | null;
   status: "open" | "playing" | "finished" | "cancelled"; stake: number; pot: number;
@@ -40,10 +44,20 @@ type RoundRow = {
 
 type Profile = { id: string; pseudo: string; avatar_url: string | null };
 
-// Zone positions on the goal (in % of goal area)
-const ZONE_POS: Record<number, { x: number; y: number }> = {
-  1: { x: 16, y: 22 }, 2: { x: 50, y: 22 }, 3: { x: 84, y: 22 },
-  4: { x: 16, y: 72 }, 5: { x: 50, y: 72 }, 6: { x: 84, y: 72 },
+// Ball landing target for each zone, as % of viewport (top/left), aligned to the goal net
+// in the stadium background image (crossbar ~40%, goal line ~59%, posts ~8%-92%).
+const ZONE_TARGET: Record<number, { top: string; left: string }> = {
+  1: { top: "43%", left: "24%" }, 2: { top: "43%", left: "50%" }, 3: { top: "43%", left: "76%" },
+  4: { top: "54%", left: "24%" }, 5: { top: "54%", left: "50%" }, 6: { top: "54%", left: "76%" },
+};
+// Keeper dive transform per zone (translate is relative to the sprite's own size via %)
+const KEEPER_DIVE: Record<number, string> = {
+  1: "translate(-68%, -8%) rotate(-55deg)",
+  2: "translate(0%, -18%) rotate(0deg)",
+  3: "translate(68%, -8%) rotate(55deg)",
+  4: "translate(-72%, 12%) rotate(-70deg)",
+  5: "translate(0%, 6%) rotate(0deg) scaleY(0.92)",
+  6: "translate(72%, 12%) rotate(70deg)",
 };
 
 function PenaltyGame() {
@@ -64,7 +78,7 @@ function PenaltyGame() {
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [ballAnim, setBallAnim] = useState<{ zone: number; result: string } | null>(null);
+  const [ballFlying, setBallFlying] = useState<{ zone: number; result: string } | null>(null);
   const [keeperDive, setKeeperDive] = useState<number | null>(null);
   const [showGoalFlash, setShowGoalFlash] = useState(false);
   const [showSaveFlash, setShowSaveFlash] = useState(false);
@@ -177,32 +191,21 @@ function PenaltyGame() {
   useEffect(() => {
     setMyChoice([]);
     setResolveAnim(null);
-    setBallAnim(null);
+    setBallFlying(null);
     setKeeperDive(null);
     setShowGoalFlash(false);
     setShowSaveFlash(false);
   }, [game?.current_round]);
 
-  const playKickSound = useCallback(() => {
-    sfx.diceRoll(); // repurposed as a "kick" sound
-  }, []);
-
   const playResultAnim = useCallback((result: string, shooterChoice: number, keeperChoices: number[]) => {
-    // Phase 1: Ball flies to the zone
     sfx.diceRoll();
-    setBallAnim({ zone: shooterChoice, result });
-    setKeeperDive(keeperChoices[0] ?? 5);
+    setBallFlying({ zone: shooterChoice, result });
+    setKeeperDive(keeperChoices[0] ?? 2);
 
-    // Phase 2: After ball reaches, show result
     setTimeout(() => {
-      if (result === "goal") {
-        sfx.win();
-        setShowGoalFlash(true);
-      } else {
-        sfx.lose();
-        setShowSaveFlash(true);
-      }
-    }, 700);
+      if (result === "goal") { sfx.win(); setShowGoalFlash(true); }
+      else { sfx.lose(); setShowSaveFlash(true); }
+    }, 650);
   }, []);
 
   const handleSubmit = useCallback(async (choices: number[]) => {
@@ -217,8 +220,7 @@ function PenaltyGame() {
         playResultAnim(result.result, result.shooter_choice, result.keeper_choices);
       }
       setMyChoice([]);
-      // Don't reload immediately — let animation play, then reload
-      setTimeout(() => load(), 2000);
+      setTimeout(() => load(), 2100);
     } catch (e: any) {
       toast.error(e.message || "Erreur");
     } finally {
@@ -339,6 +341,8 @@ function PenaltyGame() {
     ? rounds.filter(r => r.shooter_id === game.player2_id)
     : rounds.filter(r => r.shooter_id === game.player1_id);
 
+  const currentShooterIsMe = amShooter;
+
   const renderDots = (seq: RoundRow[], isMine: boolean) => (
     <div className="flex items-center gap-1">
       {Array.from({ length: game.num_balls }).map((_, i) => {
@@ -356,128 +360,70 @@ function PenaltyGame() {
     </div>
   );
 
-  const currentShooterIsMe = amShooter;
   const canPick = (amShooter || amKeeper) && currentRound && !currentRound.resolved_at && !submitting && !paused;
-  const isAnimating = ballAnim != null || resolveAnim != null;
-
-  // Keeper dive position
-  const keeperDiveX = keeperDive != null ? (keeperDive <= 3 ? (keeperDive === 1 ? -30 : keeperDive === 2 ? 0 : 30) : (keeperDive === 4 ? -30 : keeperDive === 5 ? 0 : 30)) : 0;
-  const keeperDiveY = keeperDive != null ? (keeperDive <= 3 ? -10 : 15) : 0;
-  const ballTarget = ballAnim ? ZONE_POS[ballAnim.zone] : null;
+  const isAnimating = ballFlying != null || resolveAnim != null;
+  const ballFlightClass = ballFlying ? `ball-fly-${ballFlying.zone}` : "";
 
   return (
-    <div className="fixed inset-0 overflow-hidden select-none" style={{ touchAction: "manipulation" }}>
-      {/* ── Stadium gradient background ── */}
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-400 via-sky-300 to-green-500" />
-      {/* Stadium stands (top) */}
-      <div className="absolute top-0 inset-x-0 h-[22%] bg-gradient-to-b from-slate-700 to-slate-800" style={{ backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 8px, transparent 8px, transparent 20px)" }} />
-      {/* Crowd dots */}
-      <div className="absolute top-[3%] inset-x-0 h-[16%] opacity-30" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1.5px)", backgroundSize: "12px 8px" }} />
+    <div className="fixed inset-0 overflow-hidden select-none bg-sky-400" style={{ touchAction: "manipulation" }}>
+      {/* ── Photorealistic stadium/goal background ── */}
+      <div className="absolute inset-0" style={{
+        backgroundImage: `url(${STADIUM_BG})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center center",
+      }} />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/55" />
 
-      {/* ── Goal structure (CSS) ── */}
-      <div className="absolute z-10" style={{ top: "15%", left: "8%", width: "84%", height: "38%" }}>
-        {/* Goal posts */}
-        <div className="absolute top-0 left-0 w-2.5 h-full bg-white rounded-full shadow-lg" />
-        <div className="absolute top-0 right-0 w-2.5 h-full bg-white rounded-full shadow-lg" />
-        <div className="absolute top-0 left-0 right-0 h-2.5 bg-white rounded-full shadow-lg" />
-        {/* Net background */}
-        <div className="absolute inset-2 bg-emerald-600/20" style={{
-          backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.15) 0px, rgba(255,255,255,0.15) 1px, transparent 1px, transparent 14px), repeating-linear-gradient(90deg, rgba(255,255,255,0.15) 0px, rgba(255,255,255,0.15) 1px, transparent 1px, transparent 14px)",
-        }} />
-
-        {/* Goalkeeper (animated dive) */}
-        <div className="absolute z-15 transition-all duration-700 ease-out"
-          style={{
-            top: "30%", left: "50%",
-            transform: `translate(-50%, 0) translate(${keeperDiveX}%, ${keeperDiveY}%) scale(${keeperDive != null ? 1.1 : 1})`,
-            width: "14%", height: "45%",
-          }}>
-          <div className="w-full h-full flex items-center justify-center">
-            {/* Keeper body */}
-            <div className={`relative ${keeperDive != null ? "rotate-12" : ""} transition-transform duration-500`}>
-              <div className="w-10 h-14 rounded-t-full bg-sky-600 border-2 border-sky-800 flex items-center justify-center shadow-lg">
-                <div className="w-6 h-6 rounded-full bg-amber-200 border border-amber-400 relative">
-                  <div className="absolute top-2 left-1 w-1.5 h-1 bg-slate-800 rounded-full" />
-                  <div className="absolute top-2 right-1 w-1.5 h-1 bg-slate-800 rounded-full" />
-                </div>
-              </div>
-              {/* Arms */}
-              <div className={`absolute -left-2 top-3 w-4 h-2 rounded-full bg-amber-200 border border-amber-400 transition-transform duration-500 ${keeperDive != null ? "-rotate-45 -translate-x-2" : "rotate-0"}`} />
-              <div className={`absolute -right-2 top-3 w-4 h-2 rounded-full bg-amber-200 border border-amber-400 transition-transform duration-500 ${keeperDive != null ? "rotate-45 translate-x-2" : "rotate-0"}`} />
-            </div>
-          </div>
-        </div>
-
-        {/* Clickable zones overlay */}
-        <div className="absolute inset-2 grid grid-cols-3 grid-rows-2 gap-0 z-20">
-          {[1, 2, 3, 4, 5, 6].map(zone => {
-            const isSelected = myChoice.includes(zone);
-            const isShooterZone = resolveAnim?.shooterChoice === zone;
-            const isKeeperZone = resolveAnim?.keeperChoices?.includes(zone);
-            const wasGoal = resolveAnim?.result === "goal";
-            const isBallLanding = ballAnim?.zone === zone;
-            return (
-              <button key={zone} onClick={() => toggleZone(zone)}
-                disabled={!canPick}
-                className={`relative flex items-center justify-center transition-all duration-200
-                  ${canPick ? "hover:bg-white/5 active:bg-white/10" : ""}
-                `}>
-                {/* Selection highlight */}
-                {isSelected && !isAnimating && (
-                  <div className={`absolute inset-1 rounded-lg ring-2 animate-pulse ${amShooter ? "ring-yellow-400 bg-yellow-400/20" : "ring-sky-400 bg-sky-400/20"}`} />
-                )}
-                {/* Zone label (always visible faintly) */}
-                {!isAnimating && (
-                  <span className="text-[10px] font-bold text-white/30">{ZONE_SHORT[zone]}</span>
-                )}
-                {/* Ball landing animation */}
-                {isBallLanding && ballAnim && (
-                  <div className="text-4xl drop-shadow-2xl animate-ball-land">
-                    {ballAnim.result === "goal" ? "⚽" : "🧤"}
-                  </div>
-                )}
-                {/* Keeper zone indicator */}
-                {isKeeperZone && isShooterZone && resolveAnim && (
-                  <div className="absolute inset-1 rounded-lg ring-2 ring-sky-400/60" />
-                )}
-                {/* Goal zone flash */}
-                {isShooterZone && resolveAnim && wasGoal && showGoalFlash && (
-                  <div className="absolute inset-0 rounded-lg bg-emerald-400/30 animate-flash" />
-                )}
-                {/* Save zone flash */}
-                {isShooterZone && resolveAnim && !wasGoal && showSaveFlash && (
-                  <div className="absolute inset-0 rounded-lg bg-sky-400/30 animate-flash" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+      {/* ── Goalkeeper sprite (dives on resolve) ── */}
+      <div className="absolute z-10 transition-transform duration-500 ease-out"
+        style={{
+          top: "38%", left: "50%", width: "22%", height: "22%",
+          transform: `translate(-50%, -20%) ${keeperDive != null ? KEEPER_DIVE[keeperDive] : ""}`,
+        }}>
+        <img src={KEEPER_SPRITE} alt="Gardien" className="w-full h-full object-contain drop-shadow-xl" draggable={false} />
       </div>
 
-      {/* ── Penalty spot + ball (before animation) ── */}
+      {/* ── Clickable zone hotspots over the net ── */}
+      <div className="absolute z-20 grid grid-cols-3 grid-rows-2" style={{ top: "37%", left: "8%", width: "84%", height: "24%" }}>
+        {[1, 2, 3, 4, 5, 6].map(zone => {
+          const isSelected = myChoice.includes(zone);
+          return (
+            <button key={zone} onClick={() => toggleZone(zone)}
+              disabled={!canPick}
+              className="relative flex items-center justify-center">
+              {!isAnimating && (
+                <span className="text-[10px] font-bold text-white/40 drop-shadow">{ZONE_SHORT[zone]}</span>
+              )}
+              {isSelected && !isAnimating && (
+                <span className={`absolute inset-1 rounded-lg ring-2 animate-pulse ${amShooter ? "ring-yellow-400 bg-yellow-400/15" : "ring-sky-400 bg-sky-400/15"}`} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Ball at rest on the penalty spot ── */}
       {!isAnimating && (
-        <div className="absolute z-10" style={{ bottom: "20%", left: "50%", transform: "translateX(-50%)" }}>
-          <div className="w-6 h-6 rounded-full bg-white shadow-lg flex items-center justify-center text-xs">
-            ⚽
-          </div>
-          <div className="w-2 h-1 bg-white/40 rounded-full mt-1 mx-auto" />
-        </div>
+        <img src={BALL_SPRITE} alt="Ballon" draggable={false}
+          className="absolute z-10" style={{ top: "68%", left: "50%", width: "8%", transform: "translate(-50%, -50%)" }} />
       )}
 
-      {/* ── Animated ball flying toward goal ── */}
-      {ballAnim && ballTarget && (
-        <div className="absolute z-20"
+      {/* ── Ball flying to target zone ── */}
+      {ballFlying && (
+        <img src={BALL_SPRITE} alt="Ballon" draggable={false}
+          className={`absolute z-30 ${ballFlightClass}`}
+          style={{ top: "68%", left: "50%", width: "8%", transform: "translate(-50%, -50%)" }} />
+      )}
+
+      {/* ── Goal/Save flash on target zone ── */}
+      {resolveAnim && (showGoalFlash || showSaveFlash) && (
+        <div className="absolute z-25 rounded-full animate-flash"
           style={{
-            bottom: "20%", left: "50%",
-            animation: `ballFly-${ballAnim.zone} 0.7s cubic-bezier(0.3, 0.1, 0.5, 1) forwards`,
-          }}>
-          <div className="text-3xl drop-shadow-2xl">⚽</div>
-        </div>
+            top: ZONE_TARGET[resolveAnim.shooterChoice].top, left: ZONE_TARGET[resolveAnim.shooterChoice].left,
+            width: "16%", height: "10%", transform: "translate(-50%, -50%)",
+            background: showGoalFlash ? "radial-gradient(circle, rgba(16,185,129,0.55), transparent 70%)" : "radial-gradient(circle, rgba(56,189,248,0.55), transparent 70%)",
+          }} />
       )}
-
-      {/* ── Grass pitch ── */}
-      <div className="absolute bottom-0 inset-x-0 h-[30%] bg-gradient-to-b from-green-500 to-green-600"
-        style={{ backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 30px, transparent 30px, transparent 60px)" }} />
 
       {/* ── Top bar: pause + round + sound ── */}
       <button onClick={() => setPaused(true)}
@@ -485,7 +431,7 @@ function PenaltyGame() {
         <Pause className="w-4 h-4 text-white fill-white" />
       </button>
 
-      <div className="absolute top-3 inset-x-0 flex flex-col items-center gap-1 z-20 pointer-events-none">
+      <div className="absolute top-3 inset-x-0 flex flex-col items-center gap-1 z-30 pointer-events-none">
         <span className="px-3 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs font-bold text-white">
           {game.is_overtime ? "⚔️ PROL" : `⚽ ${currentShotNum}/${game.num_balls}`}
         </span>
@@ -517,14 +463,14 @@ function PenaltyGame() {
         )}
       </div>
 
-      {/* ── Goal/Save flash overlay ── */}
+      {/* ── Goal/Save big text ── */}
       {showGoalFlash && (
-        <div className="absolute inset-0 z-25 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
           <div className="text-6xl font-black text-yellow-400 drop-shadow-2xl animate-goal-text">BUT !</div>
         </div>
       )}
       {showSaveFlash && (
-        <div className="absolute inset-0 z-25 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
           <div className="text-5xl font-black text-sky-300 drop-shadow-2xl animate-goal-text">ARRÊT !</div>
         </div>
       )}
@@ -540,7 +486,7 @@ function PenaltyGame() {
       )}
 
       {/* ── Bottom scoreboard ── */}
-      <div className="absolute bottom-3 left-3 right-3 z-20 flex flex-col gap-1.5">
+      <div className="absolute bottom-3 left-3 right-3 z-30 flex flex-col gap-1.5">
         <div className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-lg bg-black/55 backdrop-blur-sm shadow-lg">
           <span className="w-1.5 h-5 rounded-sm bg-amber-400 shrink-0" />
           <span className="flex-1 text-xs font-bold truncate text-white">{myName}</span>
@@ -557,7 +503,7 @@ function PenaltyGame() {
 
       {/* ── Pause overlay ── */}
       {paused && (
-        <div className="absolute inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6">
+        <div className="absolute inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6">
           <h2 className="text-2xl font-black text-white">⏸ Pause</h2>
           <button onClick={() => setPaused(false)}
             className="w-full max-w-xs py-3 rounded-full bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2">
@@ -576,18 +522,22 @@ function PenaltyGame() {
 
       {/* ── Animations CSS ── */}
       <style>{`
-        @keyframes ballFly-1 { 0% { bottom: 20%; left: 50%; transform: scale(1); } 100% { bottom: 44%; left: 18%; transform: scale(0.5); } }
-        @keyframes ballFly-2 { 0% { bottom: 20%; left: 50%; transform: scale(1); } 100% { bottom: 44%; left: 50%; transform: scale(0.5); } }
-        @keyframes ballFly-3 { 0% { bottom: 20%; left: 50%; transform: scale(1); } 100% { bottom: 44%; left: 82%; transform: scale(0.5); } }
-        @keyframes ballFly-4 { 0% { bottom: 20%; left: 50%; transform: scale(1); } 100% { bottom: 30%; left: 18%; transform: scale(0.5); } }
-        @keyframes ballFly-5 { 0% { bottom: 20%; left: 50%; transform: scale(1); } 100% { bottom: 30%; left: 50%; transform: scale(0.5); } }
-        @keyframes ballFly-6 { 0% { bottom: 20%; left: 50%; transform: scale(1); } 100% { bottom: 30%; left: 82%; transform: scale(0.5); } }
-        .animate-ball-land { animation: ballLand 0.3s ease-out; }
-        @keyframes ballLand { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes ballFly1 { 0% { top:68%; left:50%; width:8%; } 100% { top:${ZONE_TARGET[1].top}; left:${ZONE_TARGET[1].left}; width:4.5%; } }
+        @keyframes ballFly2 { 0% { top:68%; left:50%; width:8%; } 100% { top:${ZONE_TARGET[2].top}; left:${ZONE_TARGET[2].left}; width:4.5%; } }
+        @keyframes ballFly3 { 0% { top:68%; left:50%; width:8%; } 100% { top:${ZONE_TARGET[3].top}; left:${ZONE_TARGET[3].left}; width:4.5%; } }
+        @keyframes ballFly4 { 0% { top:68%; left:50%; width:8%; } 100% { top:${ZONE_TARGET[4].top}; left:${ZONE_TARGET[4].left}; width:4.5%; } }
+        @keyframes ballFly5 { 0% { top:68%; left:50%; width:8%; } 100% { top:${ZONE_TARGET[5].top}; left:${ZONE_TARGET[5].left}; width:4.5%; } }
+        @keyframes ballFly6 { 0% { top:68%; left:50%; width:8%; } 100% { top:${ZONE_TARGET[6].top}; left:${ZONE_TARGET[6].left}; width:4.5%; } }
+        .ball-fly-1 { animation: ballFly1 0.65s cubic-bezier(.25,.4,.4,1) forwards; }
+        .ball-fly-2 { animation: ballFly2 0.65s cubic-bezier(.25,.4,.4,1) forwards; }
+        .ball-fly-3 { animation: ballFly3 0.65s cubic-bezier(.25,.4,.4,1) forwards; }
+        .ball-fly-4 { animation: ballFly4 0.65s cubic-bezier(.25,.4,.4,1) forwards; }
+        .ball-fly-5 { animation: ballFly5 0.65s cubic-bezier(.25,.4,.4,1) forwards; }
+        .ball-fly-6 { animation: ballFly6 0.65s cubic-bezier(.25,.4,.4,1) forwards; }
         .animate-goal-text { animation: goalText 0.8s ease-out; }
         @keyframes goalText { 0% { transform: scale(0) rotate(-10deg); opacity: 0; } 50% { transform: scale(1.3) rotate(5deg); opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
-        .animate-flash { animation: flashFade 0.6s ease-out; }
-        @keyframes flashFade { 0% { opacity: 0.8; } 100% { opacity: 0; } }
+        .animate-flash { animation: flashFade 0.7s ease-out; }
+        @keyframes flashFade { 0% { opacity: 0.9; transform: translate(-50%,-50%) scale(0.7); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.3); } }
       `}</style>
     </div>
   );
