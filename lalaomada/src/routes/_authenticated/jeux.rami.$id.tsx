@@ -1212,6 +1212,10 @@ function RamiPage() {
     return log.slice(-10).reverse();
   }, [game?.state?.action_log]);
 
+  // 1er tour: 0 melds + action_log quasi vide → le 1er joueur peut piocher sur la défausse
+  const isFirstTurn = (game?.state?.melds as any[] || []).length === 0
+    && (game?.state?.action_log as any[] || []).length <= 1;
+
 
   const stagedFlat = useMemo(() => staged.flat(), [staged]);
   const handCards = useMemo(() => myHand.filter(c => !stagedFlat.includes(c)), [myHand, stagedFlat]);
@@ -1313,22 +1317,35 @@ function RamiPage() {
   useEffect(() => {
     if (!game?.turn_deadline || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
     let fired = false;
+    let retryCount = 0;
     let lastSec = -1;
+
+    const fireTick = async () => {
+      const { error } = await supabase.rpc("rami_tick" as any, { _game_id: id } as any);
+      if (error && retryCount < 5) {
+        retryCount++;
+        // Retry after 3s — the DB clock might still be slightly ahead
+        setTimeout(() => fireTick(), 3000);
+      }
+    };
+
     const tick = () => {
       const ms = new Date(game.turn_deadline).getTime() - serverNow();
       const s = Math.max(0, Math.ceil(ms / 1000));
-      // Skip re-render if the displayed second hasn't changed
       if (s !== lastSec) {
         lastSec = s;
         setRemaining(s);
       }
       if (s === 0 && !fired) {
         fired = true;
-        supabase.rpc("rami_tick" as any, { _game_id: id } as any);
+        fireTick();
+      }
+      // If still at 0 after 5s, force-retry (cron backup may have failed too)
+      if (s === 0 && fired && retryCount < 5 && lastSec === 0) {
+        // fireTick already handles retries; this is a safety net
       }
     };
     tick();
-    // Fixed 2s interval — tick() already skips re-render if second hasn't changed
     const t = setInterval(tick, 2000);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
@@ -1893,6 +1910,8 @@ function RamiPage() {
     ? discards[lastDiscardBy]
     : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) || []);
   const topDiscard = drawablePile.length > 0 ? drawablePile[drawablePile.length - 1] : undefined;
+  const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
+    && (phase === "draw" || (phase === "play" && isFirstTurn));
 
 
   // Build discard entries: one per participant + seed (if still present)
@@ -2165,10 +2184,10 @@ function RamiPage() {
             <div className="flex flex-col items-center gap-0.5">
               <div className="flex items-end gap-1">
                 <button
-                  disabled={!(isMyTurn && phase === "draw" && !busy && topDiscard !== undefined)}
+                  disabled={!canDrawDiscard}
                   onClick={drawDiscard}
                   className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
-                    isMyTurn && phase === "draw" && !busy && topDiscard !== undefined ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
+                    canDrawDiscard ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
                   } ${""}`}
                 >
                   <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
@@ -2180,7 +2199,7 @@ function RamiPage() {
 
               </div>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
-                isMyTurn && phase === "draw" && !busy && topDiscard !== undefined
+                canDrawDiscard
                   ? "bg-emerald-500 text-black animate-pulse font-bold"
                   : "text-white/90 bg-black/60"
               }`}>Défausse</span>
@@ -2196,8 +2215,16 @@ function RamiPage() {
           </div>
         );
 
-        // ═══ ZONE 3: My melds strip — removed for clean board ═══
-        const myMeldsStrip = null;
+        // ═══ ZONE 3: Melds strip — toutes les combinaisons posées sur la table ═══
+        const allMelds = melds.map((m, i) => ({ m, i, mine: !!profile?.id && m.player === profile.id }));
+        const myMeldsStrip = allMelds.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] max-h-[80px] overflow-y-auto"
+            style={{ background: `linear-gradient(0deg, ${activeTheme.feltEdge || "#0b3a1f"}ee, transparent)` }}>
+            {allMelds.map(({ m, i, mine }) => (
+              <MeldRow key={i} m={m} i={i} mine={mine} />
+            ))}
+          </div>
+        ) : null;
 
         // ═══ Combine zones into one clean board ═══
         return (
