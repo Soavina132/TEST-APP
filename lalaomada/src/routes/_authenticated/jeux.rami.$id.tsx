@@ -1635,7 +1635,7 @@ function RamiPage() {
 
   // Casser une de ses propres combinaisons : les cartes reviennent en main
   const unmeld = async (meldIdx: number) => {
-    if (!isMyTurn || phase !== "play") return toast.info("Tu ne peux modifier tes combinaisons que pendant ton tour");
+    if (!isMyTurn) return toast.info("Tu ne peux modifier tes combinaisons que pendant ton tour");
     setBusy(true);
     try {
       const { error } = await supabase.rpc("rami_unmeld" as any, { _game_id: id, _meld_index: meldIdx });
@@ -2048,7 +2048,7 @@ function RamiPage() {
           const isSevenMeld = kind === "seven" || (m as { seven?: boolean }).seven === true;
           const revealed = mine || isSevenMeld;
           const canLayoff = layoffCandidates.has(i);
-          const canBreak = mine && !!isMyTurn && phase === "play" && selected.length === 0 && !busy;
+          const canBreak = mine && !!isMyTurn && (phase === "play" || phase === "draw") && !busy;
           const picked = false; // auto-detect: no manual picking
           const pure = !isSevenMeld && isPureMeld(m.cards, jokerMode, randomJoker);
           return (
@@ -2068,9 +2068,11 @@ function RamiPage() {
                       ? "ring-2 ring-amber-400 shadow-[0_0_14px_-4px_rgba(251,191,36,0.9)]"
                       : canLayoff
                         ? "ring-2 ring-emerald-400"
-                        : pure
-                          ? "ring-1 ring-cyan-400/50"
-                          : "ring-1 ring-white/10"
+                        : canBreak
+                          ? "ring-2 ring-orange-400 cursor-pointer hover:scale-105"
+                          : pure
+                            ? "ring-1 ring-cyan-400/50"
+                            : "ring-1 ring-white/10"
                 }`}
                 style={{ boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}
               >
@@ -2090,6 +2092,11 @@ function RamiPage() {
               {isSevenMeld && (
                 <span className="text-[7px] font-bold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 whitespace-nowrap">
                   7 Cartes
+                </span>
+              )}
+              {canBreak && (
+                <span className="text-[7px] font-bold px-1 py-0.5 rounded-full bg-orange-500/20 text-orange-300 whitespace-nowrap animate-pulse">
+                  ↩ Reprendre
                 </span>
               )}
             </div>
