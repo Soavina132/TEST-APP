@@ -2470,11 +2470,8 @@ function RamiPage() {
                     <Check className="w-5 h-5" />
                     {selected.length === 1
                       ? `Valider ma main (${staged.length} combo${staged.length > 1 ? 's' : ''} + 1 défausse)`
-                      : "Valider ma main — sélectionne 1 carte à défausser"}
+                      : "Valider ma main"}
                   </button>
-                  <p className="text-[10px] text-center text-amber-200/80 mt-1.5">
-                    Le serveur vérifie toutes tes combinaisons. Si tout est valide, tu gagnes.
-                  </p>
                 </div>
               )}
 
