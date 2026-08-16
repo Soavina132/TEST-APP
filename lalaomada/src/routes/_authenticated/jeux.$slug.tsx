@@ -722,6 +722,7 @@ function Lobby() {
               {slug === "rami" && (
                 <>
                   <SummaryRow icon="🃏" label="Joker" value={({ sans:"Sans", aleatoire:"Couleur opposée", classique:"Classique", double:"Double" } as any)[ramiJokerMode]} onClick={() => setSheet("rami")} />
+                  <SummaryRow icon="7️⃣" label="7 Cartes" value={ramiSevenCards ? "Activé" : "Désactivé"} onClick={() => setSheet("rami_seven")} />
                   <SummaryRow icon="📜" label="Mode de jeu" value={ramiGameMode === "naturel" ? "Naturel" : "Bordel"} onClick={() => setSheet("rami_mode")} />
                 </>
               )}
