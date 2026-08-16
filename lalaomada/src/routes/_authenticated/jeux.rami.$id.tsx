@@ -1963,7 +1963,7 @@ function RamiPage() {
   const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
     && phase === "draw";
   // 1er joueur en phase 'play' avec défausse vide = doit organiser et défausser
-  const firstPlayerNoDiscard = isFirstTurn && phase === "play" && topDiscard === undefined;
+  const firstPlayerNoDiscard = isFirstTurn && phase === "play" && (topDiscard === undefined || lastDiscardBy === "_seed");
 
 
   // Build discard entries: one per participant + seed (if still present)
