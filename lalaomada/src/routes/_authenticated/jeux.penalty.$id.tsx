@@ -66,7 +66,7 @@ type Profile = { id: string; pseudo: string; avatar_url: string | null };
 
 function PenaltyGame() {
   const { id } = Route.useParams();
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
 
@@ -126,7 +126,13 @@ function PenaltyGame() {
   }, [id, navigate]);
 
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
-  useFastRealtime();
+  useFastRealtime({
+    gameTable: "penalty_games",
+    participantTable: "",
+    gameId: id,
+    enabled: !!profile?.id,
+    onFinished: refreshProfile,
+  }) as any;
 
   const meId = profile?.id;
   const isPlayer1 = game?.player1_id === meId;

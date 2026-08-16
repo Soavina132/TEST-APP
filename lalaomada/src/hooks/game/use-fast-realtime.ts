@@ -20,31 +20,22 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track the last optimistic update from an RPC call to prevent stale
-  // realtime events (from intermediate UPDATEs inside the same RPC) from
-  // overwriting a newer state. The ref stores the board length of the
-  // last optimistic state; realtime events with a shorter board are skipped.
   const optBoardLenRef = useRef<number>(0);
-  // Track the last optimistic current_turn from an RPC response.
-  // Realtime events with a different current_turn are from intermediate
-  // UPDATEs (before the bot played) and should be skipped.
   const optTurnRef = useRef<any>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Keep onFinished in a ref so the realtime closure never goes stale
   const onFinishedRef = useRef(onFinished);
   useEffect(() => { onFinishedRef.current = onFinished; }, [onFinished]);
 
   const reload = useCallback(async () => {
     try {
-      // Use select("*") instead of a fixed column list — different game tables
-      // have different columns (e.g. ludo has no turn_phase, domino has no joker_mode).
-      // A fixed list causes the query to fail on tables missing those columns,
-      // leaving the page stuck on loading and the user as a spectator.
       const { data: g, error: e1 } = await supabase.from(gameTable).select("*").eq("id", gameId).maybeSingle();
       if (e1 && !g) { console.warn("[realtime] load error:", e1); setLoading(false); return; }
-      const { data: p, error: e2 } = await supabase.from(participantTable).select("*").eq("game_id", gameId).order("slot");
-      if (e2 && !p) { console.warn("[realtime] parts error:", e2); }
-      // Don't overwrite optimistic state with stale DB state during bot turn
+      let p: any = null;
+      if (participantTable) {
+        const res = await supabase.from(participantTable).select("*").eq("game_id", gameId).order("slot");
+        p = res.data;
+        if (res.error && !res.data) { console.warn("[realtime] parts error:", res.error); }
+      }
       setGame((prev: any) => {
         if (!prev) return g as TGame;
         if (optTurnRef.current !== null && (g as any).current_turn !== optTurnRef.current) {
@@ -61,7 +52,6 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
 
   const debouncedReload = useCallback(() => {
     if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-    // Reduced to 80ms for near-instant fallback sync
     reloadTimerRef.current = setTimeout(() => reload(), 80);
   }, [reload]);
 
@@ -69,39 +59,30 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
     if (!enabled || !gameId) return;
     reload();
 
-    const ch: any = supabase.channel(`rt-${gameTable}-${gameId}`)
+    let ch: any = supabase.channel(`rt-${gameTable}-${gameId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: gameTable, filter: `id=eq.${gameId}` }, (payload: any) => {
         if (payload.eventType === "DELETE") { debouncedReload(); return; }
         if (payload.new) {
           setGame((prev: any) => {
             if (!prev) return payload.new as TGame;
-            // ── Stale event guards ──────────────────────────────
-            // 1. updated_at: if the optimistic state's updated_at is in the
-            //    future (set by playSide), skip older realtime events.
             const prevUpdated = (prev as any).updated_at;
             const newUpdated = (payload.new as any).updated_at;
             if (prevUpdated && newUpdated && newUpdated < prevUpdated) return prev;
-            // 2. optTurnRef: if we have an optimistic current_turn from the
-            //    RPC response, and the incoming event has a different
-            //    current_turn, it's an intermediate UPDATE (before bot moved).
-            //    Skip it entirely — the final UPDATE (matching optTurnRef)
-            //    will arrive shortly and clear the ref.
             if (optTurnRef.current !== null && (payload.new as any).current_turn !== optTurnRef.current) {
               return prev;
             }
-            // 3. Board length fallback: if the current state has a longer
-            //    board, the event is stale.
             const prevBoardLen = prev.state?.board ? (Array.isArray(prev.state.board) ? prev.state.board.length : 0) : 0;
             const newBoardLen = payload.new.state?.board ? (Array.isArray(payload.new.state.board) ? payload.new.state.board.length : 0) : 0;
             if (prevBoardLen > newBoardLen) return prev;
-            // Accept the event — clear the optimistic ref
             optTurnRef.current = null;
             return payload.new as TGame;
           });
           if (payload.new.status === "finished" && onFinishedRef.current) onFinishedRef.current();
         }
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: participantTable, filter: `game_id=eq.${gameId}` }, (payload: any) => {
+      });
+
+    if (participantTable) {
+      ch = ch.on("postgres_changes", { event: "*", schema: "public", table: participantTable, filter: `game_id=eq.${gameId}` }, (payload: any) => {
         if (payload.eventType === "INSERT" && payload.new) {
           setParts(prev => prev.some(p => (p as any).id === payload.new.id) ? prev : [...prev, payload.new]);
         } else if (payload.eventType === "UPDATE" && payload.new) {
@@ -112,6 +93,7 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
           debouncedReload();
         }
       });
+    }
 
     for (const extra of extraTables) {
       ch.on("postgres_changes", { event: extra.event || "*", schema: "public", table: extra.table, filter: extra.filter }, () => debouncedReload());
@@ -120,7 +102,6 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
     ch.subscribe((status: string) => {
       if (status === "SUBSCRIBED") {
         setConnected(true);
-        // Safety-net heartbeat: periodically reload in case we missed an event
         if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         heartbeatRef.current = setInterval(() => reload(), HEARTBEAT_INTERVAL_MS);
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
