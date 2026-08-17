@@ -192,7 +192,7 @@ const Card = React.memo(function Card({
           ${onClick ? "cursor-pointer active:scale-95" : "cursor-default"}`}>
         {cardFace}
       </button>
-      {selected && <div className="absolute inset-0 rounded-md ring-2 ring-emerald-400 pointer-events-none" />}
+      {selected && <div className="absolute -inset-1.5 rounded-lg ring-2 ring-emerald-400 pointer-events-none" />}
       {onRemove && (
         <button onClick={onRemove}
           className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center z-10 shadow">
@@ -2424,11 +2424,11 @@ function RamiPage() {
                             styleOverride={{ width: `${cw}px`, height: `${ch}px`, pointerEvents: dnd.drag ? "none" : undefined }}
                           />
                           {playableCards.has(c) && !isSel && (
-                            <div className="absolute inset-0 rounded-md ring-2 ring-amber-400/70 pointer-events-none" style={{ width: `${cw}px`, height: `${ch}px` }} />
+                            <div className="absolute -inset-1.5 rounded-lg ring-2 ring-amber-400/70 pointer-events-none" style={{ width: `${cw + 12}px`, height: `${ch + 12}px` }} />
                           )}
                           {newCard === c && (
                             <>
-                              <div className="absolute inset-0 rounded-lg ring-2 ring-amber-400 pointer-events-none card-arrive" />
+                              <div className="absolute -inset-1.5 rounded-lg ring-2 ring-amber-400 pointer-events-none card-arrive" />
                               <div className="absolute -top-2 -right-1 z-[60] px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[9px] font-extrabold shadow-md pointer-events-none animate-scale-in">
                                 NEW
                               </div>
