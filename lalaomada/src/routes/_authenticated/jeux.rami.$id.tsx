@@ -1193,42 +1193,38 @@ function RamiPage() {
     const h = game?.state?.hands?.[profile?.id || ""];
     return Array.isArray(h) ? h : [];
   }, [game?.state?.hands, profile?.id]);
-  const discards: Record<string, number[]> = useMemo(() => {
-    const d = game?.state?.discards;
-    if (d && typeof d === "object") return d as Record<string, number[]>;
-    const legacy = game?.state?.discard;
-    return Array.isArray(legacy) && legacy.length > 0 ? { _seed: legacy } : {};
-  }, [game?.state?.discards, game?.state?.discard]);
-  const lastDiscardBy: string = game?.state?.last_discard_by || "_seed";
-
-  // ═══ Source de vérité: le tableau plat discard ═══
-  // Déplacé ici (avant drawDiscard) pour éviter tout problème de scope
-  // FIX: si le tableau plat discard est absent ou vide, on le reconstruit
-  // à partir de la multi-pile discards (qui peut contenir des cartes même
-  // si discard est null — bug de normalisation côté serveur).
+  // ═══ NOUVELLE LOGIQUE: discard (int[]) + discard_by (text[]) = source de vérité ═══
+  // discards (multi-pile) et last_discard_by sont dérivés côté serveur par _rami_normalize_state
   const flatDiscard: number[] = useMemo(() => {
     const raw = game?.state?.discard;
-    if (Array.isArray(raw) && raw.length > 0) return raw as number[];
-    // Reconstruire depuis discards (multi-pile)
+    return Array.isArray(raw) ? (raw as number[]) : [];
+  }, [game?.state?.discard]);
+
+  const lastDiscardBy: string = useMemo(() => {
+    const by = game?.state?.discard_by;
+    if (Array.isArray(by) && by.length > 0) return by[by.length - 1] as string;
+    const ldb = game?.state?.last_discard_by;
+    return (typeof ldb === "string" && ldb) ? ldb : "_seed";
+  }, [game?.state?.discard_by, game?.state?.last_discard_by]);
+
+  // Multi-pile pour affichage: dérivée depuis discard + discard_by
+  const discards: Record<string, number[]> = useMemo(() => {
     const d = game?.state?.discards;
-    if (d && typeof d === "object") {
-      const _lastBy = (typeof game?.state?.last_discard_by === "string" && game.state.last_discard_by !== "[]")
-        ? game.state.last_discard_by : "";
-      const piles = d as Record<string, number[]>;
-      const keys = Object.keys(piles);
-      // Mettre la pile last_discard_by en dernier (carte du dessus)
-      const ordered = _lastBy && piles[_lastBy]
-        ? [...keys.filter(k => k !== _lastBy), _lastBy]
-        : keys;
-      const flat: number[] = [];
-      for (const k of ordered) {
-        const pile = piles[k];
-        if (Array.isArray(pile)) flat.push(...pile);
+    if (d && typeof d === "object" && !Array.isArray(d)) return d as Record<string, number[]>;
+    // Fallback: construire depuis discard + discard_by
+    const cards = flatDiscard;
+    const byArr = game?.state?.discard_by;
+    if (Array.isArray(byArr) && byArr.length === cards.length) {
+      const piles: Record<string, number[]> = {};
+      for (let i = 0; i < cards.length; i++) {
+        const k = byArr[i] as string;
+        if (!piles[k]) piles[k] = [];
+        piles[k].push(cards[i]);
       }
-      return flat;
+      return piles;
     }
-    return [];
-  }, [game?.state?.discard, game?.state?.discards, game?.state?.last_discard_by]);
+    return {};
+  }, [game?.state?.discards, flatDiscard, game?.state?.discard_by]);
   const topDiscard = flatDiscard.length > 0 ? flatDiscard[flatDiscard.length - 1] : undefined;
   const deckCount: number = (game?.state?.deck || []).length;
   const melds: { player: string; cards: number[]; type?: string }[] = game?.state?.melds || [];
