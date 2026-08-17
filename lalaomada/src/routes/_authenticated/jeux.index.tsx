@@ -290,13 +290,6 @@ function JeuxPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-3 pt-2 pb-20 md:pb-4 flex flex-col gap-3 md:h-[calc(100vh-3.5rem)] md:overflow-hidden">
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* SECTION 1 — Créer une partie */}
       <section className="space-y-2 flex-shrink-0">
