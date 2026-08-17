@@ -1200,6 +1200,13 @@ function RamiPage() {
     return Array.isArray(legacy) && legacy.length > 0 ? { _seed: legacy } : {};
   }, [game?.state?.discards, game?.state?.discard]);
   const lastDiscardBy: string = game?.state?.last_discard_by || "_seed";
+
+  // ═══ Source de vérité: le tableau plat discard ═══
+  // Déplacé ici (avant drawDiscard) pour éviter tout problème de scope
+  const flatDiscard: number[] = Array.isArray(game?.state?.discard)
+    ? (game.state.discard as number[])
+    : [];
+  const topDiscard = flatDiscard.length > 0 ? flatDiscard[flatDiscard.length - 1] : undefined;
   const deckCount: number = (game?.state?.deck || []).length;
   const melds: { player: string; cards: number[]; type?: string }[] = game?.state?.melds || [];
   const jokerMode: string = game?.joker_mode || "classique";
@@ -1950,13 +1957,7 @@ function RamiPage() {
     );
   }
 
-  // ═══ Source de vérité: le tableau plat discard ═══
-  // Le frontend et le backend utilisent TOUS LES DEUX le tableau plat
-  // pour déterminer la carte du dessus. Plus de mismatch possible.
-  const flatDiscard: number[] = Array.isArray(game?.state?.discard)
-    ? (game.state.discard as number[])
-    : [];
-  const topDiscard = flatDiscard.length > 0 ? flatDiscard[flatDiscard.length - 1] : undefined;
+  // flatDiscard et topDiscard déplacés plus haut (après lastDiscardBy)
   // Garder drawablePile pour l'affichage (rétro-compat)
   const _lastBy = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
   const drawablePile = (_lastBy && (discards[_lastBy] || []).length > 0)
