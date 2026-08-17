@@ -1050,9 +1050,8 @@ function RamiPage() {
   useEffect(() => {
     if (!game) return;
     const currentMelds: { player: string; cards: number[]; type?: string }[] = game?.state?.melds || [];
-    const currentDiscards: Record<string, number[]> = (game?.state?.discards && typeof game.state.discards === "object")
-      ? game.state.discards : {};
-    const lastBy: string = game?.state?.last_discard_by || "_seed";
+    const currentDiscards: Record<string, number[]> = {};
+    const lastBy: string = "";
     const top = (currentDiscards[lastBy] || [])[((currentDiscards[lastBy] || []).length) - 1];
     const prev = botFxRef.current;
 
@@ -1110,7 +1109,7 @@ function RamiPage() {
     if (newDiscardKeys.length) {
     // Flash discards removed
     }
-  }, [game?.state?.melds, game?.state?.discards, game?.state?.last_discard_by, parts]);
+  }, [game?.state?.melds, game?.state?.discard, parts]);
 
   // ── Intro overlay: show who starts first ──
   const [showFirstPlayerIntro, setShowFirstPlayerIntro] = useState(false);
@@ -1193,38 +1192,12 @@ function RamiPage() {
     const h = game?.state?.hands?.[profile?.id || ""];
     return Array.isArray(h) ? h : [];
   }, [game?.state?.hands, profile?.id]);
-  // ═══ NOUVELLE LOGIQUE: discard (int[]) + discard_by (text[]) = source de vérité ═══
-  // discards (multi-pile) et last_discard_by sont dérivés côté serveur par _rami_normalize_state
+  // ═══ SYSTÈME SIMPLIFIÉ: discard (int[]) = seule source de vérité ═══
   const flatDiscard: number[] = useMemo(() => {
     const raw = game?.state?.discard;
     return Array.isArray(raw) ? (raw as number[]) : [];
   }, [game?.state?.discard]);
 
-  const lastDiscardBy: string = useMemo(() => {
-    const by = game?.state?.discard_by;
-    if (Array.isArray(by) && by.length > 0) return by[by.length - 1] as string;
-    const ldb = game?.state?.last_discard_by;
-    return (typeof ldb === "string" && ldb) ? ldb : "_seed";
-  }, [game?.state?.discard_by, game?.state?.last_discard_by]);
-
-  // Multi-pile pour affichage: dérivée depuis discard + discard_by
-  const discards: Record<string, number[]> = useMemo(() => {
-    const d = game?.state?.discards;
-    if (d && typeof d === "object" && !Array.isArray(d)) return d as Record<string, number[]>;
-    // Fallback: construire depuis discard + discard_by
-    const cards = flatDiscard;
-    const byArr = game?.state?.discard_by;
-    if (Array.isArray(byArr) && byArr.length === cards.length) {
-      const piles: Record<string, number[]> = {};
-      for (let i = 0; i < cards.length; i++) {
-        const k = byArr[i] as string;
-        if (!piles[k]) piles[k] = [];
-        piles[k].push(cards[i]);
-      }
-      return piles;
-    }
-    return {};
-  }, [game?.state?.discards, flatDiscard, game?.state?.discard_by]);
   const topDiscard = flatDiscard.length > 0 ? flatDiscard[flatDiscard.length - 1] : undefined;
   const deckCount: number = (game?.state?.deck || []).length;
   const melds: { player: string; cards: number[]; type?: string }[] = game?.state?.melds || [];
@@ -1242,8 +1215,7 @@ function RamiPage() {
   }, [game?.state?.action_log]);
 
   // 1er tour: 0 melds + action_log quasi vide
-  const isFirstTurn = (game?.state?.melds as any[] || []).length === 0
-    && (game?.state?.action_log as any[] || []).length <= 1;
+  const isFirstTurn = false; // Plus besoin — le 1er joueur commence en phase 'play'
 
   // Track 7-card melds from other players — show for 10s then auto-hide
   useEffect(() => {
@@ -1416,18 +1388,6 @@ function RamiPage() {
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
 
-  // ── Bot think timer: trigger rami_tick when bot's think delay expires ──
-  useEffect(() => {
-    const think = game?.state?.bot_think_until;
-    if (!think || game?.status !== "playing") return;
-    const ms = new Date(think).getTime() - serverNow();
-    const delay = Math.max(0, ms) + 150;
-    const t = setTimeout(() => {
-      supabase.rpc("rami_tick" as any, { _game_id: id } as any);
-    }, delay);
-    return;
-  }, [game?.state?.bot_think_until, game?.status, id]);
-
   const isUrgent = remaining <= 10 && isMyTurn;
 
   // ── AFK warning state ──
@@ -1558,10 +1518,7 @@ function RamiPage() {
   const call = async (fn: string, payload: any) => {
     setBusy(true);
     try {
-      toast.info("[DEBUG] RPC: " + fn + " " + JSON.stringify(payload));
       const { error } = await supabase.rpc(fn as any, payload);
-      if (error) toast.error("[DEBUG] RPC error: " + error.message);
-      else toast.success("[DEBUG] RPC OK: " + fn);
       if (error) throw error;
       setSelected([]);
       // Realtime can lag or drop an event on some connections — force a fresh
@@ -1581,17 +1538,10 @@ function RamiPage() {
     // cardFx removed
   };
   const drawDiscard = async () => {
-    // ═══ Source de vérité: le tableau plat discard (same as topDiscard) ═══
-    toast.info("[DEBUG] drawDiscard: discard=" + flatDiscard.length + " phase=" + phase + " myTurn=" + isMyTurn + " busy=" + busy);
     if (flatDiscard.length === 0) {
       toast.error("La défausse est vide");
       return;
     }
-    // Find the correct discard pile key for animation ref only
-    const _ldb = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
-    const refKey = _ldb || Object.keys(discards).find(k => (discards[k] || []).length > 0) || "";
-    const from = centerOf(discardRefs.current[refKey] || discardRefs.current[_ldb]);
-    const to = centerOf(handRef.current);
     sfx.ramiDraw();
     haptic(10);
     await call("rami_draw", { _game_id: id, _from: "discard" });
@@ -1982,35 +1932,15 @@ function RamiPage() {
     );
   }
 
-  // flatDiscard et topDiscard déplacés plus haut (après lastDiscardBy)
-  // Garder drawablePile pour l'affichage (rétro-compat)
-  const _lastBy = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
-  const drawablePile = (_lastBy && (discards[_lastBy] || []).length > 0)
-    ? discards[_lastBy]
-    : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
-  const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
-    && (phase === "draw" || (phase === "play" && isFirstTurn));
-  // 1er joueur en phase 'play' avec défausse vide = doit organiser et défausser
-  const firstPlayerNoDiscard = isFirstTurn && phase === "play" && (topDiscard === undefined || lastDiscardBy === "_seed");
+  // ═══ SYSTÈME SIMPLIFIÉ: canDrawDiscard = phase 'draw' + défausse non vide ═══
+  const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined && phase === "draw";
+  const firstPlayerNoDiscard = false;
 
 
-  // Build discard entries: one per participant + seed (if still present)
-  const _discardColors = ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
-  const discardEntries: { key: string; label: string; color: string; pile: number[]; isMe: boolean }[] = [];
-  if ((discards["_seed"] || []).length > 0) {
-    discardEntries.push({ key: "_seed", label: "1re", color: "#94a3b8", pile: discards["_seed"], isMe: false });
-  }
-  parts.slice().sort((a, b) => a.slot - b.slot).forEach((p, i) => {
-    const key: string = (p.user_id as string) || `bot:${p.slot}`;
-    const isMe = p.user_id === profile?.id;
-    discardEntries.push({
-      key,
-      label: isMe ? "Moi" : (p.display_name || "Joueur").slice(0, 8),
-      color: _discardColors[i % _discardColors.length],
-      pile: discards[key] || [],
-      isMe,
-    });
-  });
+  // Affichage simple: une seule défausse (flat array)
+  const discardEntries: { key: string; label: string; color: string; pile: number[]; isMe: boolean }[] = [
+    { key: "pile", label: "Défausse", color: "#94a3b8", pile: flatDiscard, isMe: false },
+  ];
 
   return (
     <main
@@ -2259,7 +2189,7 @@ function RamiPage() {
                   ? "bg-yellow-500 text-black animate-pulse font-bold"
                   : deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
               }`}>
-                {firstPlayerNoDiscard ? "En attente" : `Pioche · ${deckCount}`}
+                {`Pioche · ${deckCount}`}
               </span>
             </div>
 
@@ -2273,7 +2203,7 @@ function RamiPage() {
                     canDrawDiscard ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
                   } ${""}`}
                 >
-                  <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
+                  <div ref={(el) => { discardRefs.current["pile"] = el; }}>
                     {topDiscard !== undefined
                       ? <Card c={topDiscard} styleOverride={{ width: 58, height: 82 }} />
                       : <div className="rounded-md border border-dashed border-white/40" style={{ width: 58, height: 82 }} />}
@@ -2288,8 +2218,8 @@ function RamiPage() {
               }`}>Défausse</span>
             </div>
 
-            {/* Indice 1er joueur: organise et défausse */}
-            {firstPlayerNoDiscard && isMyTurn && (
+            {/* Indice 1er joueur */}
+            {phase === "play" && isMyTurn && flatDiscard.length === 0 && (melds as any[]).length === 0 && (game?.state?.action_log as any[] || []).length <= 1 && (
               <div className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-400/30 animate-pulse">
                 <span className="text-[11px] font-bold text-amber-300 text-center leading-tight">
                   🎴 Tu as 14 cartes<br/>Organise et défausse-en une
