@@ -1954,12 +1954,18 @@ function RamiPage() {
     );
   }
 
-  // More robust: handle last_discard_by being array/null/undefined
+  // ═══ Source de vérité: le tableau plat discard ═══
+  // Le frontend et le backend utilisent TOUS LES DEUX le tableau plat
+  // pour déterminer la carte du dessus. Plus de mismatch possible.
+  const flatDiscard: number[] = Array.isArray(game?.state?.discard)
+    ? (game.state.discard as number[])
+    : [];
+  const topDiscard = flatDiscard.length > 0 ? flatDiscard[flatDiscard.length - 1] : undefined;
+  // Garder drawablePile pour l'affichage (rétro-compat)
   const _lastBy = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
   const drawablePile = (_lastBy && (discards[_lastBy] || []).length > 0)
     ? discards[_lastBy]
     : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
-  const topDiscard = drawablePile.length > 0 ? drawablePile[drawablePile.length - 1] : undefined;
   const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
     && phase === "draw";
   // 1er joueur en phase 'play' avec défausse vide = doit organiser et défausser
