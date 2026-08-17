@@ -1552,23 +1552,19 @@ function RamiPage() {
     // cardFx removed
   };
   const drawDiscard = async () => {
-    // Find the correct discard pile key
-    const _ldb = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
-    const pile = (_ldb && (discards[_ldb] || []).length > 0)
-      ? discards[_ldb]
-      : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
-    if (pile.length === 0) {
+    // ═══ Source de vérité: le tableau plat discard (same as topDiscard) ═══
+    if (flatDiscard.length === 0) {
       toast.error("La défausse est vide");
       return;
     }
+    // Find the correct discard pile key for animation ref only
+    const _ldb = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
     const refKey = _ldb || Object.keys(discards).find(k => (discards[k] || []).length > 0) || "";
     const from = centerOf(discardRefs.current[refKey] || discardRefs.current[_ldb]);
     const to = centerOf(handRef.current);
-    // cardFx removed
     sfx.ramiDraw();
     haptic(10);
     await call("rami_draw", { _game_id: id, _from: "discard" });
-    // cardFx removed
   };
 
   const submitStagedMeld = async (groupIdx: number) => {
