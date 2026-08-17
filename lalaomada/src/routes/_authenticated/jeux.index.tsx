@@ -502,7 +502,7 @@ function JeuxPage() {
           )}
 
           {filteredGames.map(game => {
-            const def = GAMES.find(g => g.slug === game.slug)!;
+            const def = GAMES.find(g => g.slug === game.slug) || { slug: game.slug, label: game.slug, desc: "", emoji: "🎮" };
             const CoverMini = COVER_COMPONENTS[game.slug];
             const isFull = game.players_count >= game.max_players;
             const isBusy = joiningId === game.id;
