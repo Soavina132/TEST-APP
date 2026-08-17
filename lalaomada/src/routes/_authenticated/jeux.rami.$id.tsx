@@ -2541,7 +2541,7 @@ function RamiPage() {
                   </button>
                   <button
                     onClick={discardOne}
-                    disabled={busy || (selected.length as number) !== 1}
+                    disabled={busy || (selected.length as number) !== 1 || !isMyTurn || phase !== "play"}
                     className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-destructive text-white font-bold text-xs disabled:opacity-30 active:scale-95 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Défausser
@@ -2601,7 +2601,7 @@ function RamiPage() {
                         {selectionKind === 'seven' ? "7 cartes" : selectionKind ? `Valider ${MELD_LABEL[selectionKind]}` : "Valider"}
                       </button>
                     )}
-                    <button onClick={discardOne} disabled={busy || (selected.length as number) !== 1}
+                    <button onClick={discardOne} disabled={busy || (selected.length as number) !== 1 || !isMyTurn || phase !== "play"}
                       className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-destructive text-white font-bold text-xs disabled:opacity-30 active:scale-95 transition-all">
                       <Trash2 className="w-3.5 h-3.5" /> Défausser
                     </button>
