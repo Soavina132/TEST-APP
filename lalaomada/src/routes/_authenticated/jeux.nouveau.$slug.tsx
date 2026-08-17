@@ -78,7 +78,7 @@ const META: Record<Slug, { label: string; cover: string; maxOpts: number[] }> = 
 };
 
 const ROUTE: Record<Slug, any> = {
-  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id", chess: "/chess/$id", rami: "/rami/$id",
+  ludo: "/game/$id", domino: "/domino/$id", fanorona: "/fanorona/$id", chess: "/chess/$id", rami: "/jeux/rami/$id",
 };
 const GAME_TABLE: Record<Slug, string> = {
   ludo: "ludo_games", domino: "domino_games", fanorona: "fanorona_games", chess: "chess_games", rami: "rami_games",
