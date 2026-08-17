@@ -1558,7 +1558,9 @@ function RamiPage() {
   const call = async (fn: string, payload: any) => {
     setBusy(true);
     try {
+      console.log('[DEBUG call] RPC', fn, JSON.stringify(payload));
       const { error } = await supabase.rpc(fn as any, payload);
+      console.log('[DEBUG call] RPC result', fn, { error: error?.message || 'none' });
       if (error) throw error;
       setSelected([]);
       // Realtime can lag or drop an event on some connections — force a fresh
@@ -1579,6 +1581,7 @@ function RamiPage() {
   };
   const drawDiscard = async () => {
     // ═══ Source de vérité: le tableau plat discard (same as topDiscard) ═══
+    console.log('[DEBUG drawDiscard] called', { flatDiscard: flatDiscard.length, topDiscard, canDrawDiscard, phase, isMyTurn, busy });
     if (flatDiscard.length === 0) {
       toast.error("La défausse est vide");
       return;
