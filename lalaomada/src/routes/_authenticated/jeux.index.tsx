@@ -503,7 +503,7 @@ function JeuxPage() {
 
           {filteredGames.map(game => {
             const def = GAMES.find(g => g.slug === game.slug) || { slug: game.slug, label: game.slug, desc: "", emoji: "🎮" };
-            const CoverMini = COVER_COMPONENTS[game.slug];
+            const CoverMini = COVER_COMPONENTS[game.slug] ?? (() => null);
             const isFull = game.players_count >= game.max_players;
             const isBusy = joiningId === game.id;
             // Domino-specific chips
