@@ -920,6 +920,7 @@ function RamiPage() {
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [game, setGame] = useState<any>(null);
   const [parts, setParts] = useState<any[]>([]);
+  const [avatarsMap, setAvatarsMap] = useState<Record<string, string | null>>({});
   const [selected, setSelected] = useState<number[]>([]);
   // sevenFx removed for performance
   const [staged, setStaged] = useState<number[][]>([]);
@@ -965,6 +966,21 @@ function RamiPage() {
     const { data: p } = await supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot");
     setParts((p as any[]) || []);
   }, [id, profile?.id]);
+
+  // Fetch real avatars for human participants (bots use a diamond icon instead)
+  useEffect(() => {
+    const humanIds = Array.from(new Set(
+      parts.filter(p => !p.is_bot && p.user_id).map(p => p.user_id as string)
+    )).filter(uid => !(uid in avatarsMap));
+    if (humanIds.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("profiles" as any).select("id,avatar_url").in("id", humanIds);
+      if (!data) return;
+      const next: Record<string, string | null> = {};
+      (data as any[]).forEach(row => { next[row.id] = row.avatar_url || null; });
+      setAvatarsMap(prev => ({ ...prev, ...next }));
+    })();
+  }, [parts, avatarsMap]);
 
   useEffect(() => {
     load();
@@ -1997,8 +2013,8 @@ function RamiPage() {
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
 
         // ── Opponent avatar card: compact with timer ring ──
-        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast }: {
-          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; hasSeven: boolean; isLast: boolean
+        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast, avatarUrl }: {
+          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; hasSeven: boolean; isLast: boolean; avatarUrl?: string | null
         }) {
           const name = (p.display_name || "Joueur").slice(0, 10);
           const initial = name.charAt(0).toUpperCase();
@@ -2033,12 +2049,16 @@ function RamiPage() {
                     </svg>
                   )}
                   <div
-                    className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 absolute inset-0 m-0.5 ${
+                    className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 absolute inset-0 m-0.5 overflow-hidden ${
                       turn ? "ring-1 ring-amber-400/50" : ""
                     }`}
                     style={{ fontSize: 11, background: bg }}
                   >
-                    {p.is_bot ? "◆" : initial}
+                    {p.is_bot
+                      ? "◆"
+                      : avatarUrl
+                        ? <img src={avatarUrl} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        : initial}
                   </div>
                 </div>
                 <div className="flex flex-col leading-tight">
@@ -2152,7 +2172,8 @@ function RamiPage() {
               <OppBadge key={keyOf(p)} p={p} turn={game.current_turn === p.slot}
                 n={handLenOf(keyOf(p))} meldCount={meldCountOf(p.user_id || "")}
                 hasSeven={hasSevenOf(p.user_id || "")}
-                isLast={i === others.length - 1} />
+                isLast={i === others.length - 1}
+                avatarUrl={p.user_id ? avatarsMap[p.user_id] : null} />
             ))}
           </div>
         );
@@ -2213,15 +2234,6 @@ function RamiPage() {
                   : "text-white/90 bg-black/60"
               }`}>Défausse</span>
             </div>
-
-            {/* Indice 1er joueur */}
-            {phase === "play" && isMyTurn && flatDiscard.length === 0 && (melds as any[]).length === 0 && (game?.state?.action_log as any[] || []).length <= 1 && (
-              <div className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-400/30 animate-pulse">
-                <span className="text-[11px] font-bold text-amber-300 text-center leading-tight">
-                  🎴 Tu as 14 cartes<br/>Organise et défausse-en une
-                </span>
-              </div>
-            )}
 
             {/* Joker aléatoire */}
             {randomJoker !== null && (
@@ -2312,9 +2324,11 @@ function RamiPage() {
                   style={{ transition: "stroke-dasharray 1s linear" }}
                 />
               </svg>
-              <div className="rounded-full flex items-center justify-center font-bold text-white absolute inset-0 m-0.5"
+              <div className="rounded-full flex items-center justify-center font-bold text-white absolute inset-0 m-0.5 overflow-hidden"
                 style={{ fontSize: 10, background: bg }}>
-                {initial}
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt="" width={24} height={24} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                  : initial}
               </div>
             </div>
             <span className="text-[10px] font-bold text-emerald-400 animate-pulse">À toi de jouer — {remaining}s</span>
