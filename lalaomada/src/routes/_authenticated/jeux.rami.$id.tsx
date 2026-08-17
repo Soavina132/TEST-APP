@@ -107,8 +107,8 @@ const Card = React.memo(function Card({
 
   if (faceDown || c === undefined) {
     return (
-      <div className={`${sizeClass} rounded-md shrink-0 overflow-hidden`}
-        style={{ ...dealStyle, ...styleOverride, border: '1px solid rgba(100,80,40,0.25)', fontSize: `${cardFontSize}px` }}>
+      <div className={`${sizeClass} shrink-0 overflow-hidden`}
+        style={{ ...dealStyle, ...styleOverride, border: '1px solid rgba(100,80,40,0.25)', borderRadius: '5px', fontSize: `${cardFontSize}px` }}>
         <CardBackCSS />
       </div>
     );
@@ -185,8 +185,8 @@ const Card = React.memo(function Card({
       <button
         onClick={onClick}
         disabled={!onClick}
-        style={{ ...styleOverride, fontSize: `${cardFontSize}px` }}
-        className={`${sizeClass} block rounded-md transition-transform duration-100 ease-out contain-strict
+        style={{ ...styleOverride, fontSize: `${cardFontSize}px`, borderRadius: '5px' }}
+        className={`${sizeClass} block transition-transform duration-100 ease-out contain-strict
           ${selected ? "-translate-y-3 ring-2 ring-emerald-400 ring-offset-2 ring-offset-transparent" : ""}
           ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 ring-offset-transparent scale-105" : ""}
           ${onClick ? "cursor-pointer active:scale-95" : "cursor-default"}`}>
@@ -702,7 +702,7 @@ function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct, melds }:
                     const lbl = cardLabel(c);
                     const pts = CARD_POINTS(c);
                     return (
-                      <div key={ci} className="relative w-9 h-14 rounded-md bg-white border border-gray-300 shadow font-bold flex flex-col p-0.5 text-[10px]" style={{ color: lbl.color }}>
+                      <div key={ci} className="relative w-9 h-14 bg-white border border-gray-300 shadow font-bold flex flex-col p-0.5 text-[10px]" style={{ color: lbl.color, borderRadius: '5px' }}>
                         <div className="leading-none">{lbl.rank}<div>{lbl.suit}</div></div>
                         <div className="absolute bottom-0.5 right-0.5 text-[9px] bg-black/10 rounded px-0.5 font-mono">{pts}</div>
                       </div>
@@ -2199,7 +2199,7 @@ function RamiPage() {
                 ref={deckRef}
                 disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
                 onClick={drawDeck}
-                className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
+                className={`relative rounded-[6px] disabled:opacity-50 active:scale-95 transition-transform ${
                   isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg turn-active-pulse" : ""
                 }`}
                 style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
@@ -2225,13 +2225,13 @@ function RamiPage() {
               <div className="flex items-end gap-1">
                 <div
                   ref={(el) => { discardRefs.current["pile"] = el; }}
-                  className={`relative rounded-md transition-transform ${
+                  className={`relative rounded-[6px] transition-transform ${
                     canDrawDiscard ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : "opacity-50"
                   }`}
                 >
                   {topDiscard !== undefined
                     ? <Card c={topDiscard} styleOverride={{ width: 58, height: 82 }} onClick={canDrawDiscard ? drawDiscard : undefined} />
-                    : <div className="rounded-md border border-dashed border-white/40" style={{ width: 58, height: 82 }} />}
+                    : <div className="border border-dashed border-white/40" style={{ width: 58, height: 82, borderRadius: '5px' }} />}
                 </div>
               </div>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
@@ -2430,11 +2430,11 @@ function RamiPage() {
                             styleOverride={{ width: `${cw}px`, height: `${ch}px`, pointerEvents: dnd.drag ? "none" : undefined }}
                           />
                           {playableCards.has(c) && !isSel && (
-                            <div className="absolute -inset-1.5 rounded-lg ring-2 ring-amber-400/70 pointer-events-none" style={{ width: `${cw + 12}px`, height: `${ch + 12}px` }} />
+                            <div className="absolute -inset-1.5 ring-2 ring-amber-400/70 pointer-events-none" style={{ width: `${cw + 12}px`, height: `${ch + 12}px`, borderRadius: '8px' }} />
                           )}
                           {newCard === c && (
                             <>
-                              <div className="absolute -inset-1.5 rounded-lg ring-2 ring-amber-400 pointer-events-none card-arrive" />
+                              <div className="absolute -inset-1.5 ring-2 ring-amber-400 pointer-events-none card-arrive" style={{ borderRadius: '8px' }} />
                               <div className="absolute -top-2 -right-1 z-[60] px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[9px] font-extrabold shadow-md pointer-events-none animate-scale-in">
                                 NEW
                               </div>
