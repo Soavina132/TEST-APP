@@ -2128,7 +2128,7 @@ function RamiPage() {
                 }}
                 onDoubleClick={() => { if (canBreak) unmeld(i); }}
                 disabled={!canLayoff && !mine}
-                className={`relative flex rounded-lg p-1 transition-all shrink-0 bg-black/10 ${
+                className={`relative flex rounded-lg p-1.5 transition-all shrink-0 bg-black/10 ${
                   picked
                     ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
                     : isSevenMeld
@@ -2144,8 +2144,8 @@ function RamiPage() {
                 style={{ boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}
               >
                 {m.cards.map((c, ci) => (
-                  <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -13 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
-                    <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 25, height: 35 }} />
+                  <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -19 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
+                    <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 38, height: 54 }} />
                   </div>
                 ))}
               </button>
@@ -2263,7 +2263,7 @@ function RamiPage() {
             return visibleSevenMelds.has(meldKey);
           });
         const myMeldsStrip = allMelds.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] max-h-[80px] overflow-y-auto"
+          <div className="flex flex-wrap items-center justify-center gap-2 px-2 py-2 min-h-[68px] max-h-[180px] overflow-y-auto"
             style={{ background: `linear-gradient(0deg, ${activeTheme.feltEdge || "#0b3a1f"}ee, transparent)` }}>
             {allMelds.map(({ m, i, mine }) => {
               // For 7-card melds from others, show player name
@@ -2296,6 +2296,18 @@ function RamiPage() {
               {oppStrip}
               {centerFelt}
               {myMeldsStrip}
+              {canClaimSeven && !alreadySeven && (
+                <div className="flex items-center justify-center gap-2 px-3 py-2 mx-2 mb-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 shadow-lg shadow-amber-500/40 animate-pulse">
+                  <span className="text-xs font-black text-black">🎊 7 Cartes détectées !</span>
+                  <button
+                    onClick={claimSeven}
+                    disabled={busy}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/85 text-amber-300 text-xs font-black disabled:opacity-40 hover:bg-black active:scale-95 transition-all"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Valider
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
