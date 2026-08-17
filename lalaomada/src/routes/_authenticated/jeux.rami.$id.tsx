@@ -1648,35 +1648,33 @@ function RamiPage() {
   };
 
 
-  // ── Auto-arranger: detect ALL valid combos in hand and stage them ──
-  const autoArrange = async () => {
+  // ── Auto-arranger: just re-sort the hand so detected combos sit next to
+  // each other (side by side) — it does NOT stage/pose anything anymore.
+  const autoArrange = () => {
     if (!isMyTurn || phase !== "play") return;
     const combos = detectCombos(handCards, jokerMode, randomJoker);
-    if (combos.length === 0) {
+    const usedCards = new Set<number>();
+    const groups: number[][] = [];
+    for (const combo of combos) {
+      // Skip if any card already used in a previous group
+      if (combo.cards.some(c => usedCards.has(c))) continue;
+      const valid = validateMeld(combo.cards, jokerMode, randomJoker);
+      if (valid === 'valid') {
+        groups.push([...combo.cards]);
+        combo.cards.forEach(c => usedCards.add(c));
+      }
+    }
+    if (groups.length === 0) {
       toast.info("Aucune combinaison détectée dans ta main");
       haptic(20);
       return;
     }
-    // Stage each detected combo
-    const newStaged: number[][] = [];
-    const usedCards = new Set<number>();
-    for (const combo of combos) {
-      // Skip if any card already used in a previous combo
-      if (combo.cards.some(c => usedCards.has(c))) continue;
-      const valid = validateMeld(combo.cards, jokerMode, randomJoker);
-      if (valid === 'valid') {
-        newStaged.push([...combo.cards]);
-        combo.cards.forEach(c => usedCards.add(c));
-      }
-    }
-    if (newStaged.length === 0) {
-      toast.info("Aucune combinaison valide à poser automatiquement");
-      return;
-    }
-    setStaged(prev => [...prev, ...newStaged]);
+    const leftover = handCards.filter(c => !usedCards.has(c));
+    setSortMode('none');
+    setCustomOrder([...groups.flat(), ...leftover]);
     setSelected([]);
     haptic([0, 20, 10, 20]);
-    toast.success(`✨ ${newStaged.length} combinaison${newStaged.length > 1 ? "s" : ""} posée${newStaged.length > 1 ? "s" : ""} automatiquement !`);
+    toast.success(`✨ Main réorganisée · ${groups.length} combinaison${groups.length > 1 ? "s" : ""} groupée${groups.length > 1 ? "s" : ""}`);
   };
 
   // Optimal play suggester
@@ -2120,15 +2118,9 @@ function RamiPage() {
           const pure = !isSevenMeld && isPureMeld(m.cards, jokerMode, randomJoker);
           return (
             <div key={`meld-wrap-${i}`} className="relative flex flex-col items-center gap-0.5">
-              <button
+              <div
                 key={`meld-${i}`}
-                onClick={() => {
-                  if (canLayoff) layoff(i);
-                  else if (canBreak) unmeld(i);
-                }}
-                onDoubleClick={() => { if (canBreak) unmeld(i); }}
-                disabled={!canLayoff && !mine}
-                className={`relative flex rounded-lg p-1.5 transition-all shrink-0 bg-black/10 ${
+                className={`relative flex rounded-lg p-1 transition-all shrink-0 bg-black/10 ${
                   picked
                     ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
                     : isSevenMeld
@@ -2143,12 +2135,18 @@ function RamiPage() {
                 }`}
                 style={{ boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}
               >
-                {m.cards.map((c, ci) => (
-                  <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -19 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
-                    <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 38, height: 54 }} />
-                  </div>
-                ))}
-              </button>
+                {m.cards.map((c, ci) => {
+                  const actionable = canLayoff || canBreak;
+                  const onCardClick = actionable
+                    ? () => { if (canLayoff) layoff(i); else if (canBreak) unmeld(i); }
+                    : undefined;
+                  return (
+                    <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? 2 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
+                      <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 25, height: 35 }} onClick={onCardClick} />
+                    </div>
+                  );
+                })}
+              </div>
               {revealed && !isSevenMeld && (
                 <span className={`text-[7px] font-bold px-1 py-0.5 rounded-full whitespace-nowrap ${
                   pure ? "bg-cyan-500/20 text-cyan-300" : "bg-purple-500/20 text-purple-300"
@@ -2263,7 +2261,7 @@ function RamiPage() {
             return visibleSevenMelds.has(meldKey);
           });
         const myMeldsStrip = allMelds.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-center gap-2 px-2 py-2 min-h-[68px] max-h-[180px] overflow-y-auto"
+          <div className="flex flex-wrap items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] max-h-[110px] overflow-y-auto"
             style={{ background: `linear-gradient(0deg, ${activeTheme.feltEdge || "#0b3a1f"}ee, transparent)` }}>
             {allMelds.map(({ m, i, mine }) => {
               // For 7-card melds from others, show player name
