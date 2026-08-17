@@ -186,13 +186,12 @@ const Card = React.memo(function Card({
         onClick={onClick}
         disabled={!onClick}
         style={{ ...styleOverride, fontSize: `${cardFontSize}px` }}
-        className={`${sizeClass} block transition-transform duration-100 ease-out contain-strict
-          ${selected ? "-translate-y-3" : ""}
-          ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 scale-105" : ""}
+        className={`${sizeClass} block rounded-md transition-transform duration-100 ease-out contain-strict
+          ${selected ? "-translate-y-3 ring-2 ring-emerald-400 ring-offset-2 ring-offset-transparent" : ""}
+          ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 ring-offset-transparent scale-105" : ""}
           ${onClick ? "cursor-pointer active:scale-95" : "cursor-default"}`}>
         {cardFace}
       </button>
-      {selected && <div className="absolute -inset-1.5 rounded-lg ring-2 ring-emerald-400 pointer-events-none" />}
       {onRemove && (
         <button onClick={onRemove}
           className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center z-10 shadow">
@@ -961,9 +960,13 @@ function RamiPage() {
   const activeTheme = BOARD_THEMES[boardTheme];
 
   const load = useCallback(async () => {
-    const { data: g } = await supabase.from("rami_games" as any).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", id).maybeSingle();
+    // Fetch game + participants in parallel instead of sequentially — halves the
+    // network round-trip time on every refresh.
+    const [{ data: g }, { data: p }] = await Promise.all([
+      supabase.from("rami_games" as any).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", id).maybeSingle(),
+      supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot"),
+    ]);
     setGame(g);
-    const { data: p } = await supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot");
     setParts((p as any[]) || []);
   }, [id, profile?.id]);
 
@@ -1537,9 +1540,11 @@ function RamiPage() {
       const { error } = await supabase.rpc(fn as any, payload);
       if (error) throw error;
       setSelected([]);
-      // Realtime can lag or drop an event on some connections — force a fresh
-      // fetch right away so the drawn/discarded card never appears "stuck".
-      await load();
+      // Realtime can lag or drop an event on some connections, so we still
+      // force a fresh fetch — but in the background. Awaiting it here made
+      // the button stay disabled for a whole extra network round-trip after
+      // the action already succeeded, which felt like a multi-second freeze.
+      void load();
     } catch (e: any) { toast.error(e.message || "Action invalide"); }
     finally { setBusy(false); }
   };
@@ -1632,8 +1637,9 @@ function RamiPage() {
         haptic(20);
       }
       setStaged([]); setSelected([]);
-      // Force refresh like call() does — realtime can lag
-      await load();
+      // Refresh in the background — don't make the player wait an extra
+      // round-trip for this, the action already succeeded.
+      void load();
     } catch (e: any) {
       toast.error(e.message || "Erreur réseau, réessaie");
     } finally {
@@ -2411,7 +2417,7 @@ function RamiPage() {
                           {showQuickDiscard && (
                             <button
                               onClick={(e) => { e.stopPropagation(); discardOne(); }}
-                              className="absolute -top-8 left-1/2 -translate-x-1/2 z-[999] px-3 py-1 rounded-full bg-destructive text-white text-[11px] font-extrabold shadow-lg shadow-destructive/40 flex items-center gap-1 whitespace-nowrap animate-scale-in hover:bg-destructive/90 active:scale-95"
+                              className="absolute -top-11 left-1/2 -translate-x-1/2 z-[999] px-3 py-1 rounded-full bg-destructive text-white text-[11px] font-extrabold shadow-lg shadow-destructive/40 flex items-center gap-1 whitespace-nowrap animate-scale-in hover:bg-destructive/90 active:scale-95"
                             >
                               <Trash2 className="w-3 h-3" /> Défausser
                             </button>
