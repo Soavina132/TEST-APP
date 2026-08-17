@@ -1,0 +1,4 @@
+{
+  "installCommand": "echo skip",
+  "buildCommand": "npm run build"
+}
