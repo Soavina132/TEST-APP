@@ -1556,11 +1556,9 @@ function RamiPage() {
   };
 
   const call = async (fn: string, payload: any) => {
-    console.log("[RAMI DEBUG] call()", fn, payload);
     setBusy(true);
     try {
       const { error } = await supabase.rpc(fn as any, payload);
-      console.log("[RAMI DEBUG] rpc result", fn, { error: error?.message || null });
       if (error) throw error;
       setSelected([]);
       // Realtime can lag or drop an event on some connections — force a fresh
@@ -1581,19 +1579,6 @@ function RamiPage() {
   };
   const drawDiscard = async () => {
     // ═══ Source de vérité: le tableau plat discard (same as topDiscard) ═══
-    console.log("[RAMI DEBUG] drawDiscard clicked", {
-      flatDiscardLen: flatDiscard.length,
-      topDiscard,
-      canDrawDiscard,
-      isMyTurn,
-      phase,
-      busy,
-      turn_phase: game?.turn_phase,
-      current_turn: game?.current_turn,
-      mySlot: me?.slot,
-      discard_from_state: game?.state?.discard,
-      discard_by_from_state: game?.state?.discard_by,
-    });
     if (flatDiscard.length === 0) {
       toast.error("La défausse est vide");
       return;
@@ -1677,6 +1662,8 @@ function RamiPage() {
         haptic(20);
       }
       setStaged([]); setSelected([]);
+      // Force refresh like call() does — realtime can lag
+      await load();
     } catch (e: any) {
       toast.error(e.message || "Erreur réseau, réessaie");
     } finally {
