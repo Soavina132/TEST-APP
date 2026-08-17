@@ -1985,7 +1985,7 @@ function RamiPage() {
     ? discards[_lastBy]
     : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
   const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
-    && phase === "draw";
+    && (phase === "draw" || (phase === "play" && isFirstTurn));
   // 1er joueur en phase 'play' avec défausse vide = doit organiser et défausser
   const firstPlayerNoDiscard = isFirstTurn && phase === "play" && (topDiscard === undefined || lastDiscardBy === "_seed");
 
