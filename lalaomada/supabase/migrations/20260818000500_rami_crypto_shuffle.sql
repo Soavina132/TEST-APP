@@ -3,7 +3,7 @@
 -- for all card shuffling in the rami game.
 --
 -- random() is a simple LCG (linear congruential generator) — not
--- cryptographically secure. gen_random_bytes() from pgcrypto uses
+-- cryptographically secure. extensions.gen_random_bytes() from pgcrypto uses
 -- the OS CSPRNG, giving true unpredictable shuffles.
 -- ─────────────────────────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ DECLARE
 BEGIN
   IF _max <= 0 THEN RETURN 0; END IF;
   IF _max = 1 THEN RETURN 0; END IF;
-  _b := gen_random_bytes(4);
+  _b := extensions.gen_random_bytes(4);
   _val := get_byte(_b, 0)::bigint
         + get_byte(_b, 1)::bigint * 256
         + get_byte(_b, 2)::bigint * 65536
