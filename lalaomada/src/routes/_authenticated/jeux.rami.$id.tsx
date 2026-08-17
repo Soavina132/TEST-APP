@@ -2196,20 +2196,16 @@ function RamiPage() {
             {/* Défausse */}
             <div className="flex flex-col items-center gap-0.5">
               <div className="flex items-end gap-1">
-                <button
-                  disabled={!canDrawDiscard}
-                  onClick={drawDiscard}
-                  className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
-                    canDrawDiscard ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
-                  } ${""}`}
+                <div
+                  ref={(el) => { discardRefs.current["pile"] = el; }}
+                  className={`relative rounded-md transition-transform ${
+                    canDrawDiscard ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : "opacity-50"
+                  }`}
                 >
-                  <div ref={(el) => { discardRefs.current["pile"] = el; }}>
-                    {topDiscard !== undefined
-                      ? <Card c={topDiscard} styleOverride={{ width: 58, height: 82 }} />
-                      : <div className="rounded-md border border-dashed border-white/40" style={{ width: 58, height: 82 }} />}
-                  </div>
-                </button>
-
+                  {topDiscard !== undefined
+                    ? <Card c={topDiscard} styleOverride={{ width: 58, height: 82 }} onClick={canDrawDiscard ? drawDiscard : undefined} />
+                    : <div className="rounded-md border border-dashed border-white/40" style={{ width: 58, height: 82 }} />}
+                </div>
               </div>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
                 canDrawDiscard
