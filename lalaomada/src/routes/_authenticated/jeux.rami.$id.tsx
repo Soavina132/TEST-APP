@@ -2281,6 +2281,23 @@ function RamiPage() {
                     !
                   </div>
                 )}
+                {/* Carte tirée (joker aléatoire) : perpendiculaire en bas, demi-visible */}
+                {randomJoker !== null && (
+                  <div
+                    className="absolute left-1/2 -bottom-1 z-10 pointer-events-none"
+                    style={{
+                      transform: "translateX(-50%) rotate(90deg) translateY(-50%)",
+                      transformOrigin: "center center",
+                      width: 60,
+                      height: 42,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div style={{ width: 60, height: 84, marginTop: -42 }}>
+                      <Card c={randomJoker} styleOverride={{ width: 60, height: 84 }} />
+                    </div>
+                  </div>
+                )}
               </button>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
                 isMyTurn && phase === "draw" && deckCount > 0
@@ -2312,12 +2329,9 @@ function RamiPage() {
               }`}>Défausse</span>
             </div>
 
-            {/* Joker aléatoire */}
+            {/* Carte tirée (joker aléatoire) : affichée perpendiculairement en bas de la pioche */}
             {randomJoker !== null && (
-              <div className="flex flex-col items-center gap-0.5">
-                <Card c={randomJoker} styleOverride={{ width: 58, height: 82 }} />
-                <span className="text-[10px] font-semibold text-amber-300 bg-black/60 px-2.5 py-1 rounded-full">Carte tirée</span>
-              </div>
+              <span className="text-[10px] font-semibold text-amber-300 bg-black/60 px-2.5 py-1 rounded-full whitespace-nowrap">Carte tirée</span>
             )}
           </div>
         );
