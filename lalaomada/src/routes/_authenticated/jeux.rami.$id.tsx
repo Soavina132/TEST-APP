@@ -1512,33 +1512,34 @@ function RamiPage() {
     [melds, profile?.id],
   );
 
-  // Auto-detect 7 cards: check all pairs of my melds for a valid 7-card combo
+  // Auto-detect 7 cards: check single 'seven' meld OR pairs of melds for a valid 7-card combo
   const canClaimSeven = useMemo(() => {
     if (!profile?.id || alreadySeven) return false;
     const mine = melds.map((m, i) => ({ m, i })).filter(x => x.m.player === profile?.id);
-    if (mine.length < 2) return false;
-    for (let a = 0; a < mine.length; a++) {
-      for (let b = a + 1; b < mine.length; b++) {
-        const combo = [...mine[a].m.cards, ...mine[b].m.cards];
-        if (combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker, sevenCardsEnabled)) return true;
+    if (mine.length < 1) return false;
+    // Single 7-card meld (type 'seven')
+    for (const { m } of mine) {
+      if (m.cards.length === 7 && isSevenCombo(m.cards, jokerMode, randomJoker, sevenCardsEnabled)) return true;
+    }
+    // Two melds combining to 7 cards
+    if (mine.length >= 2) {
+      for (let a = 0; a < mine.length; a++) {
+        for (let b = a + 1; b < mine.length; b++) {
+          const combo = [...mine[a].m.cards, ...mine[b].m.cards];
+          if (combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker, sevenCardsEnabled)) return true;
+        }
       }
     }
     return false;
-  }, [melds, profile?.id, alreadySeven, jokerMode, randomJoker]);
+  }, [melds, profile?.id, alreadySeven, jokerMode, randomJoker, sevenCardsEnabled]);
 
   const claimSeven = async () => {
     setBusy(true);
     try {
       const { data, error } = await supabase.rpc("rami_claim_seven" as any, { _game_id: id } as any);
       if (error) throw error;
-      if (data) {
-        setPickedMelds([]);
-        // sevenFx removed
-        // sevenFx removed
-        toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
-      } else {
-        toast.error("Pas de 7 cartes valide sur tes combinaisons");
-      }
+      setPickedMelds([]);
+      toast.success("7 cartes validé, mise remboursée");
     } catch (e: any) {
       toast.error(e.message || "Action impossible");
     } finally { setBusy(false); }
@@ -2519,6 +2520,15 @@ function RamiPage() {
               {/* ── Always-visible action bar ── */}
               {isMyTurn && phase === "play" && !reorderMode && selected.length === 0 && staged.length === 0 && (
                 <div className="flex items-center gap-1.5">
+                  {canClaimSeven && sevenCardsEnabled ? (
+                  <button
+                    onClick={claimSeven}
+                    disabled={busy}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black text-xs shadow-md shadow-amber-500/40 animate-pulse active:scale-95 transition-all disabled:opacity-40"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Valider le 7 cartes
+                  </button>
+                  ) : (
                   <button
                     onClick={autoArrange}
                     disabled={busy}
@@ -2526,6 +2536,7 @@ function RamiPage() {
                   >
                     <Sparkles className="w-3.5 h-3.5" /> Auto-arranger
                   </button>
+                  )}
                   <button
                     onClick={discardOne}
                     disabled={busy || (selected.length as number) !== 1 || !isMyTurn || phase !== "play"}
