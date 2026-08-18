@@ -2273,7 +2273,7 @@ function RamiPage() {
                     className="absolute pointer-events-none"
                     style={{
                       top: '50%',
-                      left: '16px',
+                      left: '0px',
                       transform: 'translate(-50%, -50%) rotate(-90deg)',
                       transformOrigin: 'center center',
                       zIndex: 0,
