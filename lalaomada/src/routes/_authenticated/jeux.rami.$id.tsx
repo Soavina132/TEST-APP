@@ -2264,42 +2264,54 @@ function RamiPage() {
             }}>
 
 
-            {/* Pioche */}
+            {/* Pioche + Joker aléatoire sous la pioche */}
             <div className="flex flex-col items-center gap-0.5">
-              <button
-                ref={deckRef}
-                disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
-                onClick={drawDeck}
-                className={`relative rounded-[6px] disabled:opacity-50 active:scale-95 transition-transform ${
-                  isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg turn-active-pulse" : ""
-                }`}
-                style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
-              >
-                <Card faceDown styleOverride={{ width: 60, height: 84 }} />
-                {deckCount > 0 && deckCount <= 10 && (
-                  <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[8px] font-bold text-white animate-pulse">
-                    !
+              <div className="relative" style={{ width: 60, height: 84 }}>
+                <button
+                  ref={deckRef}
+                  disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
+                  onClick={drawDeck}
+                  className={`relative rounded-[6px] disabled:opacity-50 active:scale-95 transition-transform ${
+                    isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg turn-active-pulse" : ""
+                  }`}
+                  style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
+                >
+                  <Card faceDown styleOverride={{ width: 60, height: 84 }} />
+                  {deckCount > 0 && deckCount <= 10 && (
+                    <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[8px] font-bold text-white animate-pulse">
+                      !
+                    </div>
+                  )}
+                </button>
+                {/* Joker aléatoire : en bas de la pioche, perpendiculaire à droite, moitié visible */}
+                {randomJoker !== null && (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      bottom: '-14px',
+                      left: '50%',
+                      transform: 'translateX(-50%) rotate(90deg)',
+                      transformOrigin: 'center center',
+                      zIndex: -1,
+                      clipPath: 'inset(0 0 0 50%)',
+                      filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
+                    }}
+                  >
+                    <Card c={randomJoker} styleOverride={{ width: 44, height: 62 }} />
                   </div>
                 )}
-              </button>
+              </div>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
                 isMyTurn && phase === "draw" && deckCount > 0
                   ? "bg-yellow-500 text-black animate-pulse font-bold"
                   : deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
               }`}>
-                {`Pioche · ${deckCount}`}
+                {randomJoker !== null ? `Pioche · ${deckCount}` : `Pioche · ${deckCount}`}
               </span>
-            </div>
-
-            {/* Carte tirée (joker aléatoire) : emplacement dédié entre pioche et défausse */}
-            {randomJoker !== null && (
-              <div className="flex flex-col items-center gap-0.5">
-                <div className="relative rounded-[6px]" style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}>
-                  <Card c={randomJoker} styleOverride={{ width: 44, height: 62 }} />
-                </div>
+              {randomJoker !== null && (
                 <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full bg-black/60 text-amber-300 whitespace-nowrap">Joker</span>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Défausse */}
             <div className="flex flex-col items-center gap-0.5">
