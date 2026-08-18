@@ -112,7 +112,7 @@ function GamePage() {
   }
 
   if (game.status === "open") {
-    if (Number(game.stake) > 0 && !profile?.phone_verified) {
+    if (Number(game.stake) > 0 && profile?.phone_verified !== true) {
       return (
         <main className="max-w-md mx-auto px-4 py-8 flex flex-col items-center justify-center gap-3 text-center">
           <ShieldAlert className="w-10 h-10 text-amber-500" />
@@ -224,7 +224,7 @@ function GamePage() {
 
   return (
     <main className="max-w-5xl mx-auto px-3 py-1 h-full overflow-hidden overscroll-none">
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={profile?.phone_verified === true} />
       <h1 className="sr-only">Partie de Ludo en cours</h1>
       <div className="rounded-full bg-card px-2 py-0.5 border border-border shadow-[var(--shadow-soft)] flex items-center justify-between gap-1.5">
         <div className="flex items-baseline gap-1 min-w-0">

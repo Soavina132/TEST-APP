@@ -300,7 +300,7 @@ function JeuxPage() {
       const gameId       = row.game_id as string;
       const fn = JOIN_CODE_RPC[detectedSlug];
       // Check phone verification for paid games
-      if (row.stake && Number(row.stake) > 0 && !(profile as any)?.phone_verified) {
+      if (row.stake && Number(row.stake) > 0 && (profile as any)?.phone_verified !== true) {
         toast.error("Numéro non vérifié", {
           description: "Vérifiez votre numéro avant de rejoindre une partie payante.",
           action: { label: "Vérifier", onClick: () => setShowPhoneVerify(true) },
@@ -328,7 +328,7 @@ function JeuxPage() {
     const fn = JOIN_RPC[game.slug];
     if (!fn) { toast.error("Rejoins par code pour ce jeu."); return; }
     const bal = Number(profile?.balance_ar || 0);
-    if (game.stake > 0 && !(profile as any)?.phone_verified) {
+    if (game.stake > 0 && (profile as any)?.phone_verified !== true) {
       toast.error("Numéro non vérifié", {
         description: "Vérifiez votre numéro avant de rejoindre une partie payante.",
         action: { label: "Vérifier", onClick: () => setShowPhoneVerify(true) },

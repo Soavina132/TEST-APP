@@ -94,7 +94,7 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
         .select("phone_verified")
         .eq("id", profile?.id)
         .single();
-      if (data?.phone_verified) {
+      if (data?.phone_verified === true) {
         setPolling(false);
         setStep("done");
         clearInterval(interval);

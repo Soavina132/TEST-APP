@@ -525,7 +525,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   }
 
   if (game.status === "open") {
-    if (Number(game.stake) > 0 && !profile?.phone_verified) {
+    if (Number(game.stake) > 0 && profile?.phone_verified !== true) {
       return (
         <main className="max-w-md mx-auto px-4 py-8 flex flex-col items-center justify-center gap-3 text-center">
           <ShieldAlert className="w-10 h-10 text-amber-500" />
@@ -593,7 +593,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
 
   return (
     <div className="h-full overflow-hidden flex flex-col bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-950 overscroll-none">
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={profile?.phone_verified === true} />
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
 
       {/* ── Header compact (aligné sur le style Échecs) ── */}

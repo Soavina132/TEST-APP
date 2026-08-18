@@ -309,7 +309,7 @@ function DominoPage() {
 
   // Waiting room
   if (game.status === "open") {
-    if (Number(game.stake) > 0 && !profile?.phone_verified) {
+    if (Number(game.stake) > 0 && profile?.phone_verified !== true) {
       return (
         <main className="max-w-md mx-auto px-4 py-8 flex flex-col items-center justify-center gap-3 text-center">
           <ShieldAlert className="w-10 h-10 text-amber-500" />
@@ -369,7 +369,7 @@ function DominoPage() {
     <main className="max-w-md mx-auto px-2 py-1 flex flex-col gap-1 h-full overflow-hidden overscroll-none"
       style={{ background: "radial-gradient(ellipse at top, hsl(var(--primary)/0.05) 0%, transparent 70%)" }}>
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={profile?.phone_verified === true} />
 
       {/* Barre gagnant + quitter — identique au Ludo */}
       {(() => {

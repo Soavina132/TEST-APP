@@ -10,7 +10,7 @@ export default function PhoneVerifyBanner({ stake, phoneVerified }: { stake: num
   const [showPopup, setShowPopup] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  if (stake <= 0 || dismissed || phoneVerified) return null;
+  if (stake <= 0 || dismissed || phoneVerified === true) return null;
 
   return (
     <>

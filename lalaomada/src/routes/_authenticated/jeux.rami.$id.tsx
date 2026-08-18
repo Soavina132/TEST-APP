@@ -388,6 +388,8 @@ function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | 
         if (isPureTrio(three) && isPureCarre(four)) return true;
         // Comp. 3 : Escalier de 3 + Carré
         if (isPureRun(three) && isPureCarre(four)) return true;
+        // Comp. 4 : Escalier de 3 + Escalier de 4 (nouveau)
+        if (isPureRun(three) && isPureRun(four)) return true;
       }
   return false;
 }
@@ -1512,8 +1514,9 @@ function RamiPage() {
     setPickedMelds(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i]);
 
   const alreadySeven = useMemo(
-    () => melds.some(m => m.player === profile?.id && (m as { seven?: boolean }).seven === true),
-    [melds, profile?.id],
+    () => melds.some(m => m.player === profile?.id && (m as { seven?: boolean }).seven === true)
+      || !!(profile?.id && (game as any)?.state?.refunded?.[profile?.id]),
+    [melds, profile?.id, game],
   );
 
   // Auto-detect 7 cards: check single 'seven' meld OR pairs of melds for a valid 7-card combo
@@ -1931,7 +1934,7 @@ function RamiPage() {
   }
 
   if (game.status === "open" || game.status === "waiting") {
-    if (Number(game.stake) > 0 && !profile?.phone_verified) {
+    if (Number(game.stake) > 0 && profile?.phone_verified !== true) {
       return (
         <main className="max-w-md mx-auto px-4 py-8 flex flex-col items-center justify-center gap-3 text-center">
           <ShieldAlert className="w-10 h-10 text-amber-500" />
@@ -2031,7 +2034,7 @@ function RamiPage() {
       }}
     >
       <GameReconnectOverlay isConnected={isConnected} isReconnecting={isReconnecting} onRetry={retry} />
-      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={!!profile?.phone_verified} />
+      <PhoneVerifyBanner stake={Number(game?.stake) || 0} phoneVerified={profile?.phone_verified === true} />
       {/* ── Top bar: pot + deck info + controls, all in one line ── */}
       <div className="rounded-xl bg-card/95 px-2.5 py-1 border border-border shadow-sm flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
