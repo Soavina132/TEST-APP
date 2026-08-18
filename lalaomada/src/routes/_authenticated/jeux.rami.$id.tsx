@@ -1122,10 +1122,8 @@ function RamiPage() {
         newMeldIdxs.push(i);
         const m = currentMelds[i];
         const p = parts.find(pp => pp.user_id === m.player);
-        if (m.type === "seven") {
+        if (m.type === "seven" && m.player !== profile?.id) {
           const who = p?.display_name || "Un joueur";
-          // sevenFx removed
-          // sevenFx removed
           toast.success(`🎊 ${who} : 7 Cartes — Miverim-bola !`, { duration: 3500 });
         }
         if (p?.is_bot && m.type !== "seven") {
@@ -1165,7 +1163,7 @@ function RamiPage() {
     if (newDiscardKeys.length) {
     // Flash discards removed
     }
-  }, [game?.state?.melds, game?.state?.discard, parts]);
+  }, [game?.state?.melds, game?.state?.discard, parts, profile?.id]);
 
   // ── Intro overlay: show who starts first ──
   const [showFirstPlayerIntro, setShowFirstPlayerIntro] = useState(false);
