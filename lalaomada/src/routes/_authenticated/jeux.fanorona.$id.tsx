@@ -156,6 +156,7 @@ function FanoronaPage() {
   const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
+  const [gameNumber, setGameNumber] = useState<string | null>(null);
 
   // ALL HOOKS FIRST — before any early return
 const { game, parts, setGame, setParts, loading, connected, reload } = useFastRealtime({
@@ -176,6 +177,20 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const botTriggeredRef = useRef<number | string>(-1);
   const lastBoardRef = useRef<string>("");
   // On mount: check if timer already expired server-side
+  // Fetch game number from game_registrations
+  useEffect(() => {
+    if (!id) return;
+    supabase.from("game_registrations")
+      .select("game_number")
+      .eq("game_id", id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.game_number) {
+          setGameNumber('#' + String(data.game_number).padStart(8, '0'));
+        }
+      });
+  }, [id]);
+
   useEffect(() => {
     void supabase.rpc("fanorona_tick" as any, { _game_id: id } as any).then(() => load());
     // eslint-disable-next-line react-hooks/exhaustive-deps

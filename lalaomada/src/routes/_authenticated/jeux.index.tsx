@@ -197,6 +197,7 @@ function JeuxPage() {
   const [codeSlug, setCodeSlug]           = useState<Slug>("ludo");
   const [busyCode, setBusyCode]           = useState(false);
   const [joiningId, setJoiningId]         = useState<string | null>(null);
+  const [gameNumbers, setGameNumbers]       = useState<Record<string, string>>({});
 
 
   // Real-time refresh for ongoing games

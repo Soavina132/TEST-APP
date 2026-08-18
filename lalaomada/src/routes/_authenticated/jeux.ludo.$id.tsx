@@ -35,6 +35,7 @@ function GamePage() {
   const navigate = useNavigate();
   const { t } = useT();
   const [confirmQuit, setConfirmQuit] = useState(false);
+  const [gameNumber, setGameNumber] = useState<string | null>(null);
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [now, setNowTick] = useState(serverNow());
   const [loadError, setLoadError] = useState(false);
@@ -49,6 +50,21 @@ function GamePage() {
   });
 
   // Keep loadError in sync for the retry UI
+
+  // Fetch game number from game_registrations
+  useEffect(() => {
+    if (!id) return;
+    supabase.from("game_registrations")
+      .select("game_number")
+      .eq("game_id", id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.game_number) {
+          setGameNumber('#' + String(data.game_number).padStart(8, '0'));
+        }
+      });
+  }, [id]);
+
   useEffect(() => {
     if (loading && !game) setLoadError(false);
     else if (!loading && !game) setLoadError(true);

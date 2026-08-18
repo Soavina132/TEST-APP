@@ -118,12 +118,28 @@ function DominoPage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [game, setGame] = useState<any>(null);
+  const [gameNumber, setGameNumber] = useState<string | null>(null);
   const [parts, setParts] = useState<any[]>([]);
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const noMoveCh = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [remoteNoMove, setRemoteNoMove] = useState<number | null>(null);
   const [handW, setHandW] = useState(190);
+
+
+  // Fetch game number from game_registrations
+  useEffect(() => {
+    if (!id) return;
+    supabase.from("game_registrations")
+      .select("game_number")
+      .eq("game_id", id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.game_number) {
+          setGameNumber('#' + String(data.game_number).padStart(8, '0'));
+        }
+      });
+  }, [id]);
 
   useEffect(() => {
     const u = () => setHandW(Math.max(140, window.innerWidth - 170));

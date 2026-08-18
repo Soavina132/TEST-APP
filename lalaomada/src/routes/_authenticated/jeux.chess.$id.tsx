@@ -204,6 +204,7 @@ function ChessPage() {
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const confirm = useConfirm();
   const [game, setGame] = useState<Game | null>(null);
+  const [gameNumber, setGameNumber] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [moveHistory, setMoveHistory] = useState<{ san: string; ply: number }[]>([]);
@@ -272,6 +273,21 @@ function ChessPage() {
   const { isConnected, isReconnecting, retry } = useGameConnection({ onReconnect: load });
 
   // Auto-timeout: settle les parties où le temps a expiré (même si l'utilisateur était absent)
+
+  // Fetch game number from game_registrations
+  useEffect(() => {
+    if (!id) return;
+    supabase.from("game_registrations")
+      .select("game_number")
+      .eq("game_id", id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.game_number) {
+          setGameNumber('#' + String(data.game_number).padStart(8, '0'));
+        }
+      });
+  }, [id]);
+
   useEffect(() => {
     if (!isValidGameId) return;
     void supabase.rpc("chess_auto_timeout" as any, { _game_id: id } as any).then(() => load());

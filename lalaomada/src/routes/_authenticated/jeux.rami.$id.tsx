@@ -955,6 +955,7 @@ function RamiPage() {
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [game, setGame] = useState<any>(null);
+  const [gameNumber, setGameNumber] = useState<string | null>(null);
   const [parts, setParts] = useState<any[]>([]);
   const [avatarsMap, setAvatarsMap] = useState<Record<string, string | null>>({});
   const [selected, setSelected] = useState<number[]>([]);
@@ -986,6 +987,21 @@ function RamiPage() {
   const { entries: lbEntries, recordRound, reset: resetLb } = useRamiLeaderboard(id);
 
   // Inject CSS keyframes once
+
+  // Fetch game number from game_registrations
+  useEffect(() => {
+    if (!id) return;
+    supabase.from("game_registrations")
+      .select("game_number")
+      .eq("game_id", id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.game_number) {
+          setGameNumber('#' + String(data.game_number).padStart(8, '0'));
+        }
+      });
+  }, [id]);
+
   useEffect(() => { ensureDealKeyframes(); }, []);
 
   // Board theme configuration
@@ -1122,10 +1138,7 @@ function RamiPage() {
         newMeldIdxs.push(i);
         const m = currentMelds[i];
         const p = parts.find(pp => pp.user_id === m.player);
-        if (m.type === "seven" && m.player !== profile?.id) {
-          const who = p?.display_name || "Un joueur";
-          toast.success(`🎊 ${who} : 7 Cartes — Miverim-bola !`, { duration: 3500 });
-        }
+        // Toast Miverim-bola supprimé : déjà géré par le toast ⭐7 plus bas
         if (p?.is_bot && m.type !== "seven") {
           const kind = m.type === "run" ? "suite" : m.type === "set" ? "brelan/carré" : "combinaison";
           // REMOVED: bot meld toast
