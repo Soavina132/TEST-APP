@@ -328,33 +328,65 @@ const MELD_LABEL: Record<Exclude<MeldKind, null>, string> = {
  * "7 Cartes - Miverim-bola" : carré (4 identiques) + brelan (3 identiques),
  * ou suite de 4 de la même couleur + brelan.
  */
+/**
+ * "7 Cartes - Miverim-bola" (règle PUR : aucun Joker).
+ *
+ * 3 compositions autorisées :
+ *  1. Tri (3 même valeur) + Escalier (4 consécutives, même couleur)
+ *  2. Tri (3 même valeur) + Carré (4 même valeur, couleurs différentes)
+ *  3. Escalier (3 consécutives, même couleur) + Carré (4 même valeur)
+ *
+ * Règle essentielle : 100% PUR — aucun Joker n'est accepté.
+ */
 function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null): boolean {
   if (cards.length !== 7) return false;
-  const baseValid = (sub: number[]): boolean => {
-    if (sub.length < 3) return false;
-    const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
-    const jokerCount = sub.filter(isJoker).length;
-    const real = sub.filter(c => !isJoker(c));
-    if (real.length < 2) return false;
-    // set
-    const rank = CARD_BASE(real[0]) % 13;
-    const suits = real.map(c => Math.floor(CARD_BASE(c) / 13));
-    if (sub.length <= 4 && real.every(c => CARD_BASE(c) % 13 === rank) && new Set(suits).size === suits.length) return true;
-    // run
-    const suit = Math.floor(CARD_BASE(real[0]) / 13);
-    if (!real.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
-    const ranks = real.map(c => CARD_BASE(c) % 13);
-    if (new Set(ranks).size !== ranks.length) return false; // doublon
-    return computeRunGaps(ranks) <= jokerCount;
+
+  // PUR : rejeter tout groupe contenant un Joker
+  const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
+  if (cards.some(isJoker)) return false;
+
+  // Tri pur : 3 cartes de même valeur, couleurs toutes différentes
+  const isPureTrio = (sub: number[]): boolean => {
+    if (sub.length !== 3 || sub.some(isJoker)) return false;
+    const rank = CARD_BASE(sub[0]) % 13;
+    if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
+    const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
+    return new Set(suits).size === suits.length;
   };
-  for (let i = 0; i < 4; i++)
-    for (let j = i + 1; j < 5; j++)
-      for (let k = j + 1; k < 6; k++)
-        for (let l = k + 1; l < 7; l++) {
-          const four = [cards[i], cards[j], cards[k], cards[l]];
-          const three = cards.filter((_, idx) => idx !== i && idx !== j && idx !== k && idx !== l);
-          if (baseValid(four) && baseValid(three)) return true;
-        }
+
+  // Carré pur : 4 cartes de même valeur, couleurs toutes différentes
+  const isPureCarre = (sub: number[]): boolean => {
+    if (sub.length !== 4 || sub.some(isJoker)) return false;
+    const rank = CARD_BASE(sub[0]) % 13;
+    if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
+    const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
+    return new Set(suits).size === suits.length;
+  };
+
+  // Escalier pur : cartes consécutives de même couleur, sans Joker ni trou
+  const isPureRun = (sub: number[]): boolean => {
+    if (sub.length < 3 || sub.some(isJoker)) return false;
+    const suit = Math.floor(CARD_BASE(sub[0]) / 13);
+    if (!sub.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
+    const ranks = sub.map(c => CARD_BASE(c) % 13);
+    if (new Set(ranks).size !== ranks.length) return false;
+    return computeRunGaps(ranks) === 0;
+  };
+
+  // Toutes les partitions 3+4 des 7 cartes
+  for (let i = 0; i < 5; i++)
+    for (let j = i + 1; j < 6; j++)
+      for (let k = j + 1; k < 7; k++) {
+        const three = [cards[i], cards[j], cards[k]];
+        const four = cards.filter((_, idx) => idx !== i && idx !== j && idx !== k);
+
+        // Comp. 1 : Tri + Escalier de 4
+        if (isPureTrio(three) && isPureRun(four)) return true;
+        // Comp. 2 : Tri + Carré
+        if (isPureTrio(three) && isPureCarre(four)) return true;
+        // Comp. 3 : Escalier de 3 + Carré
+        if (isPureRun(three) && isPureCarre(four)) return true;
+      }
   return false;
 }
 
