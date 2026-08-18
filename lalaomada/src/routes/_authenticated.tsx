@@ -13,7 +13,7 @@ import { useT } from "@/lib/i18n";
 import { useWaitingRoomActive } from "@/lib/game-ui-state";
 import { PageLoader } from "@/components/layout/PageLoader";
 import { useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 
 export const Route = createFileRoute("/_authenticated")({
