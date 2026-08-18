@@ -2281,23 +2281,6 @@ function RamiPage() {
                     !
                   </div>
                 )}
-                {/* Carte tirée (joker aléatoire) : perpendiculaire en bas, demi-visible */}
-                {randomJoker !== null && (
-                  <div
-                    className="absolute left-1/2 -bottom-1 z-10 pointer-events-none"
-                    style={{
-                      transform: "translateX(-50%) rotate(90deg) translateY(-50%)",
-                      transformOrigin: "center center",
-                      width: 60,
-                      height: 42,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div style={{ width: 60, height: 84, marginTop: -42 }}>
-                      <Card c={randomJoker} styleOverride={{ width: 60, height: 84 }} />
-                    </div>
-                  </div>
-                )}
               </button>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
                 isMyTurn && phase === "draw" && deckCount > 0
@@ -2307,6 +2290,16 @@ function RamiPage() {
                 {`Pioche · ${deckCount}`}
               </span>
             </div>
+
+            {/* Carte tirée (joker aléatoire) : emplacement dédié entre pioche et défausse */}
+            {randomJoker !== null && (
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="relative rounded-[6px]" style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}>
+                  <Card c={randomJoker} styleOverride={{ width: 44, height: 62 }} />
+                </div>
+                <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full bg-black/60 text-amber-300 whitespace-nowrap">Joker</span>
+              </div>
+            )}
 
             {/* Défausse */}
             <div className="flex flex-col items-center gap-0.5">
@@ -2328,8 +2321,6 @@ function RamiPage() {
                   : "text-white/90 bg-black/60"
               }`}>Défausse</span>
             </div>
-
-            {/* Carte tirée (joker aléatoire) : affichée perpendiculairement en bas de la pioche, sans texte */}
           </div>
         );
 
