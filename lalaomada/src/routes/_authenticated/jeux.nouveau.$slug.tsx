@@ -121,6 +121,7 @@ function Lobby() {
   const [targetScore, setTargetScore] = useState(100);
   const [fanoronaVariant, setFanoronaVariant] = useState<"telo" | "dimy" | "tsivy">("tsivy");
   const [fanoronaMandatory, setFanoronaMandatory] = useState<boolean>(true);
+  const [fanoronaTime, setFanoronaTime] = useState<number>(10);
   const [ramiJokerMode, setRamiJokerMode] = useState<"sans" | "aleatoire" | "classique" | "double">("sans");
   const [ramiGameMode, setRamiGameMode] = useState<"bordel" | "naturel">("bordel");
   const [ramiSevenCards, setRamiSevenCards] = useState<boolean>(true);
@@ -331,7 +332,7 @@ function Lobby() {
         } as any);
         if (error) throw error; id = extractGameId(data);
       } else if (slug === "fanorona") {
-        const { data, error } = await supabase.rpc("fanorona_create" as any, { _stake: 0, _private: priv, _commission: commission, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory } as any);
+        const { data, error } = await supabase.rpc("fanorona_create" as any, { _stake: 0, _private: priv, _commission: commission, _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory, _time_min: fanoronaTime } as any);
         if (error) throw error; id = extractGameId(data);
       } else if (slug === "chess") {
         const { data, error } = await supabase.rpc("chess_create_friends" as any, { _time_min: chessTime, _private: priv } as any);
@@ -367,7 +368,7 @@ function Lobby() {
     } else if (slug === "fanorona") {
       const { data, error } = await supabase.rpc("fanorona_create" as any, {
         _stake: stake, _private: priv, _commission: commission,
-        _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory,
+        _variant: fanoronaVariant, _mandatory_capture: fanoronaMandatory, _time_min: fanoronaTime,
       } as any);
       if (error) throw error; id = extractGameId(data);
     } else if (slug === "chess") {
@@ -524,6 +525,7 @@ function Lobby() {
               )}
               {slug === "fanorona" && (
                 <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
               )}
               {slug === "chess" && matchType === "bot" && (
                 <>
@@ -544,7 +546,7 @@ function Lobby() {
               )}
 
               {slug === "chess" && (
-                <SummaryRow icon="⏱️" label="Temps / joueur" value={chessTime === 999 ? "Illimité" : `${chessTime} min`} onClick={() => setSheet("chess_time")} />
+                <SummaryRow icon="⏱️" label="Temps / joueur" value={`${chessTime} min`} onClick={() => setSheet("chess_time")} />
               )}
             </div>
 
@@ -592,6 +594,7 @@ function Lobby() {
               )}
               {slug === "fanorona" && (
                 <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
               )}
               {slug === "rami" && (
                 <>
@@ -603,7 +606,7 @@ function Lobby() {
 
 
               {slug === "chess" && (
-                <SummaryRow icon="⏱️" label="Temps / joueur" value={chessTime === 999 ? "Illimité" : `${chessTime} min`} onClick={() => setSheet("chess_time")} />
+                <SummaryRow icon="⏱️" label="Temps / joueur" value={`${chessTime} min`} onClick={() => setSheet("chess_time")} />
               )}
             </div>
 
@@ -1154,18 +1157,20 @@ function RamiGameModeBlock({ value, onChange }: {
 }
 
 function ChessTimePicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const presets = [3, 5, 10, 999];
+  const presets = [1, 3, 5, 7, 10, 15];
   const isPreset = presets.includes(value);
   const [custom, setCustom] = useState<string>(isPreset ? "" : String(value));
   return (
     <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)] space-y-2">
       <div className="font-bold text-sm">Temps par joueur</div>
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-3 gap-1.5">
         {[
-          { v: 3, l: "⚡ 3′" },
-          { v: 5, l: "🔥 5′" },
-          { v: 10, l: "⏱️ 10′" },
-          { v: 999, l: "♾️" },
+          { v: 1, l: "⚡ 1′" },
+          { v: 3, l: "🔥 3′" },
+          { v: 5, l: "⏱️ 5′" },
+          { v: 7, l: "🎯 7′" },
+          { v: 10, l: "♟️ 10′" },
+          { v: 15, l: "🏆 15′" },
         ].map(o => (
           <button key={o.v} onClick={() => { onChange(o.v); setCustom(""); }}
             className={`py-2 rounded-xl font-bold text-xs transition-all active:scale-95 ${value === o.v && !custom ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20" : "bg-secondary text-foreground"}`}>
@@ -1173,20 +1178,30 @@ function ChessTimePicker({ value, onChange }: { value: number; onChange: (v: num
           </button>
         ))}
       </div>
-      <div className="flex items-center gap-2 pt-1">
-        <span className="text-[11px] text-muted-foreground shrink-0">Perso.</span>
-        <input
-          type="number" min={1} max={180} inputMode="numeric" placeholder="ex. 15"
-          value={custom}
-          onChange={(e) => {
-            const raw = e.target.value;
-            setCustom(raw);
-            const n = Math.max(1, Math.min(180, Number(raw) || 0));
-            if (n > 0) onChange(n);
-          }}
-          className={`flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-secondary text-sm font-bold text-center outline-none border ${custom ? "border-primary/40" : "border-transparent"}`}
-        />
-        <span className="text-[11px] text-muted-foreground shrink-0">min</span>
+    </div>
+  );
+}
+
+function FanoronaTimePicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const presets = [1, 3, 5, 7, 10, 15];
+  const isPreset = presets.includes(value);
+  return (
+    <div className="rounded-3xl bg-card p-3 shadow-[var(--shadow-soft)] space-y-2">
+      <div className="font-bold text-sm">Temps par joueur</div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[
+          { v: 1, l: "⚡ 1′" },
+          { v: 3, l: "🔥 3′" },
+          { v: 5, l: "⏱️ 5′" },
+          { v: 7, l: "🎯 7′" },
+          { v: 10, l: "♟️ 10′" },
+          { v: 15, l: "🏆 15′" },
+        ].map(o => (
+          <button key={o.v} onClick={() => onChange(o.v)}
+            className={`py-2 rounded-xl font-bold text-xs transition-all active:scale-95 ${value === o.v ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20" : "bg-secondary text-foreground"}`}>
+            {o.l}
+          </button>
+        ))}
       </div>
     </div>
   );
