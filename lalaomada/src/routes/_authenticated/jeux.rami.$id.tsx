@@ -1259,6 +1259,7 @@ function RamiPage() {
   const jokerMode: string = game?.joker_mode || "classique";
   const gameMode: "bordel" | "naturel" = (game?.game_mode as any) || "bordel";
   const randomJoker: number | null = game?.random_joker ?? null;
+  const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
   const refunded: Record<string, boolean> = game?.state?.refunded || {};
   const myRefunded = !!(profile?.id && refunded[profile.id]);
 
@@ -1882,7 +1883,6 @@ function RamiPage() {
 
   const dnd = useLongPressDrag({ delay: 250, onDrop: handleDrop });
 
-  const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
   if (!game) return <GameLoader />;
 
 
