@@ -1260,6 +1260,13 @@ function RamiPage() {
   const gameMode: "bordel" | "naturel" = (game?.game_mode as any) || "bordel";
   const randomJoker: number | null = game?.random_joker ?? null;
   const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
+  const MAX_LIVES = 3;
+  const livesOf = (uid: string) => {
+    const skips = (game as any)?.turn_skips;
+    if (!skips) return MAX_LIVES;
+    const used = skips[uid] || 0;
+    return Math.max(0, MAX_LIVES - used);
+  };
   const refunded: Record<string, boolean> = game?.state?.refunded || {};
   const myRefunded = !!(profile?.id && refunded[profile.id]);
 
@@ -2057,12 +2064,6 @@ function RamiPage() {
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
         const MAX_LIVES = 3;
-        const livesOf = (uid: string) => {
-          const skips = (game as any)?.turn_skips;
-          if (!skips) return MAX_LIVES;
-          const used = skips[uid] || 0;
-          return Math.max(0, MAX_LIVES - used);
-        };
         const Lives = ({ uid, size = 'sm' }: { uid: string; size?: 'sm' | 'lg' }) => {
           const lives = livesOf(uid);
           return (
