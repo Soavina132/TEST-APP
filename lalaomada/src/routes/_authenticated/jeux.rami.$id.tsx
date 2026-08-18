@@ -261,6 +261,52 @@ function isDeadCard(c: number, jokerMode: string, randomJoker: number | null): b
 }
 
 
+// Check if a joker card is in its natural position (used as itself, not as wildcard)
+// For a SET: same rank as other cards, unique suit
+// For a RUN: same suit as other cards, rank fits the consecutive sequence
+function isJokerNatural(c: number, cards: number[], jokerMode: string, randomJoker: number | null): boolean {
+  if (!isJokerCard(c, jokerMode, randomJoker)) return true;
+  const base = CARD_BASE(c);
+  if (base >= 52) return false; // physical jokers are never natural
+  const cardRank = base % 13;
+  const cardSuit = Math.floor(base / 13);
+  const n = cards.length;
+
+  // Collect other real (non-joker, non-dead) cards
+  const others = cards.filter(x => x !== c && !isJokerCard(x, jokerMode, randomJoker) && !isDeadCard(x, jokerMode, randomJoker));
+  if (others.length < 2) return false;
+
+  const otherRanks = others.map(x => CARD_BASE(x) % 13);
+  const otherSuits = others.map(x => Math.floor(CARD_BASE(x) / 13));
+
+  // Check SET (trio/carre): all others same rank = joker's rank, joker's suit unique
+  if (n === 3 || n === 4) {
+    const allSameRank = otherRanks.every(r => r === cardRank);
+    if (allSameRank && !otherSuits.includes(cardSuit)) {
+      return true;
+    }
+  }
+
+  // Check RUN: all others same suit = joker's suit, consecutive with joker's rank
+  const allSameSuit = otherSuits.every(s => s === cardSuit);
+  if (allSameSuit) {
+    const allRanks = [...otherRanks, cardRank];
+    if (new Set(allRanks).size === allRanks.length) {
+      // Try As-low and As-high
+      for (let tryHigh = 0; tryHigh < 2; tryHigh++) {
+        const rs = tryHigh === 1 ? allRanks.map(r => r === 0 ? 13 : r) : [...allRanks];
+        const minR = Math.min(...rs);
+        const maxR = Math.max(...rs);
+        if (maxR - minR + 1 === allRanks.length) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+
+
 // Calcule le nombre de "trous" (cartes manquantes) dans un escalier, en essayant
 // l'As bas (valeur 0) ET l'As haut (valeur 13, après le Roi — ex: J-Q-K-A).
 // Retourne le minimum de trous entre les deux interprétations, en respectant
@@ -298,12 +344,17 @@ function validateMeld(
 
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
   const isDead = (c: number) => isDeadCard(c, jokerMode, randomJoker);
+  const isNatural = (c: number) => isJokerNatural(c, cards, jokerMode, randomJoker);
 
   // Dead card (same color as random joker) = INVALID for ALL combinations
   if (cards.some(isDead)) return 'invalid';
 
-  const jokerCount = cards.filter(isJoker).length;
-  const real = cards.filter(c => !isJoker(c));
+  // Jokers used as wildcards (not in natural position) count as jokers
+  // Natural jokers are treated as real cards
+  const wildcardJokers = cards.filter(c => isJoker(c) && !isNatural(c));
+  const naturalJokers = cards.filter(c => isJoker(c) && isNatural(c));
+  const jokerCount = wildcardJokers.length;
+  const real = cards.filter(c => !isJoker(c)).concat(naturalJokers);
 
   const checkSet = (): boolean => {
     if (cards.length > 4) return false;
@@ -367,33 +418,34 @@ const MELD_LABEL: Record<Exclude<MeldKind, null>, string> = {
 function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): boolean {
   if (cards.length !== 7) return false;
 
-  // 7 cartes = 100% PUR, aucun Joker ni dead card, peu importe le mode
+  // 7 cartes = 100% PUR: aucun Joker non-naturel, aucune dead card
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
   const isDead = (c: number) => isDeadCard(c, jokerMode, randomJoker);
-  if (cards.some(isJoker)) return false;
-  if (cards.some(isDead)) return false;
+  const isNatural = (c: number) => isJokerNatural(c, cards, jokerMode, randomJoker);
+  // Reject dead cards and non-natural jokers
+  if (cards.some(c => isDead(c) || (isJoker(c) && !isNatural(c)))) return false;
 
-  // Tri pur : 3 cartes de même valeur, couleurs toutes différentes
+  // Tri pur : 3 cartes de même valeur, couleurs toutes différentes (jokers naturels OK)
   const isPureTrio = (sub: number[]): boolean => {
-    if (sub.length !== 3 || sub.some(isJoker)) return false;
+    if (sub.length !== 3 || sub.some(c => isDead(c) || (isJoker(c) && !isNatural(c)))) return false;
     const rank = CARD_BASE(sub[0]) % 13;
     if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
     const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
     return new Set(suits).size === suits.length;
   };
 
-  // Carré pur : 4 cartes de même valeur, couleurs toutes différentes
+  // Carré pur : 4 cartes de même valeur, couleurs toutes différentes (jokers naturels OK)
   const isPureCarre = (sub: number[]): boolean => {
-    if (sub.length !== 4 || sub.some(isJoker)) return false;
+    if (sub.length !== 4 || sub.some(c => isDead(c) || (isJoker(c) && !isNatural(c)))) return false;
     const rank = CARD_BASE(sub[0]) % 13;
     if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
     const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
     return new Set(suits).size === suits.length;
   };
 
-  // Escalier pur : cartes consécutives de même couleur, sans Joker ni trou
+  // Escalier pur : cartes consécutives de même couleur, sans Joker non-naturel ni trou
   const isPureRun = (sub: number[]): boolean => {
-    if (sub.length < 3 || sub.some(isJoker)) return false;
+    if (sub.length < 3 || sub.some(c => isDead(c) || (isJoker(c) && !isNatural(c)))) return false;
     const suit = Math.floor(CARD_BASE(sub[0]) / 13);
     if (!sub.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
     const ranks = sub.map(c => CARD_BASE(c) % 13);
