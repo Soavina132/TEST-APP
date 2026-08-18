@@ -1260,13 +1260,15 @@ function RamiPage() {
   const gameMode: "bordel" | "naturel" = (game?.game_mode as any) || "bordel";
   const randomJoker: number | null = game?.random_joker ?? null;
   const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
-  const MAX_LIVES = 3;
+  const cfg = useGameConfig("rami");
+  const MAX_LIVES = cfg.max_turn_skips || 3;
   const livesOf = (uid: string) => {
     const skips = (game as any)?.turn_skips;
     if (!skips) return MAX_LIVES;
     const used = skips[uid] || 0;
     return Math.max(0, MAX_LIVES - used);
   };
+  const myLives = profile?.id ? livesOf(profile.id) : MAX_LIVES;
   const refunded: Record<string, boolean> = game?.state?.refunded || {};
   const myRefunded = !!(profile?.id && refunded[profile.id]);
 
@@ -1413,20 +1415,21 @@ function RamiPage() {
     return getLayoffCandidates(melds, selected, jokerMode, randomJoker, sevenCardsEnabled);
   }, [melds, selected, isMyTurn, phase, jokerMode, randomJoker]);
 
-  const cfg = useGameConfig("rami");
   const [remaining, setRemaining] = useState(cfg.turn_timer_seconds);
   useEffect(() => {
     if (!game?.turn_deadline || game.status !== "playing") { setRemaining(cfg.turn_timer_seconds); return; }
     let fired = false;
-    let retryCount = 0;
     let lastSec = -1;
     let tickAtZero = 0;
+    let inFlight = false;
 
     const fireTick = async () => {
-      const { error } = await supabase.rpc("rami_tick" as any, { _game_id: id } as any);
-      if (error && retryCount < 5) {
-        retryCount++;
-        setTimeout(() => fireTick(), 3000);
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        await supabase.rpc("rami_tick" as any, { _game_id: id } as any);
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -1442,11 +1445,12 @@ function RamiPage() {
         tickAtZero = 0;
         fireTick();
       }
-      // Retry every 3 seconds while at 0 (DB clock may be behind)
+      // Keep retrying every 3s indefinitely while stuck at 0 — a server-side
+      // cron job (rami_bot_tick_all, every 5s) also acts as a safety net,
+      // but we never want the client to permanently give up here.
       if (s === 0 && fired) {
         tickAtZero++;
-        if (tickAtZero % 3 === 0 && retryCount < 5) {
-          retryCount++;
+        if (tickAtZero % 3 === 0) {
           fireTick();
         }
       }
@@ -2069,7 +2073,6 @@ function RamiPage() {
         const keyOf = (p: typeof sorted[number]) => (p.user_id as string) || `bot:${p.slot}`;
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
-        const MAX_LIVES = 3;
 
         // ── Opponent avatar card: compact with timer ring ──
         const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast, avatarUrl, lives }: {
@@ -2126,7 +2129,11 @@ function RamiPage() {
                     <span className="text-[9px] text-white/55 font-semibold">{n} cartes</span>
                     {meldCount > 0 && <span className="text-[8px] text-amber-300/90 font-bold">✦{meldCount}</span>}
                     {hasSeven && <span className="text-[8px] text-amber-400 font-bold animate-pulse">⭐7</span>}
-
+                  </div>
+                  <div className="flex items-center gap-0.5 mt-0.5">
+                    {Array.from({ length: MAX_LIVES }).map((_, i) => (
+                      <span key={i} className={`text-[7px] ${i < lives ? "opacity-100" : "opacity-25"}`}>❤️</span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -2380,8 +2387,14 @@ function RamiPage() {
                   : initial}
               </div>
             </div>
-            <span className="text-[10px] font-bold text-emerald-400 animate-pulse">À toi de jouer — {remaining}s</span>
-
+            <div className="flex flex-col leading-tight">
+              <span className="text-[10px] font-bold text-emerald-400 animate-pulse">À toi de jouer — {remaining}s</span>
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: MAX_LIVES }).map((_, i) => (
+                  <span key={i} className={`text-[9px] ${i < myLives ? "opacity-100" : "opacity-25"}`}>❤️</span>
+                ))}
+              </div>
+            </div>
           </div>
         );
       })()}
