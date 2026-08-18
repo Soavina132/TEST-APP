@@ -175,6 +175,12 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const [animatingCapture, setAnimatingCapture] = useState<number[]>([]);
   const botTriggeredRef = useRef<number | string>(-1);
   const lastBoardRef = useRef<string>("");
+  // On mount: check if timer already expired server-side
+  useEffect(() => {
+    void supabase.rpc("fanorona_tick" as any, { _game_id: id } as any).then(() => load());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   // load alias for use in timeout callbacks (maps to useFastRealtime reload)
   const load = reload;
   // loaded / loadError derived from hook state
@@ -321,20 +327,25 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const wTime = game ? Math.max(0, game.white_time_ms - (game.current_turn === 0 ? elapsedSinceMove : 0)) : 0;
   const bTime = game ? Math.max(0, game.black_time_ms - (game.current_turn === 1 ? elapsedSinceMove : 0)) : 0;
 
-  /* -------- Flag fall timeout -------- */
+  /* -------- Flag fall timeout (with retries) -------- */
   const timeoutFiredRef = useRef<string | null>(null);
+  const timeoutRetryRef = useRef(0);
   useEffect(() => {
     if (!game || game.status !== "playing") return;
     if (wTime > 0 && bTime > 0) return;
     const loserSlot = wTime <= 0 ? 0 : 1;
     const key = `${game.id}:${game.state?.move_count ?? 0}:${loserSlot}`;
-    if (timeoutFiredRef.current === key) return;
-    timeoutFiredRef.current = key;
+    if (timeoutFiredRef.current === key && timeoutRetryRef.current >= 5) return;
+    if (timeoutFiredRef.current !== key) {
+      timeoutFiredRef.current = key;
+      timeoutRetryRef.current = 0;
+    }
     (async () => {
       await supabase.rpc("fanorona_tick" as any, { _game_id: id } as any);
+      timeoutRetryRef.current++;
       setTimeout(() => load(), 1200);
     })();
-  }, [game, id, wTime, bTime, load]);
+  }, [game, id, wTime, bTime, load, now]);
 
 
   // Valid move targets for selected piece
