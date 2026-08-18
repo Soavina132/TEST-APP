@@ -102,7 +102,68 @@ type OpenGame = {
   host_name?: string;
   target_score?: number | null;
   draw_mode?: string | null;
+  // New: game-specific parameters
+  game_mode?: string | null;       // domino mode, rami game_mode
+  joker_mode?: string | null;      // rami joker mode
+  seven_cards?: boolean | null;    // rami seven cards
+  time_control_min?: number | null;// chess time
+  variant?: string | null;         // fanorona variant
+  mandatory_capture?: boolean | null; // fanorona
+  ludo_mode?: string | null;       // ludo mode
+  first_tile_rule?: string | null; // domino
+  vato_maty?: boolean | null;      // domino
 };
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Game parameter chips — displayed under each open game card
+// ─────────────────────────────────────────────────────────────────────────────
+function GameParamChips({ game }: { game: OpenGame }) {
+  const chips: string[] = [];
+  const jokerLabels: Record<string, string> = {
+    sans: "Sans joker", aleatoire: "Joker opposé", classique: "Joker classique", double: "Double joker"
+  };
+
+  switch (game.slug) {
+    case "rami":
+      if (game.game_mode) chips.push(game.game_mode === "naturel" ? "Naturel" : "Bordel");
+      if (game.joker_mode) chips.push(jokerLabels[game.joker_mode] || game.joker_mode);
+      if (game.seven_cards) chips.push("7 cartes bonus");
+      break;
+    case "domino":
+      if (game.draw_mode) chips.push(game.draw_mode === "without" ? "Sans pioche" : "Avec pioche");
+      if (game.target_score && game.target_score > 0) chips.push(`${game.target_score} pts`);
+      else chips.push("1 manche");
+      if (game.first_tile_rule) chips.push(game.first_tile_rule === "libre" ? "1er coup libre" : "1er <6");
+      if (game.vato_maty) chips.push("Vato Maty");
+      break;
+    case "ludo":
+      if (game.ludo_mode) chips.push(game.ludo_mode === "fast" ? "Rapide" : "Classique");
+      break;
+    case "fanorona":
+      if (game.variant) chips.push(game.variant);
+      if (game.mandatory_capture !== null && game.mandatory_capture !== undefined)
+        chips.push(game.mandatory_capture ? "Capture obligatoire" : "Capture libre");
+      break;
+    case "chess":
+      if (game.time_control_min) {
+        chips.push(game.time_control_min === 999 ? "Illimité" : `${game.time_control_min} min/joueur`);
+      }
+      break;
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {chips.map((c, i) => (
+        <span key={i} className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-muted-foreground">
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -207,6 +268,16 @@ function JeuxPage() {
         host_id: r.host_id || null, host_name: r.host_name || "Joueur",
         target_score: r.target_score ?? null,
         draw_mode: r.draw_mode ?? null,
+        // New fields
+        game_mode: r.game_mode ?? null,
+        joker_mode: r.joker_mode ?? null,
+        seven_cards: r.seven_cards ?? null,
+        time_control_min: r.time_control_min ?? null,
+        variant: r.variant ?? null,
+        mandatory_capture: r.mandatory_capture ?? null,
+        ludo_mode: r.ludo_mode ?? r.game_mode ?? null,
+        first_tile_rule: r.first_tile_rule ?? null,
+        vato_maty: r.vato_maty ?? null,
       }));
     setOpenGames(flat);
     setLoadingGames(false);
@@ -216,20 +287,27 @@ function JeuxPage() {
   useEffect(() => { loadOpenGames(); }, [loadOpenGames]);
 
   // Real-time refresh (single channel, debounced)
+  // Listen to ALL inserts (not just status=open) because rami uses status='waiting'
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout>;
     const refresh = () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => loadOpenGames({ silent: true }), 800);
+      debounceTimer = setTimeout(() => loadOpenGames({ silent: true }), 600);
     };
     const ch = supabase.channel("open-games-all");
     ALL_DISPLAYED_SLUGS.forEach(slug => {
-      ch.on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug], filter: "status=eq.open" }, refresh);
+      ch.on("postgres_changes", { event: "INSERT", schema: "public", table: GAME_TABLE[slug] }, refresh);
       ch.on("postgres_changes", { event: "UPDATE", schema: "public", table: GAME_TABLE[slug] }, refresh);
       ch.on("postgres_changes", { event: "DELETE", schema: "public", table: GAME_TABLE[slug] }, refresh);
     });
     ch.subscribe();
     return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
+  }, [loadOpenGames]);
+
+  // Also poll every 5s as backup for real-time updates
+  useEffect(() => {
+    const t = setInterval(() => loadOpenGames({ silent: true }), 5000);
+    return () => clearInterval(t);
   }, [loadOpenGames]);
 
 
@@ -288,6 +366,12 @@ function JeuxPage() {
       toast.error("Solde insuffisant", { action: { label: "Déposer", onClick: () => setShowDepositPopup(true) } });
       return;
     }
+    // If user is already in this game, just navigate to it
+    const isAlreadyIn = game.host_id === profile?.id;
+    if (isAlreadyIn) {
+      navigate({ to: ROUTE[game.slug] as any, params: { id: game.id } as any });
+      return;
+    }
     setJoiningId(game.id);
     try {
       const { error } = await supabase.rpc(fn as any, { _game_id: game.id } as any);
@@ -301,10 +385,10 @@ function JeuxPage() {
 
   // ── Derived ───────────────────────────────────────────────────────────
   const visibleGames  = GAMES.filter(g => getGameStatus(g.slug) !== "hidden");
+  // Show ALL open games including own — creator can rejoin their own game
   const filteredGames = openGames
     .filter(g => filterSlug === "all" || g.slug === filterSlug)
-    .filter(g => filterStake === "all" || (filterStake === "free" ? g.stake === 0 : g.stake > 0))
-    .filter(g => g.host_id !== profile?.id);  // Don't show own games
+    .filter(g => filterStake === "all" || (filterStake === "free" ? g.stake === 0 : g.stake > 0));
   const filterOptions = [
     { slug: "all", label: "Tous", count: openGames.length },
     ...ALL_DISPLAYED_SLUGS
@@ -506,16 +590,13 @@ function JeuxPage() {
             const CoverMini = COVER_COMPONENTS[game.slug];
             const isFull = game.players_count >= game.max_players;
             const isBusy = joiningId === game.id;
-            // Domino-specific chips
-            const dominoChips: string[] = [];
-            if (game.slug === "domino") {
-              dominoChips.push(game.draw_mode === "without" ? "sans pioche" : "avec pioche");
-              if (game.target_score && game.target_score > 0) dominoChips.push(`${game.target_score} pts`);
-              else dominoChips.push("1 manche");
-            }
+            const isOwnGame = game.host_id === profile?.id;
+
             return (
               <div key={game.id}
-                className="relative bg-gradient-to-br from-card to-card/60 rounded-2xl border border-white/10 p-2.5 flex items-center gap-2.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all shadow-sm overflow-hidden">
+                className={`relative bg-gradient-to-br from-card to-card/60 rounded-2xl border p-2.5 flex items-center gap-2.5 hover:shadow-lg transition-all shadow-sm overflow-hidden ${
+                  isOwnGame ? "border-primary/40" : "border-white/10 hover:border-primary/40 hover:shadow-primary/10"
+                }`}>
                 {/* Stake ribbon */}
                 {game.stake > 0 && (
                   <div className="absolute top-0 right-0 bg-amber-500/95 text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl-lg shadow">
@@ -525,6 +606,13 @@ function JeuxPage() {
                 {game.stake === 0 && (
                   <div className="absolute top-0 right-0 bg-emerald-500/95 text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl-lg shadow">
                     GRATUIT
+                  </div>
+                )}
+
+                {/* Own game badge */}
+                {isOwnGame && (
+                  <div className="absolute top-0 left-0 bg-primary/95 text-primary-foreground text-[9px] font-black px-1.5 py-0.5 rounded-br-lg shadow">
+                    MA PARTIE
                   </div>
                 )}
 
@@ -560,15 +648,8 @@ function JeuxPage() {
                     )}
                   </div>
 
-                  {dominoChips.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {dominoChips.map((c, i) => (
-                        <span key={i} className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-muted-foreground">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  {/* Game-specific parameter chips */}
+                  <GameParamChips game={game} />
                 </div>
 
                 {/* Action */}
@@ -576,6 +657,14 @@ function JeuxPage() {
                   <span className="flex-shrink-0 self-end px-2 py-1.5 rounded-lg bg-secondary border border-white/10 text-muted-foreground font-semibold text-[10px]">
                     🔒 Code
                   </span>
+                ) : isOwnGame ? (
+                  <button
+                    onClick={() => joinGame(game)}
+                    className="flex-shrink-0 self-end flex items-center gap-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-black text-xs active:scale-95 transition-all shadow-md shadow-primary/30"
+                  >
+                    <Play className="w-3 h-3" />
+                    Rejoindre
+                  </button>
                 ) : (
                   <button
                     onClick={() => joinGame(game)}
