@@ -997,8 +997,9 @@ function RamiPage() {
   const activeTheme = BOARD_THEMES[boardTheme];
 
   const load = useCallback(async () => {
-    // Fetch game + participants in parallel instead of sequentially — halves the
-    // network round-trip time on every refresh.
+    // Process expired turns (timer enforcement) before fetching
+    try { await supabase.rpc("rami_process_expired_turns" as any); } catch {}
+    // Fetch game + participants in parallel
     const [{ data: g }, { data: p }] = await Promise.all([
       supabase.from("rami_games" as any).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", id).maybeSingle(),
       supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot"),
@@ -1262,12 +1263,11 @@ function RamiPage() {
   const randomJoker: number | null = game?.random_joker ?? null;
   const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
   const cfg = useGameConfig("rami");
-  const MAX_LIVES = cfg.max_turn_skips || 3;
+  const MAX_LIVES = 3;
   const livesOf = (uid: string) => {
-    const skips = (game as any)?.turn_skips;
-    if (!skips) return MAX_LIVES;
-    const used = skips[uid] || 0;
-    return Math.max(0, MAX_LIVES - used);
+    const p = parts.find(p => (p.user_id as string) === uid || `bot:${p.slot}` === uid);
+    if (p && p.lives != null) return Math.max(0, p.lives);
+    return MAX_LIVES;
   };
   const myLives = profile?.id ? livesOf(profile.id) : MAX_LIVES;
   const refunded: Record<string, boolean> = game?.state?.refunded || {};
