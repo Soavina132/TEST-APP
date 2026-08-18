@@ -1299,7 +1299,7 @@ function RamiPage() {
     if (!melds || !profile?.id) return;
     const newSeven: string[] = [];
     melds.forEach((m: any, i: number) => {
-      if (m.player !== profile.id && (m.type === "seven" || m.seven === true)) {
+      if (m.player !== profile.id && m.seven === true) {
         const meldKey = `${m.player}-${i}`;
         if (!shownSevenMelds.has(meldKey)) {
           newSeven.push(meldKey);
@@ -1512,7 +1512,7 @@ function RamiPage() {
       if (kind === 'seven') {
         // sevenFx removed
         // sevenFx removed
-        toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
+        toast.success("✓ 7 cartes posées — clique « Valider 7 » pour réclamer");
       } else {
         toast.success(`✓ ${MELD_LABEL[kind]} validé`);
       haptic(30);
