@@ -240,6 +240,27 @@ function isJokerCard(c: number, jokerMode: string, randomJoker: number | null): 
   return false;
 }
 
+// Dead card: same rank AND same color as the random joker card (but different suit)
+// This card is INVALID for ALL combinations (cannot be used in any meld)
+function isDeadCard(c: number, jokerMode: string, randomJoker: number | null): boolean {
+  const base = CARD_BASE(c);
+  if (base >= 52) return false; // physical jokers are never dead cards
+  if ((jokerMode !== 'aleatoire' && jokerMode !== 'double') || randomJoker === null) return false;
+  const rjBase = CARD_BASE(randomJoker);
+  if (rjBase >= 52) return false;
+  const cardRank = base % 13;
+  const jokerRank = rjBase % 13;
+  const cardSuit = Math.floor(base / 13);
+  const jokerSuit = Math.floor(rjBase / 13);
+  if (cardRank === jokerRank && cardSuit !== jokerSuit) {
+    const cardColor = (cardSuit === 0 || cardSuit === 3) ? 0 : 1;
+    const jokerColor = (jokerSuit === 0 || jokerSuit === 3) ? 0 : 1;
+    if (cardColor === jokerColor) return true; // SAME color = dead card
+  }
+  return false;
+}
+
+
 // Calcule le nombre de "trous" (cartes manquantes) dans un escalier, en essayant
 // l'As bas (valeur 0) ET l'As haut (valeur 13, après le Roi — ex: J-Q-K-A).
 // Retourne le minimum de trous entre les deux interprétations, en respectant
@@ -276,6 +297,10 @@ function validateMeld(
   if (cards.length < 3) return 'unknown';
 
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
+  const isDead = (c: number) => isDeadCard(c, jokerMode, randomJoker);
+
+  // Dead card (same color as random joker) = INVALID for ALL combinations
+  if (cards.some(isDead)) return 'invalid';
 
   const jokerCount = cards.filter(isJoker).length;
   const real = cards.filter(c => !isJoker(c));
@@ -342,9 +367,11 @@ const MELD_LABEL: Record<Exclude<MeldKind, null>, string> = {
 function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): boolean {
   if (cards.length !== 7) return false;
 
-  // 7 cartes = 100% PUR, aucun Joker, peu importe le mode
+  // 7 cartes = 100% PUR, aucun Joker ni dead card, peu importe le mode
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
+  const isDead = (c: number) => isDeadCard(c, jokerMode, randomJoker);
   if (cards.some(isJoker)) return false;
+  if (cards.some(isDead)) return false;
 
   // Tri pur : 3 cartes de même valeur, couleurs toutes différentes
   const isPureTrio = (sub: number[]): boolean => {
