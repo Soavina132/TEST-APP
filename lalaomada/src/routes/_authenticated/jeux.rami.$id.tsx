@@ -2209,21 +2209,9 @@ function RamiPage() {
                   );
                 })}
               </div>
-              {revealed && !isSevenMeld && (
-                <span className={`text-[7px] font-bold px-1 py-0.5 rounded-full whitespace-nowrap ${
-                  pure ? "bg-cyan-500/20 text-cyan-300" : "bg-purple-500/20 text-purple-300"
-                }`}>
-                  {pure ? "Pure" : "Joker"}
-                </span>
-              )}
               {isSevenMeld && (
                 <span className="text-[7px] font-bold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 whitespace-nowrap">
                   7 Cartes
-                </span>
-              )}
-              {canBreak && (
-                <span className="text-[7px] font-bold px-1 py-0.5 rounded-full bg-orange-500/20 text-orange-300 whitespace-nowrap animate-pulse">
-                  ↩ Reprendre
                 </span>
               )}
             </div>
@@ -2357,18 +2345,6 @@ function RamiPage() {
               {oppStrip}
               {centerFelt}
               {myMeldsStrip}
-              {canClaimSeven && !alreadySeven && (
-                <div className="flex items-center justify-center gap-2 px-3 py-2 mx-2 mb-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 shadow-lg shadow-amber-500/40 animate-pulse">
-                  <span className="text-xs font-black text-black">🎊 7 Cartes détectées !</span>
-                  <button
-                    onClick={claimSeven}
-                    disabled={busy}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/85 text-amber-300 text-xs font-black disabled:opacity-40 hover:bg-black active:scale-95 transition-all"
-                  >
-                    <Check className="w-3.5 h-3.5" /> Valider
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         );
