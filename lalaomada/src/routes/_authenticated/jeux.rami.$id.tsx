@@ -2267,13 +2267,13 @@ function RamiPage() {
             {/* Pioche + Joker aléatoire à gauche de la pioche */}
             <div className="flex flex-col items-center gap-0.5">
               <div className="relative isolate" style={{ width: 60, height: 84, overflow: 'visible' }}>
-                {/* Joker aléatoire : perpendiculaire à gauche de la pioche, tête visible */}
+                {/* Joker aléatoire : juste un petit coin visible à gauche, le reste bien caché sous la pioche */}
                 {randomJoker !== null && (
                   <div
                     className="absolute pointer-events-none"
                     style={{
                       top: '50%',
-                      left: '0px',
+                      left: '16px',
                       transform: 'translate(-50%, -50%) rotate(-90deg)',
                       transformOrigin: 'center center',
                       zIndex: 0,
@@ -2287,10 +2287,15 @@ function RamiPage() {
                   ref={deckRef}
                   disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
                   onClick={drawDeck}
-                  className={`relative rounded-[6px] disabled:opacity-50 active:scale-95 transition-transform ${
+                  className={`relative rounded-[6px] active:scale-95 transition-transform ${
                     isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg turn-active-pulse" : ""
                   }`}
-                  style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))", zIndex: 10 }}
+                  style={{
+                    filter: isMyTurn && phase === "draw" && deckCount > 0
+                      ? "drop-shadow(0 4px 8px rgba(250,204,21,0.5)) saturate(1.3)"
+                      : "drop-shadow(0 4px 6px rgba(0,0,0,0.45)) saturate(1.3)",
+                    zIndex: 10,
+                  }}
                 >
                   <Card faceDown styleOverride={{ width: 60, height: 84 }} />
                   {deckCount > 0 && deckCount <= 10 && (
@@ -2305,11 +2310,8 @@ function RamiPage() {
                   ? "bg-yellow-500 text-black animate-pulse font-bold"
                   : deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
               }`}>
-                {randomJoker !== null ? `Pioche · ${deckCount}` : `Pioche · ${deckCount}`}
+                {`Pioche · ${deckCount}`}
               </span>
-              {randomJoker !== null && (
-                <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full bg-black/60 text-amber-300 whitespace-nowrap">Joker</span>
-              )}
             </div>
 
             {/* Défausse */}
