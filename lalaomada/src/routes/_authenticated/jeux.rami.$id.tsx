@@ -2329,10 +2329,7 @@ function RamiPage() {
               }`}>Défausse</span>
             </div>
 
-            {/* Carte tirée (joker aléatoire) : affichée perpendiculairement en bas de la pioche */}
-            {randomJoker !== null && (
-              <span className="text-[10px] font-semibold text-amber-300 bg-black/60 px-2.5 py-1 rounded-full whitespace-nowrap">Carte tirée</span>
-            )}
+            {/* Carte tirée (joker aléatoire) : affichée perpendiculairement en bas de la pioche, sans texte */}
           </div>
         );
 
