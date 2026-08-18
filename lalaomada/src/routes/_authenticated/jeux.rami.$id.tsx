@@ -1521,6 +1521,9 @@ function RamiPage() {
   const toggleMeldPick = (i: number) =>
     setPickedMelds(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i]);
 
+  // seven_claimed_by: si un joueur (n'importe qui) a déjà réclamé le 7 cartes dans cette partie
+  const sevenClaimedBy = (game as any)?.state?.seven_claimed_by as string | undefined;
+
   const alreadySeven = useMemo(
     () => melds.some(m => m.player === profile?.id && (m as { seven?: boolean }).seven === true)
       || !!(profile?.id && (game as any)?.state?.refunded?.[profile?.id]),
@@ -1528,8 +1531,11 @@ function RamiPage() {
   );
 
   // Auto-detect 7 cards: check single 'seven' meld OR pairs of melds for a valid 7-card combo
+  // MAIS: si un joueur a déjà réclamé le 7 cartes dans cette partie, le bouton ne s'affiche plus jamais
   const canClaimSeven = useMemo(() => {
     if (!profile?.id || alreadySeven) return false;
+    // Un seul joueur par partie peut réclamer le 7 cartes
+    if (sevenClaimedBy) return false;
     const mine = melds.map((m, i) => ({ m, i })).filter(x => x.m.player === profile?.id);
     if (mine.length < 1) return false;
     // Single 7-card meld (type 'seven')
@@ -1546,7 +1552,7 @@ function RamiPage() {
       }
     }
     return false;
-  }, [melds, profile?.id, alreadySeven, jokerMode, randomJoker, sevenCardsEnabled]);
+  }, [melds, profile?.id, alreadySeven, sevenClaimedBy, jokerMode, randomJoker, sevenCardsEnabled]);
 
   const claimSeven = async () => {
     setBusy(true);
