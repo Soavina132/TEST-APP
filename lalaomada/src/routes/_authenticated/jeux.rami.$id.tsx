@@ -271,6 +271,7 @@ function validateMeld(
   cards: number[],
   jokerMode: string,
   randomJoker: number | null,
+  sevenCardsEnabled: boolean = true,
 ): MeldValidity {
   if (cards.length < 3) return 'unknown';
 
@@ -299,17 +300,17 @@ function validateMeld(
   };
 
   if (checkSet() || checkSequence()) return 'valid';
-  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker)) return 'valid';
+  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker, sevenCardsEnabled)) return 'valid';
   return 'invalid';
 }
 
 /** Type détecté d'une sélection : carré, trio, escalier ou 7 cartes. */
 type MeldKind = 'carre' | 'trio' | 'run' | 'seven' | null;
 
-function meldKind(cards: number[], jokerMode: string, randomJoker: number | null): MeldKind {
+function meldKind(cards: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): MeldKind {
   if (cards.length < 3) return null;
-  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker)) return 'seven';
-  if (validateMeld(cards, jokerMode, randomJoker) !== 'valid') return null;
+  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker, sevenCardsEnabled)) return 'seven';
+  if (validateMeld(cards, jokerMode, randomJoker, sevenCardsEnabled) !== 'valid') return null;
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
   const real = cards.filter(c => !isJoker(c));
   const sameRank = real.length > 0 && real.every(c => CARD_BASE(c) % 13 === CARD_BASE(real[0]) % 13);
@@ -338,12 +339,13 @@ const MELD_LABEL: Record<Exclude<MeldKind, null>, string> = {
  *
  * Règle essentielle : 100% PUR — aucun Joker n'est accepté.
  */
-function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null): boolean {
+function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): boolean {
   if (cards.length !== 7) return false;
 
-  // PUR : rejeter tout groupe contenant un Joker
+  // PUR : rejeter les Jokers si seven_cards actif OU mode 'sans'
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
-  if (cards.some(isJoker)) return false;
+  const purRequired = sevenCardsEnabled || jokerMode === 'sans';
+  if (purRequired && cards.some(isJoker)) return false;
 
   // Tri pur : 3 cartes de même valeur, couleurs toutes différentes
   const isPureTrio = (sub: number[]): boolean => {
@@ -391,23 +393,23 @@ function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | 
 }
 
 // Find all valid melds (3–7 cards) in a hand
-function findAllValidMelds(hand: number[], jokerMode: string, randomJoker: number | null): number[][] {
+function findAllValidMelds(hand: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): number[][] {
   const melds: number[][] = [];
   const n = hand.length;
   for (let i = 0; i < n; i++)
     for (let j = i + 1; j < n; j++)
       for (let k = j + 1; k < n; k++) {
         const trio = [hand[i], hand[j], hand[k]];
-        if (validateMeld(trio, jokerMode, randomJoker) === 'valid') melds.push(trio);
+        if (validateMeld(trio, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(trio);
         for (let l = k + 1; l < n; l++) {
           const quad = [hand[i], hand[j], hand[k], hand[l]];
-          if (validateMeld(quad, jokerMode, randomJoker) === 'valid') melds.push(quad);
+          if (validateMeld(quad, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(quad);
           for (let m = l + 1; m < n; m++) {
             const five = [hand[i], hand[j], hand[k], hand[l], hand[m]];
-            if (validateMeld(five, jokerMode, randomJoker) === 'valid') melds.push(five);
+            if (validateMeld(five, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(five);
             for (let o = m + 1; o < n; o++) {
               const six = [hand[i], hand[j], hand[k], hand[l], hand[m], hand[o]];
-              if (validateMeld(six, jokerMode, randomJoker) === 'valid') melds.push(six);
+              if (validateMeld(six, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(six);
             }
           }
         }
@@ -425,8 +427,8 @@ interface OptimalPlay {
   savedPoints: number;
 }
 
-function suggestOptimalPlay(hand: number[], jokerMode: string, randomJoker: number | null): OptimalPlay | null {
-  const allMelds = findAllValidMelds(hand, jokerMode, randomJoker);
+function suggestOptimalPlay(hand: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): OptimalPlay | null {
+  const allMelds = findAllValidMelds(hand, jokerMode, randomJoker, sevenCardsEnabled);
   if (allMelds.length === 0) return null;
 
   let bestMelds: number[][] = [];
@@ -473,12 +475,13 @@ function getSelectionFeedback(
   cards: number[],
   jokerMode: string,
   randomJoker: number | null,
+  sevenCardsEnabled: boolean = true,
 ): { hint: string; severity: 'ok' | 'warn' | 'error' | 'info' } {
   if (cards.length === 0) return { hint: "", severity: 'info' };
 
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
 
-  const validity = validateMeld(cards, jokerMode, randomJoker);
+  const validity = validateMeld(cards, jokerMode, randomJoker, sevenCardsEnabled);
   if (validity === 'valid') return { hint: "✓ Combinaison valide — prête à poser", severity: 'ok' };
   if (validity === 'unknown') {
     // 1 or 2 cards — give a hint
@@ -549,14 +552,15 @@ function getLayoffCandidates(
   selected: number[],
   jokerMode: string,
   randomJoker: number | null,
+  sevenCardsEnabled: boolean = true,
 ): Set<number> {
   const candidates = new Set<number>();
   melds.forEach((m, i) => {
     for (const card of selected) {
       // Try prepending or appending
       if (
-        validateMeld([card, ...m.cards], jokerMode, randomJoker) === 'valid' ||
-        validateMeld([...m.cards, card], jokerMode, randomJoker) === 'valid'
+        validateMeld([card, ...m.cards], jokerMode, randomJoker, sevenCardsEnabled) === 'valid' ||
+        validateMeld([...m.cards, card], jokerMode, randomJoker, sevenCardsEnabled) === 'valid'
       ) {
         candidates.add(i);
         break;
@@ -1371,7 +1375,7 @@ function RamiPage() {
     }
   }, [phase, selected.length, newCard]);
 
-  const selectionValidity = useMemo(() => validateMeld(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  const selectionValidity = useMemo(() => validateMeld(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
 
   // Cards in hand that could complete a valid meld with current selection
   const playableCards = useMemo(() => {
@@ -1380,25 +1384,25 @@ function RamiPage() {
     for (const c of handCards) {
       if (selected.includes(c)) continue;
       const test = [...selected, c];
-      const v = validateMeld(test, jokerMode, randomJoker);
+      const v = validateMeld(test, jokerMode, randomJoker, sevenCardsEnabled);
       if (v === "valid") result.add(c);
     }
     return result;
   }, [selected, handCards, isMyTurn, phase, jokerMode, randomJoker]);
-  const selectionKind = useMemo(() => meldKind(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  const selectionKind = useMemo(() => meldKind(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
   // ── Auto-detect available combos in hand ──
   const availableCombos = useMemo(() => {
     if (!isPlayer || game?.status !== 'playing') return [];
     return detectCombos(handCards, jokerMode, randomJoker);
   }, [handCards, jokerMode, randomJoker, isPlayer, game?.status]);
-  const selectionFeedback = useMemo(() => getSelectionFeedback(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
-  const stagedValidity = useMemo(() => staged.map(g => validateMeld(g, jokerMode, randomJoker)), [staged, jokerMode, randomJoker]);
-  const isSeven = useMemo(() => isSevenCombo(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  const selectionFeedback = useMemo(() => getSelectionFeedback(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
+  const stagedValidity = useMemo(() => staged.map(g => validateMeld(g, jokerMode, randomJoker, sevenCardsEnabled)), [staged, jokerMode, randomJoker, sevenCardsEnabled]);
+  const isSeven = useMemo(() => isSevenCombo(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
 
   // Compute which melds can accept the selected cards (for layoff highlighting)
   const layoffCandidates = useMemo(() => {
     if (!isMyTurn || phase !== "play" || selected.length === 0) return new Set<number>();
-    return getLayoffCandidates(melds, selected, jokerMode, randomJoker);
+    return getLayoffCandidates(melds, selected, jokerMode, randomJoker, sevenCardsEnabled);
   }, [melds, selected, isMyTurn, phase, jokerMode, randomJoker]);
 
   const cfg = useGameConfig("rami");
@@ -1408,12 +1412,12 @@ function RamiPage() {
     let fired = false;
     let retryCount = 0;
     let lastSec = -1;
+    let tickAtZero = 0;
 
     const fireTick = async () => {
       const { error } = await supabase.rpc("rami_tick" as any, { _game_id: id } as any);
       if (error && retryCount < 5) {
         retryCount++;
-        // Retry after 3s — the DB clock might still be slightly ahead
         setTimeout(() => fireTick(), 3000);
       }
     };
@@ -1427,11 +1431,16 @@ function RamiPage() {
       }
       if (s === 0 && !fired) {
         fired = true;
+        tickAtZero = 0;
         fireTick();
       }
-      // If still at 0 after 5s, force-retry (cron backup may have failed too)
-      if (s === 0 && fired && retryCount < 5 && lastSec === 0) {
-        // fireTick already handles retries; this is a safety net
+      // Retry every 3 seconds while at 0 (DB clock may be behind)
+      if (s === 0 && fired) {
+        tickAtZero++;
+        if (tickAtZero % 3 === 0 && retryCount < 5) {
+          retryCount++;
+          fireTick();
+        }
       }
     };
     tick();
@@ -1459,7 +1468,7 @@ function RamiPage() {
 
   // Pose directe de la sélection scannée (trio / carré / escalier / 7 cartes)
   const postSelection = async () => {
-    const kind = meldKind(selected, jokerMode, randomJoker);
+    const kind = meldKind(selected, jokerMode, randomJoker, sevenCardsEnabled);
     if (!kind) return toast.error("Sélection invalide");
     const cards = [...selected];
     setBusy(true);
@@ -1503,7 +1512,7 @@ function RamiPage() {
     for (let a = 0; a < mine.length; a++) {
       for (let b = a + 1; b < mine.length; b++) {
         const combo = [...mine[a].m.cards, ...mine[b].m.cards];
-        if (combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker)) return true;
+        if (combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker, sevenCardsEnabled)) return true;
       }
     }
     return false;
@@ -1690,7 +1699,7 @@ function RamiPage() {
     for (const combo of combos) {
       // Skip if any card already used in a previous group
       if (combo.cards.some(c => usedCards.has(c))) continue;
-      const valid = validateMeld(combo.cards, jokerMode, randomJoker);
+      const valid = validateMeld(combo.cards, jokerMode, randomJoker, sevenCardsEnabled);
       if (valid === 'valid') {
         groups.push([...combo.cards]);
         combo.cards.forEach(c => usedCards.add(c));
@@ -1711,7 +1720,7 @@ function RamiPage() {
 
   // Optimal play suggester
   const triggerOptimalSuggest = () => {
-    const result = suggestOptimalPlay(handCards, jokerMode, randomJoker);
+    const result = suggestOptimalPlay(handCards, jokerMode, randomJoker, sevenCardsEnabled);
     if (!result) { toast.info("Aucune combinaison valide dans ta main"); return; }
     setOptimalPlay(result);
     setShowOptimal(true);
@@ -2047,10 +2056,29 @@ function RamiPage() {
         const keyOf = (p: typeof sorted[number]) => (p.user_id as string) || `bot:${p.slot}`;
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
+        const MAX_LIVES = 3;
+        const livesOf = (uid: string) => {
+          const skips = (game as any)?.turn_skips;
+          if (!skips) return MAX_LIVES;
+          const used = skips[uid] || 0;
+          return Math.max(0, MAX_LIVES - used);
+        };
+        const Lives = ({ uid, size = 'sm' }: { uid: string; size?: 'sm' | 'lg' }) => {
+          const lives = livesOf(uid);
+          return (
+            <span className={`inline-flex items-center gap-0.5 ${size === 'lg' ? 'text-sm' : 'text-[9px]'}`}>
+              {Array.from({ length: MAX_LIVES }).map((_, i) => (
+                <span key={i} className={i < lives ? '' : 'opacity-25 grayscale'}>
+                  {i < lives ? '❤️' : '🤍'}
+                </span>
+              ))}
+            </span>
+          );
+        };
 
         // ── Opponent avatar card: compact with timer ring ──
-        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast, avatarUrl }: {
-          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; hasSeven: boolean; isLast: boolean; avatarUrl?: string | null
+        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast, avatarUrl, lives }: {
+          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; hasSeven: boolean; isLast: boolean; avatarUrl?: string | null; lives: number
         }) {
           const name = (p.display_name || "Joueur").slice(0, 10);
           const initial = name.charAt(0).toUpperCase();
@@ -2103,6 +2131,7 @@ function RamiPage() {
                     <span className="text-[9px] text-white/55 font-semibold">{n} cartes</span>
                     {meldCount > 0 && <span className="text-[8px] text-amber-300/90 font-bold">✦{meldCount}</span>}
                     {hasSeven && <span className="text-[8px] text-amber-400 font-bold animate-pulse">⭐7</span>}
+                    <span className="text-[8px]">{"❤️".repeat(lives)}{"🤍".repeat(3 - lives)}</span>
                   </div>
                 </div>
               </div>
@@ -2141,7 +2170,7 @@ function RamiPage() {
           .map(x => ({ ...x, name: ((p: typeof sorted[number]) => (p?.display_name || "Joueur").slice(0, 10))(sorted.find(s => ((s.user_id as string) || `bot:${s.slot}`) === x.m.player)) }));
 
         const MeldRow = ({ m, i, mine }: { m: { player: string; cards: number[]; type?: string }; i: number; mine: boolean }) => {
-          const kind = (m.type as Exclude<MeldKind, null>) || meldKind(m.cards, jokerMode, randomJoker);
+          const kind = (m.type as Exclude<MeldKind, null>) || meldKind(m.cards, jokerMode, randomJoker, sevenCardsEnabled);
           const isSevenMeld = kind === "seven" || (m as { seven?: boolean }).seven === true;
           const revealed = mine || isSevenMeld;
           const canLayoff = layoffCandidates.has(i);
@@ -2209,7 +2238,8 @@ function RamiPage() {
                 n={handLenOf(keyOf(p))} meldCount={meldCountOf(p.user_id || "")}
                 hasSeven={hasSevenOf(p.user_id || "")}
                 isLast={i === others.length - 1}
-                avatarUrl={p.user_id ? avatarsMap[p.user_id] : null} />
+                avatarUrl={p.user_id ? avatarsMap[p.user_id] : null}
+                lives={livesOf(keyOf(p))} />
             ))}
           </div>
         );
@@ -2380,6 +2410,7 @@ function RamiPage() {
               </div>
             </div>
             <span className="text-[10px] font-bold text-emerald-400 animate-pulse">À toi de jouer — {remaining}s</span>
+            {profile?.id && <span className="text-[10px] ml-1">{"❤️".repeat(livesOf(profile.id))}{"🤍".repeat(3 - livesOf(profile.id))}</span>}
           </div>
         );
       })()}
