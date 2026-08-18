@@ -1308,6 +1308,14 @@ function RamiPage() {
         newSeven.forEach(k => next.add(k));
         return next;
       });
+      // Toast: notifier qu'un adversaire a validé ses 7 cartes
+      const claimerMeld = melds.find((m: any, i: number) => {
+        const meldKey = `${m.player}-${i}`;
+        return newSeven.includes(meldKey);
+      });
+      const claimer = parts.find(p => (p.user_id as string) === claimerMeld?.player || `bot:${p.slot}` === claimerMeld?.player);
+      const claimerName = claimer?.display_name || "Un joueur";
+      toast.info(`⭐7 ${claimerName} a validé ses 7 cartes !`, { duration: 10000 });
       // Auto-hide after 10 seconds
       newSeven.forEach(key => {
         setTimeout(() => {
@@ -1546,7 +1554,12 @@ function RamiPage() {
       const { data, error } = await supabase.rpc("rami_claim_seven" as any, { _game_id: id } as any);
       if (error) throw error;
       setPickedMelds([]);
-      toast.success("7 cartes validé, mise remboursée");
+      const numPlayers = parts.filter(p => !p.forfeited).length || game?.max_players || 0;
+      if (numPlayers <= 2) {
+        toast.success("⭐7 validé ! 50% de ta mise remboursée (partie à 2)");
+      } else {
+        toast.success(`⭐7 validé ! Mise remboursée (${numPlayers} joueurs)`);
+      }
     } catch (e: any) {
       toast.error(e.message || "Action impossible");
     } finally { setBusy(false); }
