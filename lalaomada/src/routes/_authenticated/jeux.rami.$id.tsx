@@ -107,8 +107,8 @@ const Card = React.memo(function Card({
 
   if (faceDown || c === undefined) {
     return (
-      <div className={`${sizeClass} rounded-md shrink-0 overflow-hidden`}
-        style={{ ...dealStyle, ...styleOverride, border: '1px solid rgba(100,80,40,0.25)', fontSize: `${cardFontSize}px` }}>
+      <div className={`${sizeClass} shrink-0 overflow-hidden`}
+        style={{ ...dealStyle, ...styleOverride, border: '1px solid rgba(100,80,40,0.25)', borderRadius: '5px', fontSize: `${cardFontSize}px` }}>
         <CardBackCSS />
       </div>
     );
@@ -185,14 +185,13 @@ const Card = React.memo(function Card({
       <button
         onClick={onClick}
         disabled={!onClick}
-        style={{ ...styleOverride, fontSize: `${cardFontSize}px` }}
+        style={{ ...styleOverride, fontSize: `${cardFontSize}px`, borderRadius: '5px' }}
         className={`${sizeClass} block transition-transform duration-100 ease-out contain-strict
-          ${selected ? "-translate-y-3" : ""}
-          ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 scale-105" : ""}
+          ${selected ? "-translate-y-3 ring-2 ring-emerald-400 ring-offset-2 ring-offset-transparent" : ""}
+          ${highlight === "layoff" ? "ring-2 ring-emerald-400 ring-offset-1 ring-offset-transparent scale-105" : ""}
           ${onClick ? "cursor-pointer active:scale-95" : "cursor-default"}`}>
         {cardFace}
       </button>
-      {selected && <div className="absolute inset-0 rounded-md ring-2 ring-emerald-400 pointer-events-none" />}
       {onRemove && (
         <button onClick={onRemove}
           className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center z-10 shadow">
@@ -272,6 +271,7 @@ function validateMeld(
   cards: number[],
   jokerMode: string,
   randomJoker: number | null,
+  sevenCardsEnabled: boolean = true,
 ): MeldValidity {
   if (cards.length < 3) return 'unknown';
 
@@ -300,17 +300,17 @@ function validateMeld(
   };
 
   if (checkSet() || checkSequence()) return 'valid';
-  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker)) return 'valid';
+  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker, sevenCardsEnabled)) return 'valid';
   return 'invalid';
 }
 
 /** Type détecté d'une sélection : carré, trio, escalier ou 7 cartes. */
 type MeldKind = 'carre' | 'trio' | 'run' | 'seven' | null;
 
-function meldKind(cards: number[], jokerMode: string, randomJoker: number | null): MeldKind {
+function meldKind(cards: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): MeldKind {
   if (cards.length < 3) return null;
-  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker)) return 'seven';
-  if (validateMeld(cards, jokerMode, randomJoker) !== 'valid') return null;
+  if (cards.length === 7 && isSevenCombo(cards, jokerMode, randomJoker, sevenCardsEnabled)) return 'seven';
+  if (validateMeld(cards, jokerMode, randomJoker, sevenCardsEnabled) !== 'valid') return null;
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
   const real = cards.filter(c => !isJoker(c));
   const sameRank = real.length > 0 && real.every(c => CARD_BASE(c) % 13 === CARD_BASE(real[0]) % 13);
@@ -329,54 +329,87 @@ const MELD_LABEL: Record<Exclude<MeldKind, null>, string> = {
  * "7 Cartes - Miverim-bola" : carré (4 identiques) + brelan (3 identiques),
  * ou suite de 4 de la même couleur + brelan.
  */
-function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null): boolean {
+/**
+ * "7 Cartes - Miverim-bola" (règle PUR : aucun Joker).
+ *
+ * 3 compositions autorisées :
+ *  1. Tri (3 même valeur) + Escalier (4 consécutives, même couleur)
+ *  2. Tri (3 même valeur) + Carré (4 même valeur, couleurs différentes)
+ *  3. Escalier (3 consécutives, même couleur) + Carré (4 même valeur)
+ *
+ * Règle essentielle : 100% PUR — aucun Joker n'est accepté.
+ */
+function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): boolean {
   if (cards.length !== 7) return false;
-  const baseValid = (sub: number[]): boolean => {
-    if (sub.length < 3) return false;
-    const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
-    const jokerCount = sub.filter(isJoker).length;
-    const real = sub.filter(c => !isJoker(c));
-    if (real.length < 2) return false;
-    // set
-    const rank = CARD_BASE(real[0]) % 13;
-    const suits = real.map(c => Math.floor(CARD_BASE(c) / 13));
-    if (sub.length <= 4 && real.every(c => CARD_BASE(c) % 13 === rank) && new Set(suits).size === suits.length) return true;
-    // run
-    const suit = Math.floor(CARD_BASE(real[0]) / 13);
-    if (!real.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
-    const ranks = real.map(c => CARD_BASE(c) % 13);
-    if (new Set(ranks).size !== ranks.length) return false; // doublon
-    return computeRunGaps(ranks) <= jokerCount;
+
+  // PUR : rejeter les Jokers si seven_cards actif OU mode 'sans'
+  const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
+  const purRequired = sevenCardsEnabled || jokerMode === 'sans';
+  if (purRequired && cards.some(isJoker)) return false;
+
+  // Tri pur : 3 cartes de même valeur, couleurs toutes différentes
+  const isPureTrio = (sub: number[]): boolean => {
+    if (sub.length !== 3 || sub.some(isJoker)) return false;
+    const rank = CARD_BASE(sub[0]) % 13;
+    if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
+    const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
+    return new Set(suits).size === suits.length;
   };
-  for (let i = 0; i < 4; i++)
-    for (let j = i + 1; j < 5; j++)
-      for (let k = j + 1; k < 6; k++)
-        for (let l = k + 1; l < 7; l++) {
-          const four = [cards[i], cards[j], cards[k], cards[l]];
-          const three = cards.filter((_, idx) => idx !== i && idx !== j && idx !== k && idx !== l);
-          if (baseValid(four) && baseValid(three)) return true;
-        }
+
+  // Carré pur : 4 cartes de même valeur, couleurs toutes différentes
+  const isPureCarre = (sub: number[]): boolean => {
+    if (sub.length !== 4 || sub.some(isJoker)) return false;
+    const rank = CARD_BASE(sub[0]) % 13;
+    if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
+    const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
+    return new Set(suits).size === suits.length;
+  };
+
+  // Escalier pur : cartes consécutives de même couleur, sans Joker ni trou
+  const isPureRun = (sub: number[]): boolean => {
+    if (sub.length < 3 || sub.some(isJoker)) return false;
+    const suit = Math.floor(CARD_BASE(sub[0]) / 13);
+    if (!sub.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
+    const ranks = sub.map(c => CARD_BASE(c) % 13);
+    if (new Set(ranks).size !== ranks.length) return false;
+    return computeRunGaps(ranks) === 0;
+  };
+
+  // Toutes les partitions 3+4 des 7 cartes
+  for (let i = 0; i < 5; i++)
+    for (let j = i + 1; j < 6; j++)
+      for (let k = j + 1; k < 7; k++) {
+        const three = [cards[i], cards[j], cards[k]];
+        const four = cards.filter((_, idx) => idx !== i && idx !== j && idx !== k);
+
+        // Comp. 1 : Tri + Escalier de 4
+        if (isPureTrio(three) && isPureRun(four)) return true;
+        // Comp. 2 : Tri + Carré
+        if (isPureTrio(three) && isPureCarre(four)) return true;
+        // Comp. 3 : Escalier de 3 + Carré
+        if (isPureRun(three) && isPureCarre(four)) return true;
+      }
   return false;
 }
 
 // Find all valid melds (3–7 cards) in a hand
-function findAllValidMelds(hand: number[], jokerMode: string, randomJoker: number | null): number[][] {
+function findAllValidMelds(hand: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): number[][] {
   const melds: number[][] = [];
   const n = hand.length;
   for (let i = 0; i < n; i++)
     for (let j = i + 1; j < n; j++)
       for (let k = j + 1; k < n; k++) {
         const trio = [hand[i], hand[j], hand[k]];
-        if (validateMeld(trio, jokerMode, randomJoker) === 'valid') melds.push(trio);
+        if (validateMeld(trio, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(trio);
         for (let l = k + 1; l < n; l++) {
           const quad = [hand[i], hand[j], hand[k], hand[l]];
-          if (validateMeld(quad, jokerMode, randomJoker) === 'valid') melds.push(quad);
+          if (validateMeld(quad, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(quad);
           for (let m = l + 1; m < n; m++) {
             const five = [hand[i], hand[j], hand[k], hand[l], hand[m]];
-            if (validateMeld(five, jokerMode, randomJoker) === 'valid') melds.push(five);
+            if (validateMeld(five, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(five);
             for (let o = m + 1; o < n; o++) {
               const six = [hand[i], hand[j], hand[k], hand[l], hand[m], hand[o]];
-              if (validateMeld(six, jokerMode, randomJoker) === 'valid') melds.push(six);
+              if (validateMeld(six, jokerMode, randomJoker, sevenCardsEnabled) === 'valid') melds.push(six);
             }
           }
         }
@@ -394,8 +427,8 @@ interface OptimalPlay {
   savedPoints: number;
 }
 
-function suggestOptimalPlay(hand: number[], jokerMode: string, randomJoker: number | null): OptimalPlay | null {
-  const allMelds = findAllValidMelds(hand, jokerMode, randomJoker);
+function suggestOptimalPlay(hand: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): OptimalPlay | null {
+  const allMelds = findAllValidMelds(hand, jokerMode, randomJoker, sevenCardsEnabled);
   if (allMelds.length === 0) return null;
 
   let bestMelds: number[][] = [];
@@ -442,12 +475,13 @@ function getSelectionFeedback(
   cards: number[],
   jokerMode: string,
   randomJoker: number | null,
+  sevenCardsEnabled: boolean = true,
 ): { hint: string; severity: 'ok' | 'warn' | 'error' | 'info' } {
   if (cards.length === 0) return { hint: "", severity: 'info' };
 
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
 
-  const validity = validateMeld(cards, jokerMode, randomJoker);
+  const validity = validateMeld(cards, jokerMode, randomJoker, sevenCardsEnabled);
   if (validity === 'valid') return { hint: "✓ Combinaison valide — prête à poser", severity: 'ok' };
   if (validity === 'unknown') {
     // 1 or 2 cards — give a hint
@@ -518,14 +552,15 @@ function getLayoffCandidates(
   selected: number[],
   jokerMode: string,
   randomJoker: number | null,
+  sevenCardsEnabled: boolean = true,
 ): Set<number> {
   const candidates = new Set<number>();
   melds.forEach((m, i) => {
     for (const card of selected) {
       // Try prepending or appending
       if (
-        validateMeld([card, ...m.cards], jokerMode, randomJoker) === 'valid' ||
-        validateMeld([...m.cards, card], jokerMode, randomJoker) === 'valid'
+        validateMeld([card, ...m.cards], jokerMode, randomJoker, sevenCardsEnabled) === 'valid' ||
+        validateMeld([...m.cards, card], jokerMode, randomJoker, sevenCardsEnabled) === 'valid'
       ) {
         candidates.add(i);
         break;
@@ -703,7 +738,7 @@ function RamiScoreSummary({ parts, hands, winnerId, pot, commissionPct, melds }:
                     const lbl = cardLabel(c);
                     const pts = CARD_POINTS(c);
                     return (
-                      <div key={ci} className="relative w-9 h-14 rounded-md bg-white border border-gray-300 shadow font-bold flex flex-col p-0.5 text-[10px]" style={{ color: lbl.color }}>
+                      <div key={ci} className="relative w-9 h-14 bg-white border border-gray-300 shadow font-bold flex flex-col p-0.5 text-[10px]" style={{ color: lbl.color, borderRadius: '5px' }}>
                         <div className="leading-none">{lbl.rank}<div>{lbl.suit}</div></div>
                         <div className="absolute bottom-0.5 right-0.5 text-[9px] bg-black/10 rounded px-0.5 font-mono">{pts}</div>
                       </div>
@@ -920,6 +955,7 @@ function RamiPage() {
   const [soundOn, setSoundOn] = useState(!isSfxMuted());
   const [game, setGame] = useState<any>(null);
   const [parts, setParts] = useState<any[]>([]);
+  const [avatarsMap, setAvatarsMap] = useState<Record<string, string | null>>({});
   const [selected, setSelected] = useState<number[]>([]);
   // sevenFx removed for performance
   const [staged, setStaged] = useState<number[][]>([]);
@@ -960,11 +996,30 @@ function RamiPage() {
   const activeTheme = BOARD_THEMES[boardTheme];
 
   const load = useCallback(async () => {
-    const { data: g } = await supabase.from("rami_games" as any).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", id).maybeSingle();
+    // Fetch game + participants in parallel instead of sequentially — halves the
+    // network round-trip time on every refresh.
+    const [{ data: g }, { data: p }] = await Promise.all([
+      supabase.from("rami_games" as any).select("id,status,state,current_turn,turn_phase,turn_deadline,winner_id,stake,pot,commission_pct,max_players,is_private,room_code,created_by,created_at,started_at,finished_at,paused,pause_deadline,pause_used,afk_warning,afk_pause_for,afk_pause_name,afk_warnings,spectators_count,game_mode,joker_mode,random_joker,seven_cards,turn_skips,tournament_match_id,winner_name").eq("id", id).maybeSingle(),
+      supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot"),
+    ]);
     setGame(g);
-    const { data: p } = await supabase.from("rami_participants" as any).select("*").eq("game_id", id).order("slot");
     setParts((p as any[]) || []);
   }, [id, profile?.id]);
+
+  // Fetch real avatars for human participants (bots use a diamond icon instead)
+  useEffect(() => {
+    const humanIds = Array.from(new Set(
+      parts.filter(p => !p.is_bot && p.user_id).map(p => p.user_id as string)
+    )).filter(uid => !(uid in avatarsMap));
+    if (humanIds.length === 0) return;
+    (async () => {
+      const { data } = await supabase.from("profiles" as any).select("id,avatar_url").in("id", humanIds);
+      if (!data) return;
+      const next: Record<string, string | null> = {};
+      (data as any[]).forEach(row => { next[row.id] = row.avatar_url || null; });
+      setAvatarsMap(prev => ({ ...prev, ...next }));
+    })();
+  }, [parts, avatarsMap]);
 
   useEffect(() => {
     load();
@@ -1050,9 +1105,8 @@ function RamiPage() {
   useEffect(() => {
     if (!game) return;
     const currentMelds: { player: string; cards: number[]; type?: string }[] = game?.state?.melds || [];
-    const currentDiscards: Record<string, number[]> = (game?.state?.discards && typeof game.state.discards === "object")
-      ? game.state.discards : {};
-    const lastBy: string = game?.state?.last_discard_by || "_seed";
+    const currentDiscards: Record<string, number[]> = {};
+    const lastBy: string = "";
     const top = (currentDiscards[lastBy] || [])[((currentDiscards[lastBy] || []).length) - 1];
     const prev = botFxRef.current;
 
@@ -1110,7 +1164,7 @@ function RamiPage() {
     if (newDiscardKeys.length) {
     // Flash discards removed
     }
-  }, [game?.state?.melds, game?.state?.discards, game?.state?.last_discard_by, parts]);
+  }, [game?.state?.melds, game?.state?.discard, parts]);
 
   // ── Intro overlay: show who starts first ──
   const [showFirstPlayerIntro, setShowFirstPlayerIntro] = useState(false);
@@ -1193,18 +1247,26 @@ function RamiPage() {
     const h = game?.state?.hands?.[profile?.id || ""];
     return Array.isArray(h) ? h : [];
   }, [game?.state?.hands, profile?.id]);
-  const discards: Record<string, number[]> = useMemo(() => {
-    const d = game?.state?.discards;
-    if (d && typeof d === "object") return d as Record<string, number[]>;
-    const legacy = game?.state?.discard;
-    return Array.isArray(legacy) && legacy.length > 0 ? { _seed: legacy } : {};
-  }, [game?.state?.discards, game?.state?.discard]);
-  const lastDiscardBy: string = game?.state?.last_discard_by || "_seed";
+  // ═══ SYSTÈME SIMPLIFIÉ: discard (int[]) = seule source de vérité ═══
+  const flatDiscard: number[] = useMemo(() => {
+    const raw = game?.state?.discard;
+    return Array.isArray(raw) ? (raw as number[]) : [];
+  }, [game?.state?.discard]);
+
+  const topDiscard = flatDiscard.length > 0 ? flatDiscard[flatDiscard.length - 1] : undefined;
   const deckCount: number = (game?.state?.deck || []).length;
   const melds: { player: string; cards: number[]; type?: string }[] = game?.state?.melds || [];
   const jokerMode: string = game?.joker_mode || "classique";
   const gameMode: "bordel" | "naturel" = (game?.game_mode as any) || "bordel";
   const randomJoker: number | null = game?.random_joker ?? null;
+  const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
+  const MAX_LIVES = 3;
+  const livesOf = (uid: string) => {
+    const skips = (game as any)?.turn_skips;
+    if (!skips) return MAX_LIVES;
+    const used = skips[uid] || 0;
+    return Math.max(0, MAX_LIVES - used);
+  };
   const refunded: Record<string, boolean> = game?.state?.refunded || {};
   const myRefunded = !!(profile?.id && refunded[profile.id]);
 
@@ -1216,8 +1278,7 @@ function RamiPage() {
   }, [game?.state?.action_log]);
 
   // 1er tour: 0 melds + action_log quasi vide
-  const isFirstTurn = (game?.state?.melds as any[] || []).length === 0
-    && (game?.state?.action_log as any[] || []).length <= 1;
+  const isFirstTurn = false; // Plus besoin — le 1er joueur commence en phase 'play'
 
   // Track 7-card melds from other players — show for 10s then auto-hide
   useEffect(() => {
@@ -1322,7 +1383,7 @@ function RamiPage() {
     }
   }, [phase, selected.length, newCard]);
 
-  const selectionValidity = useMemo(() => validateMeld(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  const selectionValidity = useMemo(() => validateMeld(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
 
   // Cards in hand that could complete a valid meld with current selection
   const playableCards = useMemo(() => {
@@ -1331,25 +1392,25 @@ function RamiPage() {
     for (const c of handCards) {
       if (selected.includes(c)) continue;
       const test = [...selected, c];
-      const v = validateMeld(test, jokerMode, randomJoker);
+      const v = validateMeld(test, jokerMode, randomJoker, sevenCardsEnabled);
       if (v === "valid") result.add(c);
     }
     return result;
   }, [selected, handCards, isMyTurn, phase, jokerMode, randomJoker]);
-  const selectionKind = useMemo(() => meldKind(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  const selectionKind = useMemo(() => meldKind(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
   // ── Auto-detect available combos in hand ──
   const availableCombos = useMemo(() => {
     if (!isPlayer || game?.status !== 'playing') return [];
     return detectCombos(handCards, jokerMode, randomJoker);
   }, [handCards, jokerMode, randomJoker, isPlayer, game?.status]);
-  const selectionFeedback = useMemo(() => getSelectionFeedback(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
-  const stagedValidity = useMemo(() => staged.map(g => validateMeld(g, jokerMode, randomJoker)), [staged, jokerMode, randomJoker]);
-  const isSeven = useMemo(() => isSevenCombo(selected, jokerMode, randomJoker), [selected, jokerMode, randomJoker]);
+  const selectionFeedback = useMemo(() => getSelectionFeedback(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
+  const stagedValidity = useMemo(() => staged.map(g => validateMeld(g, jokerMode, randomJoker, sevenCardsEnabled)), [staged, jokerMode, randomJoker, sevenCardsEnabled]);
+  const isSeven = useMemo(() => isSevenCombo(selected, jokerMode, randomJoker, sevenCardsEnabled), [selected, jokerMode, randomJoker, sevenCardsEnabled]);
 
   // Compute which melds can accept the selected cards (for layoff highlighting)
   const layoffCandidates = useMemo(() => {
     if (!isMyTurn || phase !== "play" || selected.length === 0) return new Set<number>();
-    return getLayoffCandidates(melds, selected, jokerMode, randomJoker);
+    return getLayoffCandidates(melds, selected, jokerMode, randomJoker, sevenCardsEnabled);
   }, [melds, selected, isMyTurn, phase, jokerMode, randomJoker]);
 
   const cfg = useGameConfig("rami");
@@ -1359,12 +1420,12 @@ function RamiPage() {
     let fired = false;
     let retryCount = 0;
     let lastSec = -1;
+    let tickAtZero = 0;
 
     const fireTick = async () => {
       const { error } = await supabase.rpc("rami_tick" as any, { _game_id: id } as any);
       if (error && retryCount < 5) {
         retryCount++;
-        // Retry after 3s — the DB clock might still be slightly ahead
         setTimeout(() => fireTick(), 3000);
       }
     };
@@ -1378,29 +1439,22 @@ function RamiPage() {
       }
       if (s === 0 && !fired) {
         fired = true;
+        tickAtZero = 0;
         fireTick();
       }
-      // If still at 0 after 5s, force-retry (cron backup may have failed too)
-      if (s === 0 && fired && retryCount < 5 && lastSec === 0) {
-        // fireTick already handles retries; this is a safety net
+      // Retry every 3 seconds while at 0 (DB clock may be behind)
+      if (s === 0 && fired) {
+        tickAtZero++;
+        if (tickAtZero % 3 === 0 && retryCount < 5) {
+          retryCount++;
+          fireTick();
+        }
       }
     };
     tick();
-    const t = setInterval(tick, 2000);
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
-
-  // ── Bot think timer: trigger rami_tick when bot's think delay expires ──
-  useEffect(() => {
-    const think = game?.state?.bot_think_until;
-    if (!think || game?.status !== "playing") return;
-    const ms = new Date(think).getTime() - serverNow();
-    const delay = Math.max(0, ms) + 150;
-    const t = setTimeout(() => {
-      supabase.rpc("rami_tick" as any, { _game_id: id } as any);
-    }, delay);
-    return;
-  }, [game?.state?.bot_think_until, game?.status, id]);
 
   const isUrgent = remaining <= 10 && isMyTurn;
 
@@ -1422,7 +1476,7 @@ function RamiPage() {
 
   // Pose directe de la sélection scannée (trio / carré / escalier / 7 cartes)
   const postSelection = async () => {
-    const kind = meldKind(selected, jokerMode, randomJoker);
+    const kind = meldKind(selected, jokerMode, randomJoker, sevenCardsEnabled);
     if (!kind) return toast.error("Sélection invalide");
     const cards = [...selected];
     setBusy(true);
@@ -1458,33 +1512,34 @@ function RamiPage() {
     [melds, profile?.id],
   );
 
-  // Auto-detect 7 cards: check all pairs of my melds for a valid 7-card combo
+  // Auto-detect 7 cards: check single 'seven' meld OR pairs of melds for a valid 7-card combo
   const canClaimSeven = useMemo(() => {
     if (!profile?.id || alreadySeven) return false;
     const mine = melds.map((m, i) => ({ m, i })).filter(x => x.m.player === profile?.id);
-    if (mine.length < 2) return false;
-    for (let a = 0; a < mine.length; a++) {
-      for (let b = a + 1; b < mine.length; b++) {
-        const combo = [...mine[a].m.cards, ...mine[b].m.cards];
-        if (combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker)) return true;
+    if (mine.length < 1) return false;
+    // Single 7-card meld (type 'seven')
+    for (const { m } of mine) {
+      if (m.cards.length === 7 && isSevenCombo(m.cards, jokerMode, randomJoker, sevenCardsEnabled)) return true;
+    }
+    // Two melds combining to 7 cards
+    if (mine.length >= 2) {
+      for (let a = 0; a < mine.length; a++) {
+        for (let b = a + 1; b < mine.length; b++) {
+          const combo = [...mine[a].m.cards, ...mine[b].m.cards];
+          if (combo.length === 7 && isSevenCombo(combo, jokerMode, randomJoker, sevenCardsEnabled)) return true;
+        }
       }
     }
     return false;
-  }, [melds, profile?.id, alreadySeven, jokerMode, randomJoker]);
+  }, [melds, profile?.id, alreadySeven, jokerMode, randomJoker, sevenCardsEnabled]);
 
   const claimSeven = async () => {
     setBusy(true);
     try {
       const { data, error } = await supabase.rpc("rami_claim_seven" as any, { _game_id: id } as any);
       if (error) throw error;
-      if (data) {
-        setPickedMelds([]);
-        // sevenFx removed
-        // sevenFx removed
-        toast.success("🎊 7 cartes validées — ta mise t'est remboursée !");
-      } else {
-        toast.error("Pas de 7 cartes valide sur tes combinaisons");
-      }
+      setPickedMelds([]);
+      toast.success("7 cartes validé, mise remboursée");
     } catch (e: any) {
       toast.error(e.message || "Action impossible");
     } finally { setBusy(false); }
@@ -1535,9 +1590,11 @@ function RamiPage() {
       const { error } = await supabase.rpc(fn as any, payload);
       if (error) throw error;
       setSelected([]);
-      // Realtime can lag or drop an event on some connections — force a fresh
-      // fetch right away so the drawn/discarded card never appears "stuck".
-      await load();
+      // Realtime can lag or drop an event on some connections, so we still
+      // force a fresh fetch — but in the background. Awaiting it here made
+      // the button stay disabled for a whole extra network round-trip after
+      // the action already succeeded, which felt like a multi-second freeze.
+      void load();
     } catch (e: any) { toast.error(e.message || "Action invalide"); }
     finally { setBusy(false); }
   };
@@ -1552,23 +1609,13 @@ function RamiPage() {
     // cardFx removed
   };
   const drawDiscard = async () => {
-    // Find the correct discard pile key
-    const _ldb = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
-    const pile = (_ldb && (discards[_ldb] || []).length > 0)
-      ? discards[_ldb]
-      : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
-    if (pile.length === 0) {
+    if (flatDiscard.length === 0) {
       toast.error("La défausse est vide");
       return;
     }
-    const refKey = _ldb || Object.keys(discards).find(k => (discards[k] || []).length > 0) || "";
-    const from = centerOf(discardRefs.current[refKey] || discardRefs.current[_ldb]);
-    const to = centerOf(handRef.current);
-    // cardFx removed
     sfx.ramiDraw();
     haptic(10);
     await call("rami_draw", { _game_id: id, _from: "discard" });
-    // cardFx removed
   };
 
   const submitStagedMeld = async (groupIdx: number) => {
@@ -1640,6 +1687,9 @@ function RamiPage() {
         haptic(20);
       }
       setStaged([]); setSelected([]);
+      // Refresh in the background — don't make the player wait an extra
+      // round-trip for this, the action already succeeded.
+      void load();
     } catch (e: any) {
       toast.error(e.message || "Erreur réseau, réessaie");
     } finally {
@@ -1648,40 +1698,38 @@ function RamiPage() {
   };
 
 
-  // ── Auto-arranger: detect ALL valid combos in hand and stage them ──
-  const autoArrange = async () => {
+  // ── Auto-arranger: just re-sort the hand so detected combos sit next to
+  // each other (side by side) — it does NOT stage/pose anything anymore.
+  const autoArrange = () => {
     if (!isMyTurn || phase !== "play") return;
     const combos = detectCombos(handCards, jokerMode, randomJoker);
-    if (combos.length === 0) {
+    const usedCards = new Set<number>();
+    const groups: number[][] = [];
+    for (const combo of combos) {
+      // Skip if any card already used in a previous group
+      if (combo.cards.some(c => usedCards.has(c))) continue;
+      const valid = validateMeld(combo.cards, jokerMode, randomJoker, sevenCardsEnabled);
+      if (valid === 'valid') {
+        groups.push([...combo.cards]);
+        combo.cards.forEach(c => usedCards.add(c));
+      }
+    }
+    if (groups.length === 0) {
       toast.info("Aucune combinaison détectée dans ta main");
       haptic(20);
       return;
     }
-    // Stage each detected combo
-    const newStaged: number[][] = [];
-    const usedCards = new Set<number>();
-    for (const combo of combos) {
-      // Skip if any card already used in a previous combo
-      if (combo.cards.some(c => usedCards.has(c))) continue;
-      const valid = validateMeld(combo.cards, jokerMode, randomJoker);
-      if (valid === 'valid') {
-        newStaged.push([...combo.cards]);
-        combo.cards.forEach(c => usedCards.add(c));
-      }
-    }
-    if (newStaged.length === 0) {
-      toast.info("Aucune combinaison valide à poser automatiquement");
-      return;
-    }
-    setStaged(prev => [...prev, ...newStaged]);
+    const leftover = handCards.filter(c => !usedCards.has(c));
+    setSortMode('none');
+    setCustomOrder([...groups.flat(), ...leftover]);
     setSelected([]);
     haptic([0, 20, 10, 20]);
-    toast.success(`✨ ${newStaged.length} combinaison${newStaged.length > 1 ? "s" : ""} posée${newStaged.length > 1 ? "s" : ""} automatiquement !`);
+    toast.success(`✨ Main réorganisée · ${groups.length} combinaison${groups.length > 1 ? "s" : ""} groupée${groups.length > 1 ? "s" : ""}`);
   };
 
   // Optimal play suggester
   const triggerOptimalSuggest = () => {
-    const result = suggestOptimalPlay(handCards, jokerMode, randomJoker);
+    const result = suggestOptimalPlay(handCards, jokerMode, randomJoker, sevenCardsEnabled);
     if (!result) { toast.info("Aucune combinaison valide dans ta main"); return; }
     setOptimalPlay(result);
     setShowOptimal(true);
@@ -1843,7 +1891,6 @@ function RamiPage() {
 
   const dnd = useLongPressDrag({ delay: 250, onDrop: handleDrop });
 
-  const sevenCardsEnabled = (game as any)?.seven_cards !== false; // default true if undefined
   if (!game) return <GameLoader />;
 
 
@@ -1931,10 +1978,14 @@ function RamiPage() {
 
   // ── FINISHED: early return to avoid computing game board variables that can crash ──
   if (game.status === "finished") {
-    // Find winner slot for bot wins (winner_id is null when a bot wins)
+    // Find winner: use winner_id first, fall back to winner_name match, then non-forfeited
     const _winnerSlot = game.winner_id
       ? parts.find(p => p.user_id === game.winner_id)?.slot
-      : parts.find(p => !p.forfeited)?.slot ?? null;
+      : (game as any).winner_name
+        ? parts.find(p => p.display_name === (game as any).winner_name || !p.forfeited)?.slot ?? null
+        : parts.find(p => !p.forfeited)?.slot ?? null;
+    // Pass winner_name to GameEndScreen as extra for bot wins
+    const _botWinnerName = !game.winner_id ? (game as any).winner_name : null;
     return (
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4 min-h-screen flex flex-col items-center justify-center">
         <GameEndScreen
@@ -1947,6 +1998,7 @@ function RamiPage() {
           pot={Number(game.pot) || 0}
           commissionPct={Number(game.commission_pct) || 10}
           onReplay={replayRami}
+          botWinnerName={_botWinnerName}
         />
 
         <GameSocialFab gameId={id} gameSlug="rami" participants={parts} />
@@ -1954,35 +2006,15 @@ function RamiPage() {
     );
   }
 
-  // More robust: handle last_discard_by being array/null/undefined
-  const _lastBy = typeof lastDiscardBy === "string" && lastDiscardBy !== "[]" ? lastDiscardBy : "";
-  const drawablePile = (_lastBy && (discards[_lastBy] || []).length > 0)
-    ? discards[_lastBy]
-    : (Object.values(discards).find(p => Array.isArray(p) && p.length > 0) as number[] | undefined) || [];
-  const topDiscard = drawablePile.length > 0 ? drawablePile[drawablePile.length - 1] : undefined;
-  const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined
-    && phase === "draw";
-  // 1er joueur en phase 'play' avec défausse vide = doit organiser et défausser
-  const firstPlayerNoDiscard = isFirstTurn && phase === "play" && topDiscard === undefined;
+  // ═══ SYSTÈME SIMPLIFIÉ: canDrawDiscard = phase 'draw' + défausse non vide ═══
+  const canDrawDiscard = isMyTurn && !busy && topDiscard !== undefined && phase === "draw";
+  const firstPlayerNoDiscard = false;
 
 
-  // Build discard entries: one per participant + seed (if still present)
-  const _discardColors = ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7", "#ec4899"];
-  const discardEntries: { key: string; label: string; color: string; pile: number[]; isMe: boolean }[] = [];
-  if ((discards["_seed"] || []).length > 0) {
-    discardEntries.push({ key: "_seed", label: "1re", color: "#94a3b8", pile: discards["_seed"], isMe: false });
-  }
-  parts.slice().sort((a, b) => a.slot - b.slot).forEach((p, i) => {
-    const key: string = (p.user_id as string) || `bot:${p.slot}`;
-    const isMe = p.user_id === profile?.id;
-    discardEntries.push({
-      key,
-      label: isMe ? "Moi" : (p.display_name || "Joueur").slice(0, 8),
-      color: _discardColors[i % _discardColors.length],
-      pile: discards[key] || [],
-      isMe,
-    });
-  });
+  // Affichage simple: une seule défausse (flat array)
+  const discardEntries: { key: string; label: string; color: string; pile: number[]; isMe: boolean }[] = [
+    { key: "pile", label: "Défausse", color: "#94a3b8", pile: flatDiscard, isMe: false },
+  ];
 
   return (
     <main
@@ -2037,10 +2069,11 @@ function RamiPage() {
         const keyOf = (p: typeof sorted[number]) => (p.user_id as string) || `bot:${p.slot}`;
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
+        const MAX_LIVES = 3;
 
         // ── Opponent avatar card: compact with timer ring ──
-        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast }: {
-          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; hasSeven: boolean; isLast: boolean
+        const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast, avatarUrl, lives }: {
+          p: typeof sorted[number]; turn: boolean; n: number; meldCount: number; hasSeven: boolean; isLast: boolean; avatarUrl?: string | null; lives: number
         }) {
           const name = (p.display_name || "Joueur").slice(0, 10);
           const initial = name.charAt(0).toUpperCase();
@@ -2075,12 +2108,16 @@ function RamiPage() {
                     </svg>
                   )}
                   <div
-                    className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 absolute inset-0 m-0.5 ${
+                    className={`rounded-full flex items-center justify-center font-bold text-white shrink-0 absolute inset-0 m-0.5 overflow-hidden ${
                       turn ? "ring-1 ring-amber-400/50" : ""
                     }`}
                     style={{ fontSize: 11, background: bg }}
                   >
-                    {p.is_bot ? "◆" : initial}
+                    {p.is_bot
+                      ? "◆"
+                      : avatarUrl
+                        ? <img src={avatarUrl} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        : initial}
                   </div>
                 </div>
                 <div className="flex flex-col leading-tight">
@@ -2089,6 +2126,7 @@ function RamiPage() {
                     <span className="text-[9px] text-white/55 font-semibold">{n} cartes</span>
                     {meldCount > 0 && <span className="text-[8px] text-amber-300/90 font-bold">✦{meldCount}</span>}
                     {hasSeven && <span className="text-[8px] text-amber-400 font-bold animate-pulse">⭐7</span>}
+
                   </div>
                 </div>
               </div>
@@ -2127,7 +2165,7 @@ function RamiPage() {
           .map(x => ({ ...x, name: ((p: typeof sorted[number]) => (p?.display_name || "Joueur").slice(0, 10))(sorted.find(s => ((s.user_id as string) || `bot:${s.slot}`) === x.m.player)) }));
 
         const MeldRow = ({ m, i, mine }: { m: { player: string; cards: number[]; type?: string }; i: number; mine: boolean }) => {
-          const kind = (m.type as Exclude<MeldKind, null>) || meldKind(m.cards, jokerMode, randomJoker);
+          const kind = (m.type as Exclude<MeldKind, null>) || meldKind(m.cards, jokerMode, randomJoker, sevenCardsEnabled);
           const isSevenMeld = kind === "seven" || (m as { seven?: boolean }).seven === true;
           const revealed = mine || isSevenMeld;
           const canLayoff = layoffCandidates.has(i);
@@ -2136,14 +2174,8 @@ function RamiPage() {
           const pure = !isSevenMeld && isPureMeld(m.cards, jokerMode, randomJoker);
           return (
             <div key={`meld-wrap-${i}`} className="relative flex flex-col items-center gap-0.5">
-              <button
+              <div
                 key={`meld-${i}`}
-                onClick={() => {
-                  if (canLayoff) layoff(i);
-                  else if (canBreak) unmeld(i);
-                }}
-                onDoubleClick={() => { if (canBreak) unmeld(i); }}
-                disabled={!canLayoff && !mine}
                 className={`relative flex rounded-lg p-1 transition-all shrink-0 bg-black/10 ${
                   picked
                     ? "ring-2 ring-fuchsia-400 bg-fuchsia-500/10"
@@ -2159,27 +2191,21 @@ function RamiPage() {
                 }`}
                 style={{ boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}
               >
-                {m.cards.map((c, ci) => (
-                  <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? -13 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
-                    <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 25, height: 35 }} />
-                  </div>
-                ))}
-              </button>
-              {revealed && !isSevenMeld && (
-                <span className={`text-[7px] font-bold px-1 py-0.5 rounded-full whitespace-nowrap ${
-                  pure ? "bg-cyan-500/20 text-cyan-300" : "bg-purple-500/20 text-purple-300"
-                }`}>
-                  {pure ? "Pure" : "Joker"}
-                </span>
-              )}
+                {m.cards.map((c, ci) => {
+                  const actionable = canLayoff || canBreak;
+                  const onCardClick = actionable
+                    ? () => { if (canLayoff) layoff(i); else if (canBreak) unmeld(i); }
+                    : undefined;
+                  return (
+                    <div key={`m-${i}-${ci}`} style={{ marginLeft: ci > 0 ? 2 : 0, filter: "drop-shadow(1px 0 1.5px rgba(0,0,0,0.4))" }}>
+                      <Card c={revealed ? c : undefined} faceDown={!revealed} styleOverride={{ width: 25, height: 35 }} onClick={onCardClick} />
+                    </div>
+                  );
+                })}
+              </div>
               {isSevenMeld && (
                 <span className="text-[7px] font-bold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 whitespace-nowrap">
                   7 Cartes
-                </span>
-              )}
-              {canBreak && (
-                <span className="text-[7px] font-bold px-1 py-0.5 rounded-full bg-orange-500/20 text-orange-300 whitespace-nowrap animate-pulse">
-                  ↩ Reprendre
                 </span>
               )}
             </div>
@@ -2194,7 +2220,9 @@ function RamiPage() {
               <OppBadge key={keyOf(p)} p={p} turn={game.current_turn === p.slot}
                 n={handLenOf(keyOf(p))} meldCount={meldCountOf(p.user_id || "")}
                 hasSeven={hasSevenOf(p.user_id || "")}
-                isLast={i === others.length - 1} />
+                isLast={i === others.length - 1}
+                avatarUrl={p.user_id ? avatarsMap[p.user_id] : null}
+                lives={livesOf(keyOf(p))} />
             ))}
           </div>
         );
@@ -2214,7 +2242,7 @@ function RamiPage() {
                 ref={deckRef}
                 disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
                 onClick={drawDeck}
-                className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
+                className={`relative rounded-[6px] disabled:opacity-50 active:scale-95 transition-transform ${
                   isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg turn-active-pulse" : ""
                 }`}
                 style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
@@ -2231,27 +2259,23 @@ function RamiPage() {
                   ? "bg-yellow-500 text-black animate-pulse font-bold"
                   : deckCount === 0 ? "bg-red-900/80 text-red-300" : deckCount <= 10 ? "bg-amber-900/80 text-amber-300" : "bg-black/60 text-white/90"
               }`}>
-                {firstPlayerNoDiscard ? "En attente" : `Pioche · ${deckCount}`}
+                {`Pioche · ${deckCount}`}
               </span>
             </div>
 
             {/* Défausse */}
             <div className="flex flex-col items-center gap-0.5">
               <div className="flex items-end gap-1">
-                <button
-                  disabled={!canDrawDiscard}
-                  onClick={drawDiscard}
-                  className={`relative rounded-md disabled:opacity-50 active:scale-95 transition-transform ${
-                    canDrawDiscard ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : ""
-                  } ${""}`}
+                <div
+                  ref={(el) => { discardRefs.current["pile"] = el; }}
+                  className={`relative rounded-[6px] transition-transform ${
+                    canDrawDiscard ? "ring-2 ring-emerald-300 shadow-lg turn-active-pulse" : "opacity-50"
+                  }`}
                 >
-                  <div ref={(el) => { discardRefs.current[lastDiscardBy] = el; if (profile?.id) discardRefs.current[profile.id] = el; }}>
-                    {topDiscard !== undefined
-                      ? <Card c={topDiscard} styleOverride={{ width: 58, height: 82 }} />
-                      : <div className="rounded-md border border-dashed border-white/40" style={{ width: 58, height: 82 }} />}
-                  </div>
-                </button>
-
+                  {topDiscard !== undefined
+                    ? <Card c={topDiscard} styleOverride={{ width: 58, height: 82 }} onClick={canDrawDiscard ? drawDiscard : undefined} />
+                    : <div className="border border-dashed border-white/40" style={{ width: 58, height: 82, borderRadius: '5px' }} />}
+                </div>
               </div>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
                 canDrawDiscard
@@ -2259,15 +2283,6 @@ function RamiPage() {
                   : "text-white/90 bg-black/60"
               }`}>Défausse</span>
             </div>
-
-            {/* Indice 1er joueur: organise et défausse */}
-            {firstPlayerNoDiscard && isMyTurn && (
-              <div className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-400/30 animate-pulse">
-                <span className="text-[11px] font-bold text-amber-300 text-center leading-tight">
-                  🎴 Tu as 14 cartes<br/>Organise et défausse-en une
-                </span>
-              </div>
-            )}
 
             {/* Joker aléatoire */}
             {randomJoker !== null && (
@@ -2291,7 +2306,7 @@ function RamiPage() {
             return visibleSevenMelds.has(meldKey);
           });
         const myMeldsStrip = allMelds.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] max-h-[80px] overflow-y-auto"
+          <div className="flex flex-wrap items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] max-h-[110px] overflow-y-auto"
             style={{ background: `linear-gradient(0deg, ${activeTheme.feltEdge || "#0b3a1f"}ee, transparent)` }}>
             {allMelds.map(({ m, i, mine }) => {
               // For 7-card melds from others, show player name
@@ -2358,12 +2373,15 @@ function RamiPage() {
                   style={{ transition: "stroke-dasharray 1s linear" }}
                 />
               </svg>
-              <div className="rounded-full flex items-center justify-center font-bold text-white absolute inset-0 m-0.5"
+              <div className="rounded-full flex items-center justify-center font-bold text-white absolute inset-0 m-0.5 overflow-hidden"
                 style={{ fontSize: 10, background: bg }}>
-                {initial}
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt="" width={24} height={24} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                  : initial}
               </div>
             </div>
             <span className="text-[10px] font-bold text-emerald-400 animate-pulse">À toi de jouer — {remaining}s</span>
+
           </div>
         );
       })()}
@@ -2443,7 +2461,7 @@ function RamiPage() {
                           {showQuickDiscard && (
                             <button
                               onClick={(e) => { e.stopPropagation(); discardOne(); }}
-                              className="absolute -top-8 left-1/2 -translate-x-1/2 z-[999] px-3 py-1 rounded-full bg-destructive text-white text-[11px] font-extrabold shadow-lg shadow-destructive/40 flex items-center gap-1 whitespace-nowrap animate-scale-in hover:bg-destructive/90 active:scale-95"
+                              className="absolute -top-11 left-1/2 -translate-x-1/2 z-[999] px-3 py-1 rounded-full bg-destructive text-white text-[11px] font-extrabold shadow-lg shadow-destructive/40 flex items-center gap-1 whitespace-nowrap animate-scale-in hover:bg-destructive/90 active:scale-95"
                             >
                               <Trash2 className="w-3 h-3" /> Défausser
                             </button>
@@ -2456,11 +2474,11 @@ function RamiPage() {
                             styleOverride={{ width: `${cw}px`, height: `${ch}px`, pointerEvents: dnd.drag ? "none" : undefined }}
                           />
                           {playableCards.has(c) && !isSel && (
-                            <div className="absolute inset-0 rounded-md ring-2 ring-amber-400/70 pointer-events-none" style={{ width: `${cw}px`, height: `${ch}px` }} />
+                            <div className="absolute -inset-1.5 ring-2 ring-amber-400/70 pointer-events-none" style={{ width: `${cw + 12}px`, height: `${ch + 12}px`, borderRadius: '8px' }} />
                           )}
                           {newCard === c && (
                             <>
-                              <div className="absolute inset-0 rounded-lg ring-2 ring-amber-400 pointer-events-none card-arrive" />
+                              <div className="absolute -inset-1.5 ring-2 ring-amber-400 pointer-events-none card-arrive" style={{ borderRadius: '8px' }} />
                               <div className="absolute -top-2 -right-1 z-[60] px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[9px] font-extrabold shadow-md pointer-events-none animate-scale-in">
                                 NEW
                               </div>
@@ -2495,6 +2513,15 @@ function RamiPage() {
               {/* ── Always-visible action bar ── */}
               {isMyTurn && phase === "play" && !reorderMode && selected.length === 0 && staged.length === 0 && (
                 <div className="flex items-center gap-1.5">
+                  {canClaimSeven && sevenCardsEnabled ? (
+                  <button
+                    onClick={claimSeven}
+                    disabled={busy}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black text-xs shadow-md shadow-amber-500/40 animate-pulse active:scale-95 transition-all disabled:opacity-40"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Valider le 7 cartes
+                  </button>
+                  ) : (
                   <button
                     onClick={autoArrange}
                     disabled={busy}
@@ -2502,9 +2529,10 @@ function RamiPage() {
                   >
                     <Sparkles className="w-3.5 h-3.5" /> Auto-arranger
                   </button>
+                  )}
                   <button
                     onClick={discardOne}
-                    disabled={busy || (selected.length as number) !== 1}
+                    disabled={busy || (selected.length as number) !== 1 || !isMyTurn || phase !== "play"}
                     className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-destructive text-white font-bold text-xs disabled:opacity-30 active:scale-95 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Défausser
@@ -2564,7 +2592,7 @@ function RamiPage() {
                         {selectionKind === 'seven' ? "7 cartes" : selectionKind ? `Valider ${MELD_LABEL[selectionKind]}` : "Valider"}
                       </button>
                     )}
-                    <button onClick={discardOne} disabled={busy || (selected.length as number) !== 1}
+                    <button onClick={discardOne} disabled={busy || (selected.length as number) !== 1 || !isMyTurn || phase !== "play"}
                       className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-destructive text-white font-bold text-xs disabled:opacity-30 active:scale-95 transition-all">
                       <Trash2 className="w-3.5 h-3.5" /> Défausser
                     </button>

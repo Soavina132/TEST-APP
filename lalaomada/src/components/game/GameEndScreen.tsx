@@ -21,6 +21,7 @@ export default function GameEndScreen({
   onReplay,
   countdownSeconds,
   onCountdownEnd,
+  botWinnerName,
 }: {
   slug: GameSlug;
   meUserId?: string;
@@ -34,6 +35,7 @@ export default function GameEndScreen({
   onReplay?: () => void | Promise<void>;
   countdownSeconds?: number;
   onCountdownEnd?: () => void;
+  botWinnerName?: string | null;
 }) {
   const [busy, setBusy] = useState<null | "replay" | "quit">(null);
   const confirm = useConfirm();
@@ -41,7 +43,8 @@ export default function GameEndScreen({
   // Use winnerSlot as fallback when winnerId is null (bot wins)
   const winner = (winnerId != null ? participants.find((p) => p.user_id === winnerId) : undefined)
     || (winnerSlot !== null && winnerSlot !== undefined ? participants.find((p) => p.slot === winnerSlot) : undefined);
-  const winnerResolved = !!winnerId || (winnerSlot !== null && winnerSlot !== undefined);
+  const winnerResolved = !!winnerId || (winnerSlot !== null && winnerSlot !== undefined) || !!botWinnerName;
+  const winnerDisplayName = winner?.display_name || botWinnerName || null;
   const iWon = !!meUserId && (winnerId === meUserId || (winner?.user_id === meUserId));
   const isDraw = !winnerResolved;
   const payout = Math.round((pot * (100 - commissionPct)) / 100);
@@ -202,10 +205,11 @@ export default function GameEndScreen({
             >
               {title}
             </h2>
-            {winner && !iWon && (
+            {winnerDisplayName && !iWon && (
               <div className="mt-1 text-sm text-muted-foreground flex items-center justify-center gap-1.5">
                 <Crown className="w-3.5 h-3.5 text-amber-500" />
-                <b className="text-foreground">{winner.display_name}</b>
+                <b className="text-foreground">{winnerDisplayName}</b>
+                {botWinnerName && <span className="text-[10px] text-muted-foreground">(Bot)</span>}
               </div>
             )}
           </div>

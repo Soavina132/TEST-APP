@@ -1,0 +1,4 @@
+{
+  "installCommand": "echo skip",
+  "buildCommand": "cd lalaomada && npm install && npm run build && mkdir -p ../.vercel && cp -r .vercel/output ../.vercel/output"
+}

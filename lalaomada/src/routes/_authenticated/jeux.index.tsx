@@ -199,33 +199,7 @@ function JeuxPage() {
   const [joiningId, setJoiningId]         = useState<string | null>(null);
 
 
-  const [ongoingGames, setOngoingGames] = useState<any[]>([]);
-  const [loadingOngoing, setLoadingOngoing] = useState(false);
-
-  // ── Ongoing games (my active games) ───────────────────────────────────
-  const loadOngoingGames = useCallback(async (opts: { silent?: boolean } = {}) => {
-    if (!opts.silent) setLoadingOngoing(true);
-    const { data, error } = await supabase.rpc("my_ongoing_all" as any);
-    if (!error && data) setOngoingGames(data as any[]);
-    setLoadingOngoing(false);
-  }, []);
-
-  useEffect(() => { loadOngoingGames(); }, [loadOngoingGames]);
-
   // Real-time refresh for ongoing games
-  useEffect(() => {
-    let debounceTimer: ReturnType<typeof setTimeout>;
-    const refresh = () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => loadOngoingGames({ silent: true }), 800);
-    };
-    const ch = supabase.channel("ongoing-games-all");
-    ALL_DISPLAYED_SLUGS.forEach(slug =>
-      ch.on("postgres_changes", { event: "*", schema: "public", table: GAME_TABLE[slug] }, refresh)
-    );
-    ch.subscribe();
-    return () => { clearTimeout(debounceTimer); supabase.removeChannel(ch); };
-  }, [loadOngoingGames]);
   // ── Disabled games ────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
@@ -401,53 +375,6 @@ function JeuxPage() {
   return (
     <main className="max-w-3xl mx-auto px-3 pt-2 pb-20 md:pb-4 flex flex-col gap-3 md:h-[calc(100vh-3.5rem)] md:overflow-hidden">
 
-      {/* SECTION 0 — Mes parties en cours */}
-      {ongoingGames.length > 0 && (
-        <section className="flex-shrink-0 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-extrabold text-[15px] tracking-tight bg-gradient-to-r from-emerald-500 to-primary bg-clip-text text-transparent">Mes parties en cours</span>
-            <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">{ongoingGames.length}</span>
-          </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {ongoingGames.map((g: any) => {
-              const def = GAMES.find(x => x.slug === g.game_type);
-              const CoverMini = def ? COVER_COMPONENTS[def.slug as Slug] : null;
-              const route = ROUTE[g.game_type as Slug];
-              const isOpen = g.status === "open";
-              return (
-                <button
-                  key={g.id}
-                  onClick={() => navigate({ to: route as any, params: { id: g.id } as any })}
-                  className="flex-shrink-0 w-44 bg-gradient-to-br from-card to-card/60 rounded-2xl border border-emerald-500/20 p-2 flex items-center gap-2 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all shadow-sm text-left active:scale-95"
-                >
-                  <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 shadow-md ring-1 ring-white/15 relative">
-                    {CoverMini && <CoverMini />}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-black text-sm truncate flex items-center gap-1">
-                      {def?.emoji} {def?.label || g.game_type}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${isOpen ? "bg-amber-500/20 text-amber-600" : "bg-emerald-500/20 text-emerald-600"}`}>
-                        {isOpen ? "⏳ Salle" : "🎮 En jeu"}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        <Users className="inline w-2.5 h-2.5 -mt-0.5" /> {g.players_count}/{g.max_players}
-                      </span>
-                    </div>
-                    {Number(g.stake) > 0 && (
-                      <div className="text-[9px] text-amber-600 font-semibold mt-0.5">{Number(g.stake).toLocaleString("fr-FR")} Ar</div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* SECTION 1 — Créer une partie */}
       <section className="space-y-2 flex-shrink-0">
         <div className="flex items-center">
@@ -586,8 +513,8 @@ function JeuxPage() {
           )}
 
           {filteredGames.map(game => {
-            const def = GAMES.find(g => g.slug === game.slug)!;
-            const CoverMini = COVER_COMPONENTS[game.slug];
+            const def = GAMES.find(g => g.slug === game.slug) || { slug: game.slug, label: game.slug, desc: "", emoji: "🎮" };
+            const CoverMini = COVER_COMPONENTS[game.slug] ?? (() => null);
             const isFull = game.players_count >= game.max_players;
             const isBusy = joiningId === game.id;
             const isOwnGame = game.host_id === profile?.id;

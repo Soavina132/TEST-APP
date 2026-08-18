@@ -380,7 +380,7 @@ function ChessPage() {
 
   /* -------- Time computation -------- */
   const elapsedSinceMove = useMemo(() => {
-    if (!game || !isActive) return 0;
+    if (!game || !isActive || game.paused) return 0;
     const base = new Date(game.last_move_at ?? game.started_at ?? new Date(serverNow()).toISOString()).getTime();
     return Math.max(0, now - base);
   }, [game, isActive, now]);
@@ -531,15 +531,20 @@ function ChessPage() {
 
   /* -------- Timeout to server -------- */
   const timeoutFiredRef = useRef<string | null>(null);
+  const timeoutRetryRef = useRef(0);
   useEffect(() => {
     if (!game || !isActive) return;
     if (wTime > 0 && bTime > 0) return;
     const loserColor = wTime <= 0 ? "w" : "b";
     const key = `${game.id}:${game.ply}:${loserColor}`;
-    if (timeoutFiredRef.current === key) return;
-    timeoutFiredRef.current = key;
+    if (timeoutFiredRef.current === key && timeoutRetryRef.current >= 5) return;
+    if (timeoutFiredRef.current !== key) {
+      timeoutFiredRef.current = key;
+      timeoutRetryRef.current = 0;
+    }
     (async () => {
       await supabase.rpc("chess_tick" as any, { _game_id: game.id } as any);
+      timeoutRetryRef.current++;
       setTimeout(async () => {
         const { data } = await supabase
           .from("chess_games" as any)
@@ -559,7 +564,7 @@ function ChessPage() {
         }
       }, 1200);
     })();
-  }, [game, isActive, wTime, bTime, load]);
+  }, [game, isActive, wTime, bTime, load, now]);
 
   /* -------- Show end dialog -------- */
   useEffect(() => {
