@@ -1403,7 +1403,7 @@ function RamiPage() {
       }
     };
     tick();
-    const t = setInterval(tick, 2000);
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [game?.turn_deadline, game?.status, id, cfg.turn_timer_seconds]);
 

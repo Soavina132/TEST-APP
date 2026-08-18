@@ -380,7 +380,7 @@ function ChessPage() {
 
   /* -------- Time computation -------- */
   const elapsedSinceMove = useMemo(() => {
-    if (!game || !isActive) return 0;
+    if (!game || !isActive || game.paused) return 0;
     const base = new Date(game.last_move_at ?? game.started_at ?? new Date(serverNow()).toISOString()).getTime();
     return Math.max(0, now - base);
   }, [game, isActive, now]);
