@@ -1978,10 +1978,14 @@ function RamiPage() {
 
   // ── FINISHED: early return to avoid computing game board variables that can crash ──
   if (game.status === "finished") {
-    // Find winner slot for bot wins (winner_id is null when a bot wins)
+    // Find winner: use winner_id first, fall back to winner_name match, then non-forfeited
     const _winnerSlot = game.winner_id
       ? parts.find(p => p.user_id === game.winner_id)?.slot
-      : parts.find(p => !p.forfeited)?.slot ?? null;
+      : (game as any).winner_name
+        ? parts.find(p => p.display_name === (game as any).winner_name || !p.forfeited)?.slot ?? null
+        : parts.find(p => !p.forfeited)?.slot ?? null;
+    // Pass winner_name to GameEndScreen as extra for bot wins
+    const _botWinnerName = !game.winner_id ? (game as any).winner_name : null;
     return (
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4 min-h-screen flex flex-col items-center justify-center">
         <GameEndScreen
@@ -1994,6 +1998,7 @@ function RamiPage() {
           pot={Number(game.pot) || 0}
           commissionPct={Number(game.commission_pct) || 10}
           onReplay={replayRami}
+          botWinnerName={_botWinnerName}
         />
 
         <GameSocialFab gameId={id} gameSlug="rami" participants={parts} />
@@ -2065,18 +2070,6 @@ function RamiPage() {
         const handLenOf = (uid: string) =>
           Array.isArray(game?.state?.hands?.[uid]) ? game.state.hands[uid].length : 0;
         const MAX_LIVES = 3;
-        const Lives = ({ uid, size = 'sm' }: { uid: string; size?: 'sm' | 'lg' }) => {
-          const lives = livesOf(uid);
-          return (
-            <span className={`inline-flex items-center gap-0.5 ${size === 'lg' ? 'text-sm' : 'text-[9px]'}`}>
-              {Array.from({ length: MAX_LIVES }).map((_, i) => (
-                <span key={i} className={i < lives ? '' : 'opacity-25 grayscale'}>
-                  {i < lives ? '❤️' : '🤍'}
-                </span>
-              ))}
-            </span>
-          );
-        };
 
         // ── Opponent avatar card: compact with timer ring ──
         const OppBadge = React.memo(function OppBadge({ p, turn, n, meldCount, hasSeven, isLast, avatarUrl, lives }: {
@@ -2133,7 +2126,7 @@ function RamiPage() {
                     <span className="text-[9px] text-white/55 font-semibold">{n} cartes</span>
                     {meldCount > 0 && <span className="text-[8px] text-amber-300/90 font-bold">✦{meldCount}</span>}
                     {hasSeven && <span className="text-[8px] text-amber-400 font-bold animate-pulse">⭐7</span>}
-                    <span className="text-[8px]">{"❤️".repeat(lives)}{"🤍".repeat(3 - lives)}</span>
+
                   </div>
                 </div>
               </div>
@@ -2388,7 +2381,7 @@ function RamiPage() {
               </div>
             </div>
             <span className="text-[10px] font-bold text-emerald-400 animate-pulse">À toi de jouer — {remaining}s</span>
-            {profile?.id && <span className="text-[10px] ml-1">{"❤️".repeat(livesOf(profile.id))}{"🤍".repeat(3 - livesOf(profile.id))}</span>}
+
           </div>
         );
       })()}
