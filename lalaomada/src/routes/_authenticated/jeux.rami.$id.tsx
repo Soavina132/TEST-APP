@@ -2266,15 +2266,31 @@ function RamiPage() {
 
             {/* Pioche + Joker aléatoire sous la pioche */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="relative" style={{ width: 60, height: 84 }}>
+              <div className="relative isolate" style={{ width: 60, height: 100 }}>
+                {/* Joker aléatoire : perpendiculaire, moitié cachée sous la pioche, moitié visible en dessous */}
+                {randomJoker !== null && (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      top: '46px',
+                      left: '50%',
+                      transform: 'translateX(-50%) rotate(90deg)',
+                      transformOrigin: 'center center',
+                      zIndex: 0,
+                      filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
+                    }}
+                  >
+                    <Card c={randomJoker} styleOverride={{ width: 44, height: 62 }} />
+                  </div>
+                )}
                 <button
                   ref={deckRef}
                   disabled={!isMyTurn || phase !== "draw" || busy || deckCount === 0}
                   onClick={drawDeck}
-                  className={`relative rounded-[6px] disabled:opacity-50 active:scale-95 transition-transform ${
+                  className={`absolute top-0 left-0 rounded-[6px] disabled:opacity-50 active:scale-95 transition-transform ${
                     isMyTurn && phase === "draw" && deckCount > 0 ? "ring-2 ring-yellow-300 shadow-lg turn-active-pulse" : ""
                   }`}
-                  style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))" }}
+                  style={{ filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.45))", zIndex: 10 }}
                 >
                   <Card faceDown styleOverride={{ width: 60, height: 84 }} />
                   {deckCount > 0 && deckCount <= 10 && (
@@ -2283,23 +2299,6 @@ function RamiPage() {
                     </div>
                   )}
                 </button>
-                {/* Joker aléatoire : en bas de la pioche, perpendiculaire à droite, moitié visible */}
-                {randomJoker !== null && (
-                  <div
-                    className="absolute pointer-events-none"
-                    style={{
-                      bottom: '-14px',
-                      left: '50%',
-                      transform: 'translateX(-50%) rotate(90deg)',
-                      transformOrigin: 'center center',
-                      zIndex: -1,
-                      clipPath: 'inset(0 0 0 50%)',
-                      filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
-                    }}
-                  >
-                    <Card c={randomJoker} styleOverride={{ width: 44, height: 62 }} />
-                  </div>
-                )}
               </div>
               <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
                 isMyTurn && phase === "draw" && deckCount > 0
