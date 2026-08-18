@@ -342,40 +342,36 @@ const MELD_LABEL: Record<Exclude<MeldKind, null>, string> = {
 function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | null, sevenCardsEnabled: boolean = true): boolean {
   if (cards.length !== 7) return false;
 
-  // Mode 'sans' : 100% pur, aucun Joker
-  // Autres modes : jokers autorisés dans le 7 cartes
+  // 7 cartes = 100% PUR, aucun Joker, peu importe le mode
   const isJoker = (c: number) => isJokerCard(c, jokerMode, randomJoker);
-  if (jokerMode === 'sans' && cards.some(isJoker)) return false;
+  if (cards.some(isJoker)) return false;
 
-  // Validateur de sous-meld (gère les jokers)
-  const subMeldType = (sub: number[]): 'trio' | 'carre' | 'run' | null => {
-    if (sub.length < 3) return null;
-    const subJokers = sub.filter(isJoker).length;
-    const subReals = sub.filter(c => !isJoker(c));
-    if (subReals.length < 1) return null;
-    if (subJokers > subReals.length + 1) return null;
+  // Tri pur : 3 cartes de même valeur, couleurs toutes différentes
+  const isPureTrio = (sub: number[]): boolean => {
+    if (sub.length !== 3 || sub.some(isJoker)) return false;
+    const rank = CARD_BASE(sub[0]) % 13;
+    if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
+    const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
+    return new Set(suits).size === suits.length;
+  };
 
-    // Vérifier trio/carré (même rang, couleurs différentes pour les vraies cartes)
-    if (sub.length <= 4) {
-      const rank = CARD_BASE(subReals[0]) % 13;
-      if (subReals.every(c => CARD_BASE(c) % 13 === rank)) {
-        const suits = subReals.map(c => Math.floor(CARD_BASE(c) / 13));
-        if (new Set(suits).size === suits.length) {
-          return sub.length === 4 ? 'carre' : 'trio';
-        }
-      }
-    }
+  // Carré pur : 4 cartes de même valeur, couleurs toutes différentes
+  const isPureCarre = (sub: number[]): boolean => {
+    if (sub.length !== 4 || sub.some(isJoker)) return false;
+    const rank = CARD_BASE(sub[0]) % 13;
+    if (!sub.every(c => CARD_BASE(c) % 13 === rank)) return false;
+    const suits = sub.map(c => Math.floor(CARD_BASE(c) / 13));
+    return new Set(suits).size === suits.length;
+  };
 
-    // Vérifier escalier (même couleur pour les vraies cartes, jokers comblent les trous)
-    const suit = Math.floor(CARD_BASE(subReals[0]) / 13);
-    if (subReals.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) {
-      const ranks = subReals.map(c => CARD_BASE(c) % 13);
-      if (new Set(ranks).size === ranks.length) {
-        if (computeRunGaps(ranks) <= subJokers) return 'run';
-      }
-    }
-
-    return null;
+  // Escalier pur : cartes consécutives de même couleur, sans Joker ni trou
+  const isPureRun = (sub: number[]): boolean => {
+    if (sub.length < 3 || sub.some(isJoker)) return false;
+    const suit = Math.floor(CARD_BASE(sub[0]) / 13);
+    if (!sub.every(c => Math.floor(CARD_BASE(c) / 13) === suit)) return false;
+    const ranks = sub.map(c => CARD_BASE(c) % 13);
+    if (new Set(ranks).size !== ranks.length) return false;
+    return computeRunGaps(ranks) === 0;
   };
 
   // Toutes les partitions 3+4 des 7 cartes
@@ -385,16 +381,14 @@ function isSevenCombo(cards: number[], jokerMode: string, randomJoker: number | 
         const three = [cards[i], cards[j], cards[k]];
         const four = cards.filter((_, idx) => idx !== i && idx !== j && idx !== k);
 
-        const t3 = subMeldType(three);
-        const t4 = subMeldType(four);
         // Comp. 1 : Tri + Escalier de 4
-        if (t3 === 'trio' && t4 === 'run') return true;
+        if (isPureTrio(three) && isPureRun(four)) return true;
         // Comp. 2 : Tri + Carré
-        if (t3 === 'trio' && t4 === 'carre') return true;
+        if (isPureTrio(three) && isPureCarre(four)) return true;
         // Comp. 3 : Escalier de 3 + Carré
-        if (t3 === 'run' && t4 === 'carre') return true;
+        if (isPureRun(three) && isPureCarre(four)) return true;
         // Comp. 4 : Escalier de 3 + Escalier de 4
-        if (t3 === 'run' && t4 === 'run') return true;
+        if (isPureRun(three) && isPureRun(four)) return true;
       }
   return false;
 }
