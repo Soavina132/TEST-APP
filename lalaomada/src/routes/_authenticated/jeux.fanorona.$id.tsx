@@ -602,6 +602,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         <div className="flex items-baseline gap-1 min-w-0">
           <span className="text-[8px] uppercase text-muted-foreground tracking-wider">Au gagnant</span>
           <span className="text-xs font-extrabold truncate">{Math.round(Number(game.pot) * (100 - (Number(game.commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar</span>
+          {gameNumber && <span className="text-[10px] font-mono font-bold text-primary/80 ml-1">{gameNumber}</span>}
         </div>
         {!me ? (
           <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">

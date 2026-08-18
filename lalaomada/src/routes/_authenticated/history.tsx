@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/history")({
   ] }),
 });
 
-type Tab = "pending" | "deposits" | "withdrawals" | "transactions";
+type Tab = "pending" | "deposits" | "withdrawals" | "transactions" | "parties";
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -78,6 +78,8 @@ export default function HistoryPage() {
   const [deps, setDeps] = useState<any[]>([]);
   const [withs, setWiths] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stakeGames, setStakeGames] = useState<any[]>([]);
+  const [loadingStakeGames, setLoadingStakeGames] = useState(false);
 
   async function load() {
     if (!user) { setLoading(false); return; }
@@ -90,6 +92,12 @@ export default function HistoryPage() {
     setDeps(d.status === "fulfilled" ? (d.value.data || []) : []);
     setWiths(w.status === "fulfilled" ? (w.value.data || []) : []);
     setLoading(false);
+
+    // Load stake game history
+    setLoadingStakeGames(true);
+    const { data: sg } = await supabase.rpc("get_player_stake_history" as any);
+    setStakeGames(sg || []);
+    setLoadingStakeGames(false);
   }
 
   useEffect(() => {
@@ -125,6 +133,7 @@ export default function HistoryPage() {
     { id: "deposits",     label: "Dépôts",       icon: <ArrowDownCircle className="w-4 h-4" />, count: deps.length },
     { id: "withdrawals",  label: "Retraits",     icon: <ArrowUpCircle className="w-4 h-4" />,   count: withs.length },
     { id: "transactions", label: "Mouvements",   icon: <ReceiptText className="w-4 h-4" />,     count: tx.length },
+    { id: "parties",      label: "Parties",      icon: <Gamepad2 className="w-4 h-4" />,        count: stakeGames.length },
   ];
 
   return (
@@ -236,6 +245,9 @@ export default function HistoryPage() {
           )}
 
           {/* Mouvements */}
+          {tab === "parties" && (
+            <StakeGameHistory games={stakeGames} loading={loadingStakeGames} />
+          )}
           {tab === "transactions" && (
             tx.length === 0
               ? <EmptyState label="Aucune transaction" />
@@ -335,6 +347,105 @@ function EmptyState({ label, hint, icon }: { label: string; hint?: string; icon?
       <div className="opacity-30">{icon ?? <ReceiptText className="w-10 h-10" />}</div>
       <span className="text-sm font-semibold">{label}</span>
       {hint && <span className="text-[11px] opacity-70">{hint}</span>}
+    </div>
+  );
+}
+
+// ── Stake Game History Component ─────────────────────────────────────────
+function StakeGameHistory({ games, loading }: { games: any[]; loading: boolean }) {
+  const [selected, setSelected] = useState<any>(null);
+  if (loading) {
+    return <div className="text-center text-muted-foreground py-8">Chargement de l'historique…</div>;
+  }
+  if (games.length === 0) {
+    return <div className="text-center text-muted-foreground py-8">Aucune partie avec mise pour le moment</div>;
+  }
+
+  const STATUS_CFG: Record<string, { cls: string; label: string }> = {
+    open:      { cls: "bg-amber-100 text-amber-700 border-amber-300",     label: "Ouverte" },
+    playing:   { cls: "bg-emerald-100 text-emerald-700 border-emerald-300", label: "En cours" },
+    finished:  { cls: "bg-secondary text-muted-foreground border-border",  label: "Terminée" },
+    cancelled: { cls: "bg-rose-100 text-rose-600 border-rose-300",         label: "Annulée" },
+    waiting:   { cls: "bg-amber-100 text-amber-700 border-amber-300",     label: "En attente" },
+  };
+
+  return (
+    <div className="space-y-2">
+      {selected ? (
+        <div className="space-y-3">
+          <button onClick={() => setSelected(null)}
+            className="text-sm text-primary font-bold flex items-center gap-1">
+            ← Retour à la liste
+          </button>
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xl font-mono font-black text-primary">
+                  {selected.formatted_number}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {selected.game_label} · Mise {Number(selected.stake).toLocaleString("fr-FR")} Ar
+                </div>
+              </div>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_CFG[selected.status]?.cls || "bg-secondary"}`}>
+                {STATUS_CFG[selected.status]?.label || selected.status}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <div className="text-muted-foreground">Date</div>
+                <div className="font-semibold">{selected.created_at ? new Date(selected.created_at).toLocaleString("fr-FR") : "—"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Terminée</div>
+                <div className="font-semibold">{selected.finished_at ? new Date(selected.finished_at).toLocaleString("fr-FR") : "—"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Durée</div>
+                <div className="font-semibold">
+                  {selected.duration_seconds != null ? `${Math.floor(selected.duration_seconds / 60)}min ${selected.duration_seconds % 60}s` : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Résultat</div>
+                <div className="font-semibold">
+                  {selected.is_winner ? "🏆 Gagné" : selected.status === "finished" ? "❌ Perdu" : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Raison de fin</div>
+                <div className="font-semibold">{selected.result || selected.end_reason || "—"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Rôle</div>
+                <div className="font-semibold">{selected.is_host ? "Hôte" : "Invité"}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {games.map((g, i) => (
+            <button key={i} onClick={() => setSelected(g)}
+              className="w-full flex items-center gap-3 text-left bg-card border border-border rounded-xl px-3 py-2.5 hover:border-primary/40 transition-colors">
+              <span className="font-mono font-black text-primary text-[11px] min-w-[80px]">
+                {g.formatted_number}
+              </span>
+              <span className="text-sm font-semibold flex-1">{g.game_label}</span>
+              <span className="text-xs text-amber-500 font-bold">
+                {Number(g.stake).toLocaleString("fr-FR")} Ar
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_CFG[g.status]?.cls || "bg-secondary"}`}>
+                {STATUS_CFG[g.status]?.label || g.status}
+              </span>
+              {g.is_winner && <span className="text-amber-500">🏆</span>}
+              <span className="text-xs text-muted-foreground ml-auto">
+                {g.created_at ? new Date(g.created_at).toLocaleDateString("fr-FR") : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

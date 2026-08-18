@@ -2059,6 +2059,7 @@ function RamiPage() {
           <span className="text-[10px] font-bold text-amber-500 whitespace-nowrap">
             🏆 {Math.round(Number(game.pot) * (100 - (Number((game as any).commission_pct) || 10)) / 100).toLocaleString("fr-FR")} Ar
           </span>
+          {gameNumber && <span className="text-[10px] font-mono font-bold text-primary/80">{gameNumber}</span>}
         </div>
         {!me ? (
           <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">

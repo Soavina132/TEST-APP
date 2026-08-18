@@ -255,6 +255,34 @@ function JeuxPage() {
       }));
     setOpenGames(flat);
     setLoadingGames(false);
+
+    // Fetch game numbers for stake games
+    const stakeGames = flat.filter(g => g.stake > 0);
+    if (stakeGames.length > 0) {
+      const GAME_TABLE_MAP: Record<string, string> = {
+        ludo: 'ludo_games', domino: 'domino_games', fanorona: 'fanorona_games',
+        chess: 'chess_games', rami: 'rami_games', poker: 'poker_games',
+      };
+      // Group by game type and batch fetch
+      const numMap: Record<string, string> = {};
+      const byType: Record<string, string[]> = {};
+      stakeGames.forEach(g => {
+        const tbl = GAME_TABLE_MAP[g.slug] || '';
+        if (tbl) {
+          if (!byType[tbl]) byType[tbl] = [];
+          byType[tbl].push(g.id);
+        }
+      });
+      await Promise.all(Object.entries(byType).map(async ([tbl, ids]) => {
+        const { data: nums } = await supabase.rpc('get_game_numbers' as any, {
+          _game_type: tbl, _game_ids: ids
+        } as any);
+        if (nums && typeof nums === 'object') {
+          Object.assign(numMap, nums);
+        }
+      }));
+      setGameNumbers(numMap);
+    }
   }, [disabled.join(",")]);
 
 
@@ -524,10 +552,17 @@ function JeuxPage() {
                 className={`relative bg-gradient-to-br from-card to-card/60 rounded-2xl border p-2.5 flex items-center gap-2.5 hover:shadow-lg transition-all shadow-sm overflow-hidden ${
                   isOwnGame ? "border-primary/40" : "border-white/10 hover:border-primary/40 hover:shadow-primary/10"
                 }`}>
-                {/* Stake ribbon */}
+                {/* Stake ribbon + game number */}
                 {game.stake > 0 && (
-                  <div className="absolute top-0 right-0 bg-amber-500/95 text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl-lg shadow">
-                    {Number(game.stake).toLocaleString("fr-FR")} Ar
+                  <div className="absolute top-0 right-0 flex items-center gap-1">
+                    {gameNumbers[game.id] && (
+                      <div className="bg-primary/90 text-primary-foreground text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-bl-md shadow">
+                        {gameNumbers[game.id]}
+                      </div>
+                    )}
+                    <div className="bg-amber-500/95 text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl-lg shadow">
+                      {Number(game.stake).toLocaleString("fr-FR")} Ar
+                    </div>
                   </div>
                 )}
                 {game.stake === 0 && (

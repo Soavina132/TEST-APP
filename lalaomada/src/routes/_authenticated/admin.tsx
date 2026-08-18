@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
-import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock, History, LayoutDashboard } from "lucide-react";
+import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock, History, LayoutDashboard, Search } from "lucide-react";
 import GameConfigsSection from "@/components/admin/GameConfigsSection";
 import GameTimersQuick from "@/components/admin/GameTimersQuick";
 import { ValidatedField, useFormErrors } from "@/components/admin/ValidatedField";
@@ -231,9 +231,15 @@ function AdminPage() {
 
         {tab === "parties" && (
           <div className="space-y-3">
+            <AdminSection id="game-number-search" title="🔍 Recherche par numéro" description="Trouver une partie avec mise par son numéro (#00000001)" accent="primary" defaultOpen icon={<Search className="w-4 h-4" />}>
+              <GameNumberSearch />
+            </AdminSection>
             <AdminSection id="games-live" title="🎮 Parties en cours" description="Suivi live et interventions" accent="primary" defaultOpen icon={<Gamepad2 className="w-4 h-4" />}>
               <GamesList />
               <GamesAdmin />
+            </AdminSection>
+            <AdminSection id="stake-games-history" title="📋 Historique des parties avec mise" description="Toutes les parties numérotées" accent="amber" icon={<History className="w-4 h-4" />}>
+              <StakeGamesHistoryAdmin />
             </AdminSection>
             <AdminSection id="games-config" title="⚙️ Réglages par jeu" description="Règles, couvertures, badges, capacité" accent="sky" icon={<Settings className="w-4 h-4" />}>
               <GameConfigsSection />
@@ -2828,6 +2834,421 @@ function BannersAdmin() {
           <button onClick={() => del(b.id)} className="p-1.5 text-destructive"><Trash2 className="w-4 h-4" /></button>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// COMPOSANT : Recherche de partie par numéro (Admin)
+// ════════════════════════════════════════════════════════════════════
+function GameNumberSearch() {
+  const [search, setSearch] = useState("");
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const doSearch = async () => {
+    const q = search.trim();
+    if (!q) return;
+    setLoading(true);
+    const { data, error } = await supabase.rpc("admin_search_game_by_number" as any, { _search: q } as any);
+    setLoading(false);
+    if (error) { toast.error(error.message); return; }
+    setResult(data);
+  };
+
+  const reg = result?.registration;
+  const detail = result?.game_detail;
+  const parts = result?.participants;
+
+  const GAME_LABELS: Record<string, string> = {
+    chess_games: "Échecs", fanorona_games: "Fanorona", ludo_games: "Ludo",
+    domino_games: "Domino", rami_games: "Rami", penalty_games: "Penalty",
+    petanque_games: "Pétanque", poker_games: "Poker", billiard_games: "Billard",
+  };
+
+  const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
+    open: { label: "Ouverte", cls: "bg-amber-100 text-amber-700" },
+    playing: { label: "En cours", cls: "bg-emerald-100 text-emerald-700" },
+    finished: { label: "Terminée", cls: "bg-secondary text-muted-foreground" },
+    cancelled: { label: "Annulée", cls: "bg-rose-100 text-rose-600" },
+    waiting: { label: "En attente", cls: "bg-amber-100 text-amber-700" },
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && doSearch()}
+          placeholder="#00000001 ou 1"
+          className="flex-1 px-4 py-2.5 rounded-xl bg-secondary text-sm font-mono font-bold outline-none border border-border focus:border-primary/40"
+        />
+        <button onClick={doSearch} disabled={loading}
+          className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50">
+          {loading ? "…" : "Rechercher"}
+        </button>
+      </div>
+
+      {result?.error && (
+        <div className="text-center text-sm text-muted-foreground py-4">
+          ❌ {result.error} {result.number ? `(#${String(result.number).padStart(8, "0")})` : ""}
+        </div>
+      )}
+
+      {reg && (
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xl font-mono font-black text-primary">
+                {result.formatted_number}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {GAME_LABELS[reg.game_type] || reg.game_type} · Mise {Number(reg.stake).toLocaleString("fr-FR")} Ar
+              </div>
+            </div>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_LABELS[reg.status]?.cls || "bg-secondary"}`}>
+              {STATUS_LABELS[reg.status]?.label || reg.status}
+            </span>
+          </div>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div className="text-muted-foreground">Créée le</div>
+              <div className="font-semibold">{reg.created_at ? new Date(reg.created_at).toLocaleString("fr-FR") : "—"}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Terminée le</div>
+              <div className="font-semibold">{reg.finished_at ? new Date(reg.finished_at).toLocaleString("fr-FR") : "—"}</div>
+            </div>
+            {reg.started_at && reg.finished_at && (
+              <div>
+                <div className="text-muted-foreground">Durée</div>
+                <div className="font-semibold">
+                  {Math.floor((new Date(reg.finished_at).getTime() - new Date(reg.started_at).getTime()) / 1000)}s
+                </div>
+              </div>
+            )}
+            <div>
+              <div className="text-muted-foreground">Résultat</div>
+              <div className="font-semibold">{reg.result || reg.end_reason || "—"}</div>
+            </div>
+          </div>
+
+          {/* Participants */}
+          {parts && Array.isArray(parts) && parts.length > 0 && (
+            <div>
+              <div className="text-xs font-bold text-muted-foreground mb-1">Participants</div>
+              <div className="space-y-1">
+                {parts.map((p: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-2 py-1">
+                    <span className="font-mono font-bold">{p.color || `Slot ${p.slot}`}</span>
+                    <span className="flex-1 truncate">{p.display_name || p.user_id?.slice(0, 8) || "—"}</span>
+                    {p.ready && <span className="text-emerald-600">✓</span>}
+                    {p.is_bot && <span className="text-muted-foreground">🤖</span>}
+                    {reg.winner_id === p.user_id && <span className="text-amber-500 font-bold">🏆</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Chess players from detail */}
+          {detail && reg.game_type === "chess_games" && (
+            <div>
+              <div className="text-xs font-bold text-muted-foreground mb-1">Joueurs</div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-2 py-1">
+                  <span className="font-mono font-bold">⚪ Blancs</span>
+                  <span className="flex-1 truncate">{detail.white_id?.slice(0, 8) || "—"}</span>
+                  {reg.winner_id === detail.white_id && <span className="text-amber-500 font-bold">🏆</span>}
+                </div>
+                <div className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-2 py-1">
+                  <span className="font-mono font-bold">⚫ Noirs</span>
+                  <span className="flex-1 truncate">{detail.black_id?.slice(0, 8) || "—"}</span>
+                  {reg.winner_id === detail.black_id && <span className="text-amber-500 font-bold">🏆</span>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Game detail */}
+          {detail && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground font-bold">Détails de la partie</summary>
+              <pre className="mt-1 p-2 bg-secondary/30 rounded-lg overflow-auto max-h-48 text-[10px]">
+                {JSON.stringify(detail, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// COMPOSANT : Historique des parties avec mise (Admin)
+// ════════════════════════════════════════════════════════════════════
+function StakeGamesHistoryAdmin() {
+  const [games, setGames] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("game_registrations")
+      .select("*")
+      .order("game_number", { ascending: false })
+      .limit(100);
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    setGames(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const GAME_LABELS: Record<string, string> = {
+    chess_games: "Échecs", fanorona_games: "Fanorona", ludo_games: "Ludo",
+    domino_games: "Domino", rami_games: "Rami", penalty_games: "Penalty",
+    petanque_games: "Pétanque", poker_games: "Poker", billiard_games: "Billard",
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-bold">📋 Historique des parties avec mise ({games.length})</div>
+      {loading ? (
+        <div className="text-center text-muted-foreground py-4">Chargement…</div>
+      ) : games.length === 0 ? (
+        <div className="text-center text-muted-foreground py-4">Aucune partie avec mise</div>
+      ) : (
+        <div className="space-y-1 max-h-96 overflow-auto">
+          {games.map((g) => (
+            <div key={g.id} className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-3 py-2">
+              <span className="font-mono font-black text-primary text-[11px]">
+                #{String(g.game_number).padStart(8, "0")}
+              </span>
+              <span className="font-semibold">{GAME_LABELS[g.game_type] || g.game_type}</span>
+              <span className="text-amber-500 font-bold">{Number(g.stake).toLocaleString("fr-FR")} Ar</span>
+              <span className="text-muted-foreground">{g.status}</span>
+              {g.finished_at && (
+                <span className="text-muted-foreground ml-auto">
+                  {new Date(g.finished_at).toLocaleDateString("fr-FR")}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+TSXOFEOF
+echo "GameNumberSearch and StakeGamesHistoryAdmin components added"
+
+// ════════════════════════════════════════════════════════════════════
+// COMPOSANT : Recherche de partie par numéro (Admin)
+// ════════════════════════════════════════════════════════════════════
+function GameNumberSearch() {
+  const [search, setSearch] = useState("");
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const doSearch = async () => {
+    const q = search.trim();
+    if (!q) return;
+    setLoading(true);
+    const { data, error } = await supabase.rpc("admin_search_game_by_number" as any, { _search: q } as any);
+    setLoading(false);
+    if (error) { toast.error(error.message); return; }
+    setResult(data);
+  };
+
+  const reg = result?.registration;
+  const detail = result?.game_detail;
+  const parts = result?.participants;
+
+  const GAME_LABELS: Record<string, string> = {
+    chess_games: "Échecs", fanorona_games: "Fanorona", ludo_games: "Ludo",
+    domino_games: "Domino", rami_games: "Rami", penalty_games: "Penalty",
+    petanque_games: "Pétanque", poker_games: "Poker", billiard_games: "Billard",
+  };
+
+  const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
+    open: { label: "Ouverte", cls: "bg-amber-100 text-amber-700" },
+    playing: { label: "En cours", cls: "bg-emerald-100 text-emerald-700" },
+    finished: { label: "Terminée", cls: "bg-secondary text-muted-foreground" },
+    cancelled: { label: "Annulée", cls: "bg-rose-100 text-rose-600" },
+    waiting: { label: "En attente", cls: "bg-amber-100 text-amber-700" },
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && doSearch()}
+          placeholder="#00000001 ou 1"
+          className="flex-1 px-4 py-2.5 rounded-xl bg-secondary text-sm font-mono font-bold outline-none border border-border focus:border-primary/40"
+        />
+        <button onClick={doSearch} disabled={loading}
+          className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50">
+          {loading ? "…" : "Rechercher"}
+        </button>
+      </div>
+
+      {result?.error && (
+        <div className="text-center text-sm text-muted-foreground py-4">
+          ❌ {result.error} {result.number ? `(#${String(result.number).padStart(8, "0")})` : ""}
+        </div>
+      )}
+
+      {reg && (
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xl font-mono font-black text-primary">
+                {result.formatted_number}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {GAME_LABELS[reg.game_type] || reg.game_type} · Mise {Number(reg.stake).toLocaleString("fr-FR")} Ar
+              </div>
+            </div>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_LABELS[reg.status]?.cls || "bg-secondary"}`}>
+              {STATUS_LABELS[reg.status]?.label || reg.status}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div className="text-muted-foreground">Créée le</div>
+              <div className="font-semibold">{reg.created_at ? new Date(reg.created_at).toLocaleString("fr-FR") : "—"}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Terminée le</div>
+              <div className="font-semibold">{reg.finished_at ? new Date(reg.finished_at).toLocaleString("fr-FR") : "—"}</div>
+            </div>
+            {reg.started_at && reg.finished_at && (
+              <div>
+                <div className="text-muted-foreground">Durée</div>
+                <div className="font-semibold">
+                  {Math.floor((new Date(reg.finished_at).getTime() - new Date(reg.started_at).getTime()) / 1000)}s
+                </div>
+              </div>
+            )}
+            <div>
+              <div className="text-muted-foreground">Résultat</div>
+              <div className="font-semibold">{reg.result || reg.end_reason || "—"}</div>
+            </div>
+          </div>
+
+          {parts && Array.isArray(parts) && parts.length > 0 && (
+            <div>
+              <div className="text-xs font-bold text-muted-foreground mb-1">Participants</div>
+              <div className="space-y-1">
+                {parts.map((p: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-2 py-1">
+                    <span className="font-mono font-bold">{p.color || `Slot ${p.slot}`}</span>
+                    <span className="flex-1 truncate">{p.display_name || p.user_id?.slice(0, 8) || "—"}</span>
+                    {p.ready && <span className="text-emerald-600">✓</span>}
+                    {p.is_bot && <span className="text-muted-foreground">🤖</span>}
+                    {reg.winner_id === p.user_id && <span className="text-amber-500 font-bold">🏆</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {detail && reg.game_type === "chess_games" && (
+            <div>
+              <div className="text-xs font-bold text-muted-foreground mb-1">Joueurs</div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-2 py-1">
+                  <span className="font-mono font-bold">⚪ Blancs</span>
+                  <span className="flex-1 truncate">{detail.white_id?.slice(0, 8) || "—"}</span>
+                  {reg.winner_id === detail.white_id && <span className="text-amber-500 font-bold">🏆</span>}
+                </div>
+                <div className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-2 py-1">
+                  <span className="font-mono font-bold">⚫ Noirs</span>
+                  <span className="flex-1 truncate">{detail.black_id?.slice(0, 8) || "—"}</span>
+                  {reg.winner_id === detail.black_id && <span className="text-amber-500 font-bold">🏆</span>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {detail && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground font-bold">Détails de la partie</summary>
+              <pre className="mt-1 p-2 bg-secondary/30 rounded-lg overflow-auto max-h-48 text-[10px]">
+                {JSON.stringify(detail, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// COMPOSANT : Historique des parties avec mise (Admin)
+// ════════════════════════════════════════════════════════════════════
+function StakeGamesHistoryAdmin() {
+  const [games, setGames] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("game_registrations")
+      .select("*")
+      .order("game_number", { ascending: false })
+      .limit(100);
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    setGames(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const GAME_LABELS: Record<string, string> = {
+    chess_games: "Échecs", fanorona_games: "Fanorona", ludo_games: "Ludo",
+    domino_games: "Domino", rami_games: "Rami", penalty_games: "Penalty",
+    petanque_games: "Pétanque", poker_games: "Poker", billiard_games: "Billard",
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-bold">📋 Historique des parties avec mise ({games.length})</div>
+      {loading ? (
+        <div className="text-center text-muted-foreground py-4">Chargement…</div>
+      ) : games.length === 0 ? (
+        <div className="text-center text-muted-foreground py-4">Aucune partie avec mise</div>
+      ) : (
+        <div className="space-y-1 max-h-96 overflow-auto">
+          {games.map((g) => (
+            <div key={g.id} className="flex items-center gap-2 text-xs bg-secondary/50 rounded-lg px-3 py-2">
+              <span className="font-mono font-black text-primary text-[11px]">
+                #{String(g.game_number).padStart(8, "0")}
+              </span>
+              <span className="font-semibold">{GAME_LABELS[g.game_type] || g.game_type}</span>
+              <span className="text-amber-500 font-bold">{Number(g.stake).toLocaleString("fr-FR")} Ar</span>
+              <span className="text-muted-foreground">{g.status}</span>
+              {g.finished_at && (
+                <span className="text-muted-foreground ml-auto">
+                  {new Date(g.finished_at).toLocaleDateString("fr-FR")}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

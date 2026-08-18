@@ -380,6 +380,7 @@ function DominoPage() {
               {game.target_score > 0 && <span className="text-[8px] uppercase text-muted-foreground tracking-wider hidden sm:inline">Objectif {game.target_score} pts · </span>}
               <span className="text-[8px] uppercase text-muted-foreground tracking-wider">{t("prize_winner")}</span>
               <span className="text-xs font-extrabold truncate">{payout.toLocaleString("fr-FR")} Ar</span>
+              {gameNumber && <span className="text-[10px] font-mono font-bold text-primary/80 ml-1">{gameNumber}</span>}
             </div>
             <div className="flex items-center gap-1">
               {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
