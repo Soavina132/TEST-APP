@@ -524,8 +524,10 @@ function Lobby() {
                 <SummaryRow icon="🤖" label="Déplacement auto" value={ludoAutoMove ? "Activé" : "Désactivé"} onClick={() => setLudoAutoMove(v => !v)} />
               )}
               {slug === "fanorona" && (
-                <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
-                <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
+                <>
+                  <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                  <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
+                </>
               )}
               {slug === "chess" && matchType === "bot" && (
                 <>
@@ -593,8 +595,10 @@ function Lobby() {
                 </>
               )}
               {slug === "fanorona" && (
-                <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
-                <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
+                <>
+                  <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                  <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
+                </>
               )}
               {slug === "rami" && (
                 <>
