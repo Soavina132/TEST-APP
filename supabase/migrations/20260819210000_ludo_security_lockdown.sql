@@ -119,7 +119,7 @@ SECURITY DEFINER
 SET search_path = 'public'
 AS $function$
 BEGIN
-  IF current_setting('role', true) = 'authenticated' THEN
+  IF current_user = 'authenticated' THEN
     IF NEW.state IS DISTINCT FROM OLD.state THEN
       RAISE EXCEPTION 'Modification directe de l etat du jeu interdite';
     END IF;
@@ -144,7 +144,7 @@ SECURITY DEFINER
 SET search_path = 'public'
 AS $function$
 BEGIN
-  IF current_setting('role', true) = 'authenticated' THEN
+  IF current_user = 'authenticated' THEN
     IF NEW.forfeited IS DISTINCT FROM OLD.forfeited THEN
       RAISE EXCEPTION 'Modification de forfeited interdite';
     END IF;
