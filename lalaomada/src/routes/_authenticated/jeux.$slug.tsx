@@ -931,6 +931,10 @@ function Lobby() {
         <ChessTimePicker value={chessTime} onChange={setChessTime} />
         <button onClick={closeSheet} className="mt-3 w-full py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm">Valider</button>
       </BottomSheet>
+      <BottomSheet open={sheet === "fanorona_time"} onClose={closeSheet} title="Temps par joueur">
+        <FanoronaTimePicker value={fanoronaTime} onChange={setFanoronaTime} />
+        <button onClick={closeSheet} className="mt-3 w-full py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm">Valider</button>
+      </BottomSheet>
 
 
       <AdminRenameDialog
