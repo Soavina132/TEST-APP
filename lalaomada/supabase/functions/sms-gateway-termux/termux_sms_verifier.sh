@@ -1,41 +1,46 @@
 #!/bin/bash
 # ==========================================================================
-# Termux SMS Auto-Verifier for Lalao-Mada
+# Termux SMS Auto-Verifier for Lalao-Mada — v2
 # ==========================================================================
-# This script runs on the admin's Android phone via Termux.
-# It listens for incoming SMS, extracts verification codes (LMxxxx),
-# and calls the Supabase RPC to auto-verify phone numbers.
+# Ce script tourne sur le téléphone admin via Termux.
+# Il écoute les SMS entrants, détecte les codes de vérification (LMxxxxxx),
+# et appelle Supabase pour auto-vérifier les numéros.
+#
+# NORMALISATION DES NUMÉROS:
+#   Le système gère les formats: 0341234567, 261341234567, +261341234567
+#   Tous sont normalisés en 9 chiffres (ex: 341234567) pour la comparaison.
+#
+# CODE INSENSIBLE À LA CASSE:
+#   LM123456 = lm123456 = Lm123456 = lM123456 → tous reconnus
 #
 # SETUP (one time):
-#   1. Install Termux: https://play.google.com/store/apps/details?id=com.termux
-#   2. Install Termux:API: https://play.google.com/store/apps/details?id=com.termux.api
-#   3. In Termux, run:
-#        pkg update && pkg install termux-api curl jq
-#   4. Copy this script to your phone (e.g., ~/sms-verifier.sh)
-#   5. Make it executable: chmod +x sms-verifier.sh
-#   6. Run it: ./sms-verifier.sh
-#
-# The script runs continuously and auto-verifies any SMS containing
-# a verification code (format: LMxxxx).
-#
-# To run in background: nohup ./sms-verifier.sh &
+#   1. Install Termux + Termux:API from Play Store
+#   2. In Termux: pkg update && pkg install termux-api curl jq
+#   3. Copy this script to your phone: ~/sms-verifier.sh
+#   4. chmod +x sms-verifier.sh
+#   5. Edit SERVICE_ROLE_KEY below
+#   6. Run: ./sms-verifier.sh
+#   7. Background: nohup ./sms-verifier.sh &
 # ==========================================================================
 
 SUPABASE_URL="https://gifwfjgciwbsottztzoc.supabase.co"
-SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY_HERE"  # ← Replace with your Supabase service role key
+SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY_HERE"  # ← Remplace par ta clé service_role
 
-echo "🤖 Lalao-Mada SMS Auto-Verifier"
-echo "📡 Listening for incoming SMS with verification codes..."
-echo "📱 Admin phone: 0385708218"
+echo "🤖 Lalao-Mada SMS Auto-Verifier v2"
+echo "📡 Écoute des SMS avec codes de vérification..."
+echo "📱 Formats acceptés: 0XXXXXXXXX, 261XXXXXXXXX, +261XXXXXXXXX"
+echo "🔤 Code insensible à la casse: LM/lm/Lm/lM + 6 chiffres"
 echo "---"
 
-# Track processed SMS to avoid duplicates
+# Fichier pour éviter les doublons
 PROCESSED_FILE="/tmp/sms_processed.txt"
 touch "$PROCESSED_FILE"
 
+# Nettoyer le fichier au démarrage (anciens SMS > 1h)
+find /tmp -name "sms_processed.txt" -mmin +60 -delete 2>/dev/null
+
 while true; do
-  # Get recent SMS messages (last 5 minutes)
-  # termux-sms-list returns JSON array of SMS messages
+  # Récupérer les SMS récents (boîte de réception)
   SMS_JSON=$(termux-sms-list -l 5 -t inbox 2>/dev/null)
   
   if [ -z "$SMS_JSON" ] || [ "$SMS_JSON" = "[]" ]; then
@@ -43,7 +48,6 @@ while true; do
     continue
   fi
   
-  # Parse each SMS
   SMS_COUNT=$(echo "$SMS_JSON" | jq length 2>/dev/null || echo 0)
   
   for i in $(seq 0 $((SMS_COUNT - 1))); do
@@ -51,36 +55,40 @@ while true; do
     BODY=$(echo "$SMS_JSON" | jq -r ".[$i].body // empty" 2>/dev/null)
     TIMESTAMP=$(echo "$SMS_JSON" | jq -r ".[$i].date // empty" 2>/dev/null)
     
-    # Skip if already processed
+    # Skip si déjà traité
     SMS_ID="${SENDER}_${TIMESTAMP}"
     if grep -q "$SMS_ID" "$PROCESSED_FILE" 2>/dev/null; then
       continue
     fi
     
-    # Check if SMS contains a verification code (LMxxxx)
-    if echo "$BODY" | grep -qiE "LM[0-9]{4}"; then
+    # Détecter un code de vérification (insensible à la casse)
+    # Match: LM123456, lm123456, Lm123456, lM123456
+    if echo "$BODY" | grep -qiE "[Ll][Mm][0-9]{6}"; then
       echo "📧 SMS from $SENDER: $BODY"
       
-      # Call the Supabase RPC to auto-verify
+      # Échapper le body pour JSON
+      BODY_ESCAPED=$(echo "$BODY" | jq -Rs .)
+      
+      # Appeler Supabase pour auto-vérifier
       RESULT=$(curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/auto_verify_phone_by_sms" \
         -H "apikey: $SERVICE_ROLE_KEY" \
         -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
         -H "Content-Type: application/json" \
-        -d "{\"_sender_phone\": \"$SENDER\", \"_sms_body\": \"$BODY\"}" 2>/dev/null)
+        -d "{\"_sender_phone\": \"$SENDER\", \"_sms_body\": $BODY_ESCAPED}" 2>/dev/null)
       
       SUCCESS=$(echo "$RESULT" | jq -r ".success // false" 2>/dev/null)
       
       if [ "$SUCCESS" = "true" ]; then
         VERIFIED_PHONE=$(echo "$RESULT" | jq -r ".phone // empty" 2>/dev/null)
-        echo "✅ Auto-verified! Phone: $VERIFIED_PHONE (from $SENDER)"
-        # Send confirmation SMS to the user
-        termux-sms-send -n "$SENDER" "Lalao-Mada: Votre numero a ete verifie avec succes! Vous pouvez maintenant jouer avec mise. 🎮" 2>/dev/null
+        echo "✅ Vérifié! Numéro: $VERIFIED_PHONE (SMS de: $SENDER)"
+        # Envoyer confirmation au joueur
+        termux-sms-send -n "$SENDER" "Lalao-Mada: Votre numero a ete verifie! Vous pouvez maintenant jouer avec mise. 🎮" 2>/dev/null
       else
         MSG=$(echo "$RESULT" | jq -r ".message // unknown" 2>/dev/null)
-        echo "❌ Not a verification SMS or no match: $MSG"
+        echo "❌ Non vérifié: $MSG"
       fi
       
-      # Mark as processed
+      # Marquer comme traité
       echo "$SMS_ID" >> "$PROCESSED_FILE"
     fi
   done
