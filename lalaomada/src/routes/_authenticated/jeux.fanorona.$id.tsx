@@ -94,9 +94,9 @@ function fmtClock(ms: number) {
 }
 
 function FanoronaPlayerBar({
-  p, isCurrent, isMe, pieceCount, timeMs, avatarUrl,
+  p, isCurrent, isMe, pieceCount, timeMs, avatarUrl, stake, showEndTurn, onEndTurn,
 }: {
-  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number; avatarUrl?: string | null;
+  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number; avatarUrl?: string | null; stake?: number; showEndTurn?: boolean; onEndTurn?: () => void;
 }) {
   const isWhite = p.color === "white";
   const low = timeMs < 30_000;
@@ -121,7 +121,7 @@ function FanoronaPlayerBar({
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-xs truncate flex items-center gap-1.5">
           {name}
-          {p.is_bot && Number(game?.stake) === 0 && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
+          {p.is_bot && Number(stake ?? 0) === 0 && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
           {isMe && <span className="text-[10px] text-primary/60 shrink-0">(vous)</span>}
           {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
         </div>
@@ -131,13 +131,22 @@ function FanoronaPlayerBar({
           </span>
         </div>
       </div>
-      <div
-        className={`shrink-0 font-mono text-base font-bold tabular-nums px-2.5 py-1 rounded-md transition-colors ${
-          critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : ""
-        }`}
-        style={!critical ? { background: isCurrent ? "rgba(251,191,36,0.12)" : undefined } : undefined}
-      >
-        {fmtClock(timeMs)}
+      <div className="shrink-0 flex items-center gap-1.5">
+        {showEndTurn && onEndTurn && (
+          <button onClick={onEndTurn}
+            className="shrink-0 px-2 py-1 rounded-md text-[10px] font-bold shadow-sm flex items-center gap-0.5 transition-all active:scale-90 bg-amber-400 text-amber-950 hover:bg-amber-300">
+            <SkipForward className="w-3 h-3" />
+            Stop
+          </button>
+        )}
+        <div
+          className={`shrink-0 font-mono text-base font-bold tabular-nums px-2.5 py-1 rounded-md transition-colors ${
+            critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : ""
+          }`}
+          style={!critical ? { background: isCurrent ? "rgba(251,191,36,0.12)" : undefined } : undefined}
+        >
+          {fmtClock(timeMs)}
+        </div>
       </div>
     </div>
   );
@@ -396,11 +405,84 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
 
   const sendMove = useCallback(async (move: any) => {
     setBusy(true);
+
+    // ── Save old state for rollback ──
+    const oldBoard = game?.state?.board ? [...(game.state.board as number[])] : null;
+    const oldTurn = game?.current_turn ?? null;
+    const oldMoveCount = game?.state?.move_count ?? 0;
+    const oldChainFrom = game?.state?.chain_from ?? null;
+    const oldVisited = game?.state?.visited ? [...(game.state.visited as number[])] : null;
+    const oldLastAxis = game?.state?.last_axis ?? null;
+
+    // ── Optimistic: update board immediately ──
+    if (game?.state?.board && move.from != null && move.to != null) {
+      const newBoard = [...(game.state.board as number[])];
+      const piece = newBoard[move.from];
+      newBoard[move.from] = 0;
+      newBoard[move.to] = piece;
+      // Remove captured pieces (property is "captured" NOT "captures")
+      const capturedArr: number[] = Array.isArray(move.captured) ? move.captured : [];
+      capturedArr.forEach((c: number) => {
+        if (c >= 0 && c < newBoard.length) newBoard[c] = 0;
+      });
+      // For captures: DON'T advance the turn — the server will decide if a
+      // chain continues (sets chain_from) or if the turn passes. Advancing
+      // the turn optimistically would make the bot trigger with a key that
+      // gets reused later, causing the bot to get stuck.
+      const hasCaptures = capturedArr.length > 0;
+      const wasInChain = oldChainFrom !== null;
+      setGame((g: any) => g ? {
+        ...g,
+        // Only advance turn for NON-capture moves. For captures, keep the
+        // current turn — the server's realtime event will set the correct
+        // turn and chain_from.
+        current_turn: hasCaptures ? oldTurn : (oldTurn === 0 ? 1 : 0),
+        // DON'T set updated_at — let the server's value stay so the
+        // realtime guard can properly compare (server format differs from
+        // ISO format, string comparison would always reject server events).
+        state: {
+          ...g.state,
+          board: newBoard,
+          // Don't change move_count for captures — server decides
+          move_count: hasCaptures ? oldMoveCount : oldMoveCount + 1,
+          // For captures, clear chain_from optimistically (server will set it
+          // if a chain continues). For non-captures, always clear.
+          chain_from: null,
+          visited: [],
+          last_axis: null,
+        },
+      } : g);
+
+      // Play sound immediately
+      if (hasCaptures) {
+        playFanoronaCapture();
+      } else {
+        playFanoronaMove();
+      }
+    }
+
+    setSelected(null); setCaptureChoice(null);
+
     try {
       const { error } = await supabase.rpc("fanorona_play" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
-      setSelected(null); setCaptureChoice(null);
+      // Realtime will confirm — but our optimistic state should match
     } catch (e: any) {
+      // ── Rollback on error ──
+      if (oldBoard) {
+        setGame((g: any) => g ? {
+          ...g,
+          current_turn: oldTurn,
+          state: {
+            ...g.state,
+            board: oldBoard,
+            move_count: oldMoveCount,
+            chain_from: oldChainFrom,
+            visited: oldVisited,
+            last_axis: oldLastAxis,
+          },
+        } : g);
+      }
       const msg = e?.message || "";
       const fr: Record<string, string> = {
         "capture is mandatory when available": "Capture obligatoire — vous devez capturer un pion adverse",
@@ -420,7 +502,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       toast.error(fr[msg] || msg || "Coup invalide");
     }
     finally { setBusy(false); }
-  }, [id]);
+  }, [id, game]);
 
 
   // Update ref so endTurn can call the latest sendMove
@@ -469,8 +551,14 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       });
       if (!ok) return;
     }
-    await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any);
-    navigate({ to: "/jeux" });
+    try {
+      const { error } = await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any);
+      if (error) throw error;
+      navigate({ to: "/jeux" });
+    } catch (e: any) {
+      console.error("[fanorona] forfeit error:", e);
+      toast.error(e?.message || "Erreur lors de l'abandon");
+    }
   }, [game?.stake, game?.status, id, navigate, confirm]);
 
   // Bot play for solo mode.
@@ -656,7 +744,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         const isCurrent = game.current_turn === opponent.slot && game.status === "playing";
         const pieceCount = opponent.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} timeMs={me?.color === "white" ? bTime : wTime} avatarUrl={opponent.user_id ? profiles[opponent.user_id]?.avatar_url : null} />
+          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} timeMs={me?.color === "white" ? bTime : wTime} avatarUrl={opponent.user_id ? profiles[opponent.user_id]?.avatar_url : null} stake={game?.stake} />
         );
       })()}
       </div>
@@ -802,13 +890,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
             </g>
           </svg>
         </div>
-        {isMyTurn && chainFrom !== null && (
-          <button onClick={endTurn}
-            className="shrink-0 w-full py-1.5 rounded-full font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 bg-amber-100 text-amber-950 hover:bg-amber-200">
-            <SkipForward className="w-3.5 h-3.5" />
-            Arrêter la rafale
-          </button>
-        )}
       </div>
 
       {/* ── Carte "vous" ── */}
@@ -817,7 +898,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         const isCurrent = game.current_turn === me.slot && game.status === "playing";
         const pieceCount = me.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} avatarUrl={me.user_id ? profiles[me.user_id]?.avatar_url : null} />
+          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} avatarUrl={me.user_id ? profiles[me.user_id]?.avatar_url : null} stake={game?.stake} showEndTurn={isMyTurn && chainFrom !== null} onEndTurn={endTurn} />
         );
       })()}
       </div>
