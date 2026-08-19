@@ -627,7 +627,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   // ═══ NEW DESIGN: no more no_move_display timestamp ═══
   // The server now ALWAYS sets must_move=true + dice + movable_pawns.
   // When movable_pawns is empty, the dice is still visible in state.
-  // The frontend shows "PAS DE COUP" for 1.5s, then auto-calls ludo_pass.
+  // The frontend shows "PAS DE COUP" for 600ms, then auto-calls ludo_pass.
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
 
   // Detect no-move: must_move=true but no movable pawns
@@ -635,7 +635,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     && movablePawnIdxs.size === 0
     && (isMyTurn || (!isSpectator && status === "playing"));
 
-  // Auto-pass after 1.5s when the human player has no move
+  // Auto-pass after 600ms when the human player has no move
   // FIX: Do NOT clearTimeout on cleanup — if a re-render cancels the timeout
   // and the ref guard prevents re-scheduling, the pass never fires.
   // Instead, let the timeout fire; ludo_pass fails harmlessly if the turn
@@ -653,7 +653,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
       } catch {}
       setNoMoveDisplay(null);
-    }, 1500);
+    }, 600);
     // No cleanup — ref guard prevents duplicates, RPC fails harmlessly if stale
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noMove, autoPassKey, gameId]);
