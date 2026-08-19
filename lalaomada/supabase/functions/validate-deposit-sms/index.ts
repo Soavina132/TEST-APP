@@ -1,51 +1,28 @@
 // ═══════════════════════════════════════════════════════════════════════
-// validate-deposit-sms — Edge Function Supabase v4 (parsers corrigés)
+// validate-deposit-sms — Edge Function v6 (simplifiée)
 //
 // POST /functions/v1/validate-deposit-sms
 // Body: { "secret": "xxx", "operator": "orange|mvola|airtel", "sms": "...",
 //         "timestamp": "1234567890", "signature": "hmac_hex" }
 //
-// SÉCURITÉ v3 (conservée):
-//   1. Vérification du secret API (OBLIGATOIRE)
-//   2. Vérification de la signature HMAC-SHA256 (OBLIGATOIRE — anti-replay)
-//   3. Vérification du timestamp (fenêtre de 5 minutes)
-//   4. La clé service_role n'est JAMAIS reçue du client
-//   5. CORS restreint à l'URL de l'app (pas *)
-//   6. Pas de secret hardcodé en fallback
+// Détection simple par opérateur — 3 champs uniquement:
+//   1. Montant
+//   2. Numéro de téléphone (expéditeur)
+//   3. ID/Ref de transaction
 //
-// FIX v4 (basé sur SMS réels fournis par l'utilisateur):
-//   A. OrangeParser — Trans Id capturait un point final en trop
-//      Ex réel: "Trans Id: PP260519.1245.C46612." → capturait avec le "."
-//      Fix: strip du point final avant retour
-//   B. MVolaParser — le format réel a le montant AVANT "recu de", pas après
-//      Ex réel: "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907 le
-//                04/08/26 a 16:45. Raison: ludo. Solde: 20 559 Ar. Ref 4876739165"
-//      L'ancien regex ne matchait JAMAIS ce format → amount restait NULL
-//      SANS ÊTRE VALIDÉ (pas de check manquant), ce qui pouvait bypasser
-//      la vérification du montant côté DB (NULL <= 200 = NULL = pas de rejet)
-//      Fix: nouveau parseFormat dédié + vérification stricte du montant
-//
-// Architecture:
-//   ParserFactory → OrangeParser | MVolaParser | AirtelParser
-//   → validate_deposit_from_sms() (PostgreSQL, atomique)
-//
-// AirtelParser implémenté v5 — format malgache confirmé:
-//       "Ar 2000 azo tamin'ny agent XXX. Toebolanao Ar YYY. Trans ID: CI..."
+// Formats confirmés:
+//   Orange:  "Vous avez recu un transfert de 25650Ar venant du 0322159515... Trans Id: PP260519.1245.C46612."
+//   MVola:   "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907... Ref 4876739165"
+//   Airtel:  "Ar 2000 azo tamin'ny agent 331576366. Toebolanao Ar 2094. Trans ID: CI260811.1140.E34298"
 // ═══════════════════════════════════════════════════════════════════════
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-// ═══════════════════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════════════════
-
 interface ParsedSMS {
   amount: number | null;
   sender_number: string | null;
-  sender_name: string | null;
   transaction_id: string | null;
-  sms_date: string | null;
 }
 
 interface ParseResult {
@@ -55,132 +32,94 @@ interface ParseResult {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// ORANGE PARSER
+// ORANGE MONEY — 3 regex
+//   Montant:  "transfert de 25650Ar"  →  25650
+//   Numéro:   "venant du 0322159515"  →  0322159515
+//   ID:       "Trans Id: PP260519.1245.C46612."  →  PP260519.1245.C46612
 // ═══════════════════════════════════════════════════════════════════════
-//
-// Format réel confirmé (SMS reçu):
-//   "Vous avez recu un transfert de 25650Ar venant du 0322159515
-//    Nouveau Solde: 26230Ar.  Trans Id: PP260519.1245.C46612.
-//    Orange Money vous remercie..."
-//
-// Structure du Trans Id: PP + AAMMJJ . HHMM . C + chiffres (séparés par points)
 
 class OrangeParser {
   parse(sms: string): ParseResult {
-    if (/vous avez reçu/i.test(sms) || /transfert/i.test(sms)) {
-      return this.parseFormat1(sms);
-    }
-    if (/recu de/i.test(sms) || /Ref\s+\d/i.test(sms)) {
-      return this.parseFormat2(sms);
-    }
-    return { success: false, error: "Format Orange Money non reconnu" };
-  }
+    const result: ParsedSMS = { amount: null, sender_number: null, transaction_id: null };
 
-  private parseFormat1(sms: string): ParseResult {
-    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
-    const amountMatch = sms.match(/(?:transfert|recu|reçu)\s+de\s+([\d\s]+)\s*Ar/i);
-    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    const senderMatch = sms.match(/venant\s+du\s+(\d[\d\s]+)/i);
-    if (senderMatch) result.sender_number = senderMatch[1].trim();
-    const transIdMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i);
-    if (transIdMatch) {
-      // FIX v4: retirer le point final de fin de phrase (pas un vrai séparateur)
-      result.transaction_id = transIdMatch[1].trim().replace(/\.$/, "");
-    }
-    if (!result.transaction_id) return { success: false, error: "Trans Id manquant (Format 1)" };
-    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 1)" };
-    return { success: true, data: result };
-  }
+    // 1. MONTANT — après "transfert de" ou "recu ... de" + chiffres + "Ar"
+    const amt = sms.match(/(?:transfert|recu|re[uç]u)\s+de\s+([\d\s]+)\s*Ar/i)
+             || sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i);
+    if (amt) result.amount = parseInt(amt[1].replace(/\s/g, ""), 10);
 
-  private parseFormat2(sms: string): ParseResult {
-    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
-    const amountMatch = sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i);
-    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    const senderMatch = sms.match(/recu\s+de\s+(.+?)\s+(\d{10,})/i);
-    if (senderMatch) { result.sender_name = senderMatch[1].trim(); result.sender_number = senderMatch[2]; }
-    const dateMatch = sms.match(/le\s+(\d{2}\/\d{2}\/\d{2,4})\s+[àa]\s+(\d{2}:\d{2})/i);
-    if (dateMatch) result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
-    const refMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i) || sms.match(/Ref\s+(\d+)/i);
-    if (refMatch) result.transaction_id = refMatch[1].trim().replace(/\.$/, "");
-    if (!result.transaction_id) return { success: false, error: "Ref/Trans Id manquante (Format 2)" };
-    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 2)" };
+    // 2. NUMÉRO — après "venant du" ou après "recu de ... "
+    const num = sms.match(/venant\s+du\s+(\d[\d\s]+)/i)
+             || sms.match(/recu\s+de\s+[\w\s]+?\s+(\d{9,10})/i);
+    if (num) result.sender_number = num[1].replace(/\s/g, "").trim();
+
+    // 3. ID — "Trans Id: PP..." ou "Ref 12345"
+    const id = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i)
+           || sms.match(/Ref\s+(\d+)/i);
+    if (id) result.transaction_id = id[1].trim().replace(/\.$/, "");
+
+    if (!result.amount || isNaN(result.amount)) return { success: false, error: "Montant manquant (Orange)" };
+    if (!result.transaction_id) return { success: false, error: "Trans ID manquant (Orange)" };
     return { success: true, data: result };
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MVOLA PARSER
+// MVOLA — 3 regex
+//   Montant:  "2 000 Ar recu de"  →  2000  (AVANT "recu de", pas le Solde)
+//   Numéro:   "0348968907" après le nom  →  0348968907
+//   Ref:      "Ref 4876739165"  →  4876739165
 // ═══════════════════════════════════════════════════════════════════════
-//
-// Format réel confirmé (SMS reçu):
-//   "2 000 Ar recu de LovatianaEmmanuelRolland 0348968907 le 04/08/26
-//    a 16:45. Raison: ludo. Solde: 20 559 Ar. Ref 4876739165"
-//
-// IMPORTANT: le montant reçu est AVANT "recu de" — le "Solde" (après)
-// est le solde du compte admin, PAS le montant reçu. Ne jamais confondre
-// les deux nombres.
 
 class MVolaParser {
   parse(sms: string): ParseResult {
-    // FIX v4: format réel prioritaire — "X Ar recu de ... Ref Y"
-    if (/[\d\s]+\s*Ar\s+recu\s+de/i.test(sms)) {
-      return this.parseRealFormat(sms);
-    }
-    if (/recu/i.test(sms) || /ref/i.test(sms)) return this.parseFormat1(sms);
-    if (/transaction/i.test(sms) || /montant/i.test(sms)) return this.parseFormat2(sms);
-    return { success: false, error: "Format MVola non reconnu" };
-  }
+    const result: ParsedSMS = { amount: null, sender_number: null, transaction_id: null };
 
-  // FIX v4: nouveau parser dédié au format réel MVola
-  private parseRealFormat(sms: string): ParseResult {
-    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+    // 1. MONTANT — AVANT "Ar recu de" (jamais le "Solde" qui vient après)
+    const amt = sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i)
+             || sms.match(/(?:recu|recus|re[uç]u)\s+([\d\s]+)\s*Ar/i);
+    if (amt) result.amount = parseInt(amt[1].replace(/\s/g, ""), 10);
 
-    // Montant AVANT "Ar recu de" (pas le Solde, qui vient après)
-    const amountMatch = sms.match(/([\d\s]+)\s*Ar\s+recu\s+de/i);
-    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+    // 2. NUMÉRO — 9-10 chiffres après le nom (avant "le" date)
+    const num = sms.match(/recu\s+de\s+\D+?(\d{9,10})/i)
+             || sms.match(/de\s+.*?(\d{9,10})/i);
+    if (num) result.sender_number = num[1];
 
-    // Nom + numéro entre "recu de" et "le <date>"
-    const senderMatch = sms.match(/recu\s+de\s+(.+?)\s+(\d{9,10})\s+le/i);
-    if (senderMatch) { result.sender_name = senderMatch[1].trim(); result.sender_number = senderMatch[2]; }
+    // 3. REF — "Ref 4876739165"
+    const ref = sms.match(/Ref\s+(\d+)/i)
+             || sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
+    if (ref) result.transaction_id = ref[1];
 
-    // Date + heure
-    const dateMatch = sms.match(/le\s+(\d{2}\/\d{2}\/\d{2,4})\s+[àa]\s+(\d{2}:\d{2})/i);
-    if (dateMatch) result.sms_date = `${dateMatch[1]} ${dateMatch[2]}`;
-
-    // Ref (numérique) — toujours à la fin du SMS
-    const refMatch = sms.match(/Ref\s+(\d+)/i);
-    if (refMatch) result.transaction_id = refMatch[1];
-
-    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (format réel)" };
-    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (format réel)" };
+    if (!result.amount || isNaN(result.amount)) return { success: false, error: "Montant manquant (MVola)" };
+    if (!result.transaction_id) return { success: false, error: "Ref manquante (MVola)" };
     return { success: true, data: result };
   }
+}
 
-  private parseFormat1(sms: string): ParseResult {
-    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
-    const amountMatch = sms.match(/(?:recu|recus|reçu)\s+([\d\s]+)\s*Ar/i);
-    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    const senderMatch = sms.match(/de\s+(.+?)\s*\(?(\d{10,})?/i);
-    if (senderMatch) { result.sender_name = senderMatch[1].trim(); if (senderMatch[2]) result.sender_number = senderMatch[2]; }
-    const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
-    if (refMatch) result.transaction_id = refMatch[1];
-    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 1)" };
-    // FIX v4: vérification du montant ajoutée (manquait — bypass possible)
-    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 1)" };
-    return { success: true, data: result };
-  }
+// ═══════════════════════════════════════════════════════════════════════
+// AIRTEL MONEY — 3 regex (SMS en malgache)
+//   Montant:  "Ar 2000 azo"  →  2000
+//   Numéro:   "agent 331576366"  →  331576366
+//   ID:       "Trans ID: CI260811.1140.E34298"  →  CI260811.1140.E34298
+// ═══════════════════════════════════════════════════════════════════════
 
-  private parseFormat2(sms: string): ParseResult {
-    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
-    const amountMatch = sms.match(/montant\s*:?\s*([\d\s]+)\s*Ar/i);
-    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-    const senderMatch = sms.match(/de\s*:?\s*(.+?)(?:\s+\(?(\d{10,})|$)/i);
-    if (senderMatch) { result.sender_name = senderMatch[1].trim(); if (senderMatch[2]) result.sender_number = senderMatch[2]; }
-    const refMatch = sms.match(/(?:ref|reference)[:\s]+([A-Z0-9]+)/i);
-    if (refMatch) result.transaction_id = refMatch[1];
-    if (!result.transaction_id) return { success: false, error: "Ref MVola manquante (Format 2)" };
-    // FIX v4: vérification du montant ajoutée (manquait — bypass possible)
-    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Format 2)" };
+class AirtelParser {
+  parse(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, transaction_id: null };
+
+    // 1. MONTANT — "Ar 2000 azo"
+    const amt = sms.match(/Ar\s+([\d\s]+)\s+azo/i);
+    if (amt) result.amount = parseInt(amt[1].replace(/\s/g, ""), 10);
+
+    // 2. NUMÉRO — "agent 331576366"
+    const num = sms.match(/agent\s+(\d+)/i);
+    if (num) result.sender_number = num[1];
+
+    // 3. ID — "Trans ID: CI260811.1140.E34298"
+    const id = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i);
+    if (id) result.transaction_id = id[1].trim().replace(/\.$/, "");
+
+    if (!result.amount || isNaN(result.amount)) return { success: false, error: "Montant manquant (Airtel)" };
+    if (!result.transaction_id) return { success: false, error: "Trans ID manquant (Airtel)" };
     return { success: true, data: result };
   }
 }
@@ -188,53 +127,6 @@ class MVolaParser {
 // ═══════════════════════════════════════════════════════════════════════
 // PARSER FACTORY
 // ═══════════════════════════════════════════════════════════════════════
-
-// =====================================================================
-// AIRTEL PARSER
-// =====================================================================
-//
-// Format reel confirme (SMS recu en malgache):
-//   "Ar 2000 azo tamin'ny agent 331576366. Toebolanao Ar 2094.
-//    Misaotra.Trans ID: CI260811.1140.E34298"
-//
-// Traduction:
-//   "Ar 2000" -> montant recu (2000 Ar)
-//   "azo tamin'ny agent 331576366" -> recu de l'agent 331576366
-//   "Toebolanao Ar 2094" -> votre solde 2094 Ar
-//   "Misaotra" -> merci
-//   "Trans ID: CI260811.1140.E34298" -> ID transaction
-
-class AirtelParser {
-  parse(sms: string): ParseResult {
-    if (/azo tamin/i.test(sms) || /Trans\s*Id/i.test(sms)) {
-      return this.parseFormat(sms);
-    }
-    return { success: false, error: "Format Airtel Money non reconnu" };
-  }
-
-  private parseFormat(sms: string): ParseResult {
-    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
-
-    // Montant: "Ar 2000 azo" -> 2000
-    const amountMatch = sms.match(/Ar\s+([\d\s]+)\s+azo/i);
-    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
-
-    // Numero agent/expediteur: "agent 331576366"
-    const senderMatch = sms.match(/agent\s+(\d+)/i);
-    if (senderMatch) result.sender_number = senderMatch[1].trim();
-
-    // Trans ID: "CI260811.1140.E34298"
-    const transIdMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i);
-    if (transIdMatch) {
-      result.transaction_id = transIdMatch[1].trim().replace(/\.$/, "");
-    }
-
-    if (!result.transaction_id) return { success: false, error: "Trans ID manquant (Airtel)" };
-    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Airtel)" };
-
-    return { success: true, data: result };
-  }
-}
 
 class ParserFactory {
   static getParser(operator: string): OrangeParser | MVolaParser | AirtelParser | null {
@@ -275,62 +167,45 @@ async function verifyHMAC(secret: string, payload: string, timestamp: string, si
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// HANDLER
+// CORS
 // ═══════════════════════════════════════════════════════════════════════
 
-// FIX v3: Pas de secret hardcodé — erreur si env var manquante
-const DEPOSIT_SECRET = Deno.env.get("DEPOSIT_SMS_SECRET");
-if (!DEPOSIT_SECRET) {
-  console.error("ERREUR CRITIQUE: DEPOSIT_SMS_SECRET env var non définie");
-}
-
-// FIX v3: CORS restreint au domaine de l'app
-const ALLOWED_ORIGINS = [
-  "https://lalaomada.vercel.app",
-  "https://lalaomada-gules.vercel.app",
-  "https://test-app.vercel.app",
-  "https://gifwfjgciwbsottztzoc.supabase.co",
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
-
 function getCORSHeaders(origin: string | null): Record<string, string> {
-  const headers: Record<string, string> = {
-    "Access-Control-Allow-Methods": "POST",
+  const allowed = [
+    "https://jeux-mada.vercel.app",
+    "https://lalaomada.vercel.app",
+    "http://localhost:3000",
+  ];
+  const allowOrigin = origin && allowed.includes(origin) ? origin : allowed[0];
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Content-Type": "application/json",
   };
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
-  return headers;
 }
 
-function json(data: unknown, status = 200, corsHeaders?: Record<string, string>): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      ...(corsHeaders || {}),
-    },
-  });
+function json(data: any, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(data), { status, headers });
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN HANDLER
+// ═══════════════════════════════════════════════════════════════════════
+
+const DEPOSIT_SECRET = Deno.env.get("DEPOSIT_SMS_SECRET") || "";
 
 serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
 
-  // CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: getCORSHeaders(origin),
-    });
+    return new Response(null, { status: 200, headers: getCORSHeaders(origin) });
   }
 
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405, getCORSHeaders(origin));
   }
 
-  // FIX v3: Vérifier que le secret est configuré
   if (!DEPOSIT_SECRET) {
     return json({ success: false, error: "SERVER_MISCONFIG", message: "Secret non configuré" }, 500, getCORSHeaders(origin));
   }
@@ -338,11 +213,8 @@ serve(async (req: Request) => {
   try {
     const body = await req.json();
     const { secret, operator, sms, timestamp, signature } = body as {
-      secret?: string;
-      operator?: string;
-      sms?: string;
-      timestamp?: string;
-      signature?: string;
+      secret?: string; operator?: string; sms?: string;
+      timestamp?: string; signature?: string;
     };
 
     // 1. Vérifier le secret
@@ -350,7 +222,7 @@ serve(async (req: Request) => {
       return json({ success: false, error: "UNAUTHORIZED", message: "Secret invalide" }, 401, getCORSHeaders(origin));
     }
 
-    // FIX v3: HMAC OBLIGATOIRE (plus de mode rétrocompatible)
+    // 2. Vérifier la signature HMAC
     if (!timestamp || !signature) {
       return json({ success: false, error: "MISSING_SIGNATURE", message: "Timestamp et signature HMAC obligatoires" }, 401, getCORSHeaders(origin));
     }
@@ -365,13 +237,12 @@ serve(async (req: Request) => {
       return json({ success: false, error: "MISSING_PARAMS", message: "operator et sms requis" }, 400, getCORSHeaders(origin));
     }
 
-    // 2. Obtenir le parser
+    // 3. Parser le SMS
     const parser = ParserFactory.getParser(operator);
     if (!parser) {
       return json({ success: false, error: "UNKNOWN_OPERATOR", message: `Opérateur inconnu: ${operator}` }, 400, getCORSHeaders(origin));
     }
 
-    // 3. Parser le SMS
     const parseResult = parser.parse(sms);
     if (!parseResult.success || !parseResult.data) {
       const supabase = createClient(
@@ -390,7 +261,7 @@ serve(async (req: Request) => {
 
     const parsed = parseResult.data;
 
-    // 4. Valider via la fonction PostgreSQL (atomique)
+    // 4. Valider via la fonction PostgreSQL
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -400,9 +271,9 @@ serve(async (req: Request) => {
       _operator: operator,
       _transaction_id: parsed.transaction_id,
       _sender_number: parsed.sender_number,
-      _sender_name: parsed.sender_name,
+      _sender_name: null,
       _amount: parsed.amount,
-      _sms_date: parsed.sms_date,
+      _sms_date: null,
       _sms_content: sms,
     });
 
