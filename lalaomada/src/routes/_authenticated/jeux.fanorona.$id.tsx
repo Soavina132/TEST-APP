@@ -411,31 +411,39 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       const piece = newBoard[move.from];
       newBoard[move.from] = 0;
       newBoard[move.to] = piece;
-      // Remove captured pieces
-      if (Array.isArray(move.captures)) {
-        (move.captures as number[]).forEach((c: number) => {
-          if (c >= 0 && c < newBoard.length) newBoard[c] = 0;
-        });
-      }
-      // Determine if this completes the turn (no chain continuation)
-      const isChainEnd = !move.chain_continue;
-      const newTurn = isChainEnd ? (oldTurn === 0 ? 1 : 0) : oldTurn;
+      // Remove captured pieces (property is "captured" NOT "captures")
+      const capturedArr: number[] = Array.isArray(move.captured) ? move.captured : [];
+      capturedArr.forEach((c: number) => {
+        if (c >= 0 && c < newBoard.length) newBoard[c] = 0;
+      });
+      // For captures: DON'T advance the turn — the server will decide if a
+      // chain continues (sets chain_from) or if the turn passes. Advancing
+      // the turn optimistically would make the bot trigger with a key that
+      // gets reused later, causing the bot to get stuck.
+      const hasCaptures = capturedArr.length > 0;
+      const wasInChain = oldChainFrom !== null;
       setGame((g: any) => g ? {
         ...g,
-        current_turn: newTurn,
+        // Only advance turn for NON-capture moves. For captures, keep the
+        // current turn — the server's realtime event will set the correct
+        // turn and chain_from.
+        current_turn: hasCaptures ? oldTurn : (oldTurn === 0 ? 1 : 0),
         updated_at: new Date().toISOString(),
         state: {
           ...g.state,
           board: newBoard,
-          move_count: isChainEnd ? oldMoveCount + 1 : oldMoveCount,
-          chain_from: move.chain_continue ? move.to : null,
-          visited: move.chain_continue ? [...(oldVisited || []), move.from] : [],
-          last_axis: move.chain_continue ? null : null,
+          // Don't change move_count for captures — server decides
+          move_count: hasCaptures ? oldMoveCount : oldMoveCount + 1,
+          // For captures, clear chain_from optimistically (server will set it
+          // if a chain continues). For non-captures, always clear.
+          chain_from: null,
+          visited: [],
+          last_axis: null,
         },
       } : g);
 
       // Play sound immediately
-      if (Array.isArray(move.captures) && move.captures.length > 0) {
+      if (hasCaptures) {
         playFanoronaCapture();
       } else {
         playFanoronaMove();
