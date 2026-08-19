@@ -499,8 +499,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     if (lastTimeoutKey.current === key) return;
     lastTimeoutKey.current = key;
     const t = setTimeout(async () => {
-      const { error } = await supabase.rpc("ludo_check_timeout" as any, { _game_id: gameId } as any);
-      // Silent — timeout failures are usually race conditions (game ended, turn already advanced)
+      const { data: timeoutData, error } = await supabase.rpc("ludo_check_timeout" as any, { _game_id: gameId } as any);
+      if (!error && timeoutData && onStateUpdate) {
+        onStateUpdate(timeoutData as GameState);
+      }
     }, 600);
     return () => clearTimeout(t);
   }, [remaining, status, gameId, state.turn_slot, state.turn_started_at]);
