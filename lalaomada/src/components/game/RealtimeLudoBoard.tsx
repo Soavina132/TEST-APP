@@ -456,11 +456,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     if (status !== "playing" || !currentPart?.is_bot) return;
     // Bot play is handled by the server cron (ludo_tick_all, 3s interval).
     // Two-phase: roll (3-5s delay) then move (2-4s delay after roll).
-    // This frontend trigger is a FALLBACK only — fires after 6s in case the cron missed.
+    // This frontend trigger is a FALLBACK only — fires after 2.5s in case the server tick missed.
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    const delay = 6000;
+    const delay = 2500;
     const t = setTimeout(async () => {
       try {
         if (state.must_move) {
