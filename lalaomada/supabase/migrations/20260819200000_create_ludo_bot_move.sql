@@ -92,7 +92,7 @@ BEGIN
     st := jsonb_set(st, '{turn_slot}', to_jsonb(v_new_slot));
     st := jsonb_set(st, '{turn_started_at}', to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
     st := jsonb_set(st, '{turn_seq}', to_jsonb(COALESCE((st->>'turn_seq')::int, 0) + 1));
-    st := jsonb_set(st, '{last_event}', to_jsonb('bot:pass'));
+    st := jsonb_set(st, '{last_event}', to_jsonb('bot:pass'::text));
     st := st - 'no_move_display' - 'movable_pawns' - 'power_event';
     UPDATE public.ludo_games SET state = st, current_turn = (st->>'turn_slot')::INT WHERE id = _game_id;
 
@@ -124,7 +124,7 @@ BEGIN
     st := jsonb_set(st, '{turn_slot}', to_jsonb(v_new_slot));
     st := jsonb_set(st, '{turn_started_at}', to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
     st := jsonb_set(st, '{turn_seq}', to_jsonb(COALESCE((st->>'turn_seq')::int, 0) + 1));
-    st := jsonb_set(st, '{last_event}', to_jsonb('bot:pass'));
+    st := jsonb_set(st, '{last_event}', to_jsonb('bot:pass'::text));
     st := st - 'no_move_display' - 'movable_pawns' - 'power_event';
     UPDATE public.ludo_games SET state = st, current_turn = (st->>'turn_slot')::INT WHERE id = _game_id;
     PERFORM public._ludo_check_game_over(_game_id);
