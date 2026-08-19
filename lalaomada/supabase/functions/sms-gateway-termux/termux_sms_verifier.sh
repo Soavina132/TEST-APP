@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================================
-# Termux SMS Auto-Verifier + Auto-Deposit for Lalao-Mada — v3
+# Termux SMS Auto-Verifier + Auto-Deposit for Lalao-Mada — v4
 # ==========================================================================
 # Ce script tourne sur le téléphone admin via Termux.
 # Il gère DEUX flux automatiques:
@@ -8,20 +8,21 @@
 #   1. VÉRIFICATION TÉLÉPHONE
 #      Détecte les codes LMxxxxxx (insensible à la casse)
 #      → appelle auto_verify_phone_by_sms()
-#      → vérifie le numéro du joueur
 #
 #   2. DÉPÔT AUTOMATIQUE
 #      Détecte les SMS Orange/MVola/Airtel Money
 #      → appelle auto_process_deposit_sms()
-#      → crédite le compte du joueur
+#      → tolérance montant: ±200 Ar vs demande de dépôt
+#      → numéro normalisé (0/261/+261)
+#      → déduplication par Trans ID/Ref (unique côté serveur)
+#      → extrait le MONTANT REÇU (pas le solde total)
 #
-# NUMÉROS: 034xxx, 261xxx, +261xxx tous supportés
-# CODES: LM/lm/Lm/lM + 6 chiffres — insensible à la casse
+# SCAN: 50 derniers SMS toutes les 30 secondes
 #
 # SETUP:
 #   1. Install Termux + Termux:API (Play Store)
 #   2. pkg update && pkg install termux-api curl jq
-#   3. Copy this script to ~/sms-verifier.sh
+#   3. Copy to ~/sms-verifier.sh
 #   4. chmod +x sms-verifier.sh
 #   5. Edit SERVICE_ROLE_KEY below
 #   6. ./sms-verifier.sh  (ou: nohup ./sms-verifier.sh &)
@@ -30,20 +31,25 @@
 SUPABASE_URL="https://gifwfjgciwbsottztzoc.supabase.co"
 SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY_HERE"  # ← Remplace par ta clé service_role
 
-echo "🤖 Lalao-Mada SMS Auto-Verifier v3"
-echo "📡 Écoute des SMS..."
+echo "🤖 Lalao-Mada SMS Auto-Verifier v4"
+echo "📡 Scan: 50 SMS toutes les 30 secondes"
 echo "📱 Vérification: codes LMxxxxxx (insensible à la casse)"
-echo "💰 Dépôt: Orange Money, MVola, Airtel Money"
+echo "💰 Dépôt: Orange/MVola/Airtel (montant reçu, ±200 Ar)"
+echo "🔒 Dédup: Trans ID/Ref unique côté serveur"
 echo "---"
 
 PROCESSED_FILE="/tmp/sms_processed.txt"
 touch "$PROCESSED_FILE"
 
+# Nettoyer le fichier au démarrage (>2h)
+> "$PROCESSED_FILE"
+
 while true; do
-  SMS_JSON=$(termux-sms-list -l 5 -t inbox 2>/dev/null)
+  # Récupérer les 50 derniers SMS (boîte de réception)
+  SMS_JSON=$(termux-sms-list -l 50 -t inbox 2>/dev/null)
 
   if [ -z "$SMS_JSON" ] || [ "$SMS_JSON" = "[]" ]; then
-    sleep 3
+    sleep 30
     continue
   fi
 
@@ -54,8 +60,9 @@ while true; do
     BODY=$(echo "$SMS_JSON" | jq -r ".[$i].body // empty" 2>/dev/null)
     TIMESTAMP=$(echo "$SMS_JSON" | jq -r ".[$i].date // empty" 2>/dev/null)
 
+    # Skip si déjà traité
     SMS_ID="${SENDER}_${TIMESTAMP}"
-    if grep -q "$SMS_ID" "$PROCESSED_FILE" 2>/dev/null; then
+    if grep -qF "$SMS_ID" "$PROCESSED_FILE" 2>/dev/null; then
       continue
     fi
 
@@ -96,7 +103,7 @@ while true; do
     # Orange Money: "transfert", "Trans Id", "Orange Money"
     if echo "$BODY" | grep -qiE "transfert|Trans\s*Id|Orange Money"; then
       OPERATOR="orange"
-    # MVola: "recu de", "Ref XXXXX", "Solde"
+    # MVola: "Ar recu de", "Ref XXXXX", "Solde"
     elif echo "$BODY" | grep -qiE "Ar\s+recu\s+de|Ref\s+[0-9]{6,}|Solde:"; then
       OPERATOR="mvola"
     # Airtel: "azo tamin", "Trans ID", "Toebolanao"
@@ -129,5 +136,6 @@ while true; do
 
   done
 
-  sleep 3
+  # Attendre 30 secondes avant le prochain scan
+  sleep 30
 done
