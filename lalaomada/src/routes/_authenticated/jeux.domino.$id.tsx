@@ -241,112 +241,40 @@ function DominoPage() {
   const drawMode = game?.state?.draw_mode === "without" ? "without" : "with" as const;
   const noMove = !!(isMyTurn && board.length > 0 && !canPlay && (drawMode === "without" || stockSize === 0));
 
-  // ── Actions (optimistic: sound + state update immediately) ─────────────
+  // ── Actions ────────────────────────────────────────────────────────────
   const playSide = async (side: "left" | "right" | "auto", idx = selectedTile) => {
     if (idx === null || busy) return;
     const tile = myHand[idx];
     if (!tile || !tileMatches(tile)) return;
     setBusy(true);
-
-    // ── Play sound immediately ──
-    playClack();
-    setSelectedTile(null);
-
-    // ── Optimistic: remove tile from hand + add to board ──
-    const oldState = game?.state;
-    const oldTurn = game?.current_turn ?? null;
-    if (game?.state && me) {
-      const slot = String(me.slot);
-      const newHand = [...(game.state.hands?.[slot] as Tile[] || [])];
-      newHand.splice(idx, 1);
-      const newBoard = [...(game.state.board || [])];
-      newBoard.push({ tile, side: side === "auto" ? undefined : side });
-      // Update ends
-      let newLeftEnd = game.state.left_end;
-      let newRightEnd = game.state.right_end;
-      if (!newBoard.length || newBoard.length === 1) {
-        // First tile — both ends are the tile's values
-        newLeftEnd = tile[0];
-        newRightEnd = tile[1];
-      } else if (side === "left") {
-        if (tile[1] === leftEnd) newLeftEnd = tile[0];
-        else if (tile[0] === leftEnd) newLeftEnd = tile[1];
-      } else if (side === "right") {
-        if (tile[0] === rightEnd) newRightEnd = tile[1];
-        else if (tile[1] === rightEnd) newRightEnd = tile[0];
-      } else {
-        // auto — determine which end matches
-        if (tile[0] === leftEnd || tile[1] === leftEnd) {
-          if (tile[1] === leftEnd) newLeftEnd = tile[0];
-          else newLeftEnd = tile[1];
-        } else if (tile[0] === rightEnd || tile[1] === rightEnd) {
-          if (tile[0] === rightEnd) newRightEnd = tile[1];
-          else newRightEnd = tile[0];
-        }
-      }
-      // Advance turn
-      const maxP = game.max_players || 2;
-      const newTurn = (oldTurn + 1) % maxP;
-      setGame((g: any) => g ? {
-        ...g,
-        current_turn: newTurn,
-        updated_at: new Date().toISOString(),
-        state: {
-          ...g.state,
-          hands: { ...g.state.hands, [slot]: newHand },
-          board: newBoard,
-          left_end: newLeftEnd,
-          right_end: newRightEnd,
-        },
-      } : g);
-    }
-
     try {
       const move: any = side === "auto" ? { action: "play", tile } : { action: "play", tile, side };
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
-      void load(); // Reconcile with server
-    } catch (e: any) {
-      // Rollback
-      if (oldState) {
-        setGame((g: any) => g ? { ...g, current_turn: oldTurn, state: oldState } : g);
-      }
-      toast.error(e.message);
-    }
+      playClack();
+      setSelectedTile(null);
+    } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
 
   const draw = async () => {
     setBusy(true);
-    // Play sound immediately
-    playDraw();
-    setRemaining(30);
     try {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "draw" } } as any);
       if (error) throw error;
-      void load();
+      playDraw();
+      setRemaining(30);
     } catch (e: any) { toast.error(e.message); }
     finally { setBusy(false); }
   };
 
   const pass = async (opts?: { silent?: boolean }) => {
     setBusy(true);
-    // Play sound immediately
-    playPass();
-    // Optimistic: advance turn
-    const oldTurn = game?.current_turn ?? null;
-    const maxP = game?.max_players || 2;
-    const newTurn = ((oldTurn ?? 0) + 1) % maxP;
-    setGame((g: any) => g ? { ...g, current_turn: newTurn, updated_at: new Date().toISOString() } : g);
     try {
       const { error } = await supabase.rpc("domino_play" as any, { _game_id: id, _move: { action: "pass" } } as any);
       if (error) throw error;
-      void load();
-    } catch (e: any) {
-      // Rollback
-      setGame((g: any) => g ? { ...g, current_turn: oldTurn } : g);
-      if (!opts?.silent) toast.error(e.message);
-    }
+      playPass();
+    } catch (e: any) { if (!opts?.silent) toast.error(e.message); }
     finally { setBusy(false); }
   };
 
