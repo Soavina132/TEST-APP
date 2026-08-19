@@ -94,9 +94,9 @@ function fmtClock(ms: number) {
 }
 
 function FanoronaPlayerBar({
-  p, isCurrent, isMe, pieceCount, timeMs, avatarUrl, stake,
+  p, isCurrent, isMe, pieceCount, timeMs, avatarUrl, stake, showEndTurn, onEndTurn,
 }: {
-  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number; avatarUrl?: string | null; stake?: number;
+  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number; avatarUrl?: string | null; stake?: number; showEndTurn?: boolean; onEndTurn?: () => void;
 }) {
   const isWhite = p.color === "white";
   const low = timeMs < 30_000;
@@ -131,13 +131,22 @@ function FanoronaPlayerBar({
           </span>
         </div>
       </div>
-      <div
-        className={`shrink-0 font-mono text-base font-bold tabular-nums px-2.5 py-1 rounded-md transition-colors ${
-          critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : ""
-        }`}
-        style={!critical ? { background: isCurrent ? "rgba(251,191,36,0.12)" : undefined } : undefined}
-      >
-        {fmtClock(timeMs)}
+      <div className="shrink-0 flex items-center gap-1.5">
+        {showEndTurn && onEndTurn && (
+          <button onClick={onEndTurn}
+            className="shrink-0 px-2 py-1 rounded-md text-[10px] font-bold shadow-sm flex items-center gap-0.5 transition-all active:scale-90 bg-amber-400 text-amber-950 hover:bg-amber-300">
+            <SkipForward className="w-3 h-3" />
+            Stop
+          </button>
+        )}
+        <div
+          className={`shrink-0 font-mono text-base font-bold tabular-nums px-2.5 py-1 rounded-md transition-colors ${
+            critical ? "bg-red-500 text-white animate-pulse" : low ? "text-red-600 dark:text-red-400" : ""
+          }`}
+          style={!critical ? { background: isCurrent ? "rgba(251,191,36,0.12)" : undefined } : undefined}
+        >
+          {fmtClock(timeMs)}
+        </div>
       </div>
     </div>
   );
@@ -881,13 +890,6 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
             </g>
           </svg>
         </div>
-        {isMyTurn && chainFrom !== null && (
-          <button onClick={endTurn}
-            className="shrink-0 w-full py-1.5 rounded-full font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 bg-amber-100 text-amber-950 hover:bg-amber-200">
-            <SkipForward className="w-3.5 h-3.5" />
-            Arrêter la rafale
-          </button>
-        )}
       </div>
 
       {/* ── Carte "vous" ── */}
@@ -896,7 +898,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         const isCurrent = game.current_turn === me.slot && game.status === "playing";
         const pieceCount = me.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} avatarUrl={me.user_id ? profiles[me.user_id]?.avatar_url : null} stake={game?.stake} />
+          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} avatarUrl={me.user_id ? profiles[me.user_id]?.avatar_url : null} stake={game?.stake} showEndTurn={isMyTurn && chainFrom !== null} onEndTurn={endTurn} />
         );
       })()}
       </div>
