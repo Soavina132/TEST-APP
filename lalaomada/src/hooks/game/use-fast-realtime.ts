@@ -69,10 +69,14 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
             const newUpdated = (payload.new as any).updated_at;
             if (prevUpdated && newUpdated && newUpdated < prevUpdated) return prev;
             if (optTurnRef.current !== null && (payload.new as any).current_turn !== optTurnRef.current) {
-              // If the realtime event is NEWER (updated_at > prev), accept it —
-              // the turn legitimately changed (e.g. ludo_pass, ludo_move, bot play).
-              // Only reject if the event is stale or same-age (optimistic guard).
-              if (prevUpdated && newUpdated && newUpdated > prevUpdated) {
+              // Turn changed — accept only if the event is genuinely newer.
+              // Use turn_seq (incremented on every turn change) as the primary check,
+              // fall back to updated_at if turn_seq is missing.
+              const prevSeq = prev.state?.turn_seq ?? 0;
+              const newSeq = (payload.new as any).state?.turn_seq ?? 0;
+              const isNewer = newSeq > prevSeq ||
+                (!prevSeq && !newSeq && prevUpdated && newUpdated && newUpdated > prevUpdated);
+              if (isNewer) {
                 optTurnRef.current = null;
                 // Fall through to accept the event
               } else {
