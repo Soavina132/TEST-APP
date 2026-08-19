@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+// Robust date parsing — server sends "2026-08-13 22:19:51.286929+00"
+// (PostgreSQL format with space instead of T), while client optimistic
+// uses ISO "2026-08-19T10:50:30.123Z". String comparison fails across
+// these formats. Parse to epoch ms for correct comparison.
+function parseDateMs(s: any): number {
+  if (!s) return 0;
+  // Replace space with T to make it ISO-compatible
+  const str = typeof s === 'string' ? s.replace(' ', 'T') : String(s);
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
 interface FastRealtimeOptions {
   gameTable: string;
   participantTable: string;
@@ -39,9 +51,16 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
       setGame((prev: any) => {
         if (!prev) return g as TGame;
         // Only accept newer state (updated_at guard)
+        // Parse dates properly — server uses "2026-08-13 22:19:51.286929+00"
+        // while client optimistic uses ISO "2026-08-19T10:50:30.123Z".
+        // String comparison would always reject server events (space < T).
         const prevUpdated = (prev as any).updated_at;
         const newUpdated = (g as any).updated_at;
-        if (prevUpdated && newUpdated && newUpdated < prevUpdated) return prev;
+        if (prevUpdated && newUpdated) {
+          const pt = parseDateMs(prevUpdated);
+          const nt = parseDateMs(newUpdated);
+          if (pt && nt && nt < pt) return prev;
+        }
         return g as TGame;
       });
       setParts((p as TParticipant[]) || []);
@@ -67,15 +86,21 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
             if (!prev) return payload.new as TGame;
             const prevUpdated = (prev as any).updated_at;
             const newUpdated = (payload.new as any).updated_at;
-            if (prevUpdated && newUpdated && newUpdated < prevUpdated) return prev;
+            if (prevUpdated && newUpdated) {
+              const pt = parseDateMs(prevUpdated);
+              const nt = parseDateMs(newUpdated);
+              if (pt && nt && nt < pt) return prev;
+            }
             if (optTurnRef.current !== null && (payload.new as any).current_turn !== optTurnRef.current) {
               // Turn changed — accept only if the event is genuinely newer.
               // Use turn_seq (incremented on every turn change) as the primary check,
               // fall back to updated_at if turn_seq is missing.
               const prevSeq = prev.state?.turn_seq ?? 0;
               const newSeq = (payload.new as any).state?.turn_seq ?? 0;
+              const pt2 = parseDateMs(prevUpdated);
+              const nt2 = parseDateMs(newUpdated);
               const isNewer = newSeq > prevSeq ||
-                (!prevSeq && !newSeq && prevUpdated && newUpdated && newUpdated > prevUpdated);
+                (!prevSeq && !newSeq && pt2 && nt2 && nt2 > pt2);
               if (isNewer) {
                 optTurnRef.current = null;
                 // Fall through to accept the event

@@ -428,7 +428,9 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         // current turn — the server's realtime event will set the correct
         // turn and chain_from.
         current_turn: hasCaptures ? oldTurn : (oldTurn === 0 ? 1 : 0),
-        updated_at: new Date().toISOString(),
+        // DON'T set updated_at — let the server's value stay so the
+        // realtime guard can properly compare (server format differs from
+        // ISO format, string comparison would always reject server events).
         state: {
           ...g.state,
           board: newBoard,
@@ -540,8 +542,14 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       });
       if (!ok) return;
     }
-    await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any);
-    navigate({ to: "/jeux" });
+    try {
+      const { error } = await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any);
+      if (error) throw error;
+      navigate({ to: "/jeux" });
+    } catch (e: any) {
+      console.error("[fanorona] forfeit error:", e);
+      toast.error(e?.message || "Erreur lors de l'abandon");
+    }
   }, [game?.stake, game?.status, id, navigate, confirm]);
 
   // Bot play for solo mode.
