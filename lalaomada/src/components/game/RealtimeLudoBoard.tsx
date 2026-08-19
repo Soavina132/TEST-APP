@@ -636,6 +636,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     && (isMyTurn || (!isSpectator && status === "playing"));
 
   // Auto-pass after 1.5s when the human player has no move
+  // FIX: Do NOT clearTimeout on cleanup — if a re-render cancels the timeout
+  // and the ref guard prevents re-scheduling, the pass never fires.
+  // Instead, let the timeout fire; ludo_pass fails harmlessly if the turn
+  // already changed, and the ref guard prevents duplicate scheduling.
   const autoPassKey = noMove ? `${state.turn_slot}-${state.dice}-${state.turn_started_at}` : "";
   const lastAutoPassRef = useRef<string>("");
   useEffect(() => {
@@ -644,14 +648,15 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     lastAutoPassRef.current = autoPassKey;
     // Show the dice result during the delay
     setNoMoveDisplay({ slot: state.turn_slot, dice: state.dice as number });
-    const t = setTimeout(async () => {
+    setTimeout(async () => {
       try {
         await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
       } catch {}
       setNoMoveDisplay(null);
     }, 1500);
-    return () => clearTimeout(t);
-  }, [noMove, autoPassKey, gameId, state.turn_slot, state.dice, state.turn_started_at]);
+    // No cleanup — ref guard prevents duplicates, RPC fails harmlessly if stale
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noMove, autoPassKey, gameId]);
 
   // ═══ FIX: Clear noMoveDisplay when the turn changes ═══
   // Without this, noMoveDisplay can get stuck if the realtime event from
