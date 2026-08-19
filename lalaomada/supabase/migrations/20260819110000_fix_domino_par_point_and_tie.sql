@@ -8,20 +8,18 @@
 --   → Le mode points ne fonctionne jamais (le jeu s'arrête après 1 round)
 --
 -- Problème 2 : En cas de blocage (deadlock), si deux joueurs ont le même
---   nombre de pips restants le plus bas, le code actuel choisit le premier
---   trouvé avec `<` au lieu de détecter l'égalité.
---   → Il faut qu'en cas d'égalité, personne ne gagne de points (match nul).
+--   nombre de pips restants le plus bas, le code choisit le premier trouvé.
+--   → En cas d'égalité, personne ne gagne de points (match nul).
 --
 -- Problème 3 : Les scores sont stockés dans state->'round_scores' (clé = slot)
 --   mais le frontend lit game.scores (colonne table, clé = user_id).
 --   → Les scores ne s'affichent jamais en mode points.
 --   Fix: mettre à jour la colonne `scores` avec les clés user_id.
 --
--- Fix :
---   1. Lire mode et target_score depuis g.mode et g.target_score (colonnes)
---   2. Détecter les égalités dans le deadlock — si égalité, _winner_slot = NULL
---   3. Quand _winner_slot est NULL, ne pas attribuer de points et recommencer
---   4. Mettre à jour la colonne `scores` (clé user_id) en plus du state
+-- Problème 4 : last_round ne contient pas les bons champs pour le frontend.
+--   DominoRoundBreak attend: winner_uid, hand_pips, final_hands, round_score
+--   mais _domino_end_round stockait: winner_slot, scores, remaining
+--   Fix: stocker last_round dans le format attendu par le frontend.
 -- ═════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION public._domino_end_round(_game_id uuid, _winner_slot int DEFAULT NULL)
@@ -30,10 +28,9 @@ DECLARE
   g record;
   st jsonb;
   v_scores jsonb;        -- round_scores dans state (clé = slot)
-  v_col_scores jsonb;    -- colonne scores (clé = user_id ou bot_slot)
+  v_col_scores jsonb;    -- colonne scores (clé = user_id ou bot_N)
   v_slot int;
   v_pts int;
-  v_remaining jsonb;
   v_total int;
   v_rounds int;
   v_winner_overall int;
@@ -44,14 +41,17 @@ DECLARE
   v_reveal       interval := interval '2.5 seconds';
   v_break_total  interval := interval '7 seconds';
   v_part record;
-  v_hands jsonb := '{}'::jsonb;
-  v_hand jsonb;
   v_all_blocked boolean := false;
   v_lowest int;
   v_lowest_slot int;
   v_tie_count int;
   v_key text;
-  v_winner_uid text;
+  v_winner_uid text := null;
+  v_round_score int := 0;
+  v_hand_pips jsonb := '{}'::jsonb;
+  v_final_hands jsonb := '{}'::jsonb;
+  v_hand jsonb;
+  v_pips int;
 BEGIN
   SELECT * INTO g FROM public.domino_games WHERE id = _game_id;
   IF NOT FOUND THEN RETURN; END IF;
@@ -67,29 +67,40 @@ BEGIN
     v_all_blocked := true;
   END IF;
 
-  -- Calculate round scores (stored in state->'round_scores', keyed by slot)
+  -- Calculate round scores
   v_scores := COALESCE(st->'round_scores', '{}'::jsonb);
-  -- FIX 3: also maintain the `scores` column (keyed by user_id or bot_slot)
+  -- FIX 3: also maintain the `scores` column (keyed by user_id or bot_N)
   v_col_scores := COALESCE(g.scores, '{}'::jsonb);
+
+  -- Build hand_pips and final_hands for ALL participants (for frontend)
+  FOR v_part IN SELECT * FROM public.domino_participants WHERE game_id = _game_id AND forfeited = false ORDER BY slot LOOP
+    v_key := COALESCE(v_part.user_id::text, 'bot_'||v_part.slot::text);
+    v_hand := st->'hands'->v_part.slot::text;
+    IF v_hand IS NOT NULL THEN
+      SELECT COALESCE(sum((tile->>0)::int + (tile->>1)::int), 0) INTO v_pips
+        FROM jsonb_array_elements(v_hand) AS tile;
+    ELSE
+      v_pips := 0;
+    END IF;
+    v_hand_pips := v_hand_pips || jsonb_build_object(v_key, v_pips);
+    v_final_hands := v_final_hands || jsonb_build_object(v_key, COALESCE(v_hand, '[]'::jsonb));
+    v_total := v_total + v_pips;
+  END LOOP;
 
   IF v_all_blocked AND _winner_slot IS NULL THEN
     -- Deadlock: find lowest pip count
     v_lowest := 999999;
     v_lowest_slot := 0;
     v_tie_count := 0;
-    FOR v_slot IN SELECT unnest(array(SELECT DISTINCT (jsonb_object_keys(st->'hands'))::int ORDER BY 1)) LOOP
-      v_hand := st->'hands'->v_slot::text;
-      IF v_hand IS NOT NULL THEN
-        SELECT COALESCE(sum((tile->>0)::int + (tile->>1)::int), 0) INTO v_pts
-          FROM jsonb_array_elements(v_hand) AS tile;
-        IF v_pts < v_lowest THEN
-          v_lowest := v_pts;
-          v_lowest_slot := v_slot;
-          v_tie_count := 1;
-        ELSIF v_pts = v_lowest THEN
-          -- FIX 2: tie detected — same lowest pip count
-          v_tie_count := v_tie_count + 1;
-        END IF;
+    FOR v_part IN SELECT * FROM public.domino_participants WHERE game_id = _game_id AND forfeited = false ORDER BY slot LOOP
+      v_key := COALESCE(v_part.user_id::text, 'bot_'||v_part.slot::text);
+      v_pips := COALESCE((v_hand_pips->>v_key)::int, 0);
+      IF v_pips < v_lowest THEN
+        v_lowest := v_pips;
+        v_lowest_slot := v_part.slot;
+        v_tie_count := 1;
+      ELSIF v_pips = v_lowest THEN
+        v_tie_count := v_tie_count + 1;
       END IF;
     END LOOP;
 
@@ -103,40 +114,33 @@ BEGIN
 
   -- Award points to winner (sum of all opponents' remaining pips)
   IF _winner_slot IS NOT NULL THEN
-    v_remaining := '{}'::jsonb;
-    v_total := 0;
-    FOR v_slot IN SELECT unnest(array(SELECT DISTINCT (jsonb_object_keys(st->'hands'))::int ORDER BY 1)) LOOP
-      IF v_slot <> _winner_slot THEN
-        v_hand := st->'hands'->v_slot::text;
-        IF v_hand IS NOT NULL THEN
-          SELECT COALESCE(sum((tile->>0)::int + (tile->>1)::int), 0) INTO v_pts
-            FROM jsonb_array_elements(v_hand) AS tile;
-          v_remaining := v_remaining || jsonb_build_object(v_slot::text, v_pts);
-          v_total := v_total + v_pts;
-        END IF;
-      END IF;
-    END LOOP;
+    -- Get winner key (user_id or bot_N)
+    SELECT COALESCE(user_id::text, 'bot_'||slot::text) INTO v_key
+      FROM public.domino_participants WHERE game_id = _game_id AND slot = _winner_slot;
+    v_winner_uid := v_key;
+
+    -- Round score = total pips minus winner's own pips
+    v_round_score := GREATEST(0, v_total - COALESCE((v_hand_pips->>v_key)::int, 0));
 
     -- Update cumulative scores in state (keyed by slot)
-    SELECT COALESCE((v_scores->>_winner_slot::text)::int, 0) + v_total INTO v_pts;
+    SELECT COALESCE((v_scores->>_winner_slot::text)::int, 0) + v_round_score INTO v_pts;
     v_scores := jsonb_set(v_scores, ARRAY[_winner_slot::text], to_jsonb(v_pts), true);
 
     -- FIX 3: also update the `scores` column (keyed by user_id or bot_N)
-    SELECT COALESCE(user_id::text, 'bot_'||slot::text) INTO v_key
-      FROM public.domino_participants WHERE game_id = _game_id AND slot = _winner_slot;
-    IF v_key IS NOT NULL THEN
-      SELECT COALESCE((v_col_scores->>v_key)::int, 0) + v_total INTO v_pts;
-      v_col_scores := jsonb_set(v_col_scores, ARRAY[v_key], to_jsonb(v_pts), true);
-    END IF;
+    SELECT COALESCE((v_col_scores->>v_key)::int, 0) + v_round_score INTO v_pts;
+    v_col_scores := jsonb_set(v_col_scores, ARRAY[v_key], to_jsonb(v_pts), true);
   END IF;
 
-  -- Store last round info
+  -- FIX 4: Store last_round in the format expected by DominoRoundBreak frontend
   st := jsonb_set(st, '{last_round}', jsonb_build_object(
+    'winner_uid', v_winner_uid,
     'winner_slot', _winner_slot,
-    'scores', v_scores,
-    'remaining', v_remaining,
+    'round_score', v_round_score,
+    'hand_pips', v_hand_pips,
+    'final_hands', v_final_hands,
     'blocked', v_all_blocked,
-    'tie', (v_tie_count > 1)
+    'tie', (v_tie_count > 1),
+    'round', COALESCE(NULLIF(st->>'round','')::int, 0)
   ), true);
 
   -- Check if we have an overall winner
@@ -161,12 +165,12 @@ BEGIN
     st := jsonb_set(st, '{round_scores}', v_scores, true);
 
     -- Get winner user_id
-    SELECT user_id INTO v_winner_uid FROM public.domino_participants
+    SELECT user_id INTO v_key FROM public.domino_participants
       WHERE game_id = _game_id AND slot = v_winner_overall;
 
     UPDATE public.domino_games
        SET state = st, status = 'finished',
-           winner_id = v_winner_uid,
+           winner_id = v_key,
            scores = v_col_scores,
            current_turn = -1, turn_deadline = NULL
      WHERE id = _game_id;
