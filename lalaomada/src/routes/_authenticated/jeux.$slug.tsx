@@ -269,8 +269,8 @@ function Lobby() {
     navigate({ to: ROUTE[slug], params: { id } as any });
   };
   // ── Free game limit check ──
-  const checkFreeGameLimit = async (): Promise<boolean> => {
-    const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug } as any);
+  const checkFreeGameLimit = async (mode: "create" | "join" = "create"): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug, p_mode: mode } as any);
     if (error) {
       console.error("check_game_eligibility error:", error);
       return true; // fail open — let them play
@@ -465,7 +465,7 @@ function Lobby() {
   });
 
   const joinExisting = (gameId: string) => withAdminRename(async () => {
-    if (!(await checkFreeGameLimit())) return;
+    if (!(await checkFreeGameLimit("join"))) return;
     try {
       if (slug === "ludo") {
         const { error } = await supabase.rpc("join_game" as any, { _game_id: gameId } as any);
@@ -485,7 +485,7 @@ function Lobby() {
 
   const joinByCode = withAdminRename(async () => {
     if (!code.trim()) return;
-    if (!(await checkFreeGameLimit())) return;
+    if (!(await checkFreeGameLimit("join"))) return;
     setBusy(true);
     try {
       const fn = slug === "ludo" ? "join_game_by_code" :

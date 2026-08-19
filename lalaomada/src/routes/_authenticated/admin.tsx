@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
-import { Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock, History, LayoutDashboard, Search } from "lucide-react";
+import { Crown, Shield, Wallet, BarChart3, Users, Gamepad2, MessageSquare, Settings, RefreshCw, Pause, Play, Trash2, Send, Trophy, Info, ChevronDown, ChevronUp, Plus, AlertCircle, CheckCircle2, Sliders, Zap, Flag, Ban, UserX, DollarSign, RotateCcw, Eye, EyeOff, Clock, Camera, Save, ArrowUp, ArrowDown, CloudDownload, UserCheck, ImagePlus, Lock, History, LayoutDashboard, Search } from "lucide-react";
 import GameConfigsSection from "@/components/admin/GameConfigsSection";
 import GameTimersQuick from "@/components/admin/GameTimersQuick";
 import { ValidatedField, useFormErrors } from "@/components/admin/ValidatedField";
@@ -329,6 +329,9 @@ function AdminPage() {
             </AdminSection>
             <AdminSection id="config-app" title="🛠️ Paramètres de l'application" description="Finance, contact, chat, points, statut des jeux" accent="sky" icon={<Settings className="w-4 h-4" />}>
               <AppConfigForm />
+            </AdminSection>
+            <AdminSection id="config-subscriptions" title="👑 Abonnements & Limites" description="Prix, parties/mois, jeux gratuits/jour, rejoindre" accent="amber" icon={<Crown className="w-4 h-4" />}>
+              <SubscriptionSettingsForm />
             </AdminSection>
             <AdminSection id="config-referral" title="🤝 Parrainage" description="Commission, niveaux, anti-fraude" accent="emerald" icon={<Users className="w-4 h-4" />}>
               <ReferralAdmin />
@@ -2504,6 +2507,119 @@ function AppConfigForm() {
       <button onClick={save} disabled={fe.hasErrors} className="w-full py-2.5 rounded-full bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Save className="w-4 h-4" /> Enregistrer tous les paramètres</button>
       <button onClick={async () => { const { data } = await supabase.rpc("ludo_purge_unready_rooms" as any); toast.success(`${data || 0} parties purgées`); }}
         className="w-full py-2 rounded-full bg-secondary text-sm">🧹 Purger les parties non prêtes</button>
+    </div>
+  );
+}
+
+// =================== SUBSCRIPTION SETTINGS ===================
+function SubscriptionSettingsForm() {
+  const [s, setS] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const load = () => supabase.from("app_settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => setS(data));
+  useEffect(() => { load(); }, []);
+  if (!s) return <div className="text-sm text-muted-foreground py-4 text-center">Chargement…</div>;
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("app_settings").update({
+        sub_starter_price_ar: Number(s.sub_starter_price_ar) || 0,
+        sub_starter_matches: Number(s.sub_starter_matches) || 0,
+        sub_basic_price_ar: Number(s.sub_basic_price_ar) || 0,
+        sub_basic_matches: Number(s.sub_basic_matches) || 0,
+        sub_standard_price_ar: Number(s.sub_standard_price_ar) || 0,
+        sub_standard_matches: Number(s.sub_standard_matches) || 0,
+        sub_premium_price_ar: Number(s.sub_premium_price_ar) || 0,
+        sub_premium_matches: Number(s.sub_premium_matches) || 0,
+        free_games_daily_limit: Number(s.free_games_daily_limit) || 0,
+        free_trial_max_days: Number(s.free_trial_max_days) || 0,
+        allow_free_join: !!s.allow_free_join,
+      } as any).eq("id", 1);
+      if (error) throw error;
+      toast.success("Abonnements & limites mis à jour");
+    } catch (e: any) {
+      toast.error(e.message || "Erreur");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tiers = [
+    { key: "sub_starter", label: "🌱 Starter", color: "bg-emerald-500/10 border-emerald-500/20" },
+    { key: "sub_basic", label: "🥉 Basic", color: "bg-amber-500/10 border-amber-500/20" },
+    { key: "sub_standard", label: "🥈 Standard", color: "bg-sky-500/10 border-sky-500/20" },
+    { key: "sub_premium", label: "🥇 Premium", color: "bg-purple-500/10 border-purple-500/20" },
+  ];
+
+  return (
+    <div className="rounded-3xl bg-card p-5 shadow-sm space-y-4">
+      <div className="font-bold flex items-center gap-2"><Crown className="w-4 h-4" /> Abonnements & Limites de jeux</div>
+
+      {/* ── Prix et parties/mois par tier ── */}
+      <div className="space-y-3">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">📋 Tarifs & quotas par abonnement</div>
+        {tiers.map(t => (
+          <div key={t.key} className={`rounded-2xl border p-3 space-y-2 ${t.color}`}>
+            <div className="font-semibold text-sm">{t.label}</div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs block">
+                Prix (Ar/mois)
+                <input type="number" min={0} value={s[`${t.key}_price_ar`] ?? 0}
+                  onChange={e => setS({ ...s, [`${t.key}_price_ar`]: e.target.value })}
+                  className="w-full mt-1 px-2 py-2 rounded-xl bg-secondary text-sm outline-none font-bold" />
+              </label>
+              <label className="text-xs block">
+                Parties / mois
+                <input type="number" min={0} value={s[`${t.key}_matches`] ?? 0}
+                  onChange={e => setS({ ...s, [`${t.key}_matches`]: e.target.value })}
+                  className="w-full mt-1 px-2 py-2 rounded-xl bg-secondary text-sm outline-none font-bold" />
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Limites gratuites ── */}
+      <div className="space-y-2 pt-3 border-t border-border/60">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">🆓 Limites gratuites</div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-xs block">
+            Jeux gratuits / jour
+            <input type="number" min={0} max={100} value={s.free_games_daily_limit ?? 5}
+              onChange={e => setS({ ...s, free_games_daily_limit: e.target.value })}
+              className="w-full mt-1 px-2 py-2 rounded-xl bg-secondary text-sm outline-none font-bold" />
+          </label>
+          <label className="text-xs block">
+            Jours d'essai gratuit
+            <input type="number" min={0} max={30} value={s.free_trial_max_days ?? 3}
+              onChange={e => setS({ ...s, free_trial_max_days: e.target.value })}
+              className="w-full mt-1 px-2 py-2 rounded-xl bg-secondary text-sm outline-none font-bold" />
+          </label>
+        </div>
+      </div>
+
+      {/* ── Toggle rejoindre parties gratuites ── */}
+      <div className="space-y-2 pt-3 border-t border-border/60">
+        <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">🔐 Autorisation de rejoindre</div>
+        <label className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50 cursor-pointer">
+          <input type="checkbox" checked={!!s.allow_free_join}
+            onChange={e => setS({ ...s, allow_free_join: e.target.checked })}
+            className="w-5 h-5 rounded accent-primary" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold">{s.allow_free_join ? "✅ Rejoindre autorisé" : "🚫 Rejoindre désactivé"}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {s.allow_free_join
+                ? "Les utilisateurs sans abonnement peuvent rejoindre les parties gratuites créées par les abonnés (limite quotidienne applicable)."
+                : "Seuls les abonnés peuvent rejoindre les parties gratuites. Les utilisateurs sans abonnement doivent s'abonner."}
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <button onClick={save} disabled={saving}
+        className="w-full py-2.5 rounded-full bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+        <Save className="w-4 h-4" /> {saving ? "Enregistrement…" : "Enregistrer les abonnements & limites"}
+      </button>
     </div>
   );
 }
