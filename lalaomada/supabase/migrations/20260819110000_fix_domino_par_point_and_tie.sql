@@ -12,11 +12,16 @@
 --   trouvé avec `<` au lieu de détecter l'égalité.
 --   → Il faut qu'en cas d'égalité, personne ne gagne de points (match nul).
 --
+-- Problème 3 : Les scores sont stockés dans state->'round_scores' (clé = slot)
+--   mais le frontend lit game.scores (colonne table, clé = user_id).
+--   → Les scores ne s'affichent jamais en mode points.
+--   Fix: mettre à jour la colonne `scores` avec les clés user_id.
+--
 -- Fix :
 --   1. Lire mode et target_score depuis g.mode et g.target_score (colonnes)
 --   2. Détecter les égalités dans le deadlock — si égalité, _winner_slot = NULL
 --   3. Quand _winner_slot est NULL, ne pas attribuer de points et recommencer
---      un nouveau round
+--   4. Mettre à jour la colonne `scores` (clé user_id) en plus du state
 -- ═════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION public._domino_end_round(_game_id uuid, _winner_slot int DEFAULT NULL)
@@ -24,7 +29,8 @@ RETURNS void AS $$
 DECLARE
   g record;
   st jsonb;
-  v_scores jsonb;
+  v_scores jsonb;        -- round_scores dans state (clé = slot)
+  v_col_scores jsonb;    -- colonne scores (clé = user_id ou bot_slot)
   v_slot int;
   v_pts int;
   v_remaining jsonb;
@@ -44,13 +50,14 @@ DECLARE
   v_lowest int;
   v_lowest_slot int;
   v_tie_count int;
-  v_deadlock_slots int[];
+  v_key text;
+  v_winner_uid text;
 BEGIN
   SELECT * INTO g FROM public.domino_games WHERE id = _game_id;
   IF NOT FOUND THEN RETURN; END IF;
 
   st := g.state;
-  -- FIX 1: lire mode et target_score depuis les colonnes de la table, pas le state JSONB
+  -- FIX 1: lire mode et target_score depuis les colonnes de la table
   v_mode := COALESCE(g.mode, 'classic');
   v_target := COALESCE(g.target_score, 0);
 
@@ -60,8 +67,10 @@ BEGIN
     v_all_blocked := true;
   END IF;
 
-  -- Calculate round scores
+  -- Calculate round scores (stored in state->'round_scores', keyed by slot)
   v_scores := COALESCE(st->'round_scores', '{}'::jsonb);
+  -- FIX 3: also maintain the `scores` column (keyed by user_id or bot_slot)
+  v_col_scores := COALESCE(g.scores, '{}'::jsonb);
 
   IF v_all_blocked AND _winner_slot IS NULL THEN
     -- Deadlock: find lowest pip count
@@ -86,7 +95,7 @@ BEGIN
 
     -- FIX 2: if there's a tie, nobody wins (match nul)
     IF v_tie_count > 1 THEN
-      _winner_slot := NULL;  -- match nul, personne ne gagne de points
+      _winner_slot := NULL;
     ELSE
       _winner_slot := v_lowest_slot;
     END IF;
@@ -108,9 +117,17 @@ BEGIN
       END IF;
     END LOOP;
 
-    -- Update cumulative scores
+    -- Update cumulative scores in state (keyed by slot)
     SELECT COALESCE((v_scores->>_winner_slot::text)::int, 0) + v_total INTO v_pts;
     v_scores := jsonb_set(v_scores, ARRAY[_winner_slot::text], to_jsonb(v_pts), true);
+
+    -- FIX 3: also update the `scores` column (keyed by user_id or bot_N)
+    SELECT COALESCE(user_id::text, 'bot_'||slot::text) INTO v_key
+      FROM public.domino_participants WHERE game_id = _game_id AND slot = _winner_slot;
+    IF v_key IS NOT NULL THEN
+      SELECT COALESCE((v_col_scores->>v_key)::int, 0) + v_total INTO v_pts;
+      v_col_scores := jsonb_set(v_col_scores, ARRAY[v_key], to_jsonb(v_pts), true);
+    END IF;
   END IF;
 
   -- Store last round info
@@ -143,9 +160,14 @@ BEGIN
     st := jsonb_set(st, '{winner_slot}', to_jsonb(v_winner_overall), true);
     st := jsonb_set(st, '{round_scores}', v_scores, true);
 
+    -- Get winner user_id
+    SELECT user_id INTO v_winner_uid FROM public.domino_participants
+      WHERE game_id = _game_id AND slot = v_winner_overall;
+
     UPDATE public.domino_games
        SET state = st, status = 'finished',
-           winner_id = (SELECT user_id FROM public.domino_participants WHERE game_id = _game_id AND slot = v_winner_overall),
+           winner_id = v_winner_uid,
+           scores = v_col_scores,
            current_turn = -1, turn_deadline = NULL
      WHERE id = _game_id;
 
@@ -154,7 +176,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Start new round (works for both: match nul and points mode without winner yet)
+  -- Start new round (works for: match nul, points mode without winner yet, classic new round)
   v_rounds := COALESCE(NULLIF(st->>'round','')::int, 0) + 1;
   st := jsonb_set(st, '{round}', to_jsonb(v_rounds), true);
   st := jsonb_set(st, '{round_scores}', v_scores, true);
@@ -168,7 +190,8 @@ BEGIN
   st := jsonb_set(st, '{break_until}',  to_jsonb((now() + v_break_total)::text), true);
 
   UPDATE public.domino_games
-     SET state = st, current_turn = v_next_starter,
+     SET state = st, scores = v_col_scores,
+         current_turn = v_next_starter,
          turn_deadline = now() + interval '30 seconds'
    WHERE id = _game_id;
 END;
