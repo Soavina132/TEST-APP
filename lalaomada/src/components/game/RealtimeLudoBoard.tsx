@@ -626,15 +626,22 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
-  // ═══ Server-driven no_move_display ═══
-  // ludo_roll now passes the turn IMMEDIATELY when there's no move,
-  // and sets no_move_display = { slot, dice, until } in the state.
-  // The frontend just displays "PAS DE COUP" for 2s — no auto-pass RPC needed.
+  // ═══ Server-driven no_move_display + frontend auto-pass ═══
+  // ludo_roll sets must_move=true + no_move_display = { slot, dice, until }
+  // but does NOT pass the turn. The frontend shows "PAS DE COUP" + the dice
+  // for 1.5s, then calls ludo_pass to pass the turn. ludo_tick_all is the
+  // server-side fallback (passes after 2s if the frontend doesn't).
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
 
   // Detect no-move display from server state
   const noMove = !!(state.no_move_display && typeof state.no_move_display === 'object'
     && state.no_move_display.slot !== undefined);
+
+  // Auto-pass ref to prevent duplicate calls
+  const lastAutoPassRef = useRef<string>("");
+  const autoPassKey = noMove
+    ? `${state.no_move_display!.slot}-${state.no_move_display!.dice}-${state.turn_started_at}`
+    : "";
 
   useEffect(() => {
     if (state.no_move_display && typeof state.no_move_display === 'object'
@@ -645,11 +652,26 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       });
       // Auto-clear after 2 seconds
       const timer = setTimeout(() => setNoMoveDisplay(null), 2000);
+
+      // Auto-pass after 1.5s — the frontend calls ludo_pass to pass the turn
+      // This keeps the frontend in sync: it shows the dice, then passes
+      if (gameId && lastAutoPassRef.current !== autoPassKey) {
+        lastAutoPassRef.current = autoPassKey;
+        const passTimer = setTimeout(async () => {
+          const { data: passData, error: passError } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
+          if (passError) {
+            console.error("[ludo] auto-pass failed:", passError.message);
+          } else if (passData && onStateUpdate) {
+            onStateUpdate(passData as GameState);
+          }
+        }, 1500);
+        return () => { clearTimeout(timer); clearTimeout(passTimer); };
+      }
       return () => clearTimeout(timer);
     } else {
       setNoMoveDisplay(null);
     }
-  }, [state.no_move_display]);
+  }, [state.no_move_display, autoPassKey, gameId]);
 
   // When no_move_display is active, show the player's slot + dice
   const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
