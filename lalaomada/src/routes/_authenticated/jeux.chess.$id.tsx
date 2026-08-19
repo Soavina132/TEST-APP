@@ -433,47 +433,20 @@ function ChessPage() {
     try { return new Chess(game?.fen ?? undefined); } catch { return new Chess(); }
   }, [game?.fen]);
 
-  /* -------- Play a move (optimistic: board updates immediately) -------- */
+  /* -------- Play a move -------- */
   const play = useCallback(async (uci: string, san: string, fenAfter: string) => {
     if (!game) return;
     unlockAudio();
-
-    // ── Optimistic: update FEN + lastMove immediately ──
-    const oldFen = game.fen;
-    const oldTurn = game.turn;
-    const oldPly = game.ply;
-    const newTurn = oldTurn === "w" ? "b" : "w";
-    setLastMove({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
-    setGame((g: any) => g ? {
-      ...g,
-      fen: fenAfter,
-      turn: newTurn,
-      ply: (g.ply || 0) + 1,
-      last_move_at: new Date().toISOString(),
-    } : g);
-
-    // ── Play sound immediately based on SAN ──
-    const isCapture = san.includes("x");
-    const isCastle = san === "O-O" || san === "O-O-O";
-    const isCheck = san.includes("+") || san.includes("#");
-    if (isCastle) playChessCastle();
-    else if (isCapture) playChessCapture();
-    else playChessMove();
-    if (isCheck) setTimeout(() => playChessCheck(), 150);
-
-    // ── Send to server in background ──
     try {
       await chessServerPlay(supabase, "play", {
         game_id: game.id, uci, elapsed_ms: elapsedSinceMove, is_bot: false,
       });
-      void load(); // Reconcile with server (FEN should match)
     } catch (e: any) {
-      // Rollback on error
-      setGame((g: any) => g ? { ...g, fen: oldFen, turn: oldTurn, ply: oldPly } : g);
-      setLastMove(null);
       console.error("chess_play error", e);
       toast.error(e.message ?? "Coup invalide");
+      return;
     }
+    void load();
   }, [game, elapsedSinceMove, load]);
 
   /* -------- Bot autoplay -------- */

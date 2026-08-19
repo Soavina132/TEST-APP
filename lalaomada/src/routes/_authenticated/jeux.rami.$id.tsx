@@ -1128,14 +1128,7 @@ function RamiPage() {
     const ch = supabase.channel("rami-" + id)
       .on("postgres_changes", { event: "*", schema: "public", table: "rami_games", filter: `id=eq.${id}` }, (payload: any) => {
         if (payload.eventType !== "DELETE" && payload.new) {
-          setGame(prev => {
-            if (!prev) return payload.new;
-            // Only accept newer events (updated_at guard)
-            const prevUp = (prev as any).updated_at;
-            const newUp = (payload.new as any).updated_at;
-            if (prevUp && newUp && newUp < prevUp) return prev;
-            return payload.new;
-          });
+          setGame(payload.new);
         } else { debouncedLoad(); }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "rami_participants", filter: `game_id=eq.${id}` }, (payload: any) => {
@@ -1589,30 +1582,21 @@ function RamiPage() {
     const kind = meldKind(selected, jokerMode, randomJoker, sevenCardsEnabled);
     if (!kind) return toast.error("Sélection invalide");
     const cards = [...selected];
-    sfx.ramiMeld();
-    // ── Optimistic: remove cards from hand, add to melds ──
-    const oldState = game?.state ? JSON.parse(JSON.stringify(game.state)) : null;
-    if (game?.state?.hands?.[profile?.id || ""]) {
-      setGame(g => {
-        if (!g?.state) return g;
-        const hands = { ...g.state.hands };
-        hands[profile.id] = (hands[profile.id] || []).filter(c => !cards.includes(c));
-        const melds = [...(g.state.melds || []), { player: profile.id, cards: [...cards] }];
-        return { ...g, updated_at: new Date().toISOString(), state: { ...g.state, hands, melds } };
-      });
-    }
-    setSelected([]);
-    if (kind === 'seven') {
-      toast.success("✓ 7 cartes posées — clique « Valider 7 » pour réclamer");
-    } else {
-      toast.success(`✓ ${MELD_LABEL[kind]} validé`);
-    }
-    haptic(30);
+    setBusy(true);
     try {
       const { error } = await supabase.rpc("rami_meld" as any, { _game_id: id, _cards: cards });
       if (error) throw error;
+      setSelected([]);
+      sfx.ramiMeld();
+      if (kind === 'seven') {
+        // sevenFx removed
+        // sevenFx removed
+        toast.success("✓ 7 cartes posées — clique « Valider 7 » pour réclamer");
+      } else {
+        toast.success(`✓ ${MELD_LABEL[kind]} validé`);
+      haptic(30);
+      }
     } catch (e: any) {
-      if (oldState) setGame(g => g ? { ...g, state: oldState } : g);
       toast.error(e.message || "Combinaison invalide");
     } finally { setBusy(false); }
   };
@@ -1731,33 +1715,13 @@ function RamiPage() {
   };
 
   const drawDeck = async () => {
+    const from = centerOf(deckRef.current);
+    const to = centerOf(handRef.current);
+    // cardFx removed
     sfx.ramiDraw();
     haptic(10);
-    // ── Optimistic: move top deck card to hand immediately ──
-    const oldState = game?.state ? JSON.parse(JSON.stringify(game.state)) : null;
-    const oldTurnPhase = game?.turn_phase;
-    if (game?.state?.deck && game?.state?.hands?.[profile?.id || ""]) {
-      const deck = [...game.state.deck];
-      const drawnCard = deck.pop();
-      if (drawnCard !== undefined) {
-        setGame(g => {
-          if (!g?.state) return g;
-          const hands = { ...g.state.hands };
-          hands[profile.id] = [...(hands[profile.id] || []), drawnCard];
-          return { ...g, turn_phase: "play", updated_at: new Date().toISOString(), state: { ...g.state, deck, hands } };
-        });
-        setNewCard(drawnCard);
-        setTimeout(() => setNewCard(null), 600);
-      }
-    }
-    try {
-      const { error } = await supabase.rpc("rami_draw" as any, { _game_id: id, _from: "deck" } as any);
-      if (error) throw error;
-    } catch (e: any) {
-      // ── Rollback ──
-      if (oldState) setGame(g => g ? { ...g, turn_phase: oldTurnPhase, state: oldState } : g);
-      toast.error(e.message || "Erreur tirage");
-    }
+    await call("rami_draw", { _game_id: id, _from: "deck" });
+    // cardFx removed
   };
   const drawDiscard = async () => {
     if (flatDiscard.length === 0) {
@@ -1766,56 +1730,21 @@ function RamiPage() {
     }
     sfx.ramiDraw();
     haptic(10);
-    // ── Optimistic: move top discard card to hand immediately ──
-    const oldState = game?.state ? JSON.parse(JSON.stringify(game.state)) : null;
-    const oldTurnPhase = game?.turn_phase;
-    if (game?.state?.discard && game?.state?.hands?.[profile?.id || ""]) {
-      const discard = [...game.state.discard];
-      const drawnCard = discard.pop();
-      if (drawnCard !== undefined) {
-        setGame(g => {
-          if (!g?.state) return g;
-          const hands = { ...g.state.hands };
-          hands[profile.id] = [...(hands[profile.id] || []), drawnCard];
-          return { ...g, turn_phase: "play", updated_at: new Date().toISOString(), state: { ...g.state, discard, hands } };
-        });
-        setNewCard(drawnCard);
-        setTimeout(() => setNewCard(null), 600);
-      }
-    }
-    try {
-      const { error } = await supabase.rpc("rami_draw" as any, { _game_id: id, _from: "discard" } as any);
-      if (error) throw error;
-    } catch (e: any) {
-      if (oldState) setGame(g => g ? { ...g, turn_phase: oldTurnPhase, state: oldState } : g);
-      toast.error(e.message || "Erreur tirage");
-    }
+    await call("rami_draw", { _game_id: id, _from: "discard" });
   };
 
   const submitStagedMeld = async (groupIdx: number) => {
     const cards = staged[groupIdx];
     if (!cards || cards.length < 3) return toast.error("Il faut au moins 3 cartes");
-    sfx.ramiMeld();
-    // ── Optimistic: remove cards from hand, add to melds ──
-    const oldState = game?.state ? JSON.parse(JSON.stringify(game.state)) : null;
-    if (game?.state?.hands?.[profile?.id || ""]) {
-      setGame(g => {
-        if (!g?.state) return g;
-        const hands = { ...g.state.hands };
-        hands[profile.id] = (hands[profile.id] || []).filter(c => !cards.includes(c));
-        const melds = [...(g.state.melds || []), { player: profile.id, cards: [...cards] }];
-        return { ...g, updated_at: new Date().toISOString(), state: { ...g.state, hands, melds } };
-      });
-    }
-    setStaged(prev => prev.filter((_, i) => i !== groupIdx));
-    toast.success("Combinaison posée !");
+    setBusy(true);
     try {
       const { error } = await supabase.rpc("rami_meld" as any, { _game_id: id, _cards: cards });
       if (error) throw error;
-    } catch (e: any) {
-      if (oldState) setGame(g => g ? { ...g, state: oldState } : g);
-      toast.error(e.message || "Combinaison invalide");
-    } finally { setBusy(false); }
+      setStaged(prev => prev.filter((_, i) => i !== groupIdx));
+      sfx.ramiMeld();
+      toast.success("Combinaison posée !");
+    } catch (e: any) { toast.error(e.message || "Combinaison invalide"); }
+    finally { setBusy(false); }
   };
 
   const submitAllStaged = async () => {
@@ -1839,31 +1768,13 @@ function RamiPage() {
     if (selected.length !== 1) return toast.error("Sélectionne exactement 1 carte à défausser");
     const card = selected[0];
     const myKey = profile?.id || "";
+    const from = centerOf(handRef.current);
+    const to = centerOf(discardRefs.current[myKey]);
+    // cardFx removed
     sfx.ramiDiscard();
     haptic(15);
-    // ── Optimistic: remove card from hand, add to discard, advance turn ──
-    const oldState = game?.state ? JSON.parse(JSON.stringify(game.state)) : null;
-    const oldTurn = game?.current_turn;
-    const oldTurnPhase = game?.turn_phase;
-    if (game?.state?.hands?.[profile?.id || ""]) {
-      setGame(g => {
-        if (!g?.state) return g;
-        const hands = { ...g.state.hands };
-        hands[profile.id] = (hands[profile.id] || []).filter(c => c !== card);
-        const discard = [...(g.state.discard || []), card];
-        // Advance to next player
-        const nextSlot = ((g.current_turn ?? 0) + 1) % (g.max_players || parts.length || 2);
-        return { ...g, current_turn: nextSlot, turn_phase: "draw", updated_at: new Date().toISOString(), state: { ...g.state, hands, discard } };
-      });
-    }
-    setSelected([]);
-    try {
-      const { error } = await supabase.rpc("rami_discard" as any, { _game_id: id, _card: card } as any);
-      if (error) throw error;
-    } catch (e: any) {
-      if (oldState) setGame(g => g ? { ...g, current_turn: oldTurn, turn_phase: oldTurnPhase, state: oldState } : g);
-      toast.error(e.message || "Erreur défausse");
-    }
+    await call("rami_discard", { _game_id: id, _card: card });
+    // cardFx removed
   };
 
   // Valider toute la main d'un coup : staged = groupes, selected[0] = carte à défausser
