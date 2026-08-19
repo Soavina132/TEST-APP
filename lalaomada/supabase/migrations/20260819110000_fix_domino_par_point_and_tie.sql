@@ -170,7 +170,7 @@ BEGIN
 
     UPDATE public.domino_games
        SET state = st, status = 'finished',
-           winner_id = v_key,
+           winner_id = v_key::uuid,
            scores = v_col_scores,
            current_turn = -1, turn_deadline = NULL
      WHERE id = _game_id;
