@@ -752,7 +752,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       } else if (passData && onStateUpdate) {
         onStateUpdate(passData as GameState);
       }
-    }, 1500);
+    }, 750);
     // Do NOT clear passTimer on cleanup — that was the bug!
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noMove, autoPassKey, gameId]);
