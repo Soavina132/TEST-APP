@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { Trophy, LogOut, X, Eye } from "lucide-react";
+import { Trophy, LogOut, X } from "lucide-react";
 
 const ROUTE: Record<string, string> = {
   ludo:     "/jeux/ludo/$id",
@@ -20,15 +20,13 @@ const LABEL: Record<string, string> = {
   ludo: "Ludo", chess: "Échecs", domino: "Domino", fanorona: "Fanorona", rami: "Rami",
 };
 
-// Tables for forfeit/quit operations
-const GAME_TABLE: Record<string, string> = {
-  ludo: "ludo_games", chess: "chess_games", domino: "domino_games",
-  fanorona: "fanorona_games", rami: "rami_games",
-};
-
-const PART_TABLE: Record<string, string | null> = {
-  ludo: "ludo_participants", chess: null, domino: "domino_participants",
-  fanorona: "fanorona_participants", rami: "rami_participants",
+// RPC function name + param for each game type's quit/forfeit
+const QUIT_RPC: Record<string, { fn: string; param: string }> = {
+  ludo:     { fn: "ludo_quit",          param: "_game_id" },
+  chess:    { fn: "chess_forfeit",      param: "_id" },
+  domino:   { fn: "domino_forfeit",     param: "_game_id" },
+  fanorona: { fn: "fanorona_forfeit",   param: "_game_id" },
+  rami:     { fn: "rami_forfeit",       param: "_game_id" },
 };
 
 type OngoingGame = {
@@ -89,23 +87,10 @@ export default function OngoingGameBanner() {
   const quitGame = async (g: OngoingGame) => {
     setQuitting(g.id);
     try {
-      const partTable = PART_TABLE[g.game_type];
-      if (partTable && user) {
-        await supabase.from(partTable as any)
-          .update({ forfeited: true })
-          .eq("game_id", g.id)
-          .eq("user_id", user.id);
-      }
-      // For chess, there's no participant table — mark as finished with opponent as winner
-      if (g.game_type === "chess" && user) {
-        const { data: cg } = await supabase.from("chess_games" as any)
-          .select("white_id, black_id").eq("id", g.id).single();
-        if (cg) {
-          const winner = cg.white_id === user.id ? cg.black_id : cg.white_id;
-          await supabase.from("chess_games" as any)
-            .update({ status: "finished", winner_id: winner, finished_at: new Date().toISOString() })
-            .eq("id", g.id);
-        }
+      const rpc = QUIT_RPC[g.game_type];
+      if (rpc) {
+        // Call the proper backend function — handles refund, payout, transactions
+        await supabase.rpc(rpc.fn as any, { [rpc.param]: g.id } as any);
       }
       setGames(prev => prev.filter(x => x.id !== g.id));
     } catch (e) {
@@ -132,7 +117,7 @@ export default function OngoingGameBanner() {
           <div className="w-9 h-9 rounded-lg bg-amber-500/15 grid place-items-center text-base shrink-0">
             {EMOJI[g.game_type] ?? "🎮"}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-0 flex-1">
             <div className="font-bold text-sm">{LABEL[g.game_type] ?? g.game_type}</div>
             <div className="text-[10px] text-muted-foreground">
               {Number(g.stake || 0).toLocaleString("fr-FR")} Ar · {g.players_count} joueurs
