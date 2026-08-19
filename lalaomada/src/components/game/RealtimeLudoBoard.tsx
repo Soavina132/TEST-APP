@@ -627,21 +627,24 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     && movablePawnIdxs.size === 0
     && (isMyTurn || (!isSpectator && status === "playing"));
 
-  // Auto-pass after 1.5s when the human player has no move
+  // Auto-pass after 1.2s when the human player has no move
   const autoPassKey = noMove ? `${state.turn_slot}-${state.dice}-${state.turn_started_at}` : "";
   const lastAutoPassRef = useRef<string>("");
   useEffect(() => {
     if (!noMove || !gameId) return;
     if (lastAutoPassRef.current === autoPassKey) return;
     lastAutoPassRef.current = autoPassKey;
-    // Show the dice result during the delay
+    // Show the dice result immediately (stop rolling animation so player sees the value)
+    setRollingFace(null);
+    setBusy(false);
+    rollLockRef.current = false;
     setNoMoveDisplay({ slot: state.turn_slot, dice: state.dice as number });
     const t = setTimeout(async () => {
       try {
         await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
       } catch {}
       setNoMoveDisplay(null);
-    }, 1500);
+    }, 1200);
     return () => clearTimeout(t);
   }, [noMove, autoPassKey, gameId, state.turn_slot, state.dice, state.turn_started_at]);
 
@@ -1299,7 +1302,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-2 rounded-full bg-black/20 blur-sm animate-pulse" />
           )}
         </div>
-        {displayDice != null && rollingFace === null && !diceError && (
+        {displayDice != null && (rollingFace === null || noMove || noMoveDisplay) && !diceError && (
           <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
         )}
         {diceError && rollingFace === null && (
