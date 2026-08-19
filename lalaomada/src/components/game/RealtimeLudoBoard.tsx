@@ -468,7 +468,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    const delay = 6000;
+    const delay = 3000;
     const t = setTimeout(async () => {
       try {
         if (state.must_move) {
@@ -637,12 +637,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   const noMove = !!(state.no_move_display && typeof state.no_move_display === 'object'
     && state.no_move_display.slot !== undefined);
 
-  // Auto-pass ref to prevent duplicate calls
-  const lastAutoPassRef = useRef<string>("");
-  const autoPassKey = noMove
-    ? `${state.no_move_display!.slot}-${state.no_move_display!.dice}-${state.turn_started_at}`
-    : "";
-
+  // ── Visual effect: show/clear "PAS DE COUP" display ──
   useEffect(() => {
     if (state.no_move_display && typeof state.no_move_display === 'object'
         && state.no_move_display.slot !== undefined) {
@@ -650,28 +645,38 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         slot: state.no_move_display.slot,
         dice: state.no_move_display.dice
       });
-      // Auto-clear after 2 seconds
       const timer = setTimeout(() => setNoMoveDisplay(null), 2000);
-
-      // Auto-pass after 1.5s — the frontend calls ludo_pass to pass the turn
-      // This keeps the frontend in sync: it shows the dice, then passes
-      if (gameId && lastAutoPassRef.current !== autoPassKey) {
-        lastAutoPassRef.current = autoPassKey;
-        const passTimer = setTimeout(async () => {
-          const { data: passData, error: passError } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
-          if (passError) {
-            console.error("[ludo] auto-pass failed:", passError.message);
-          } else if (passData && onStateUpdate) {
-            onStateUpdate(passData as GameState);
-          }
-        }, 1500);
-        return () => { clearTimeout(timer); clearTimeout(passTimer); };
-      }
       return () => clearTimeout(timer);
     } else {
       setNoMoveDisplay(null);
     }
-  }, [state.no_move_display, autoPassKey, gameId]);
+  }, [state.no_move_display]);
+
+  // ── Auto-pass effect: SEPARATE from visual to avoid cleanup race ──
+  // The realtime event from ludo_roll re-triggers the visual effect, which
+  // would cancel the pass timer if they were in the same effect. By keeping
+  // them separate, the pass timer is never cancelled by a re-render.
+  const lastAutoPassRef = useRef<string>("");
+  const autoPassKey = noMove
+    ? `${state.no_move_display!.slot}-${state.no_move_display!.dice}-${state.turn_started_at}`
+    : "";
+  useEffect(() => {
+    if (!noMove || !gameId) return;
+    if (lastAutoPassRef.current === autoPassKey) return;
+    lastAutoPassRef.current = autoPassKey;
+    // Fire after 1.5s — NO cleanup that could cancel this timer.
+    // The ref guard prevents duplicate calls if the effect re-runs.
+    const passTimer = setTimeout(async () => {
+      const { data: passData, error: passError } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
+      if (passError) {
+        console.error("[ludo] auto-pass failed:", passError.message);
+      } else if (passData && onStateUpdate) {
+        onStateUpdate(passData as GameState);
+      }
+    }, 1500);
+    // Do NOT clear passTimer on cleanup — that was the bug!
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noMove, autoPassKey, gameId]);
 
   // When no_move_display is active, show the player's slot + dice
   const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
