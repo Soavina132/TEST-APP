@@ -223,6 +223,19 @@ function LobbyPage() {
 
       {/* Solde */}
       <div className="rounded-2xl bg-zinc-900 text-white p-4 shadow-md shadow-zinc-900/30">
+        <div className="flex items-center gap-1.5 mb-2">
+          <p className="text-sm font-bold truncate">Bonjour {profile.pseudo} 👋</p>
+          {profile.phone_verified && (
+            <span
+              title="Numéro vérifié"
+              aria-label="Numéro vérifié"
+              className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300"
+            >
+              <ShieldCheck className="w-2.5 h-2.5" />
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 mb-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">Solde disponible</p>
@@ -235,18 +248,14 @@ function LobbyPage() {
           </div>
         </div>
 
-        {/* Badge vérification téléphone */}
-        <div className="flex items-center gap-1.5 mt-2 mb-1">
-          {profile.phone_verified ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-              <ShieldCheck className="w-3 h-3" /> Numéro vérifié
-            </span>
-          ) : (
+        {/* Alerte si numéro non vérifié */}
+        {!profile.phone_verified && (
+          <div className="flex items-center gap-1.5 mt-2 mb-1">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold">
               <ShieldAlert className="w-3 h-3" /> Numéro non vérifié
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2.5">
           <button onClick={() => setShowDeposit(true)}
