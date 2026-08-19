@@ -360,9 +360,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Queue animation — compute the actual diff INSIDE the promise
     // so it uses the latest displayedPawns, not the stale one from effect fire time
     animQueueRef.current = animQueueRef.current.then(async () => {
+      let latestTarget: typeof state.pawns = {};
+      try {
       setAnimating(true);
       // Re-read the LATEST target (may have changed since effect fired)
-      const latestTarget = latestStatePawnsRef.current || {};
+      latestTarget = latestStatePawnsRef.current || {};
       // Re-read current displayedPawns from state (not stale closure)
       let currentDisplayed: typeof displayedPawns = displayedPawns;
       // Use a functional approach to get the latest displayedPawns
@@ -400,15 +402,15 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         }
         if (m.to.s === "finished") {
           for (let k = fromK + 1; k <= 56; k++) {
-            await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
+            await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 50);
             sfx.pawnStep();
           }
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 56 }, 30);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 56 }, 40);
           sfx.home();
           continue;
         }
         for (let k = fromK + 1; k <= toK; k++) {
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 50);
           sfx.pawnStep();
         }
       }
@@ -417,6 +419,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         await stepAnim(setDisplayedPawns, c.slot, c.idx, { s: "yard", k: -1 }, 200);
       }
       setDisplayedPawns(latestTarget);
+      } catch (e) {
+        // Ensure animating is reset even if an error occurs
+        setDisplayedPawns(latestTarget);
+      }
       setAnimating(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -434,6 +440,16 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   useEffect(() => {
     const t = setInterval(() => setNow(serverNow()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  // Clear dice animation interval on unmount
+  useEffect(() => {
+    return () => {
+      if (rollAnimRef.current) {
+        clearInterval(rollAnimRef.current);
+        rollAnimRef.current = null;
+      }
+    };
   }, []);
 
   const partsBySlot = useMemo(() => {
@@ -497,6 +513,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   // Dice roll — ref guard prevents double-clicks without using the disabled
   // attribute (which blocks click events on some mobile browsers).
+  const rollAnimRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rollLockRef = useRef(false);
   const roll = async () => {
     // Ref guard — instant, no state lag, works on all browsers
@@ -516,9 +533,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         setRollingFace(1 + Math.floor(Math.random() * 6));
       }
     }, 100);
+    rollAnimRef.current = anim;
     // Safety timeout: if RPC takes > 5s, force-clear everything
     const safety = setTimeout(() => {
       clearInterval(anim);
+      rollAnimRef.current = null;
       setRollingFace(null);
       setBusy(false);
       rollLockRef.current = false;
@@ -549,12 +568,13 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     } finally {
       clearTimeout(safety);
       clearInterval(anim);
+      rollAnimRef.current = null;
       // Short delay so the player sees the final face before clearing
       setTimeout(() => {
         setRollingFace(null);
         setBusy(false);
         rollLockRef.current = false;
-      }, 150);
+      }, 200);
     }
   };
 
@@ -594,6 +614,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       setBusy(false);
       setRollingFace(null);
       setDiceError(null);
+      // Clear any lingering dice animation interval
+      if (rollAnimRef.current) {
+        clearInterval(rollAnimRef.current);
+        rollAnimRef.current = null;
+      }
     }
   }, [turnKey]);
 
@@ -704,12 +729,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Pawn visual effect based on power type
     const effectType = pe.reward || pe.type;
     setPawnPowerEffect({ slot: pe.slot, type: effectType, key, pawn: pe.pawn });
-    setTimeout(() => setPawnPowerEffect(null), 1500);
+    setTimeout(() => setPawnPowerEffect(null), 1200);
     // Board-level effect: BUG 3 FIX — use pe.cell from backend instead of searching by type
     const eventCell = pe.cell;
     if (eventCell !== undefined && eventCell !== null) {
       setBoardPowerEffect({ cell: eventCell, type: effectType, key });
-      setTimeout(() => setBoardPowerEffect(null), 1800);
+      setTimeout(() => setBoardPowerEffect(null), 1500);
     }
   }, [state.power_event]);
 
@@ -913,7 +938,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                           style={{
                             background: doubleRollPhase.phase === "2x" ? "#ec4899" : "#6366f1",
                             animation: doubleRollPhase.phase === "2x"
-                              ? "doubleRollBadgeIn 0.3s ease-out"
+                              ? "doubleRollBadgeIn 0.3s ease-out, doubleRollBadgePulse 1s ease-in-out infinite 0.3s"
                               : "doubleRollBadgeIn 0.3s ease-out",
                           }}>
                           ⚡{doubleRollPhase.phase}
@@ -973,7 +998,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     lineHeight: 1,
                     pointerEvents: "none",
                     animation: "none",
-                    transition: "left 0.4s ease, top 0.4s ease",
+                    transition: "none",
                   }}>
                   <span style={{
                     animation: "none",
