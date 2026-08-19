@@ -601,7 +601,8 @@ function Lobby() {
               )}
               {slug === "fanorona" && (
                 <>
-                  <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                  <SummaryRow icon="⚫" label="Plateau" value={`${{ telo: "Telo (3×3)", dimy: "Dimy (5×5)", tsivy: "Tsivy (9×5)" }[fanoronaVariant]}`} onClick={() => setSheet("fanorona_board")} />
+                  <SummaryRow icon="🎯" label="Capture" value={fanoronaMandatory ? "Obligatoire" : "Libre"} onClick={() => setSheet("fanorona_capture")} />
                   <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
                   {opponentMode === "bot" && (
                     <SummaryRow icon="⭐" label="Difficulté" value={({ 1:"⭐ Débutant", 2:"⭐⭐ Amateur", 3:"⭐⭐⭐ Confirmé", 4:"⭐⭐⭐⭐ Expert", 5:"⭐⭐⭐⭐⭐ Maître" } as any)[fanoronaBotDifficulty]} onClick={() => setSheet("fanorona_diff")} />
@@ -685,11 +686,9 @@ function Lobby() {
               )}
               {slug === "fanorona" && (
                 <>
-                  <SummaryRow icon="⚫" label="Plateau" value={`${fanoronaVariant} · ${fanoronaMandatory ? "obligatoire" : "libre"}`} onClick={() => setSheet("fanorona")} />
+                  <SummaryRow icon="⚫" label="Plateau" value={`${{ telo: "Telo (3×3)", dimy: "Dimy (5×5)", tsivy: "Tsivy (9×5)" }[fanoronaVariant]}`} onClick={() => setSheet("fanorona_board")} />
+                  <SummaryRow icon="🎯" label="Capture" value={fanoronaMandatory ? "Obligatoire" : "Libre"} onClick={() => setSheet("fanorona_capture")} />
                   <SummaryRow icon="⏱️" label="Temps / joueur" value={`${fanoronaTime} min`} onClick={() => setSheet("fanorona_time")} />
-                  {opponentMode === "bot" && (
-                    <SummaryRow icon="⭐" label="Difficulté" value={({ 1:"⭐ Débutant", 2:"⭐⭐ Amateur", 3:"⭐⭐⭐ Confirmé", 4:"⭐⭐⭐⭐ Expert", 5:"⭐⭐⭐⭐⭐ Maître" } as any)[fanoronaBotDifficulty]} onClick={() => setSheet("fanorona_diff")} />
-                  )}
                 </>
               )}
               {slug === "rami" && (
@@ -848,9 +847,31 @@ function Lobby() {
       <BottomSheet open={sheet === "domino_first"} onClose={closeSheet} title="Premier coup">
         <ModeBlock options={[{ v: "libre", l: "Libre" }, { v: "under6", l: "1er domino <6" }]} value={firstTileRule} onChange={(v) => { setFirstTileRule(v as any); closeSheet(); }} />
       </BottomSheet>
-      <BottomSheet open={sheet === "fanorona"} onClose={closeSheet} title="Fanorona">
-        <FanoronaConfigBlock variant={fanoronaVariant} onVariant={setFanoronaVariant} mandatory={fanoronaMandatory} onMandatory={setFanoronaMandatory} botDifficulty={opponentMode === "bot" ? fanoronaBotDifficulty : undefined} onBotDifficulty={opponentMode === "bot" ? setFanoronaBotDifficulty : undefined} />
-        <button onClick={closeSheet} className="mt-3 w-full py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-sm">Valider</button>
+      <BottomSheet open={sheet === "fanorona_board"} onClose={closeSheet} title="Variante du plateau">
+        <div className="grid grid-cols-3 gap-2 p-1">
+          {([{ v: "telo", l: "Telo (3×3)", d: "9 cases" }, { v: "dimy", l: "Dimy (5×5)", d: "25 cases" }, { v: "tsivy", l: "Tsivy (9×5)", d: "45 cases · classique" }] as const).map(x => (
+            <button key={x.v} onClick={() => { setFanoronaVariant(x.v); closeSheet(); }}
+              className={`py-2.5 rounded-2xl font-bold text-sm ${fanoronaVariant === x.v ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+              <div>{x.l}</div>
+              <div className="text-[10px] opacity-80 font-normal">{x.d}</div>
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
+      <BottomSheet open={sheet === "fanorona_capture"} onClose={closeSheet} title="Règle de capture">
+        <div className="grid grid-cols-2 gap-2 p-1">
+          <button onClick={() => { setFanoronaMandatory(true); closeSheet(); }}
+            className={`py-3 rounded-2xl font-semibold text-sm ${fanoronaMandatory ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+            Capture obligatoire
+          </button>
+          <button onClick={() => { setFanoronaMandatory(false); closeSheet(); }}
+            className={`py-3 rounded-2xl font-semibold text-sm ${!fanoronaMandatory ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+            Capture non obligatoire
+          </button>
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-2 px-1">
+          L'enchaînement reste actif dans les deux cas.
+        </div>
       </BottomSheet>
       <BottomSheet open={sheet === "fanorona_diff"} onClose={closeSheet} title="Difficulté du bot">
         <ModeBlock columns={5} options={[

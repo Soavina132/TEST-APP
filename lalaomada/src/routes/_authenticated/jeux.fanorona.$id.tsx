@@ -121,7 +121,7 @@ function FanoronaPlayerBar({
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-xs truncate flex items-center gap-1.5">
           {name}
-          {p.is_bot && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
+          {p.is_bot && Number(game?.stake) === 0 && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
           {isMe && <span className="text-[10px] text-primary/60 shrink-0">(vous)</span>}
           {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
         </div>
@@ -625,7 +625,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
           </div>
         ) : (
           <div className="flex items-center gap-1">
-            {parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
+            {parts.some((p: any) => p.is_bot) && Number(game.stake) === 0 && game.status === "playing" && !game.paused && (
               <button
                 onClick={async () => {
                   const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "fanorona", _game_id: id } as any);
