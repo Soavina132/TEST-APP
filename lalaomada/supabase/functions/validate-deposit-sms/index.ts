@@ -2,7 +2,7 @@
 // validate-deposit-sms — Edge Function Supabase v4 (parsers corrigés)
 //
 // POST /functions/v1/validate-deposit-sms
-// Body: { "secret": "xxx", "operator": "orange|mvola", "sms": "...",
+// Body: { "secret": "xxx", "operator": "orange|mvola|airtel", "sms": "...",
 //         "timestamp": "1234567890", "signature": "hmac_hex" }
 //
 // SÉCURITÉ v3 (conservée):
@@ -26,12 +26,11 @@
 //      Fix: nouveau parseFormat dédié + vérification stricte du montant
 //
 // Architecture:
-//   ParserFactory → OrangeParser | MVolaParser
+//   ParserFactory → OrangeParser | MVolaParser | AirtelParser
 //   → validate_deposit_from_sms() (PostgreSQL, atomique)
 //
-// NOTE: AirtelParser pas encore implémenté — en attente d'un exemple de SMS
-//       Airtel Money réel. Les dépôts Airtel doivent être validés
-//       manuellement par l'admin en attendant.
+// AirtelParser implémenté v5 — format malgache confirmé:
+//       "Ar 2000 azo tamin'ny agent XXX. Toebolanao Ar YYY. Trans ID: CI..."
 // ═══════════════════════════════════════════════════════════════════════
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -190,12 +189,59 @@ class MVolaParser {
 // PARSER FACTORY
 // ═══════════════════════════════════════════════════════════════════════
 
+// =====================================================================
+// AIRTEL PARSER
+// =====================================================================
+//
+// Format reel confirme (SMS recu en malgache):
+//   "Ar 2000 azo tamin'ny agent 331576366. Toebolanao Ar 2094.
+//    Misaotra.Trans ID: CI260811.1140.E34298"
+//
+// Traduction:
+//   "Ar 2000" -> montant recu (2000 Ar)
+//   "azo tamin'ny agent 331576366" -> recu de l'agent 331576366
+//   "Toebolanao Ar 2094" -> votre solde 2094 Ar
+//   "Misaotra" -> merci
+//   "Trans ID: CI260811.1140.E34298" -> ID transaction
+
+class AirtelParser {
+  parse(sms: string): ParseResult {
+    if (/azo tamin/i.test(sms) || /Trans\s*Id/i.test(sms)) {
+      return this.parseFormat(sms);
+    }
+    return { success: false, error: "Format Airtel Money non reconnu" };
+  }
+
+  private parseFormat(sms: string): ParseResult {
+    const result: ParsedSMS = { amount: null, sender_number: null, sender_name: null, transaction_id: null, sms_date: null };
+
+    // Montant: "Ar 2000 azo" -> 2000
+    const amountMatch = sms.match(/Ar\s+([\d\s]+)\s+azo/i);
+    if (amountMatch) result.amount = parseInt(amountMatch[1].replace(/\s/g, ""), 10);
+
+    // Numero agent/expediteur: "agent 331576366"
+    const senderMatch = sms.match(/agent\s+(\d+)/i);
+    if (senderMatch) result.sender_number = senderMatch[1].trim();
+
+    // Trans ID: "CI260811.1140.E34298"
+    const transIdMatch = sms.match(/Trans\s*Id\s*:?\s*([A-Z0-9.]+)/i);
+    if (transIdMatch) {
+      result.transaction_id = transIdMatch[1].trim().replace(/\.$/, "");
+    }
+
+    if (!result.transaction_id) return { success: false, error: "Trans ID manquant (Airtel)" };
+    if (result.amount === null || isNaN(result.amount)) return { success: false, error: "Montant manquant (Airtel)" };
+
+    return { success: true, data: result };
+  }
+}
+
 class ParserFactory {
-  static getParser(operator: string): OrangeParser | MVolaParser | null {
+  static getParser(operator: string): OrangeParser | MVolaParser | AirtelParser | null {
     switch (operator.toLowerCase().trim()) {
       case "orange": return new OrangeParser();
       case "mvola": case "m-vola": return new MVolaParser();
-      // NOTE: "airtel" pas encore supporté — en attente d'un exemple de SMS réel
+      case "airtel": return new AirtelParser();
       default: return null;
     }
   }

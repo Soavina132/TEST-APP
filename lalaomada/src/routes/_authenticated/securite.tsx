@@ -220,10 +220,7 @@ function SecuritePage() {
     if (trimmed === profile?.phone) return;
     setSavingPhone(true);
     try {
-      const { error } = await supabase.from("profiles").update({
-        phone: trimmed,
-        phone_verified: false,
-      }).eq("id", user!.id);
+      const { error } = await supabase.rpc("update_my_phone", { _phone: trimmed });
       if (error) throw error;
       await refreshProfile();
       toast.success("Numero enregistre");
