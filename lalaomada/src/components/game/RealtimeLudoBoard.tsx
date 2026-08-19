@@ -216,13 +216,23 @@ const POWER_TILE_STYLES = `
   50% { transform: scale(0.9) rotate(360deg); opacity: 0.8; }
   100% { transform: scale(2.2) rotate(720deg); opacity: 0; }
 }
-@keyframes diceRoll2D {
-  0%   { transform: rotate(-8deg) scale(1); }
-  50%  { transform: rotate(8deg) scale(1.08); }
-  100% { transform: rotate(-8deg) scale(1); }
+@keyframes diceRoll3D {
+  0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+  10%  { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg) scale(1.15); }
+  20%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) scale(1.1); }
+  30%  { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg) scale(1.2); }
+  40%  { transform: rotateX(720deg) rotateY(360deg) rotateZ(180deg) scale(1.05); }
+  50%  { transform: rotateX(900deg) rotateY(450deg) rotateZ(225deg) scale(1.15); }
+  60%  { transform: rotateX(1080deg) rotateY(540deg) rotateZ(270deg) scale(1.1); }
+  70%  { transform: rotateX(1260deg) rotateY(630deg) rotateZ(315deg) scale(1.2); }
+  80%  { transform: rotateX(1440deg) rotateY(720deg) rotateZ(360deg) scale(1.05); }
+  90%  { transform: rotateX(1620deg) rotateY(810deg) rotateZ(405deg) scale(1.1); }
+  100% { transform: rotateX(1800deg) rotateY(900deg) rotateZ(450deg) scale(1); }
 }
 .dice-tumbling {
-  animation: diceRoll2D 0.25s ease-in-out infinite;
+  animation: diceRoll3D 0.6s ease-out infinite;
+  transform-style: preserve-3d;
+  perspective: 200px;
 }
 @keyframes boardGiftPop {
   0% { transform: scale(0) translateY(10px); opacity: 0; }
@@ -360,11 +370,9 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Queue animation — compute the actual diff INSIDE the promise
     // so it uses the latest displayedPawns, not the stale one from effect fire time
     animQueueRef.current = animQueueRef.current.then(async () => {
-      let latestTarget: typeof state.pawns = {};
-      try {
       setAnimating(true);
       // Re-read the LATEST target (may have changed since effect fired)
-      latestTarget = latestStatePawnsRef.current || {};
+      const latestTarget = latestStatePawnsRef.current || {};
       // Re-read current displayedPawns from state (not stale closure)
       let currentDisplayed: typeof displayedPawns = displayedPawns;
       // Use a functional approach to get the latest displayedPawns
@@ -402,15 +410,15 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         }
         if (m.to.s === "finished") {
           for (let k = fromK + 1; k <= 56; k++) {
-            await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 50);
+            await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
             sfx.pawnStep();
           }
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 56 }, 40);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 56 }, 30);
           sfx.home();
           continue;
         }
         for (let k = fromK + 1; k <= toK; k++) {
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 50);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
           sfx.pawnStep();
         }
       }
@@ -419,10 +427,6 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         await stepAnim(setDisplayedPawns, c.slot, c.idx, { s: "yard", k: -1 }, 200);
       }
       setDisplayedPawns(latestTarget);
-      } catch (e) {
-        // Ensure animating is reset even if an error occurs
-        setDisplayedPawns(latestTarget);
-      }
       setAnimating(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -440,16 +444,6 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   useEffect(() => {
     const t = setInterval(() => setNow(serverNow()), 1000);
     return () => clearInterval(t);
-  }, []);
-
-  // Clear dice animation interval on unmount
-  useEffect(() => {
-    return () => {
-      if (rollAnimRef.current) {
-        clearInterval(rollAnimRef.current);
-        rollAnimRef.current = null;
-      }
-    };
   }, []);
 
   const partsBySlot = useMemo(() => {
@@ -470,11 +464,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     if (status !== "playing" || !currentPart?.is_bot) return;
     // Bot play is handled by the server cron (ludo_tick_all, 3s interval).
     // Two-phase: roll (3-5s delay) then move (2-4s delay after roll).
-    // This frontend trigger is a FALLBACK only — fires after 2.5s in case the server tick missed.
+    // This frontend trigger is a FALLBACK only — fires after 6s in case the cron missed.
     const key = `${state.turn_slot}-${state.dice}-${state.must_move}-${state.turn_started_at}`;
     if (lastBotKey.current === key) return;
     lastBotKey.current = key;
-    const delay = 2500;
+    const delay = 6000;
     const t = setTimeout(async () => {
       try {
         if (state.must_move) {
@@ -513,7 +507,6 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
   // Dice roll — ref guard prevents double-clicks without using the disabled
   // attribute (which blocks click events on some mobile browsers).
-  const rollAnimRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rollLockRef = useRef(false);
   const roll = async () => {
     // Ref guard — instant, no state lag, works on all browsers
@@ -524,30 +517,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     rollLockRef.current = true;
     setBusy(true);
     // Visual roll animation — keep tumbling until RPC responds
-    let rpcResult: number | null = null;
     const anim = setInterval(() => {
-      // If RPC already responded, show the actual result instead of random
-      if (rpcResult !== null) {
-        setRollingFace(rpcResult);
-      } else {
-        setRollingFace(1 + Math.floor(Math.random() * 6));
-      }
-    }, 100);
-    rollAnimRef.current = anim;
+      setRollingFace(1 + Math.floor(Math.random() * 6));
+    }, 80);
     // Safety timeout: if RPC takes > 5s, force-clear everything
     const safety = setTimeout(() => {
       clearInterval(anim);
-      rollAnimRef.current = null;
       setRollingFace(null);
       setBusy(false);
       rollLockRef.current = false;
     }, 5000);
     try {
       const { data: rollData, error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
-      // Set rpcResult so the interval shows the real face immediately
-      if (rollData) {
-        rpcResult = (rollData as GameState).dice ?? null;
-      }
       if (rollData && onStateUpdate) onStateUpdate(rollData as GameState);
       if (error) {
         const friendlyMap: Record<string, string> = {
@@ -568,13 +549,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     } finally {
       clearTimeout(safety);
       clearInterval(anim);
-      rollAnimRef.current = null;
       // Short delay so the player sees the final face before clearing
       setTimeout(() => {
         setRollingFace(null);
         setBusy(false);
         rollLockRef.current = false;
-      }, 200);
+      }, 300);
     }
   };
 
@@ -614,11 +594,6 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       setBusy(false);
       setRollingFace(null);
       setDiceError(null);
-      // Clear any lingering dice animation interval
-      if (rollAnimRef.current) {
-        clearInterval(rollAnimRef.current);
-        rollAnimRef.current = null;
-      }
     }
   }, [turnKey]);
 
@@ -660,24 +635,21 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     && movablePawnIdxs.size === 0
     && (isMyTurn || (!isSpectator && status === "playing"));
 
-  // Auto-pass after 1.2s when the human player has no move
+  // Auto-pass after 1.5s when the human player has no move
   const autoPassKey = noMove ? `${state.turn_slot}-${state.dice}-${state.turn_started_at}` : "";
   const lastAutoPassRef = useRef<string>("");
   useEffect(() => {
     if (!noMove || !gameId) return;
     if (lastAutoPassRef.current === autoPassKey) return;
     lastAutoPassRef.current = autoPassKey;
-    // Show the dice result immediately (stop rolling animation so player sees the value)
-    setRollingFace(null);
-    setBusy(false);
-    rollLockRef.current = false;
+    // Show the dice result during the delay
     setNoMoveDisplay({ slot: state.turn_slot, dice: state.dice as number });
     const t = setTimeout(async () => {
       try {
         await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
       } catch {}
       setNoMoveDisplay(null);
-    }, 1200);
+    }, 1500);
     return () => clearTimeout(t);
   }, [noMove, autoPassKey, gameId, state.turn_slot, state.dice, state.turn_started_at]);
 
@@ -729,12 +701,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Pawn visual effect based on power type
     const effectType = pe.reward || pe.type;
     setPawnPowerEffect({ slot: pe.slot, type: effectType, key, pawn: pe.pawn });
-    setTimeout(() => setPawnPowerEffect(null), 1200);
+    setTimeout(() => setPawnPowerEffect(null), 1500);
     // Board-level effect: BUG 3 FIX — use pe.cell from backend instead of searching by type
     const eventCell = pe.cell;
     if (eventCell !== undefined && eventCell !== null) {
       setBoardPowerEffect({ cell: eventCell, type: effectType, key });
-      setTimeout(() => setBoardPowerEffect(null), 1500);
+      setTimeout(() => setBoardPowerEffect(null), 1800);
     }
   }, [state.power_event]);
 
@@ -869,8 +841,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         cellGroups.set(key, n + 1);
         if (n > 0) {
           const angle = (n / 4) * Math.PI * 2;
-          row += Math.sin(angle) * 0.10;
-          col += Math.cos(angle) * 0.10;
+          row += Math.sin(angle) * 0.18;
+          col += Math.cos(angle) * 0.18;
         }
       }
       renderPawns.push({
@@ -938,7 +910,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                           style={{
                             background: doubleRollPhase.phase === "2x" ? "#ec4899" : "#6366f1",
                             animation: doubleRollPhase.phase === "2x"
-                              ? "doubleRollBadgeIn 0.3s ease-out, doubleRollBadgePulse 1s ease-in-out infinite 0.3s"
+                              ? "doubleRollBadgeIn 0.3s ease-out"
                               : "doubleRollBadgeIn 0.3s ease-out",
                           }}>
                           ⚡{doubleRollPhase.phase}
@@ -998,7 +970,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                     lineHeight: 1,
                     pointerEvents: "none",
                     animation: "none",
-                    transition: "none",
+                    transition: "left 0.4s ease, top 0.4s ease",
                   }}>
                   <span style={{
                     animation: "none",
@@ -1139,7 +1111,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                 top: p.row * cellPx + hitPad,
                 width: hitSize,
                 height: hitSize,
-                transition: "none",
+                transition: p.movable ? "none" : "left 0.12s linear, top 0.12s linear",
                 cursor: p.movable ? "pointer" : "default",
                 pointerEvents: p.movable ? "auto" : "none",
                 touchAction: "manipulation",
@@ -1321,7 +1293,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           );
         })()}
 
-        <div className="relative">
+        <div className="relative" style={{ perspective: '200px' }}>
           <button
             disabled={!canRoll}
             onPointerDown={(e) => { if (!canRoll) return; e.preventDefault(); roll(); }}
@@ -1335,7 +1307,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-2 rounded-full bg-black/20 blur-sm animate-pulse" />
           )}
         </div>
-        {displayDice != null && (rollingFace === null || noMove || noMoveDisplay) && !diceError && (
+        {displayDice != null && rollingFace === null && !diceError && (
           <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
         )}
         {diceError && rollingFace === null && (

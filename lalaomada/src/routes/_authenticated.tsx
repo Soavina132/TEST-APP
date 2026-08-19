@@ -12,7 +12,8 @@ import { useLocation } from "@tanstack/react-router";
 import { useT } from "@/lib/i18n";
 import { useWaitingRoomActive } from "@/lib/game-ui-state";
 import { PageLoader } from "@/components/layout/PageLoader";
-import { GameTicker } from "@/components/game/GameTicker";
+import { useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -31,6 +32,21 @@ function AuthLayout() {
   const path = loc.pathname;
   const waiting = useWaitingRoomActive();
 
+  // ── Global ticker: check all games for timeouts every 15s ──
+  // No pg_cron on Supabase, so we use a client-side interval.
+  // Only runs when a user is authenticated and the tab is visible.
+  const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const tick = async () => {
+      if (document.hidden) return;
+      try {
+        await supabase.rpc("tick_all_games" as any);
+      } catch {}
+    };
+    tick(); // Run immediately
+    tickerRef.current = setInterval(tick, 15000);
+    return () => { if (tickerRef.current) clearInterval(tickerRef.current); };
+  }, []);
   // Match both legacy routes (/domino/xxx) and actual game routes (/jeux/domino/xxx)
   const inGameRoute = /^\/(jeux\/)?(chess|domino|fanorona|rami|ludo|game)\//.test(path);
   const inGame = inGameRoute && !waiting;
@@ -64,7 +80,7 @@ function AuthLayout() {
       <TermsModal />
       <AnnouncementsModal />
       {isHome && <ContactFab />}
-      <GameTicker />
+      
     </>
   );
 }

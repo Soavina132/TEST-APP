@@ -301,6 +301,10 @@ function GamePage() {
         afkPauseFor={game?.afk_pause_for ?? null}
         matchType={game.match_type}
         onStateUpdate={(newState) => {
+          // Set optTurnRef to prevent stale realtime events from overwriting
+          // the optimistic state. The realtime handler checks this ref and
+          // skips events with a different current_turn.
+          if (optTurnRef) optTurnRef.current = newState.turn_slot;
           setGame((g: any) => g ? { ...g, state: newState } : g);
         }}
       />
