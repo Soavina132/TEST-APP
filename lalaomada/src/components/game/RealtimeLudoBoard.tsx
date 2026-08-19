@@ -833,7 +833,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         [row, col] = offsets[part.color];
       } else {
         let cell: [number, number];
-        if (p.k <= 50) cell = PATH[(START_IDX[part.color] + p.k - 1) % 52];
+        if (p.k <= 50) cell = PATH[((START_IDX[part.color] + p.k - 1) % 52 + 52) % 52];
         else cell = HOME_STRETCH[part.color][p.k - 51];
         row = cell[0]; col = cell[1];
         const key = `${row}-${col}`;
