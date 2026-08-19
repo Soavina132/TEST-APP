@@ -86,28 +86,25 @@ export default function GamePauseControl({
       {/* ── AFK Warning Banner */}
       {afkWarning && !isPaused && isPlayer && myUserId !== afkWarning.uid && (
         <div
-          className="fixed top-16 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-sm
-                     bg-amber-50 dark:bg-amber-950/60 border border-amber-400/60
-                     rounded-2xl px-4 py-3 shadow-xl flex items-start gap-3 animate-in
-                     slide-in-from-top-4 fade-in duration-300"
+          className="fixed top-14 left-1/2 -translate-x-1/2 z-40 w-auto max-w-xs
+                     bg-amber-50 dark:bg-amber-950/60 border border-amber-400/50
+                     rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 animate-in
+                     slide-in-from-top-2 fade-in duration-200"
         >
-          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">
-              Voulez-vous attendre le joueur {afkWarning.name} absent ?
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              {afkSubtitle()}
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-200 truncate">
+              {afkWarning.name} inactif — {afkSubtitle()}
             </p>
 
             {/* Barre de progression des votes */}
             {showVoteCount && (
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="flex gap-1">
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-0.5">
                   {Array.from({ length: votesNeeded }).map((_, i) => (
                     <div
                       key={i}
-                      className={`w-2 h-2 rounded-full transition-colors ${
+                      className={`w-1.5 h-1.5 rounded-full transition-colors ${
                         i < votesCount
                           ? "bg-amber-500"
                           : "bg-amber-200 dark:bg-amber-800"
@@ -115,8 +112,8 @@ export default function GamePauseControl({
                     />
                   ))}
                 </div>
-                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                  {votesCount}/{votesNeeded} vote{votesNeeded > 1 ? "s" : ""}
+                <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                  {votesCount}/{votesNeeded}
                 </span>
               </div>
             )}
@@ -126,17 +123,17 @@ export default function GamePauseControl({
           {canRequestAfkPause && (
             <button
               onClick={requestAfkPause}
-              className="shrink-0 px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-600
-                         active:scale-95 text-white text-xs font-bold flex items-center gap-1.5
-                         transition-all shadow-md shadow-amber-500/30"
+              className="shrink-0 px-2.5 py-1 rounded-full bg-amber-500 hover:bg-amber-600
+                         active:scale-95 text-white text-[11px] font-bold flex items-center gap-1
+                         transition-all shadow-sm"
             >
-              <Vote className="w-3.5 h-3.5" />
-              {votesNeeded <= 1 ? "Pause" : "Voter"}
+              <Vote className="w-3 h-3" />
+              {votesNeeded <= 1 ? "Pause" : "Vote"}
             </button>
           )}
           {hasVoted && !canRequestAfkPause && (
-            <div className="shrink-0 flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <div className="shrink-0 flex items-center gap-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
               Voté
             </div>
           )}

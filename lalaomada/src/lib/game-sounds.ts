@@ -98,11 +98,13 @@ function tone(opts: ToneOpts) {
     osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), t0 + duration);
   }
 
-  // Envelope ADSR
+  // Envelope ADSR — clamp all times to be non-negative (fixes AudioParam error)
+  const safeAttack = Math.min(attack, duration);
+  const safeRelease = Math.min(release, duration - safeAttack);
   gain.gain.setValueAtTime(0, t0);
-  gain.gain.linearRampToValueAtTime(volume, t0 + attack);
-  gain.gain.linearRampToValueAtTime(volume * sustain, t0 + attack + 0.05);
-  gain.gain.setValueAtTime(volume * sustain, t0 + duration - release);
+  gain.gain.linearRampToValueAtTime(volume, t0 + safeAttack);
+  gain.gain.linearRampToValueAtTime(volume * sustain, t0 + safeAttack + 0.05);
+  gain.gain.setValueAtTime(volume * sustain, Math.max(t0, t0 + duration - safeRelease));
   gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
 
   osc.connect(gain);

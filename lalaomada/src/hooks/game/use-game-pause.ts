@@ -78,10 +78,10 @@ export function useGamePause({
     if (key === lastWarnKeyRef.current) return;
     if (myUserId && afkWarning.uid === myUserId) return;
     lastWarnKeyRef.current = key;
-    toast.warning(
-      `⚠️ ${afkWarning.name} est inactif — votez pour mettre la partie en pause`,
-      { duration: 5000 }
-    );
+    toast.warning(`${afkWarning.name} est inactif`, {
+      duration: 2500,
+      description: "Touchez pour voter la pause",
+    });
   }, [afkWarning, myUserId]);
 
   // ── Toast when AFK pause is triggered by someone else
@@ -91,7 +91,7 @@ export function useGamePause({
     if (wasPausedRef.current) return;
     wasPausedRef.current = true;
     if (!isAfkPlayer) {
-      toast.info("⏸ Partie en pause — en attente du joueur inactif");
+      toast.info("⏸ Pause — joueur inactif", { duration: 2000 });
     }
   }, [isPaused, isAfkPause, isAfkPlayer]);
 
@@ -141,10 +141,10 @@ export function useGamePause({
       const v = result.votes ?? 1;
       const n = result.votes_needed ?? 1;
       if (v < n) {
-        toast.success(`Vote enregistré (${v}/${n}) — en attente des autres joueurs`);
+        toast.success(`Vote ${v}/${n}`, { duration: 1500 });
       }
     } else if (result.status === "paused") {
-      toast.success("Partie en pause — 3 minutes pour le retour du joueur");
+      toast.success("⏸ Pause — 3min", { duration: 2000 });
     }
   }, [slug, gameId]);
 
