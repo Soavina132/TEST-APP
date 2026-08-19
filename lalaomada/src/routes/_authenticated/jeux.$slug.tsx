@@ -266,8 +266,6 @@ function Lobby() {
       loadMine();
       return;
     }
-    // Increment free/premium game usage counter
-    if (stake === 0) await incrementGameUsage();
     navigate({ to: ROUTE[slug], params: { id } as any });
   };
   // ── Free game limit check ──
@@ -376,7 +374,7 @@ function Lobby() {
         return;
       }
 
-      if (id) { refreshProfile(); goTo(id); }
+      if (id) { await incrementGameUsage(); refreshProfile(); goTo(id); }
     } catch (e: any) { toast.error(e.message || "Erreur"); } finally { setBusy(false); }
   });
 
@@ -418,7 +416,7 @@ function Lobby() {
         const { data, error } = await supabase.rpc("rami_create" as any, { _stake: 0, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards } as any);
         if (error) throw error; id = extractGameId(data);
       }
-      if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
+      if (id) { await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
     } finally { void savedStake; }
   };
 
@@ -454,7 +452,7 @@ function Lobby() {
       const { data, error } = await supabase.rpc("rami_create" as any, { _stake: stake, _max: maxP, _private: priv, _commission: commission, _joker_mode: ramiJokerMode, _game_mode: ramiGameMode, _seven_cards: ramiSevenCards } as any);
       if (error) throw error; id = extractGameId(data);
     }
-    if (id) { if (stake === 0) await incrementGameUsage(); shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
+    if (id) { shareNewGameInGroup(slug, id); refreshProfile(); goTo(id); }
   };
 
   const createPrivate = withAdminRename(async (overrideName) => {
@@ -467,6 +465,7 @@ function Lobby() {
   });
 
   const joinExisting = (gameId: string) => withAdminRename(async () => {
+    if (!(await checkFreeGameLimit())) return;
     try {
       if (slug === "ludo") {
         const { error } = await supabase.rpc("join_game" as any, { _game_id: gameId } as any);
@@ -479,12 +478,14 @@ function Lobby() {
         const { error } = await supabase.rpc("rami_join" as any, { _game_id: gameId } as any);
         if (error) throw error;
       }
+      await incrementGameUsage();
       refreshProfile(); goTo(gameId);
     } catch (e: any) { toast.error(e.message || "Erreur"); }
   })();
 
   const joinByCode = withAdminRename(async () => {
     if (!code.trim()) return;
+    if (!(await checkFreeGameLimit())) return;
     setBusy(true);
     try {
       const fn = slug === "ludo" ? "join_game_by_code" :
@@ -494,6 +495,7 @@ function Lobby() {
         "rami_join_code";
       const { data, error } = await supabase.rpc(fn as any, { _code: code.trim().toUpperCase() } as any);
       if (error) throw error;
+      await incrementGameUsage();
       refreshProfile(); goTo(data);
     } catch (e: any) {
       const msg = (e?.message || "").toLowerCase();
