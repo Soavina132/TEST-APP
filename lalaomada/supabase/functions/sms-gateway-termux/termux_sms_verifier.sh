@@ -1,21 +1,22 @@
 #!/bin/bash
 # ==========================================================================
-# Termux SMS Auto-Verifier + Auto-Deposit for Lalao-Mada — v4
+# Termux SMS Auto-Verifier + Auto-Deposit for Lalao-Mada — v5
 # ==========================================================================
 # Ce script tourne sur le téléphone admin via Termux.
-# Il gère DEUX flux automatiques:
 #
 #   1. VÉRIFICATION TÉLÉPHONE
 #      Détecte les codes LMxxxxxx (insensible à la casse)
 #      → appelle auto_verify_phone_by_sms()
+#      ⚠ Les SMS de vérif viennent de numéros normaux (joueurs)
 #
 #   2. DÉPÔT AUTOMATIQUE
 #      Détecte les SMS Orange/MVola/Airtel Money
 #      → appelle auto_process_deposit_sms()
-#      → tolérance montant: ±200 Ar vs demande de dépôt
-#      → numéro normalisé (0/261/+261)
-#      → déduplication par Trans ID/Ref (unique côté serveur)
-#      → extrait le MONTANT REÇU (pas le solde total)
+#      ⚠ Les SMS de dépôt viennent des OPÉRATEURS (short codes / noms)
+#      ⚠ Si l'expéditeur est un NUMÉRO de téléphone → REFUSÉ (pas un SMS opérateur)
+#      → Déduplication UNIQUEMENT par Trans ID/Ref (jamais égal pour 2 transactions)
+#      → Montant: ±200 Ar vs demande, numéro normalisé
+#      → Extrait le MONTANT REÇU (pas le solde total)
 #
 # SCAN: 50 derniers SMS toutes les 30 secondes
 #
@@ -31,18 +32,33 @@
 SUPABASE_URL="https://gifwfjgciwbsottztzoc.supabase.co"
 SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY_HERE"  # ← Remplace par ta clé service_role
 
-echo "🤖 Lalao-Mada SMS Auto-Verifier v4"
+echo "🤖 Lalao-Mada SMS Auto-Verifier v5"
 echo "📡 Scan: 50 SMS toutes les 30 secondes"
-echo "📱 Vérification: codes LMxxxxxx (insensible à la casse)"
-echo "💰 Dépôt: Orange/MVola/Airtel (montant reçu, ±200 Ar)"
-echo "🔒 Dédup: Trans ID/Ref unique côté serveur"
+echo "📱 Vérification: codes LMxxxxxx (de numéros de joueurs)"
+echo "💰 Dépôt: Orange/MVola/Airtel (de short codes opérateurs uniquement)"
+echo "🔒 Dédup: Trans ID/Ref unique (jamais 2x le même)"
+echo "⚠️  SMS depuis un numéro de téléphone = refusé pour dépôt"
 echo "---"
 
 PROCESSED_FILE="/tmp/sms_processed.txt"
-touch "$PROCESSED_FILE"
-
-# Nettoyer le fichier au démarrage (>2h)
 > "$PROCESSED_FILE"
+
+# ==========================================
+# Fonction: vérifier si l'expéditeur est un
+# numéro de téléphone (9+ chiffres = refusé
+# pour les dépôts, car les SMS opérateurs
+# viennent de short codes ou noms alphabétiques)
+# ==========================================
+is_phone_number() {
+  local sender="$1"
+  # Nettoyer: enlever espaces, +, tirets
+  local cleaned=$(echo "$sender" | tr -d ' +-' | tr -d '[:space:]')
+  # Si c'est que des chiffres ET >= 9 chiffres → c'est un numéro de téléphone
+  if echo "$cleaned" | grep -qE '^[0-9]+$' && [ ${#cleaned} -ge 9 ]; then
+    return 0  # TRUE = c'est un numéro → refuser pour dépôt
+  fi
+  return 1  # FALSE = pas un numéro → c'est un short code ou nom opérateur
+}
 
 while true; do
   # Récupérer les 50 derniers SMS (boîte de réception)
@@ -70,6 +86,7 @@ while true; do
 
     # ================================================
     # 1. VÉRIFICATION TÉLÉPHONE (codes LMxxxxxx)
+    #    Accepté depuis n'importe quel expéditeur (joueurs)
     # ================================================
     if echo "$BODY" | grep -qiE "[Ll][Mm][0-9]{6}"; then
       echo "📧 [Vérif] SMS from $SENDER: $BODY"
@@ -97,6 +114,7 @@ while true; do
 
     # ================================================
     # 2. DÉPÔT AUTOMATIQUE (Orange/MVola/Airtel)
+    #    ⚠ REFUSÉ si l'expéditeur est un numéro de téléphone
     # ================================================
     OPERATOR=""
 
@@ -112,13 +130,21 @@ while true; do
     fi
 
     if [ -n "$OPERATOR" ]; then
+      # ⚠ Sécurité: refuser si l'expéditeur est un numéro de téléphone
+      # Les SMS Orange/MVola/Airtel viennent de short codes ou noms, pas de numéros
+      if is_phone_number "$SENDER"; then
+        echo "🚫 [Dépôt $OPERATOR] REFUSÉ — expéditeur est un numéro ($SENDER), pas un SMS opérateur"
+        echo "$SMS_ID" >> "$PROCESSED_FILE"
+        continue
+      fi
+
       echo "💰 [Dépôt $OPERATOR] SMS from $SENDER: $BODY"
 
       RESULT=$(curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/auto_process_deposit_sms" \
         -H "apikey: $SERVICE_ROLE_KEY" \
         -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
         -H "Content-Type: application/json" \
-        -d "{\"_operator\": \"$OPERATOR\", \"_sms_body\": $BODY_ESCAPED, \"_sender_phone\": \"$SENDER\"}" 2>/dev/null)
+        -d "{\"_operator\": \"$OPERATOR\", \"_sms_body\": $BODY_ESCAPED}" 2>/dev/null)
 
       SUCCESS=$(echo "$RESULT" | jq -r ".success // false" 2>/dev/null)
 
