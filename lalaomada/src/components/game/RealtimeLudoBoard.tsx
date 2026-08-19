@@ -216,23 +216,15 @@ const POWER_TILE_STYLES = `
   50% { transform: scale(0.9) rotate(360deg); opacity: 0.8; }
   100% { transform: scale(2.2) rotate(720deg); opacity: 0; }
 }
-@keyframes diceRoll3D {
-  0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
-  10%  { transform: rotateX(180deg) rotateY(90deg) rotateZ(45deg) scale(1.15); }
-  20%  { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) scale(1.1); }
-  30%  { transform: rotateX(540deg) rotateY(270deg) rotateZ(135deg) scale(1.2); }
-  40%  { transform: rotateX(720deg) rotateY(360deg) rotateZ(180deg) scale(1.05); }
-  50%  { transform: rotateX(900deg) rotateY(450deg) rotateZ(225deg) scale(1.15); }
-  60%  { transform: rotateX(1080deg) rotateY(540deg) rotateZ(270deg) scale(1.1); }
-  70%  { transform: rotateX(1260deg) rotateY(630deg) rotateZ(315deg) scale(1.2); }
-  80%  { transform: rotateX(1440deg) rotateY(720deg) rotateZ(360deg) scale(1.05); }
-  90%  { transform: rotateX(1620deg) rotateY(810deg) rotateZ(405deg) scale(1.1); }
-  100% { transform: rotateX(1800deg) rotateY(900deg) rotateZ(450deg) scale(1); }
+@keyframes diceRoll2D {
+  0%   { transform: rotate(0deg) scale(1); }
+  25%  { transform: rotate(90deg) scale(1.1); }
+  50%  { transform: rotate(180deg) scale(1.15); }
+  75%  { transform: rotate(270deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
 }
 .dice-tumbling {
-  animation: diceRoll3D 0.6s ease-out infinite;
-  transform-style: preserve-3d;
-  perspective: 200px;
+  animation: diceRoll2D 0.4s ease-in-out infinite;
 }
 @keyframes boardGiftPop {
   0% { transform: scale(0) translateY(10px); opacity: 0; }
@@ -1293,7 +1285,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           );
         })()}
 
-        <div className="relative" style={{ perspective: '200px' }}>
+        <div className="relative">
           <button
             disabled={!canRoll}
             onPointerDown={(e) => { if (!canRoll) return; e.preventDefault(); roll(); }}
