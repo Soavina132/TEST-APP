@@ -94,9 +94,9 @@ function fmtClock(ms: number) {
 }
 
 function FanoronaPlayerBar({
-  p, isCurrent, isMe, pieceCount, timeMs, avatarUrl,
+  p, isCurrent, isMe, pieceCount, timeMs, avatarUrl, stake,
 }: {
-  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number; avatarUrl?: string | null;
+  p: any; isCurrent: boolean; isMe: boolean; pieceCount: number; timeMs: number; avatarUrl?: string | null; stake?: number;
 }) {
   const isWhite = p.color === "white";
   const low = timeMs < 30_000;
@@ -121,7 +121,7 @@ function FanoronaPlayerBar({
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-xs truncate flex items-center gap-1.5">
           {name}
-          {p.is_bot && Number(game?.stake) === 0 && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
+          {p.is_bot && Number(stake ?? 0) === 0 && <span className="text-[10px] text-violet-500 shrink-0">🤖</span>}
           {isMe && <span className="text-[10px] text-primary/60 shrink-0">(vous)</span>}
           {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
         </div>
@@ -719,7 +719,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         const isCurrent = game.current_turn === opponent.slot && game.status === "playing";
         const pieceCount = opponent.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} timeMs={me?.color === "white" ? bTime : wTime} avatarUrl={opponent.user_id ? profiles[opponent.user_id]?.avatar_url : null} />
+          <FanoronaPlayerBar p={opponent} isCurrent={isCurrent} isMe={false} pieceCount={pieceCount} timeMs={me?.color === "white" ? bTime : wTime} avatarUrl={opponent.user_id ? profiles[opponent.user_id]?.avatar_url : null} stake={game?.stake} />
         );
       })()}
       </div>
@@ -880,7 +880,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
         const isCurrent = game.current_turn === me.slot && game.status === "playing";
         const pieceCount = me.color === "white" ? whiteCount : blackCount;
         return (
-          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} avatarUrl={me.user_id ? profiles[me.user_id]?.avatar_url : null} />
+          <FanoronaPlayerBar p={me} isCurrent={isCurrent} isMe pieceCount={pieceCount} timeMs={me?.color === "white" ? wTime : bTime} avatarUrl={me.user_id ? profiles[me.user_id]?.avatar_url : null} stake={game?.stake} />
         );
       })()}
       </div>
