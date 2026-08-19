@@ -381,6 +381,9 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
 
       const moves: Array<{ slot: string; idx: number; from: { s: string; k: number }; to: { s: string; k: number } }> = [];
       const captures: Array<{ slot: string; idx: number }> = [];
+      // Track pawns to SKIP (stale realtime events that would move pawns backward)
+      // In Ludo, pawns only go forward. A backward move means a stale event.
+      const skippedPawns: Set<string> = new Set();
       for (const slot of Object.keys(latestTarget)) {
         const tArr = latestTarget[slot] || [];
         const cArr = currentPawns[slot] || [];
@@ -390,13 +393,31 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           if (cp.s === tp.s && cp.k === tp.k) return;
           if (tp.s === "yard" && cp.s === "track") {
             captures.push({ slot, idx: i });
+          } else if (cp.s === "track" && tp.s === "track" && (tp.k as number) < (cp.k as number)) {
+            // BACKWARD MOVE — stale realtime event trying to overwrite an optimistic move.
+            // Skip this pawn to prevent the visual "aller-retour".
+            skippedPawns.add(`${slot}:${i}`);
           } else {
             moves.push({ slot, idx: i, from: { s: cp.s, k: cp.k }, to: { s: tp.s, k: tp.k } });
           }
         });
       }
       if (moves.length === 0 && captures.length === 0) {
-        setDisplayedPawns(latestTarget);
+        // Even if no moves/captures, don't snap skipped pawns backward
+        if (skippedPawns.size > 0) {
+          const merged: Record<string, any[]> = {};
+          for (const slot of Object.keys(latestTarget)) {
+            const tArr = latestTarget[slot] || [];
+            const cArr = currentPawns[slot] || [];
+            merged[slot] = tArr.map((tp: any, i: number) => {
+              if (skippedPawns.has(`${slot}:${i}`) && cArr[i]) return cArr[i]; // keep current position
+              return tp;
+            });
+          }
+          setDisplayedPawns(merged);
+        } else {
+          setDisplayedPawns(latestTarget);
+        }
         setAnimating(false);
         return;
       }
@@ -426,7 +447,21 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         sfx.capture();
         await stepAnim(setDisplayedPawns, c.slot, c.idx, { s: "yard", k: -1 }, 200);
       }
-      setDisplayedPawns(latestTarget);
+      // Merge: use latestTarget but keep current position for skipped (stale) pawns
+      if (skippedPawns.size > 0) {
+        const merged: Record<string, any[]> = {};
+        for (const slot of Object.keys(latestTarget)) {
+          const tArr = latestTarget[slot] || [];
+          const cArr = currentPawns[slot] || [];
+          merged[slot] = tArr.map((tp: any, i: number) => {
+            if (skippedPawns.has(`${slot}:${i}`) && cArr[i]) return cArr[i];
+            return tp;
+          });
+        }
+        setDisplayedPawns(merged);
+      } else {
+        setDisplayedPawns(latestTarget);
+      }
       setAnimating(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

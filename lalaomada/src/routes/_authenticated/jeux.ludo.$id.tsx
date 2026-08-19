@@ -305,7 +305,12 @@ function GamePage() {
           // the optimistic state. The realtime handler checks this ref and
           // skips events with a different current_turn.
           if (optTurnRef) optTurnRef.current = newState.turn_slot;
-          setGame((g: any) => g ? { ...g, state: newState } : g);
+          // Update updated_at to the current time so the realtime handler's
+          // updated_at guard rejects stale events that arrive AFTER the RPC
+          // (e.g., a stale event from the dice roll arriving after the move).
+          // This prevents the visual "aller-retour" where the pawn snaps back
+          // to an old position and then re-animates forward.
+          setGame((g: any) => g ? { ...g, state: newState, updated_at: new Date().toISOString() } : g);
         }}
       />
 
