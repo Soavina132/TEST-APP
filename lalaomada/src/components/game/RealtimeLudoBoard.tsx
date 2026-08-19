@@ -626,57 +626,30 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
-  // ═══ NEW DESIGN: no more no_move_display timestamp ═══
-  // The server now ALWAYS sets must_move=true + dice + movable_pawns.
-  // When movable_pawns is empty, the dice is still visible in state.
-  // The frontend shows "PAS DE COUP" for 600ms, then auto-calls ludo_pass.
+  // ═══ Server-driven no_move_display ═══
+  // ludo_roll now passes the turn IMMEDIATELY when there's no move,
+  // and sets no_move_display = { slot, dice, until } in the state.
+  // The frontend just displays "PAS DE COUP" for 2s — no auto-pass RPC needed.
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
 
-  // Detect no-move: must_move=true but no movable pawns
-  const noMove = state.must_move && state.dice != null
-    && movablePawnIdxs.size === 0
-    && (isMyTurn || (!isSpectator && status === "playing"));
+  // Detect no-move display from server state
+  const noMove = !!(state.no_move_display && typeof state.no_move_display === 'object'
+    && state.no_move_display.slot !== undefined);
 
-  // Auto-pass after 600ms when the human player has no move
-  // FIX: Do NOT clearTimeout on cleanup — if a re-render cancels the timeout
-  // and the ref guard prevents re-scheduling, the pass never fires.
-  // Instead, let the timeout fire; ludo_pass fails harmlessly if the turn
-  // already changed, and the ref guard prevents duplicate scheduling.
-  const autoPassKey = noMove ? `${state.turn_slot}-${state.dice}-${state.turn_started_at}` : "";
-  const lastAutoPassRef = useRef<string>("");
   useEffect(() => {
-    if (!noMove || !gameId) return;
-    if (lastAutoPassRef.current === autoPassKey) return;
-    lastAutoPassRef.current = autoPassKey;
-    // Show the dice result during the delay
-    setNoMoveDisplay({ slot: state.turn_slot, dice: state.dice as number });
-    setTimeout(async () => {
-      const { data: passData, error: passError } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
-      if (passError) {
-        console.error("[ludo] auto-pass failed:", passError.message);
-      } else if (passData && onStateUpdate) {
-        // Update optTurnRef to the new turn_slot so the realtime event
-        // from ludo_pass is accepted (not rejected by the optTurnRef guard)
-        onStateUpdate(passData as GameState);
-      }
+    if (state.no_move_display && typeof state.no_move_display === 'object'
+        && state.no_move_display.slot !== undefined) {
+      setNoMoveDisplay({
+        slot: state.no_move_display.slot,
+        dice: state.no_move_display.dice
+      });
+      // Auto-clear after 2 seconds
+      const timer = setTimeout(() => setNoMoveDisplay(null), 2000);
+      return () => clearTimeout(timer);
+    } else {
       setNoMoveDisplay(null);
-    }, 600);
-    // No cleanup — ref guard prevents duplicates, RPC fails harmlessly if stale
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noMove, autoPassKey, gameId]);
-
-  // ═══ FIX: Clear noMoveDisplay when the turn changes ═══
-  // Without this, noMoveDisplay can get stuck if the realtime event from
-  // ludo_pass arrives before the 1.5s timeout fires (the effect cleanup
-  // clears the timeout, preventing setNoMoveDisplay(null) from running).
-  // This causes displayDice to show a stale value instead of state.dice.
-  const lastTurnCleanupRef = useRef<string>("");
-  useEffect(() => {
-    const turnKey = `${state.turn_slot}-${state.turn_started_at}`;
-    if (lastTurnCleanupRef.current === turnKey) return;
-    lastTurnCleanupRef.current = turnKey;
-    if (noMoveDisplay) setNoMoveDisplay(null);
-  }, [state.turn_slot, state.turn_started_at, noMoveDisplay]);
+    }
+  }, [state.no_move_display]);
 
   // When no_move_display is active, show the player's slot + dice
   const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
