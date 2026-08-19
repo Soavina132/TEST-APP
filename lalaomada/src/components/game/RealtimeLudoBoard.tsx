@@ -602,27 +602,71 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   // Use a ref-based guard so a second pointer event can't slip through
   // between setBusy() scheduling and the next render.
   const moveLockRef = useRef(false);
+
+  // ── Optimistic pawn move ────────────────────────────────────────────
+  // Instead of waiting for the server RPC (1-3s delay), we immediately
+  // start the step-by-step animation based on the current dice value.
+  // The RPC runs in the background and reconciles when it returns.
   const movePawn = async (idx: number) => {
     if (moveLockRef.current) return;
     if (!movablePawnIdxs.has(idx) || busy) return;
     moveLockRef.current = true;
     setSelectedIdx(idx);
     setBusy(true);
-    try { const { data: moveData, error } = await supabase.rpc("ludo_move" as any, { _game_id: gameId, _pawn_idx: idx } as any);
-        if (moveData && onStateUpdate) onStateUpdate(moveData as GameState);
-        if (error) {
-          const friendlyMap: Record<string, string> = {
-            "Partie pas en cours": "La partie est terminée",
-            "Pas votre tour": "Ce n'est pas votre tour",
-            "Pion inconnu": "Pion invalide",
-            "Pion deja arrive": "Ce pion est déjà arrivé",
-            "Sortie possible avec un 6": "Il faut un 6 pour sortir un pion",
-            "Depassement": "Déplacement impossible",
-          };
-          toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
-          setSelectedIdx(null);
+
+    // ── Save pre-move state for rollback ──
+    const slot = String(state.turn_slot);
+    const dice = state.dice as number;
+    const preMovePawns = displayedPawnsRef.current ? JSON.parse(JSON.stringify(displayedPawnsRef.current)) : {};
+    const pawn = preMovePawns[slot]?.[idx];
+
+    // ── Optimistic: start step-by-step animation immediately ──
+    if (pawn && dice != null) {
+      if (pawn.s === "yard" && dice === 6) {
+        await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k: 1 }, 200);
+        sfx.pawnMove();
+      } else if (pawn.s === "track") {
+        const fromK = pawn.k;
+        const toK = fromK + dice;
+        if (toK <= 56) {
+          for (let k = fromK + 1; k <= toK; k++) {
+            await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
+            sfx.pawnStep();
+          }
+        } else {
+          // Going to finished
+          for (let k = fromK + 1; k <= 56; k++) {
+            await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
+            sfx.pawnStep();
+          }
+          await stepAnim(setDisplayedPawns, slot, idx, { s: "finished", k: 56 }, 30);
+          sfx.home();
         }
       }
+    }
+
+    // ── Fire RPC in the background ──
+    // The animation has already moved the pawn visually.
+    // When the server response arrives via onStateUpdate, the animation
+    // effect will see displayedPawns already matches state.pawns → skip.
+    try {
+      const { data: moveData, error } = await supabase.rpc("ludo_move" as any, { _game_id: gameId, _pawn_idx: idx } as any);
+      if (moveData && onStateUpdate) onStateUpdate(moveData as GameState);
+      if (error) {
+        // Roll back: restore pre-move position
+        setDisplayedPawns(preMovePawns);
+        const friendlyMap: Record<string, string> = {
+          "Partie pas en cours": "La partie est terminée",
+          "Pas votre tour": "Ce n'est pas votre tour",
+          "Pion inconnu": "Pion invalide",
+          "Pion deja arrive": "Ce pion est déjà arrivé",
+          "Sortie possible avec un 6": "Il faut un 6 pour sortir un pion",
+          "Depassement": "Déplacement impossible",
+        };
+        toast.error(friendlyMap[error.message] || error.message, { duration: 2000 });
+        setSelectedIdx(null);
+      }
+    }
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
