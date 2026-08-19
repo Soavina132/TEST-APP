@@ -49,6 +49,9 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
         if (res.error && !res.data) { console.warn("[realtime] parts error:", res.error); }
       }
       setGame((prev: any) => {
+        // Guard: if the query returned null (game deleted or RLS blocked),
+        // keep the previous state instead of crashing on .updated_at access.
+        if (!g) return prev;
         if (!prev) return g as TGame;
         // Only accept newer state (updated_at guard)
         // Parse dates properly — server uses "2026-08-13 22:19:51.286929+00"
@@ -84,19 +87,20 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
         if (payload.new) {
           setGame((prev: any) => {
             if (!prev) return payload.new as TGame;
+            const newGame = payload.new as any;
             const prevUpdated = (prev as any).updated_at;
-            const newUpdated = (payload.new as any).updated_at;
+            const newUpdated = newGame.updated_at;
             if (prevUpdated && newUpdated) {
               const pt = parseDateMs(prevUpdated);
               const nt = parseDateMs(newUpdated);
               if (pt && nt && nt < pt) return prev;
             }
-            if (optTurnRef.current !== null && (payload.new as any).current_turn !== optTurnRef.current) {
+            if (optTurnRef.current !== null && newGame.current_turn !== optTurnRef.current) {
               // Turn changed — accept only if the event is genuinely newer.
               // Use turn_seq (incremented on every turn change) as the primary check,
               // fall back to updated_at if turn_seq is missing.
               const prevSeq = prev.state?.turn_seq ?? 0;
-              const newSeq = (payload.new as any).state?.turn_seq ?? 0;
+              const newSeq = newGame.state?.turn_seq ?? 0;
               const pt2 = parseDateMs(prevUpdated);
               const nt2 = parseDateMs(newUpdated);
               const isNewer = newSeq > prevSeq ||
@@ -109,10 +113,10 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
               }
             }
             const prevBoardLen = prev.state?.board ? (Array.isArray(prev.state.board) ? prev.state.board.length : 0) : 0;
-            const newBoardLen = payload.new.state?.board ? (Array.isArray(payload.new.state.board) ? payload.new.state.board.length : 0) : 0;
+            const newBoardLen = newGame.state?.board ? (Array.isArray(newGame.state.board) ? newGame.state.board.length : 0) : 0;
             if (prevBoardLen > newBoardLen) return prev;
             optTurnRef.current = null;
-            return payload.new as TGame;
+            return newGame as TGame;
           });
           if (payload.new.status === "finished" && onFinishedRef.current) onFinishedRef.current();
         }
