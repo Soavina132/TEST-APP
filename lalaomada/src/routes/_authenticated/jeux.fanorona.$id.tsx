@@ -406,83 +406,21 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
   const sendMove = useCallback(async (move: any) => {
     setBusy(true);
 
-    // ── Save old state for rollback ──
-    const oldBoard = game?.state?.board ? [...(game.state.board as number[])] : null;
-    const oldTurn = game?.current_turn ?? null;
-    const oldMoveCount = game?.state?.move_count ?? 0;
-    const oldChainFrom = game?.state?.chain_from ?? null;
-    const oldVisited = game?.state?.visited ? [...(game.state.visited as number[])] : null;
-    const oldLastAxis = game?.state?.last_axis ?? null;
-
-    // ── Optimistic: update board immediately ──
-    if (game?.state?.board && move.from != null && move.to != null) {
-      const newBoard = [...(game.state.board as number[])];
-      const piece = newBoard[move.from];
-      newBoard[move.from] = 0;
-      newBoard[move.to] = piece;
-      // Remove captured pieces (property is "captured" NOT "captures")
-      const capturedArr: number[] = Array.isArray(move.captured) ? move.captured : [];
-      capturedArr.forEach((c: number) => {
-        if (c >= 0 && c < newBoard.length) newBoard[c] = 0;
-      });
-      // For captures: DON'T advance the turn — the server will decide if a
-      // chain continues (sets chain_from) or if the turn passes. Advancing
-      // the turn optimistically would make the bot trigger with a key that
-      // gets reused later, causing the bot to get stuck.
-      const hasCaptures = capturedArr.length > 0;
-      const wasInChain = oldChainFrom !== null;
-      setGame((g: any) => g ? {
-        ...g,
-        // Only advance turn for NON-capture moves. For captures, keep the
-        // current turn — the server's realtime event will set the correct
-        // turn and chain_from.
-        current_turn: hasCaptures ? oldTurn : (oldTurn === 0 ? 1 : 0),
-        // DON'T set updated_at — let the server's value stay so the
-        // realtime guard can properly compare (server format differs from
-        // ISO format, string comparison would always reject server events).
-        state: {
-          ...g.state,
-          board: newBoard,
-          // Don't change move_count for captures — server decides
-          move_count: hasCaptures ? oldMoveCount : oldMoveCount + 1,
-          // For captures, clear chain_from optimistically (server will set it
-          // if a chain continues). For non-captures, always clear.
-          chain_from: null,
-          visited: [],
-          last_axis: null,
-        },
-      } : g);
-
-      // Play sound immediately
-      if (hasCaptures) {
-        playFanoronaCapture();
-      } else {
-        playFanoronaMove();
-      }
+    // ── Play sound immediately (audio feedback only) ──
+    const hasCaptures = Array.isArray(move.captured) && move.captured.length > 0;
+    if (hasCaptures) {
+      playFanoronaCapture();
+    } else {
+      playFanoronaMove();
     }
 
     setSelected(null); setCaptureChoice(null);
 
+    // ── Send to server and let realtime update the board ──
     try {
       const { error } = await supabase.rpc("fanorona_play" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
-      // Realtime will confirm — but our optimistic state should match
     } catch (e: any) {
-      // ── Rollback on error ──
-      if (oldBoard) {
-        setGame((g: any) => g ? {
-          ...g,
-          current_turn: oldTurn,
-          state: {
-            ...g.state,
-            board: oldBoard,
-            move_count: oldMoveCount,
-            chain_from: oldChainFrom,
-            visited: oldVisited,
-            last_axis: oldLastAxis,
-          },
-        } : g);
-      }
       const msg = e?.message || "";
       const fr: Record<string, string> = {
         "capture is mandatory when available": "Capture obligatoire — vous devez capturer un pion adverse",

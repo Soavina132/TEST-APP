@@ -41,7 +41,7 @@ function GamePage() {
   const [loadError, setLoadError] = useState(false);
   const [loadRetried, setLoadRetried] = useState(0);
 
-  const { game, parts, setGame, setParts, loading, connected, reload, optTurnRef } = useFastRealtime({
+  const { game, parts, setGame, setParts, loading, connected, reload } = useFastRealtime({
     gameTable: "ludo_games",
     participantTable: "ludo_participants",
     gameId: id,
@@ -301,16 +301,7 @@ function GamePage() {
         afkPauseFor={game?.afk_pause_for ?? null}
         matchType={game.match_type}
         onStateUpdate={(newState) => {
-          // Set optTurnRef to prevent stale realtime events from overwriting
-          // the optimistic state. The realtime handler checks this ref and
-          // skips events with a different current_turn.
-          if (optTurnRef) optTurnRef.current = newState.turn_slot;
-          // Update updated_at to the current time so the realtime handler's
-          // updated_at guard rejects stale events that arrive AFTER the RPC
-          // (e.g., a stale event from the dice roll arriving after the move).
-          // This prevents the visual "aller-retour" where the pawn snaps back
-          // to an old position and then re-animates forward.
-          setGame((g: any) => g ? { ...g, state: newState, updated_at: new Date().toISOString() } : g);
+          setGame((g: any) => g ? { ...g, state: newState } : g);
         }}
       />
 

@@ -32,8 +32,6 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const optBoardLenRef = useRef<number>(0);
-  const optTurnRef = useRef<any>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onFinishedRef = useRef(onFinished);
   useEffect(() => { onFinishedRef.current = onFinished; }, [onFinished]);
@@ -95,27 +93,6 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
               const nt = parseDateMs(newUpdated);
               if (pt && nt && nt < pt) return prev;
             }
-            if (optTurnRef.current !== null && newGame.current_turn !== optTurnRef.current) {
-              // Turn changed — accept only if the event is genuinely newer.
-              // Use turn_seq (incremented on every turn change) as the primary check,
-              // fall back to updated_at if turn_seq is missing.
-              const prevSeq = prev.state?.turn_seq ?? 0;
-              const newSeq = newGame.state?.turn_seq ?? 0;
-              const pt2 = parseDateMs(prevUpdated);
-              const nt2 = parseDateMs(newUpdated);
-              const isNewer = newSeq > prevSeq ||
-                (!prevSeq && !newSeq && pt2 && nt2 && nt2 > pt2);
-              if (isNewer) {
-                optTurnRef.current = null;
-                // Fall through to accept the event
-              } else {
-                return prev;
-              }
-            }
-            const prevBoardLen = prev.state?.board ? (Array.isArray(prev.state.board) ? prev.state.board.length : 0) : 0;
-            const newBoardLen = newGame.state?.board ? (Array.isArray(newGame.state.board) ? newGame.state.board.length : 0) : 0;
-            if (prevBoardLen > newBoardLen) return prev;
-            optTurnRef.current = null;
             return newGame as TGame;
           });
           if (payload.new.status === "finished" && onFinishedRef.current) onFinishedRef.current();
@@ -162,5 +139,5 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
     };
   }, [gameId, enabled, gameTable, participantTable, reload, debouncedReload]);
 
-  return { game, parts, setGame, setParts, loading, connected, reload, optTurnRef };
+  return { game, parts, setGame, setParts, loading, connected, reload };
 }
