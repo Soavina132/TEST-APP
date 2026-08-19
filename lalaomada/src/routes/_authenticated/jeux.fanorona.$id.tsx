@@ -396,11 +396,74 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
 
   const sendMove = useCallback(async (move: any) => {
     setBusy(true);
+
+    // ── Save old state for rollback ──
+    const oldBoard = game?.state?.board ? [...(game.state.board as number[])] : null;
+    const oldTurn = game?.current_turn ?? null;
+    const oldMoveCount = game?.state?.move_count ?? 0;
+    const oldChainFrom = game?.state?.chain_from ?? null;
+    const oldVisited = game?.state?.visited ? [...(game.state.visited as number[])] : null;
+    const oldLastAxis = game?.state?.last_axis ?? null;
+
+    // ── Optimistic: update board immediately ──
+    if (game?.state?.board && move.from != null && move.to != null) {
+      const newBoard = [...(game.state.board as number[])];
+      const piece = newBoard[move.from];
+      newBoard[move.from] = 0;
+      newBoard[move.to] = piece;
+      // Remove captured pieces
+      if (Array.isArray(move.captures)) {
+        (move.captures as number[]).forEach((c: number) => {
+          if (c >= 0 && c < newBoard.length) newBoard[c] = 0;
+        });
+      }
+      // Determine if this completes the turn (no chain continuation)
+      const isChainEnd = !move.chain_continue;
+      const newTurn = isChainEnd ? (oldTurn === 0 ? 1 : 0) : oldTurn;
+      setGame((g: any) => g ? {
+        ...g,
+        current_turn: newTurn,
+        updated_at: new Date().toISOString(),
+        state: {
+          ...g.state,
+          board: newBoard,
+          move_count: isChainEnd ? oldMoveCount + 1 : oldMoveCount,
+          chain_from: move.chain_continue ? move.to : null,
+          visited: move.chain_continue ? [...(oldVisited || []), move.from] : [],
+          last_axis: move.chain_continue ? null : null,
+        },
+      } : g);
+
+      // Play sound immediately
+      if (Array.isArray(move.captures) && move.captures.length > 0) {
+        playFanoronaCapture();
+      } else {
+        playFanoronaMove();
+      }
+    }
+
+    setSelected(null); setCaptureChoice(null);
+
     try {
       const { error } = await supabase.rpc("fanorona_play" as any, { _game_id: id, _move: move } as any);
       if (error) throw error;
-      setSelected(null); setCaptureChoice(null);
+      // Realtime will confirm — but our optimistic state should match
     } catch (e: any) {
+      // ── Rollback on error ──
+      if (oldBoard) {
+        setGame((g: any) => g ? {
+          ...g,
+          current_turn: oldTurn,
+          state: {
+            ...g.state,
+            board: oldBoard,
+            move_count: oldMoveCount,
+            chain_from: oldChainFrom,
+            visited: oldVisited,
+            last_axis: oldLastAxis,
+          },
+        } : g);
+      }
       const msg = e?.message || "";
       const fr: Record<string, string> = {
         "capture is mandatory when available": "Capture obligatoire — vous devez capturer un pion adverse",
@@ -420,7 +483,7 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       toast.error(fr[msg] || msg || "Coup invalide");
     }
     finally { setBusy(false); }
-  }, [id]);
+  }, [id, game]);
 
 
   // Update ref so endTurn can call the latest sendMove
