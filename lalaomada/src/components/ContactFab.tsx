@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Facebook, Mail, Phone, X, Headphones, BookOpen, Download } from "lucide-react";
+import { MessageCircle, Facebook, Mail, Phone, X, Headphones, BookOpen, Download, Users } from "lucide-react";
 import { facebookTargets, openExternal, whatsappTargets } from "@/lib/open-external";
 
 type Contacts = {
@@ -11,6 +11,12 @@ type Contacts = {
   tuto_url?: string | null;
   update_url?: string | null;
 };
+
+const APK_URL =
+  "https://www.mediafire.com/file/4d99q2icylpeqzj/Lalao+MADA.apk/file?dkey=py2l2af6j1z&r=1343";
+const FACEBOOK_ADMIN_URL = "https://www.facebook.com/RJean.pierrit";
+const WHATSAPP_GROUP_URL =
+  "https://chat.whatsapp.com/El7cElnD6pyLDcT6uCK47e?s=cl&p=a&ilr=4";
 
 export default function ContactFab() {
   const [open, setOpen] = useState(false);
@@ -33,6 +39,7 @@ export default function ContactFab() {
     : "";
   const whatsappLink = waNumber ? whatsappTargets(waNumber) : null;
   const facebookLink = fbUrl ? facebookTargets(fbUrl) : null;
+  const facebookAdminLink = facebookTargets(FACEBOOK_ADMIN_URL);
 
   return (
     <>
@@ -142,11 +149,47 @@ export default function ContactFab() {
                   </a>
                 );
               })()}
-              {!waNumber && !fbUrl && !c.contact_email && !c.admin_phone && !c.tuto_url && !c.update_url && (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  Aucun contact configuré.
-                </div>
-              )}
+
+              <div className="border-t border-border pt-2 mt-1 space-y-2">
+                <a
+                  href={APK_URL}
+                  target="_top"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openExternal({ webUrl: APK_URL });
+                  }}
+                  className="w-full px-4 py-3 rounded-2xl bg-secondary font-semibold flex items-center gap-3 active:scale-95 transition"
+                >
+                  <Download className="w-5 h-5" /> Télécharger l'APK
+                </a>
+
+                <a
+                  href={facebookAdminLink.appUrl}
+                  target="_top"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openExternal(facebookAdminLink);
+                  }}
+                  className="w-full px-4 py-3 rounded-2xl bg-[#1877F2] text-white font-semibold flex items-center gap-3 active:scale-95 transition"
+                >
+                  <Facebook className="w-5 h-5" /> Facebook admin
+                </a>
+
+                <a
+                  href={WHATSAPP_GROUP_URL}
+                  target="_top"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openExternal({ webUrl: WHATSAPP_GROUP_URL });
+                  }}
+                  className="w-full px-4 py-3 rounded-2xl bg-[#25D366] text-white font-semibold flex items-center gap-3 active:scale-95 transition"
+                >
+                  <Users className="w-5 h-5" /> Groupe WhatsApp
+                </a>
+              </div>
             </div>
           </div>
         </div>
