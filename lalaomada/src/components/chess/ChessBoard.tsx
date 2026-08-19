@@ -46,8 +46,8 @@ const PieceSVG = memo(function PieceSVG({ piece, dragging = false }: { piece: Pi
 function PromotionModal({ color, onSelect, onCancel }: { color: "w" | "b"; onSelect: (p: "q" | "r" | "b" | "n") => void; onCancel: () => void }) {
   const pieces: ("q" | "r" | "b" | "n")[] = ["q", "r", "b", "n"];
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onCancel}>
-      <div className="bg-card rounded-xl p-3 shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onPointerDown={onCancel}>
+      <div className="bg-card rounded-xl p-3 shadow-2xl border border-border" onPointerDown={(e) => e.stopPropagation()}>
         <p className="text-xs font-semibold text-muted-foreground mb-2 text-center">Promotion</p>
         <div className="flex gap-2">
           {pieces.map((p) => {
@@ -55,7 +55,7 @@ function PromotionModal({ color, onSelect, onCancel }: { color: "w" | "b"; onSel
             return (
               <button
                 key={p}
-                onClick={() => onSelect(p)}
+                onPointerDown={(e) => { e.stopPropagation(); onSelect(p); }}
                 className="w-14 h-14 rounded-lg flex items-center justify-center text-4xl hover:bg-accent transition-colors border border-border"
                 style={{
                   paintOrder: "stroke fill",
