@@ -217,14 +217,12 @@ const POWER_TILE_STYLES = `
   100% { transform: scale(2.2) rotate(720deg); opacity: 0; }
 }
 @keyframes diceRoll2D {
-  0%   { transform: rotate(0deg) scale(1); }
-  25%  { transform: rotate(90deg) scale(1.1); }
-  50%  { transform: rotate(180deg) scale(1.15); }
-  75%  { transform: rotate(270deg) scale(1.1); }
-  100% { transform: rotate(360deg) scale(1); }
+  0%   { transform: rotate(-8deg) scale(1); }
+  50%  { transform: rotate(8deg) scale(1.08); }
+  100% { transform: rotate(-8deg) scale(1); }
 }
 .dice-tumbling {
-  animation: diceRoll2D 0.4s ease-in-out infinite;
+  animation: diceRoll2D 0.25s ease-in-out infinite;
 }
 @keyframes boardGiftPop {
   0% { transform: scale(0) translateY(10px); opacity: 0; }
@@ -509,9 +507,15 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     rollLockRef.current = true;
     setBusy(true);
     // Visual roll animation — keep tumbling until RPC responds
+    let rpcResult: number | null = null;
     const anim = setInterval(() => {
-      setRollingFace(1 + Math.floor(Math.random() * 6));
-    }, 80);
+      // If RPC already responded, show the actual result instead of random
+      if (rpcResult !== null) {
+        setRollingFace(rpcResult);
+      } else {
+        setRollingFace(1 + Math.floor(Math.random() * 6));
+      }
+    }, 100);
     // Safety timeout: if RPC takes > 5s, force-clear everything
     const safety = setTimeout(() => {
       clearInterval(anim);
@@ -521,6 +525,10 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }, 5000);
     try {
       const { data: rollData, error } = await supabase.rpc("ludo_roll" as any, { _game_id: gameId } as any);
+      // Set rpcResult so the interval shows the real face immediately
+      if (rollData) {
+        rpcResult = (rollData as GameState).dice ?? null;
+      }
       if (rollData && onStateUpdate) onStateUpdate(rollData as GameState);
       if (error) {
         const friendlyMap: Record<string, string> = {
@@ -546,7 +554,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         setRollingFace(null);
         setBusy(false);
         rollLockRef.current = false;
-      }, 300);
+      }, 150);
     }
   };
 
@@ -836,8 +844,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         cellGroups.set(key, n + 1);
         if (n > 0) {
           const angle = (n / 4) * Math.PI * 2;
-          row += Math.sin(angle) * 0.18;
-          col += Math.cos(angle) * 0.18;
+          row += Math.sin(angle) * 0.10;
+          col += Math.cos(angle) * 0.10;
         }
       }
       renderPawns.push({
@@ -1106,7 +1114,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
                 top: p.row * cellPx + hitPad,
                 width: hitSize,
                 height: hitSize,
-                transition: p.movable ? "none" : "left 0.12s linear, top 0.12s linear",
+                transition: "none",
                 cursor: p.movable ? "pointer" : "default",
                 pointerEvents: p.movable ? "auto" : "none",
                 touchAction: "manipulation",
