@@ -649,9 +649,14 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Show the dice result during the delay
     setNoMoveDisplay({ slot: state.turn_slot, dice: state.dice as number });
     setTimeout(async () => {
-      try {
-        await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
-      } catch {}
+      const { data: passData, error: passError } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
+      if (passError) {
+        console.error("[ludo] auto-pass failed:", passError.message);
+      } else if (passData && onStateUpdate) {
+        // Update optTurnRef to the new turn_slot so the realtime event
+        // from ludo_pass is accepted (not rejected by the optTurnRef guard)
+        onStateUpdate(passData as GameState);
+      }
       setNoMoveDisplay(null);
     }, 600);
     // No cleanup — ref guard prevents duplicates, RPC fails harmlessly if stale
