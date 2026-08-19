@@ -38,10 +38,10 @@ export function useFastRealtime<TGame = any, TParticipant = any>({
       }
       setGame((prev: any) => {
         if (!prev) return g as TGame;
-        if (optTurnRef.current !== null && (g as any).current_turn !== optTurnRef.current) {
-          return prev;
-        }
-        optTurnRef.current = null;
+        // Only accept newer state (updated_at guard)
+        const prevUpdated = (prev as any).updated_at;
+        const newUpdated = (g as any).updated_at;
+        if (prevUpdated && newUpdated && newUpdated < prevUpdated) return prev;
         return g as TGame;
       });
       setParts((p as TParticipant[]) || []);
