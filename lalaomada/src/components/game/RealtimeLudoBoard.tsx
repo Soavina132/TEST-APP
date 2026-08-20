@@ -430,11 +430,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           continue;
         }
         if (m.to.s === "finished") {
-          for (let k = fromK + 1; k <= 57; k++) {
+          for (let k = fromK + 1; k <= 56; k++) {
             await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
             sfx.pawnStep();
           }
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 57 }, 30);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 56 }, 30);
           sfx.home();
           continue;
         }
@@ -612,7 +612,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     arr.forEach((p, i) => {
       if (p.s === "finished") return;
       if (p.s === "yard") { if (state.dice === 6) set.add(i); } // Always allow yard exit on 6
-      else if (p.k + (state.dice as number) <= 57) set.add(i);
+      else if (p.k + (state.dice as number) <= 56) set.add(i);
     });
     return set;
   }, [state.must_move, state.dice, state.turn_slot, state.pawns, state.movable_pawns]);
@@ -663,18 +663,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       } else if (pawn.s === "track") {
         const fromK = pawn.k;
         const toK = fromK + dice;
-        if (toK <= 57) {
+        if (toK <= 56) {
           for (let k = fromK + 1; k <= toK; k++) {
             await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
             sfx.pawnStep();
           }
         } else {
           // Going to finished
-          for (let k = fromK + 1; k <= 57; k++) {
+          for (let k = fromK + 1; k <= 56; k++) {
             await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
             sfx.pawnStep();
           }
-          await stepAnim(setDisplayedPawns, slot, idx, { s: "finished", k: 57 }, 30);
+          await stepAnim(setDisplayedPawns, slot, idx, { s: "finished", k: 56 }, 30);
           sfx.home();
         }
       }
@@ -924,7 +924,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         [row, col] = offsets[part.color];
       } else {
         let cell: [number, number];
-        if (p.k <= 51) cell = PATH[((START_IDX[part.color] + p.k - 1) % 52 + 52) % 52];
+        if (p.k <= 50) cell = PATH[((START_IDX[part.color] + p.k - 1) % 52 + 52) % 52];
         else cell = HOME_STRETCH[part.color][p.k - 51];
         row = cell[0]; col = cell[1];
         const key = `${row}-${col}`;
