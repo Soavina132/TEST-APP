@@ -1382,6 +1382,7 @@ function RamiPage() {
   const isFirstTurn = false; // Plus besoin — le 1er joueur commence en phase 'play'
 
   // Track 7-card melds from other players — show for 10s then auto-hide
+  // Only show toast for actual players (not spectators), and only once per meld
   useEffect(() => {
     if (!melds || !profile?.id) return;
     const newSeven: string[] = [];
@@ -1394,7 +1395,7 @@ function RamiPage() {
       }
     });
     if (newSeven.length > 0) {
-      // Show them
+      // Show them to everyone (players + spectators can see the melds)
       setVisibleSevenMelds(prev => {
         const next = new Set(prev);
         newSeven.forEach(k => next.add(k));
@@ -1405,14 +1406,16 @@ function RamiPage() {
         newSeven.forEach(k => next.add(k));
         return next;
       });
-      // Toast: notifier qu'un adversaire a validé ses 7 cartes
-      const claimerMeld = melds.find((m: any, i: number) => {
-        const meldKey = `${m.player}-${i}`;
-        return newSeven.includes(meldKey);
-      });
-      const claimer = parts.find(p => (p.user_id as string) === claimerMeld?.player || `bot:${p.slot}` === claimerMeld?.player);
-      const claimerName = claimer?.display_name || "Un joueur";
-      toast.info(`⭐7 ${claimerName} a validé ses 7 cartes !`, { duration: 10000 });
+      // Toast: ONLY for actual players (not spectators) — one toast, not two
+      if (isPlayer) {
+        const claimerMeld = melds.find((m: any, i: number) => {
+          const meldKey = `${m.player}-${i}`;
+          return newSeven.includes(meldKey);
+        });
+        const claimer = parts.find(p => (p.user_id as string) === claimerMeld?.player || `bot:${p.slot}` === claimerMeld?.player);
+        const claimerName = claimer?.display_name || "Un joueur";
+        toast.info(`⭐7 ${claimerName} a validé ses 7 cartes !`, { duration: 10000 });
+      }
       // Auto-hide after 10 seconds
       newSeven.forEach(key => {
         setTimeout(() => {
@@ -1424,7 +1427,7 @@ function RamiPage() {
         }, 10000);
       });
     }
-  }, [melds, profile?.id]);
+  }, [melds, profile?.id, isPlayer]);
 
 
   const stagedFlat = useMemo(() => staged.flat(), [staged]);
@@ -2285,7 +2288,12 @@ function RamiPage() {
         });
 
         const meldCountOf = (uid: string) => melds.filter(m => m.player === uid).length;
-        const hasSevenOf = (uid: string) => melds.some(m => m.player === uid && (m.type === "seven" || (m as any).seven === true));
+        const hasSevenOf = (uid: string) => {
+          // Only show ⭐7 badge on the player who actually claimed the 7 cartes
+          const claimedBy = (game as any)?.state?.seven_claimed_by as string | undefined;
+          if (!claimedBy) return false;
+          return uid === claimedBy || `bot:${uid}` === claimedBy;
+        };
         const isSeven = (m: { type?: string; seven?: boolean }) =>
           m.type === "seven" || m.seven === true;
         const myMelds = melds
