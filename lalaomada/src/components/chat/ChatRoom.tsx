@@ -17,6 +17,20 @@ import { parseGameShare } from "@/lib/share-game";
 import { compressImageToWebp } from "@/lib/image-compress";
 import { GAME_TABLES, GAME_PART_TABLES } from "@/lib/game-tables";
 
+// Cache for the invite timeout (avoids fetching app_settings on every message check)
+let _inviteTimeoutMs: number | null = null;
+async function getInviteTimeoutMs(): Promise<number> {
+  if (_inviteTimeoutMs !== null) return _inviteTimeoutMs;
+  try {
+    const { data } = await supabase.from("app_settings").select("game_invite_timeout_minutes").eq("id", 1).maybeSingle();
+    const minutes = data?.game_invite_timeout_minutes ?? 4;
+    _inviteTimeoutMs = minutes * 60_000;
+  } catch {
+    _inviteTimeoutMs = 4 * 60_000; // fallback: 4 minutes
+  }
+  return _inviteTimeoutMs;
+}
+
 // Check if a game share is expired/finished and delete the message
 async function checkAndDeleteExpiredGameShare(msg: any, share: { slug: string; gameId: string }) {
   const table = GAME_TABLES[share.slug];
@@ -35,9 +49,10 @@ async function checkAndDeleteExpiredGameShare(msg: any, share: { slug: string; g
     await supabase.from("chat_messages").update({ deleted_at: new Date().toISOString() }).eq("id", msg.id);
     return;
   }
-  // Expired: open/waiting for more than 6 minutes
+  // Expired: open/waiting for longer than the configured invite timeout
   if (status === "open" || status === "waiting") {
-    const expiresAt = createdAt ? new Date(createdAt).getTime() + 6 * 60_000 : 0;
+    const timeoutMs = await getInviteTimeoutMs();
+    const expiresAt = createdAt ? new Date(createdAt).getTime() + timeoutMs : 0;
     if (Date.now() >= expiresAt) {
       await supabase.from("chat_messages").update({ deleted_at: new Date().toISOString() }).eq("id", msg.id);
     }
