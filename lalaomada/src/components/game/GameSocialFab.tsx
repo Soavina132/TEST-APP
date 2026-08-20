@@ -2,26 +2,14 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useT } from "@/lib/i18n";
-import { MessageCircle, X, Users, Gamepad2 } from "lucide-react";
+import { MessageCircle, X } from "lucide-react";
 import ChatRoom from "@/components/chat/ChatRoom";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GameSocialFab — single DRAGGABLE floating chat button.
 // Click opens a mini panel: 8 emoji reactions on top + chat room below.
-// The panel has TWO tabs:
-//   • "Partie"  — per-game chat room (isolated to this game instance)
-//   • "Groupe"  — general discussion group for this game (Groupe Ludo, etc.)
 // Reactions float up from the button.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Maps a game slug to the OFFICIAL general group room name.
-const GROUP_NAME_FOR_SLUG: Record<string, string> = {
-  ludo: "Groupe Ludo",
-  domino: "Groupe Domino",
-  chess: "Groupe Échec",
-  fanorona: "Groupe Fanorona",
-  rami: "Groupe Rami",
-};
 
 const REACTIONS = [
   { emoji: "👍", label: "J'aime" },
@@ -58,8 +46,6 @@ export default function GameSocialFab({
   const [panelOpen, setPanelOpen] = useState(false);
   const [floaters, setFloaters] = useState<FloatingReaction[]>([]);
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [groupRoomId, setGroupRoomId] = useState<string | null>(null);
-  const [chatTab, setChatTab] = useState<"game" | "group">("game");
   const [unread, setUnread] = useState(0);
   const floatId = useRef(0);
   const reactionChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -139,7 +125,7 @@ export default function GameSocialFab({
     }
   }, []);
 
-  // ── Per-game chat room setup ──
+  // ── Chat room setup ──
   useEffect(() => {
     (async () => {
       const { data } = await supabase.rpc("chat_get_or_create_game_room" as any, { _game_id: gameId } as any);
@@ -147,22 +133,7 @@ export default function GameSocialFab({
     })();
   }, [gameId]);
 
-  // ── General discussion group room lookup ──
-  useEffect(() => {
-    const targetName = GROUP_NAME_FOR_SLUG[gameSlug];
-    if (!targetName) return;
-    (async () => {
-      const { data: room } = await supabase
-        .from("chat_rooms" as any)
-        .select("id")
-        .eq("type", "global")
-        .eq("name", targetName)
-        .maybeSingle();
-      if (room) setGroupRoomId((room as any).id);
-    })();
-  }, [gameSlug]);
-
-  // ── Chat unread count (per-game room) ──
+  // ── Chat unread count ──
   const seenKey = `gamechat:lastseen:game:${gameId}`;
   useEffect(() => {
     if (!roomId || !user) return;
@@ -245,10 +216,6 @@ export default function GameSocialFab({
     ? Math.min(pos.y + BTN_SIZE + 8, window.innerHeight - POPUP_H - 8)
     : Math.max(8, pos.y - POPUP_H - 8);
 
-  // Active chat room depends on selected tab
-  const activeRoomId = chatTab === "group" ? groupRoomId : roomId;
-  const groupLabel = GROUP_NAME_FOR_SLUG[gameSlug] || "Groupe";
-
   return (
     <>
       {/* Reactions float up from the button — contained, not full-screen */}
@@ -305,32 +272,9 @@ export default function GameSocialFab({
             style={{ left: popupLeft, top: popupTop, width: POPUP_W, height: POPUP_H }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header with tabs */}
+            {/* Header */}
             <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/60 shrink-0">
-              <div className="flex items-center gap-1">
-                {/* Partie tab */}
-                <button
-                  onClick={() => setChatTab("game")}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                    chatTab === "game" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
-                  }`}
-                >
-                  <Gamepad2 className="w-3 h-3" />
-                  Partie
-                </button>
-                {/* Groupe tab */}
-                {groupRoomId && (
-                  <button
-                    onClick={() => setChatTab("group")}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                      chatTab === "group" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <Users className="w-3 h-3" />
-                    Groupe
-                  </button>
-                )}
-              </div>
+              <div className="font-semibold text-xs">Discussion</div>
               <button onClick={() => setPanelOpen(false)} className="p-1 rounded-lg hover:bg-accent">
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -351,15 +295,10 @@ export default function GameSocialFab({
               ))}
             </div>
 
-            {/* Chat room below — switches between per-game and general group */}
+            {/* Chat room below */}
             <div className="flex-1 overflow-hidden">
-              {activeRoomId ? (
-                <ChatRoom
-                  roomId={activeRoomId}
-                  title={chatTab === "group" ? groupLabel : "Partie"}
-                  height="h-full"
-                  gameSlug={chatTab === "group" ? gameSlug : undefined}
-                />
+              {roomId ? (
+                <ChatRoom roomId={roomId} title="Partie" height="h-full" />
               ) : (
                 <div className="p-4 text-center text-xs text-muted-foreground">{t("loading_room")}</div>
               )}
