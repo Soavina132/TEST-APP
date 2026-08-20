@@ -555,21 +555,13 @@ export default function ChatRoom({
       if (error) return toast.error(error.message);
       setEditing(null); setInput(""); return;
     }
-    const { data: msgId, error } = await supabase.rpc("chat_send" as any, {
+    const { error } = await supabase.rpc("chat_send" as any, {
       _room_id: roomId, _body: body, _reply_to: reply?.id ?? null,
     } as any);
     if (error) return toast.error(error.message);
     setInput(""); setReply(null);
-    // Fallback: if realtime doesn't fire within 2s, reload messages
-    if (msgId) {
-      setTimeout(() => {
-        setMessages(prev => {
-          if (prev.find(m => m.id === msgId)) return prev;
-          loadMessages();
-          return prev;
-        });
-      }, 2000);
-    }
+    // Reload messages immediately to ensure the sent message appears
+    loadMessages();
   };
 
   const sendTyping = async () => {

@@ -620,7 +620,7 @@ function GroupCard({
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm truncate">{label}</div>
         <div className="text-xs text-muted-foreground truncate mt-0.5">
-          {loading ? "Chargement..." : (preview || t("no_message_yet") || "Aucun message")}
+          {loading ? "Chargement..." : (preview || "Aucun message")}
         </div>
       </div>
       {/* Join button */}
@@ -632,7 +632,7 @@ function GroupCard({
         {loading ? (
           <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin block" />
         ) : (
-          t("join_label") || "Rejoindre"
+          "Rejoindre"
         )}
       </button>
     </div>
