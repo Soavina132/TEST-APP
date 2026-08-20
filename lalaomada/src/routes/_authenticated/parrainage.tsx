@@ -193,7 +193,7 @@ export default function ParrainagePage() {
   // Share via WhatsApp
   const shareWhatsApp = () => {
     const msg = encodeURIComponent(
-      `🎮 Rejoins-moi sur Lalao MADA !\n\n${shareLink}\n\n📋 Mon code de parrainage : ${refCode}\n\n💰 Tu peux jouer au Ludo, Domino, Échecs et plus encore en Ariary !`
+      `🎮 Rejoins-moi sur Lalao MADA !\n\n${shareLink}\n\n📋 Mon code de parrainage : ${refCode}\n\n⚠️ Clique sur le lien ci-dessus pour t'inscrire — le code sera appliqué automatiquement !\n\n💰 Tu peux jouer au Ludo, Domino, Échecs et plus encore en Ariary !`
     );
     window.open(`https://wa.me/?text=${msg}`, "_blank");
   };
@@ -206,7 +206,7 @@ export default function ParrainagePage() {
 
   // Share via SMS
   const shareSMS = () => {
-    const msg = encodeURIComponent(`Rejoins Lalao MADA 🎮 ${shareLink} Code: ${refCode}`);
+    const msg = encodeURIComponent(`Rejoins Lalao MADA 🎮 Clique pour t'inscrire: ${shareLink} (Code: ${refCode})`);
     window.open(`sms:?body=${msg}`, "_blank");
   };
 

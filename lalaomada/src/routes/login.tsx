@@ -72,14 +72,25 @@ function LoginPage() {
   const router = useRouter();
   const searchParams = Route.useSearch();
   const refFromUrl = searchParams.ref || "";
-  const [tab, setTab] = useState<"login" | "signup">(refFromUrl ? "signup" : "login");
+  // Persist referral code across navigation — if a user arrives via ?ref=CODE
+  // but navigates before signing up, we restore it from localStorage.
+  const REFERRAL_STORAGE_KEY = "lalaomada_pending_referral";
+  const initialReferral = (() => {
+    if (typeof window === "undefined") return refFromUrl;
+    if (refFromUrl) {
+      localStorage.setItem(REFERRAL_STORAGE_KEY, refFromUrl.toUpperCase());
+      return refFromUrl;
+    }
+    return localStorage.getItem(REFERRAL_STORAGE_KEY) || "";
+  })();
+  const [tab, setTab] = useState<"login" | "signup">(initialReferral ? "signup" : "login");
   const [identifier, setIdentifier] = useState(
     typeof window !== "undefined" ? localStorage.getItem("lalaomada_remembered_identifier") || "" : ""
   );
   const [pseudo, setPseudo] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [referral, setReferral] = useState(refFromUrl);
+  const [referral, setReferral] = useState(initialReferral);
   const [showPw, setShowPw] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -253,6 +264,10 @@ function LoginPage() {
 
         setVerifyEmailAddr(email);
         setShowVerifyEmail(true);
+        // Clear persisted referral code — it has been used for this signup
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(REFERRAL_STORAGE_KEY);
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Erreur");
@@ -595,15 +610,28 @@ function LoginPage() {
               </div>
             )}
 
-            {/* Referral (signup only, optional) */}
+            {/* Referral (signup only) */}
             {tab === "signup" && (
-              <Field
-                icon={Gift}
-                type="text"
-                placeholder="Code de parrainage (optionnel)"
-                value={referral}
-                onChange={v => setReferral(v.toUpperCase())}
-              />
+              <div className="space-y-1">
+                <Field
+                  icon={Gift}
+                  type="text"
+                  placeholder="Code de parrainage"
+                  value={referral}
+                  onChange={v => setReferral(v.toUpperCase())}
+                />
+                {referral.trim() && (
+                  <p className="text-xs text-emerald-500 px-1 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Code de parrainage appliqué — bienvenue ! 🎉
+                  </p>
+                )}
+                {!referral.trim() && (
+                  <p className="text-xs text-muted-foreground px-1">
+                    Un ami vous a invité ? Entrez son code ici pour le créditer.
+                  </p>
+                )}
+              </div>
             )}
 
             {/* Remember me / Forgot */}
