@@ -574,51 +574,37 @@ function GroupCard({
   onOpen: () => void;
 }) {
   const { t } = useT();
-  const meta = metaFor(room.name);
   return (
-    <button
-      onClick={onOpen}
-      disabled={loading}
-      className="group w-full rounded-2xl bg-card border border-border/60 overflow-hidden text-left transition-all hover:border-primary/40 hover:shadow-md active:scale-[0.99] disabled:opacity-60"
-    >
-      {/* Cover image — full width banner */}
-      <div className={`relative h-20 overflow-hidden bg-gradient-to-br ${meta?.accent ?? "from-primary/15 to-primary/5"}`}>
+    <div className="flex items-center gap-3 rounded-2xl bg-card border border-border/60 p-3 transition-all hover:border-primary/40">
+      {/* Small image */}
+      <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-accent">
         {cover ? (
-          <img
-            src={cover}
-            alt={label}
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
+          <img src={cover} alt={label} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full grid place-items-center">
-            <Users className="w-8 h-8 text-primary/50" />
+            <Users className="w-6 h-6 text-primary/60" />
           </div>
         )}
-        {/* Gradient overlay for readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
-        {/* Status badge */}
-        <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-sm px-2 py-0.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${room.enabled ? "bg-emerald-400" : "bg-muted-foreground"} animate-pulse`} />
-          <span className="text-[10px] font-medium text-white">{room.enabled ? "Actif" : "Inactif"}</span>
-        </div>
-        {/* Label on image */}
-        <div className="absolute bottom-1.5 left-3 font-bold text-[15px] text-foreground truncate">{label}</div>
       </div>
-      {/* Footer with preview + chevron */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <div className="text-xs text-muted-foreground truncate flex-1">
+      {/* Name */}
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm truncate">{label}</div>
+        <div className="text-xs text-muted-foreground truncate mt-0.5">
           {loading ? "Chargement..." : (preview || (room.enabled ? t("active_label") : t("inactive_label")))}
         </div>
-        {loading ? (
-          <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0" />
-        ) : unread > 0 ? (
-          <UnreadBadge n={unread} />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0 transition-transform group-hover:translate-x-0.5" />
-        )}
       </div>
-    </button>
+      {/* Join button */}
+      <button
+        onClick={onOpen}
+        disabled={loading}
+        className="shrink-0 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+      >
+        {loading ? (
+          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin block" />
+        ) : (
+          t("join_label") || "Rejoindre"
+        )}
+      </button>
+    </div>
   );
 }
