@@ -1,0 +1,14 @@
+-- 1v1 Symmetry: players on opposite sides of the board
+-- Slot 0 = red (start pos 0, bottom-left)
+-- Slot 1 = yellow (start pos 26, top-right) — OPPOSITE to red
+-- 
+-- Changes:
+-- _ludo_init_state: start_indices for 2-player = {"0": 0, "1": 26}
+-- ludo_join: colors2 = ['red','yellow'] (was already correct in original)
+-- ludo_quick_start: 2-player bot = yellow at slot 1 (was 'blue' = pos 39)
+-- ludo_start_solo_bot: 2-player bot = yellow at slot 1 (was 'blue' = pos 39)
+--
+-- Frontend uses START_IDX[color]: red=0, yellow=26 → opposite ✅
+-- Backend uses start_indices[slot]: 0→0, 1→26 → opposite ✅
+-- YARD_SPOTS: red=TL, yellow=BR → opposite corners ✅
+-- HOME_STRETCH: red goes right from center, yellow goes left → opposite ✅
