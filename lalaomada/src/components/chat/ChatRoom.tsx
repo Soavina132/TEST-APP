@@ -354,6 +354,7 @@ export default function ChatRoom({
       setLoading(false);
       return;
     }
+    console.log("[chat] loadMessages:", { roomId, count: (data || []).length, hasError: !!error, error: error?.message });
     const msgs = ((data || []) as any[]).reverse();
     setMessages(msgs);
     setHasMore((data || []).length === PAGE_SIZE);
