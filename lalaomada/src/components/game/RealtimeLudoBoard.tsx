@@ -611,7 +611,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     const set = new Set<number>();
     arr.forEach((p, i) => {
       if (p.s === "finished") return;
-      if (p.s === "yard") { if (state.dice === 6) set.add(i); }
+      if (p.s === "yard") { if (state.dice === 6) set.add(i); } // Always allow yard exit on 6
       else if (p.k + (state.dice as number) <= 56) set.add(i);
     });
     return set;
