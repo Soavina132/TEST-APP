@@ -137,6 +137,35 @@ function ChatHub() {
     }
   };
 
+  // Fetch last message for each global group room
+  const loadGroupPreviews = useCallback(async () => {
+    const groupNames = GAME_GROUPS.map(g => g.name);
+    const { data: rooms } = await supabase
+      .from("chat_rooms")
+      .select("id, name")
+      .eq("type", "global")
+      .in("name", groupNames);
+    if (!rooms || !rooms.length) return;
+    const previews: Record<string, string> = {};
+    await Promise.all(rooms.map(async (room: any) => {
+      const { data: last } = await supabase
+        .from("chat_messages")
+        .select("body, attachment_type, sender_name")
+        .eq("room_id", room.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (last) {
+        previews[room.name] =
+          last.attachment_type === "image" ? "📷 Image"
+          : last.attachment_type === "audio" ? "🎤 Audio"
+          : (last.body || "").slice(0, 50) || "";
+      }
+    }));
+    setLastMsg(prev => ({ ...prev, ...previews }));
+  }, []);
+
   // Fetch unread counts for all known room IDs (DMs)
   const refreshUnread = useCallback(async (roomIds: string[]) => {
     if (!user || !roomIds.length || typeof window === "undefined") return;
@@ -175,10 +204,11 @@ function ChatHub() {
     setLastMsg(prev => ({ ...prev, ...lasts }));
   }, [user?.id]);
 
-  // Load DMs on mount
+  // Load DMs and group previews on mount
   useEffect(() => {
     loadDms();
-  }, [user?.id]);
+    loadGroupPreviews();
+  }, [user?.id, loadGroupPreviews]);
 
   // Real-time unread refresh for DMs
   useEffect(() => {
@@ -590,7 +620,7 @@ function GroupCard({
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm truncate">{label}</div>
         <div className="text-xs text-muted-foreground truncate mt-0.5">
-          {loading ? "Chargement..." : (preview || (room.enabled ? t("active_label") : t("inactive_label")))}
+          {loading ? "Chargement..." : (preview || t("no_message_yet") || "Aucun message")}
         </div>
       </div>
       {/* Join button */}

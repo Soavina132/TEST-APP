@@ -15,6 +15,33 @@ import GameShareCard from "@/components/game/GameShareCard";
 import { LinkPreviewCard } from "@/components/chat/LinkPreview";
 import { parseGameShare } from "@/lib/share-game";
 import { compressImageToWebp } from "@/lib/image-compress";
+import { GAME_TABLES, GAME_PART_TABLES } from "@/lib/game-tables";
+
+// Check if a game share is expired/finished and delete the message
+async function checkAndDeleteExpiredGameShare(msg: any, share: { slug: string; gameId: string }) {
+  const table = GAME_TABLES[share.slug];
+  if (!table) return;
+  const { data: game } = await supabase.from(table as any).select("status, created_at").eq("id", share.gameId).maybeSingle();
+  if (!game) {
+    // Game deleted — remove the share message
+    await supabase.from("chat_messages").update({ deleted_at: new Date().toISOString() }).eq("id", msg.id);
+    return;
+  }
+  const status = (game as any).status;
+  const createdAt = (game as any).created_at as string;
+  // Only keep open/waiting games. Delete finished, expired, or playing games from chat.
+  if (status === "finished") {
+    await supabase.from("chat_messages").update({ deleted_at: new Date().toISOString() }).eq("id", msg.id);
+    return;
+  }
+  // Expired: open/waiting for more than 6 minutes
+  if (status === "open" || status === "waiting") {
+    const expiresAt = createdAt ? new Date(createdAt).getTime() + 6 * 60_000 : 0;
+    if (Date.now() >= expiresAt) {
+      await supabase.from("chat_messages").update({ deleted_at: new Date().toISOString() }).eq("id", msg.id);
+    }
+  }
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const PAGE_SIZE = 40;
@@ -528,11 +555,21 @@ export default function ChatRoom({
       if (error) return toast.error(error.message);
       setEditing(null); setInput(""); return;
     }
-    const { error } = await supabase.rpc("chat_send" as any, {
+    const { data: msgId, error } = await supabase.rpc("chat_send" as any, {
       _room_id: roomId, _body: body, _reply_to: reply?.id ?? null,
     } as any);
     if (error) return toast.error(error.message);
     setInput(""); setReply(null);
+    // Fallback: if realtime doesn't fire within 2s, reload messages
+    if (msgId) {
+      setTimeout(() => {
+        setMessages(prev => {
+          if (prev.find(m => m.id === msgId)) return prev;
+          loadMessages();
+          return prev;
+        });
+      }, 2000);
+    }
   };
 
   const sendTyping = async () => {
@@ -859,6 +896,10 @@ export default function ChatRoom({
                 const share     = parseGameShare(m.body);
                 const isDeleted = !!m.deleted_at;
                 if (share && missingShares.has(m.id)) return null;
+                if (share) {
+                  // Check game status — delete expired/finished game shares
+                  setTimeout(() => checkAndDeleteExpiredGameShare(m, share), 0);
+                }
 
                 return (
                   <div
