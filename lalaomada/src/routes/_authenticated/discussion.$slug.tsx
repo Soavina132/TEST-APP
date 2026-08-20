@@ -12,17 +12,27 @@ import fanoronaCover from "@/assets/games/fanorona.asset.json";
 
 export const Route = createFileRoute("/_authenticated/discussion/$slug")({
   component: DiscussionPage,
-  head: () => ({ meta: [{ title: "Discussion — Lalao MADA" }] }),
+  head: () => ({ meta: [{ title: "Discussion — Lalao Mada" }] }),
 });
 
 // Small header avatar only needs a thumbnail — avoid loading the full
-// 1024px cover for a 40x40 circle (same fix as the Discussion group list).
-const toThumb = (url: string) => url.replace(/(-cover)(\.\w+)$/, `$1-thumb$2`);
+// 1024px cover for a 40x40 circle.
+// The asset JSON url is like "/covers/cover_ludo.png" (1-2 MB PNG).
+// We map it to the pre-built thumbnail "/covers/ludo-cover-thumb.webp" (~8 KB).
+const toThumb = (url: string) => {
+  // Pattern: cover_ludo.png -> ludo-cover-thumb.webp
+  const m = url.match(/cover_([a-z]+)\.\w+$/);
+  if (m) return `/covers/${m[1]}-cover-thumb.webp`;
+  // Fallback: ludo-cover.jpg -> ludo-cover-thumb.webp
+  const m2 = url.match(/([a-z]+)-cover\.\w+$/);
+  if (m2) return `/covers/${m2[1]}-cover-thumb.webp`;
+  return url;
+};
 
 const META: Record<string, { label: string; cover: string; group: string }> = {
   ludo:     { label: "Ludo",     cover: toThumb(ludoCover.url),     group: "Groupe Ludo" },
   domino:   { label: "Domino",   cover: toThumb(dominoCover.url),   group: "Groupe Domino" },
-  fanorona: { label: "Fanorona", cover: toThumb(fanoronaCover.url), group: "Groupe Fanorona" },
+  fanorona: { label: "Fanorona", cover: toThumb(fanoronaCover.url), group: "Groupe Fanarona" },
   chess:    { label: "Échecs",   cover: toThumb(chessCover.url),    group: "Groupe Échec" },
   rami:     { label: "Rami",     cover: toThumb(ramiCover.url),     group: "Groupe Rami" },
 };
@@ -138,7 +148,7 @@ function DiscussionPage() {
             <img
               src={meta.cover}
               alt={`Couverture ${meta.label}`}
-              loading="lazy"
+              loading="eager"
               decoding="async"
               className="w-full h-full object-cover"
             />

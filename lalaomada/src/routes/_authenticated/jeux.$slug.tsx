@@ -19,9 +19,15 @@ import PremiumSubscriptionModal from "@/components/PremiumSubscriptionModal";
 import { getLobbyHelp } from "@/lib/game-help-content";
 import PhoneVerifyPopup from "@/components/PhoneVerifyPopup";
 
+// Use WebP covers (~80-160 KB) instead of full PNGs (~1-2 MB)
+const toCover = (url: string) => {
+  const m = url.match(/cover_([a-z]+)\.\w+$/);
+  if (m) return `/covers/${m[1]}-cover.webp`;
+  return url;
+};
 const COVER_BY_SLUG: Record<string, string> = {
-  ludo: ludoCover.url, domino: dominoCover.url, fanorona: fanoronaCover.url,
-  chess: chessCover.url, rami: ramiCover.url,
+  ludo: toCover(ludoCover.url), domino: toCover(dominoCover.url), fanorona: toCover(fanoronaCover.url),
+  chess: toCover(chessCover.url), rami: toCover(ramiCover.url),
 };
 
 export const Route = createFileRoute("/_authenticated/jeux/$slug")({
@@ -77,11 +83,11 @@ const COVER_DIMS: Record<string, { w: number; h: number }> = {
   chess: { w: 1024, h: 1024 }, rami: { w: 1024, h: 1024 },
 };
 const META: Record<Slug, { label: string; cover: string; maxOpts: number[] }> = {
-  ludo: { label: "Ludo", cover: ludoCover.url, maxOpts: [2, 3, 4] },
-  domino: { label: "Domino", cover: dominoCover.url, maxOpts: [2, 3] },
-  fanorona: { label: "Fanorona", cover: fanoronaCover.url, maxOpts: [2] },
-  chess: { label: "Échecs", cover: chessCover.url, maxOpts: [2] },
-  rami: { label: "Rami", cover: ramiCover.url, maxOpts: [2, 3, 4] },
+  ludo: { label: "Ludo", cover: toCover(ludoCover.url), maxOpts: [2, 3, 4] },
+  domino: { label: "Domino", cover: toCover(dominoCover.url), maxOpts: [2, 3] },
+  fanorona: { label: "Fanorona", cover: toCover(fanoronaCover.url), maxOpts: [2] },
+  chess: { label: "Échecs", cover: toCover(chessCover.url), maxOpts: [2] },
+  rami: { label: "Rami", cover: toCover(ramiCover.url), maxOpts: [2, 3, 4] },
 };
 
 const ROUTE: Record<Slug, any> = {

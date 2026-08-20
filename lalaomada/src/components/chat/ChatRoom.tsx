@@ -555,13 +555,22 @@ export default function ChatRoom({
       if (error) return toast.error(error.message);
       setEditing(null); setInput(""); return;
     }
-    const { error } = await supabase.rpc("chat_send" as any, {
-      _room_id: roomId, _body: body, _reply_to: reply?.id ?? null,
-    } as any);
-    if (error) return toast.error(error.message);
-    setInput(""); setReply(null);
-    // Reload messages immediately to ensure the sent message appears
-    loadMessages();
+    try {
+      const { data, error } = await supabase.rpc("chat_send" as any, {
+        _room_id: roomId, _body: body, _reply_to: reply?.id ?? null,
+      } as any);
+      if (error) {
+        console.error("[chat] send error:", error);
+        toast.error(error.message || "Erreur d'envoi");
+        return;
+      }
+      setInput(""); setReply(null);
+      // Reload messages immediately to ensure the sent message appears
+      loadMessages();
+    } catch (err: any) {
+      console.error("[chat] send exception:", err);
+      toast.error(err?.message || "Échec de l'envoi du message");
+    }
   };
 
   const sendTyping = async () => {

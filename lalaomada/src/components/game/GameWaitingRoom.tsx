@@ -25,11 +25,16 @@ type Participant = {
 type GameSlug = "chess" | "domino" | "fanorona" | "ludo" | "rami";
 
 const COVERS: Record<GameSlug, { url: string; emoji: string; title: string }> = {
-  chess:    { url: chessCover.url,    emoji: "♟️", title: "Échecs" },
-  domino:   { url: dominoCover.url,   emoji: "🁣",  title: "Domino" },
-  fanorona: { url: fanoronaCover.url, emoji: "⚫", title: "Fanorona" },
-  ludo:     { url: ludoCover.url,     emoji: "🎲", title: "Ludo" },
-  rami:     { url: ramiCover.url,     emoji: "🃏", title: "Rami" },
+const toCover = (url: string) => {
+  const m = url.match(/cover_([a-z]+)\.\w+$/);
+  if (m) return `/covers/${m[1]}-cover.webp`;
+  return url;
+};
+  chess:    { url: toCover(chessCover.url),    emoji: "♟️", title: "Échecs" },
+  domino:   { url: toCover(dominoCover.url),   emoji: "🁣",  title: "Domino" },
+  fanorona: { url: toCover(fanoronaCover.url), emoji: "⚫", title: "Fanorona" },
+  ludo:     { url: toCover(ludoCover.url),     emoji: "🎲", title: "Ludo" },
+  rami:     { url: toCover(ramiCover.url),     emoji: "🃏", title: "Rami" },
 };
 
 export default function GameWaitingRoom({
