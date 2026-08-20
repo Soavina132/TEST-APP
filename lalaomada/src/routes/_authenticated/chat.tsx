@@ -25,11 +25,11 @@ type Tab = "global" | "dm";
 // ─── Game group meta (hardcoded list — no backend needed) ─────────────────────
 
 const GAME_GROUPS = [
-  { slug: "ludo",     cover: ludoGroup,     label: "Groupe Ludo",     accent: "from-emerald-400/20 to-emerald-500/5", name: "Groupe Ludo" },
-  { slug: "domino",   cover: dominoGroup,   label: "Groupe Domino",   accent: "from-stone-400/20 to-stone-500/5",    name: "Groupe Domino" },
-  { slug: "fanorona", cover: fanoronaGroup, label: "Groupe Fanorona", accent: "from-amber-500/20 to-amber-700/5",     name: "Groupe Fanorona" },
-  { slug: "chess",    cover: chessGroup,    label: "Groupe Échec",    accent: "from-orange-400/20 to-orange-500/5",  name: "Groupe Échec" },
-  { slug: "rami",     cover: ramiGroup,     label: "Groupe Rami",     accent: "from-rose-400/20 to-rose-500/5",       name: "Groupe Rami" },
+  { slug: "ludo",     cover: ludoGroup,     label: "Groupe Ludo",     desc: "Discussions, stratégies et défis Ludo",     accent: "from-emerald-500/30 to-emerald-700/10",     glow: "shadow-emerald-500/20",     name: "Groupe Ludo" },
+  { slug: "domino",   cover: dominoGroup,   label: "Groupe Domino",   desc: "La communauté Domino de Lalao MADA",       accent: "from-stone-500/30 to-stone-700/10",        glow: "shadow-stone-500/20",       name: "Groupe Domino" },
+  { slug: "fanorona", cover: fanoronaGroup, label: "Groupe Fanorona", desc: "Le jeu traditionnel malgache en ligne",     accent: "from-amber-500/30 to-amber-700/10",        glow: "shadow-amber-500/20",        name: "Groupe Fanorona" },
+  { slug: "chess",    cover: chessGroup,    label: "Groupe Échecs",   desc: "Échecs — tactiques, parties et tournois",    accent: "from-orange-500/30 to-orange-700/10",      glow: "shadow-orange-500/20",       name: "Groupe Échec" },
+  { slug: "rami",     cover: ramiGroup,     label: "Groupe Rami",     desc: "Rami — discussions et parties",              accent: "from-rose-500/30 to-rose-700/10",           glow: "shadow-rose-500/20",         name: "Groupe Rami" },
 ];
 
 function metaFor(name?: string) {
@@ -372,7 +372,7 @@ function ChatHub() {
 
       {/* ── Global groups (hardcoded list — no backend query) ── */}
       {tab === "global" && (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {GAME_GROUPS.map(group => (
             <GroupCard
               key={group.slug}
@@ -579,43 +579,48 @@ function GroupCard({
     <button
       onClick={onOpen}
       disabled={loading}
-      className="group w-full rounded-2xl bg-card border border-border/60 p-3 flex items-center gap-3 text-left transition-all hover:border-primary/40 hover:shadow-sm active:scale-[0.99] disabled:opacity-60"
+      className={`group relative w-full overflow-hidden rounded-2xl border border-border/50 bg-card transition-all duration-200 hover:border-primary/30 hover:shadow-lg ${meta?.glow ?? ""} active:scale-[0.98] disabled:opacity-70`}
     >
-      <div className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 ring-1 ring-border/60 bg-gradient-to-br ${meta?.accent ?? "from-primary/15 to-primary/5"}`}>
+      {/* Cover image with gradient overlay */}
+      <div className="relative h-24 overflow-hidden">
         {cover ? (
           <img
             src={cover}
-            width={56}
-            height={56}
+            alt={label}
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover"
-            alt={label}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full grid place-items-center">
-            <Users className="w-6 h-6 text-primary/70" />
+          <div className={`w-full h-full grid place-items-center bg-gradient-to-br ${meta?.accent ?? "from-primary/15 to-primary/5"}`}>
+            <Users className="w-8 h-8 text-primary/50" />
           </div>
         )}
+        <div className={`absolute inset-0 bg-gradient-to-t from-card via-card/60 to-transparent`} />
+        {/* Status badge */}
+        <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-sm px-2 py-0.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${room.enabled ? "bg-emerald-400" : "bg-muted-foreground"} animate-pulse`} />
+          <span className="text-[10px] font-medium text-white">{room.enabled ? "Actif" : "Inactif"}</span>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="font-semibold text-[15px] truncate">{label}</div>
-          {room.enabled && (
-            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden />
+      {/* Content */}
+      <div className="px-3 pb-3 pt-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-[15px] truncate text-foreground">{label}</div>
+            <div className="text-xs text-muted-foreground truncate mt-0.5">
+              {loading ? "Chargement..." : (preview || meta?.desc || (room.enabled ? t("active_label") : t("inactive_label")))}
+            </div>
+          </div>
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0" />
+          ) : unread > 0 ? (
+            <UnreadBadge n={unread} />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0 transition-transform group-hover:translate-x-0.5" />
           )}
         </div>
-        <div className="text-xs text-muted-foreground truncate mt-0.5">
-          {loading ? "Chargement..." : (preview || (room.enabled ? t("active_label") : t("inactive_label")))}
-        </div>
       </div>
-      {loading ? (
-        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0" />
-      ) : unread > 0 ? (
-        <UnreadBadge n={unread} />
-      ) : (
-        <ChevronRight className="w-4 h-4 text-muted-foreground/60 shrink-0 transition-transform group-hover:translate-x-0.5" />
-      )}
     </button>
   );
 }
