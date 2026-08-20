@@ -103,13 +103,20 @@ function ChatHub() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
 
   const loadRooms = async () => {
-    const { data } = await supabase
+    setRoomsError(null);
+    const { data, error } = await supabase
       .from("chat_rooms")
       .select("*")
       .order("created_at", { ascending: true });
+    if (error) {
+      console.error("[chat] loadRooms error:", error);
+      setRoomsError(error.message || "Erreur inconnue");
+    }
     const all = data || [];
+    console.log("[chat] loadRooms:", all.length, "rooms,", all.filter(r => r.type === "global" && r.enabled !== false).length, "global");
     // All active global communities (official game groups + any community
     // the admin created from the admin panel) — DMs are handled separately.
     setRooms(all.filter((r: any) => r.type === "global" && r.enabled !== false));
@@ -345,9 +352,15 @@ function ChatHub() {
       {/* ── Global groups ── */}
       {tab === "global" && (
         <div className="space-y-2">
-          {rooms.length === 0 ? (
+          {roomsError ? (
+            <div className="rounded-3xl bg-destructive/10 border border-destructive/30 p-4 text-center">
+              <p className="text-sm text-destructive font-medium">Debug: {roomsError}</p>
+              <button onClick={() => loadRooms()} className="mt-2 text-xs underline">Réessayer</button>
+            </div>
+          ) : rooms.length === 0 ? (
             <div className="rounded-3xl bg-card p-6 text-center text-muted-foreground">
               {t("no_groups_available")}
+              <button onClick={() => loadRooms()} className="mt-2 text-xs underline block mx-auto">Recharger</button>
             </div>
           ) : (
             rooms.map(r => {
