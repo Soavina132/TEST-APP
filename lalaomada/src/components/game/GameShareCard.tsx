@@ -74,12 +74,21 @@ export default function GameShareCard({ slug, gameId, onMissing }: { slug: strin
   const [now, setNow] = useState(() => serverNow());
   useEffect(() => { const t = setInterval(() => setNow(serverNow()), 1000); return () => clearInterval(t); }, []);
 
+  const status: string = game ? ((game as any).status || "open") : "open";
+  const isTerminal = !!game && status !== "open" && status !== "waiting" && status !== "playing";
+  // Only open/waiting/playing games stay visible in chat. Finished, cancelled,
+  // or any other terminal status: hide the card immediately (backend also
+  // soft-deletes the underlying message shortly after).
+  useEffect(() => {
+    if (isTerminal) onMissing?.();
+  }, [isTerminal]);
+
   if (loading) return null;
   if (!game) return null;
+  if (isTerminal) return null;
 
   const max = Number((game as any).max_players) || DEFAULT_MAX[slug] || 2;
   const current = parts.length;
-  const status: string = (game as any).status || "open";
   const isPrivate = !!(game as any).is_private;
   const code: string | null = (game as any).room_code || null;
   const stake = Number((game as any).stake) || 0;

@@ -29,8 +29,9 @@ async function checkAndDeleteExpiredGameShare(msg: any, share: { slug: string; g
   }
   const status = (game as any).status;
   const createdAt = (game as any).created_at as string;
-  // Only keep open/waiting games. Delete finished, expired, or playing games from chat.
-  if (status === "finished") {
+  // Only keep open/waiting/playing games visible. Delete finished, cancelled,
+  // or any other terminal status from chat history.
+  if (status !== "open" && status !== "waiting" && status !== "playing") {
     await supabase.from("chat_messages").update({ deleted_at: new Date().toISOString() }).eq("id", msg.id);
     return;
   }
