@@ -291,7 +291,8 @@ function DominoPage() {
       });
       if (!ok) return;
     }
-    await supabase.rpc("domino_forfeit" as any, { _game_id: id } as any);
+    const { error: forfeitError } = await supabase.rpc("domino_forfeit" as any, { _game_id: id } as any);
+    if (forfeitError) { toast.error(forfeitError.message); return; }
     navigate({ to: "/jeux" });
   };
 
