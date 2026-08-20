@@ -761,10 +761,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noMove, autoPassKey, gameId, state.turn_slot, state.no_move_display]);
 
-  // When no_move_display is active, show the player's slot + dice
-  const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
+  // Turn frame: ALWAYS follow the actual turn (state.turn_slot)
+  // Dice display: show the rolling player's result during no_move_display (500ms)
+  const displaySlot = state.turn_slot;
+  const displayDiceSlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
   const displayDice = noMoveDisplay ? noMoveDisplay.dice : state.dice;
-  const displayPart = partsBySlot.get(displaySlot) || currentPart;
+  const displayPart = partsBySlot.get(displayDiceSlot) || currentPart;
 
   // Power event display (Mode Moderne) — sound + pawn visual effect
   const lastPowerEventRef = useRef<string>("");
