@@ -559,7 +559,7 @@ export default function ChatRoom({
     }
     setSending(true);
     try {
-      const { data, error } = await supabase.rpc("chat_send" as any, {
+      const { data: msgId, error } = await supabase.rpc("chat_send" as any, {
         _room_id: roomId, _body: body, _reply_to: reply?.id ?? null,
       } as any);
       if (error) {
@@ -567,20 +567,31 @@ export default function ChatRoom({
         toast.error(error.message || "Erreur d'envoi");
         return;
       }
+      // Local echo: add the message to the list immediately.
+      // This avoids relying on Realtime (which can be unreliable due to
+      // WebSocket drops, expired tokens, etc.) and avoids the skeleton
+      // flash that loadMessages() causes (loading=true).
+      // If Realtime also fires, the duplicate check (m.id === msgId)
+      // prevents double-rendering.
+      if (msgId) {
+        setMessages(prev => prev.find(m => m.id === msgId) ? prev : [...prev, {
+          id: msgId,
+          room_id: roomId,
+          user_id: user?.id,
+          body,
+          attachment_url: null,
+          attachment_type: null,
+          reply_to: reply?.id ?? null,
+          pinned: false,
+          edited_at: null,
+          deleted_at: null,
+          created_at: new Date().toISOString(),
+          sender_name: profile?.pseudo ?? "Joueur",
+          sender_avatar: profile?.avatar_url ?? null,
+        }]);
+        scrollToBottom();
+      }
       setInput(""); setReply(null);
-      // Don't call loadMessages() — the realtime INSERT event will add the
-      // message to the list. Calling loadMessages() here causes the skeleton
-      // to flash (loading=true), making it look like messages disappeared.
-      // Fallback: if realtime hasn't fired after 2s, reload.
-      setTimeout(() => {
-        setMessages(prev => {
-          if (prev.some(m => m.body === body && m.user_id === user?.id && Date.now() - new Date(m.created_at).getTime() < 5000)) {
-            return prev;
-          }
-          loadMessages();
-          return prev;
-        });
-      }, 2000);
     } catch (err: any) {
       console.error("[chat] send exception:", err);
       toast.error(err?.message || "Échec de l'envoi du message");
@@ -645,7 +656,7 @@ export default function ChatRoom({
     const url = signed.signedUrl;
     const type = f.type.startsWith("image/") ? "image"
       : f.type.startsWith("audio/") ? "audio" : "file";
-    const { error: msgErr } = await supabase.rpc("chat_send" as any, {
+    const { data: msgId, error: msgErr } = await supabase.rpc("chat_send" as any, {
       _room_id: roomId,
       _body: type === "file" ? f.name : "",
       _reply_to: null,
@@ -653,6 +664,25 @@ export default function ChatRoom({
       _attachment_type: type,
     } as any);
     if (msgErr) { toast.error(msgErr.message); return false; }
+    // Local echo for file/image/audio messages too
+    if (msgId) {
+      setMessages(prev => prev.find(m => m.id === msgId) ? prev : [...prev, {
+        id: msgId,
+        room_id: roomId,
+        user_id: user?.id,
+        body: type === "file" ? f.name : "",
+        attachment_url: url,
+        attachment_type: type,
+        reply_to: null,
+        pinned: false,
+        edited_at: null,
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+        sender_name: profile?.pseudo ?? "Joueur",
+        sender_avatar: profile?.avatar_url ?? null,
+      }]);
+      scrollToBottom();
+    }
     return true;
   };
 
