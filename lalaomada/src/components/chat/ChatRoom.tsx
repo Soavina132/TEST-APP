@@ -638,18 +638,7 @@ export default function ChatRoom({
   const startRecord = async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-        toast.error("Micro non disponible sur cet appareil. Utilisez un navigateur récent.");
-        return;
-      }
-      // Check permission status first if available
-      if (navigator.permissions?.query) {
-        try {
-          const perm = await navigator.permissions.query({ name: "microphone" as PermissionName });
-          if (perm.state === "denied") {
-            toast.error("Micro bloqué. Autorisez le micro dans les paramètres du navigateur/app, puis réessayez.", { duration: 6000 });
-            return;
-          }
-        } catch {}
+        toast.error(t("mic_unavailable")); return;
       }
       cancelVoice();
       // Request audio with echo cancellation for cleaner recordings
@@ -695,13 +684,11 @@ export default function ChatRoom({
         recStreamRef.current = null;
       }
       if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
-        toast.error("Micro bloqué. Allez dans les paramètres de l'app → Permissions → Micro → Autoriser.", { duration: 6000 });
+        toast.error("Microphone access denied. Please allow microphone permission.");
       } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
-        toast.error("Aucun micro détecté sur cet appareil.");
-      } else if (err?.name === "NotReadableError" || err?.name === "TrackStartError") {
-        toast.error("Micro occupé par une autre app. Fermez les autres apps audio et réessayez.", { duration: 5000 });
+        toast.error("No microphone found on this device.");
       } else {
-        toast.error("Erreur micro: " + (err?.message || "non disponible") + ". Redémarrez l'app si le problème persiste.", { duration: 6000 });
+        toast.error(t("mic_unavailable"));
       }
     }
   };
