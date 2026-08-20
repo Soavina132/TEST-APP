@@ -705,11 +705,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     finally { setBusy(false); moveLockRef.current = false; }
   };
 
-  // ═══ Server-driven no_move_display + frontend auto-pass ═══
-  // ludo_roll sets must_move=true + no_move_display = { slot, dice, until }
-  // but does NOT pass the turn. The frontend shows "PAS DE COUP" + the dice
-  // for 1s, then calls ludo_pass to pass the turn. ludo_tick_all is the
-  // server-side fallback (passes after 2s if the frontend doesn't).
+  // ═══ Server-driven no_move_display + auto-pass ═══
+  // ludo_roll auto-passes the turn immediately when no move is possible
+  // and sets no_move_display = { slot, dice, until } for the visual.
+  // The frontend shows "PAS DE COUP" + the dice for 500ms.
+  // No need to call ludo_pass — the server already passed the turn.
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
 
   // Detect no-move display from server state
@@ -743,8 +743,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     if (!noMove || !gameId) return;
     if (lastAutoPassRef.current === autoPassKey) return;
     lastAutoPassRef.current = autoPassKey;
-    // Fire after 0.5s — NO cleanup that could cancel this timer.
-    // The ref guard prevents duplicate calls if the effect re-runs.
+    // If the server already auto-passed (turn_slot !== no_move_display.slot),
+    // skip the ludo_pass RPC call — just show the display.
+    if (state.no_move_display && state.turn_slot !== state.no_move_display.slot) {
+      return;
+    }
+    // Fallback: call ludo_pass if the server didn't auto-pass yet
     const passTimer = setTimeout(async () => {
       const { data: passData, error: passError } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
       if (passError) {
@@ -755,7 +759,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     }, 400);
     // Do NOT clear passTimer on cleanup — that was the bug!
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noMove, autoPassKey, gameId]);
+  }, [noMove, autoPassKey, gameId, state.turn_slot, state.no_move_display]);
 
   // When no_move_display is active, show the player's slot + dice
   const displaySlot = noMoveDisplay ? noMoveDisplay.slot : state.turn_slot;
