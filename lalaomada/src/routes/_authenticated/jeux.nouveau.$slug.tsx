@@ -12,12 +12,12 @@ import chessCover from "@/assets/games/chess.asset.json";
 import fanoronaCover from "@/assets/games/fanorona.asset.json";
 import { shareNewGameInGroup } from "@/lib/share-game";
 
+const toCover = (url: string) => {
+  const m = url.match(/cover_([a-z]+)\.\w+$/);
+  if (m) return `/covers/${m[1]}-cover.webp`;
+  return url;
+};
 const COVER_BY_SLUG: Record<string, string> = {
-  const toCover = (url: string) => {
-    const m = url.match(/cover_([a-z]+)\.\w+$/);
-    if (m) return `/covers/${m[1]}-cover.webp`;
-    return url;
-  };
   ludo: toCover(ludoCover.url), domino: toCover(dominoCover.url), fanorona: toCover(fanoronaCover.url),
   chess: toCover(chessCover.url), rami: toCover(ramiCover.url),
 };

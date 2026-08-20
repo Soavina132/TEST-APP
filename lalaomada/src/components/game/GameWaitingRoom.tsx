@@ -24,12 +24,12 @@ type Participant = {
 
 type GameSlug = "chess" | "domino" | "fanorona" | "ludo" | "rami";
 
-const COVERS: Record<GameSlug, { url: string; emoji: string; title: string }> = {
 const toCover = (url: string) => {
   const m = url.match(/cover_([a-z]+)\.\w+$/);
   if (m) return `/covers/${m[1]}-cover.webp`;
   return url;
 };
+const COVERS: Record<GameSlug, { url: string; emoji: string; title: string }> = {
   chess:    { url: toCover(chessCover.url),    emoji: "♟️", title: "Échecs" },
   domino:   { url: toCover(dominoCover.url),   emoji: "🁣",  title: "Domino" },
   fanorona: { url: toCover(fanoronaCover.url), emoji: "⚫", title: "Fanorona" },
