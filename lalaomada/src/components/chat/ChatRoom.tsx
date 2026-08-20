@@ -795,7 +795,7 @@ export default function ChatRoom({
         try {
           const perm = await navigator.permissions?.query({ name: "microphone" as PermissionName });
           if (perm?.state === "denied") {
-            hint = "Micro bloqué. Touchez l'"'"'icône 🔒 près de l'"'"'URL → Autorisez le micro → Rechargez la page.";
+            hint = "Micro bloqué. Touchez l'icône 🔒 près de l'URL → Autorisez le micro → Rechargez la page.";
           }
         } catch {}
         toast.error(hint, { duration: 8000 });
