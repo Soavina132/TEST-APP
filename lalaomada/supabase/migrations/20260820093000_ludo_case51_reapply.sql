@@ -1,0 +1,21 @@
+-- Case 51 Correction: main track = 51 cells (k=1-51), home stretch = 6 cells (k=52-57)
+-- k=57 = finished (was k=56)
+-- k<=51 = main track (was k<=50)
+-- k-52 = home stretch index (was k-51)
+--
+-- Functions modified:
+-- _ludo_movable_pawns: k<=57 (was 56), k<=51 (was 50)
+-- _ludo_playable_pawns: k<=57 (was 56), aligned with _ludo_movable_pawns
+-- ludo_move: k>57 (was 56), k=57 (was 56), k<=51 (was 50)
+-- ludo_bot_move: k<=57 (was 56), k=57 (was 56), k<=51 (was 50)
+-- _ludo_check_power_tile: k>57 (was 56), k=57 (was 56), k>=57 (was 56)
+-- _ludo_relocate_power_tile: k<=51 (was 50)
+-- _ludo_relocate_tile: k<=51 (was 50)
+--
+-- Frontend:
+-- RealtimeLudoBoard.tsx: k<=51 (was 50), k-52 (was 51), k<=57 (was 56), k:57 (was 56)
+--
+-- Auto-move fix:
+-- - Retry up to 2 times if auto-move fails (race condition protection)
+-- - Reset retry counter on new turn
+-- - setTimeout instead of queueMicrotask for retry delay

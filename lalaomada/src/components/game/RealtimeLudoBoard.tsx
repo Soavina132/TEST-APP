@@ -430,11 +430,11 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           continue;
         }
         if (m.to.s === "finished") {
-          for (let k = fromK + 1; k <= 56; k++) {
+          for (let k = fromK + 1; k <= 57; k++) {
             await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
             sfx.pawnStep();
           }
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 56 }, 30);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 57 }, 30);
           sfx.home();
           continue;
         }
@@ -612,7 +612,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     arr.forEach((p, i) => {
       if (p.s === "finished") return;
       if (p.s === "yard") { if (state.dice === 6) set.add(i); } // Always allow yard exit on 6
-      else if (p.k + (state.dice as number) <= 56) set.add(i);
+      else if (p.k + (state.dice as number) <= 57) set.add(i);
     });
     return set;
   }, [state.must_move, state.dice, state.turn_slot, state.pawns, state.movable_pawns]);
@@ -663,18 +663,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       } else if (pawn.s === "track") {
         const fromK = pawn.k;
         const toK = fromK + dice;
-        if (toK <= 56) {
+        if (toK <= 57) {
           for (let k = fromK + 1; k <= toK; k++) {
             await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
             sfx.pawnStep();
           }
         } else {
           // Going to finished
-          for (let k = fromK + 1; k <= 56; k++) {
+          for (let k = fromK + 1; k <= 57; k++) {
             await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
             sfx.pawnStep();
           }
-          await stepAnim(setDisplayedPawns, slot, idx, { s: "finished", k: 56 }, 30);
+          await stepAnim(setDisplayedPawns, slot, idx, { s: "finished", k: 57 }, 30);
           sfx.home();
         }
       }
@@ -871,19 +871,28 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     else if (ev === "bot:pass") sfx.noMove();
   }, [state.last_event]);
 
-  // Auto-move: if only one pawn can move, play it immediately (no artificial delay).
-  // Keyed on turn_started_at (server timestamp) so it fires exactly once per turn,
-  // même après reconnexion / re-render causés par la latence réseau.
+  // Auto-move: if only one pawn can move, play it immediately.
+  // Retry logic: if the first attempt fails (race condition, RPC error),
+  // retry up to 2 times with a small delay. Only mark the key as "done"
+  // when the move actually succeeds.
   const lastAutoMoveKey = useRef<string>("");
+  const autoMoveRetries = useRef<number>(0);
   useEffect(() => {
     if (!isMyTurn || !state.must_move || state.dice == null) return;
     if (movablePawnIdxs.size !== 1) return;
-    if (busy) return;  // FIX: removed 'animating' guard that could block auto-move
+    if (busy) return;
     const key = `${gameId}-${state.turn_slot}-${state.dice}-${state.turn_started_at}`;
-    if (lastAutoMoveKey.current === key) return;
+    if (lastAutoMoveKey.current === key && autoMoveRetries.current >= 2) return;
+    if (lastAutoMoveKey.current !== key) {
+      // New turn — reset retry counter
+      autoMoveRetries.current = 0;
+    }
     lastAutoMoveKey.current = key;
+    autoMoveRetries.current += 1;
     const only = movablePawnIdxs.values().next().value as number;
-    queueMicrotask(() => { movePawn(only); });
+    const delay = autoMoveRetries.current > 1 ? 300 : 0;
+    const timer = setTimeout(() => { movePawn(only); }, delay);
+    return () => clearTimeout(timer);
   }, [isMyTurn, state.must_move, state.dice, state.turn_slot, state.turn_started_at, movablePawnIdxs, gameId, busy]);
 
   // Persist last movable set so indicators stay visible across brief RPC/animation gaps.
@@ -924,8 +933,8 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         [row, col] = offsets[part.color];
       } else {
         let cell: [number, number];
-        if (p.k <= 50) cell = PATH[((START_IDX[part.color] + p.k - 1) % 52 + 52) % 52];
-        else cell = HOME_STRETCH[part.color][p.k - 51];
+        if (p.k <= 51) cell = PATH[((START_IDX[part.color] + p.k - 1) % 52 + 52) % 52];
+        else cell = HOME_STRETCH[part.color][p.k - 52];
         row = cell[0]; col = cell[1];
         const key = `${row}-${col}`;
         const n = cellGroups.get(key) || 0;
