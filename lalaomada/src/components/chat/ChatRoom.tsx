@@ -207,6 +207,7 @@ export default function ChatRoom({
   const [input, setInput]     = useState("");
   const [reply, setReply]     = useState<any>(null);
   const [editing, setEditing] = useState<any>(null);
+  const [sending, setSending] = useState(false);
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [search, setSearch]           = useState("");
@@ -547,6 +548,7 @@ export default function ChatRoom({
 
   // ── Send ────────────────────────────────────────────────────────────────────
   const send = async () => {
+    if (sending) return;
     const body = input.trim();
     if (!body && !editing) return;
     if (editing) {
@@ -555,6 +557,7 @@ export default function ChatRoom({
       if (error) return toast.error(error.message);
       setEditing(null); setInput(""); return;
     }
+    setSending(true);
     try {
       const { data, error } = await supabase.rpc("chat_send" as any, {
         _room_id: roomId, _body: body, _reply_to: reply?.id ?? null,
@@ -565,11 +568,24 @@ export default function ChatRoom({
         return;
       }
       setInput(""); setReply(null);
-      // Reload messages immediately to ensure the sent message appears
-      loadMessages();
+      // Don't call loadMessages() — the realtime INSERT event will add the
+      // message to the list. Calling loadMessages() here causes the skeleton
+      // to flash (loading=true), making it look like messages disappeared.
+      // Fallback: if realtime hasn't fired after 2s, reload.
+      setTimeout(() => {
+        setMessages(prev => {
+          if (prev.some(m => m.body === body && m.user_id === user?.id && Date.now() - new Date(m.created_at).getTime() < 5000)) {
+            return prev;
+          }
+          loadMessages();
+          return prev;
+        });
+      }, 2000);
     } catch (err: any) {
       console.error("[chat] send exception:", err);
       toast.error(err?.message || "Échec de l'envoi du message");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -1218,9 +1234,12 @@ export default function ChatRoom({
         {input.trim() && (
           <button
             onClick={send}
-            className="p-2 rounded-full bg-primary text-primary-foreground hover:scale-105 active:scale-90 shrink-0 transition-all shadow-md shadow-primary/30"
+            disabled={sending}
+            className="p-2 rounded-full bg-primary text-primary-foreground hover:scale-105 active:scale-90 shrink-0 transition-all shadow-md shadow-primary/30 disabled:opacity-50 disabled:scale-90"
           >
-            <Send className="w-4 h-4" />
+            {sending
+              ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin block" />
+              : <Send className="w-4 h-4" />}
           </button>
         )}
       </div>
