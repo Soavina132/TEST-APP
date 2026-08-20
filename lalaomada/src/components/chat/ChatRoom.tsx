@@ -340,13 +340,20 @@ export default function ChatRoom({
 
   const loadMessages = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("room_id", roomId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(PAGE_SIZE);
+    if (error) {
+      console.error("[chat] loadMessages error:", error);
+      toast.error("Impossible de charger les messages");
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
     const msgs = ((data || []) as any[]).reverse();
     setMessages(msgs);
     setHasMore((data || []).length === PAGE_SIZE);
@@ -361,7 +368,7 @@ export default function ChatRoom({
     if (!hasMore || loadingMore || !oldestRef.current) return;
     setLoadingMore(true);
     const prevScrollHeight = scrollRef.current?.scrollHeight || 0;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("room_id", roomId)
@@ -369,6 +376,11 @@ export default function ChatRoom({
       .lt("created_at", oldestRef.current)
       .order("created_at", { ascending: false })
       .limit(PAGE_SIZE);
+    if (error) {
+      console.error("[chat] loadMore error:", error);
+      setLoadingMore(false);
+      return;
+    }
     const older = ((data || []) as any[]).reverse();
     setMessages(prev => [...older, ...prev]);
     setHasMore(older.length === PAGE_SIZE);
