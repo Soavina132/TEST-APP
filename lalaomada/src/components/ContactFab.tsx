@@ -5,7 +5,6 @@ import { facebookTargets, openExternal, whatsappTargets } from "@/lib/open-exter
 
 type Contacts = {
   contact_whatsapp?: string | null;
-  contact_facebook?: string | null;
   contact_email?: string | null;
   admin_phone?: string | null;
   tuto_url?: string | null;
@@ -25,20 +24,14 @@ export default function ContactFab() {
   useEffect(() => {
     supabase
       .from("app_settings")
-      .select("contact_whatsapp,contact_facebook,contact_email,admin_phone,tuto_url,update_url")
+      .select("contact_whatsapp,contact_email,admin_phone,tuto_url,update_url")
       .eq("id", 1)
       .maybeSingle()
       .then(({ data }) => data && setC(data as Contacts));
   }, []);
 
   const waNumber = (c.contact_whatsapp || "").replace(/\D/g, "");
-  const fbUrl = c.contact_facebook
-    ? c.contact_facebook.startsWith("http")
-      ? c.contact_facebook
-      : `https://facebook.com/${c.contact_facebook.replace(/^@/, "")}`
-    : "";
   const whatsappLink = waNumber ? whatsappTargets(waNumber) : null;
-  const facebookLink = fbUrl ? facebookTargets(fbUrl) : null;
   const facebookAdminLink = facebookTargets(FACEBOOK_ADMIN_URL);
 
   return (
@@ -83,24 +76,10 @@ export default function ContactFab() {
                   <MessageCircle className="w-5 h-5" /> WhatsApp
                 </a>
               )}
-              {facebookLink && (
-                <a
-                  href={facebookLink.appUrl}
-                  target="_top"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    openExternal(facebookLink);
-                  }}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#1877F2] text-white font-semibold flex items-center gap-3 active:scale-95 transition"
-                >
-                  <Facebook className="w-5 h-5" /> Facebook
-                </a>
-              )}
               {c.contact_email && (
                 <a
                   href={`mailto:${c.contact_email}`}
-                  className="w-full px-4 py-3 rounded-2xl bg-secondary font-semibold flex items-center gap-3 active:scale-95 transition"
+                  className="w-full px-4 py-3 rounded-2xl bg-[#25D366] text-white font-semibold flex items-center gap-3 active:scale-95 transition"
                 >
                   <Mail className="w-5 h-5" /> E-mail
                 </a>
