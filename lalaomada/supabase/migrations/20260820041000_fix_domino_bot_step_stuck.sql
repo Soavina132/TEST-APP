@@ -20,10 +20,11 @@ BEGIN
   IF g IS NULL OR g.status <> 'playing' THEN RETURN; END IF;
 
   st := g.state;
+  IF st IS NULL THEN RETURN; END IF;
+
   phase := COALESCE(st->>'phase', 'play');
 
-  -- FIX: Si bot_think_until est dans le passé mais la phase n'est pas 'play',
-  -- nettoyer bot_think_until en base et retourner (ne pas rester bloqué)
+  -- FIX: Si la phase n'est pas 'play' et bot_think_until est présent, nettoyer
   IF phase NOT IN ('play','playing') THEN
     IF st ? 'bot_think_until' THEN
       st := st - 'bot_think_until' - 'bot_locked_slot';
@@ -39,24 +40,22 @@ BEGIN
 
   v_think_until := NULLIF(st->>'bot_think_until','')::timestamptz;
 
-  -- If bot_think_until is set and in the future, wait
+  -- Si bot_think_until est dans le futur, attendre
   IF v_think_until IS NOT NULL AND v_think_until > now() THEN
     RETURN;
   END IF;
 
-  -- FIX: Si bot_think_until est dans le passé mais le joueur n'est pas un bot
-  -- (changement de tour, forfeit, transition de round), nettoyer bot_think_until
-  -- en base pour éviter que domino_tick ne rappelle cette fonction à chaque tick.
+  -- FIX: Si bot_think_until est dans le passé mais le joueur n'est pas un bot,
+  -- nettoyer bot_think_until en base pour éviter les appels répétés
   IF v_think_until IS NOT NULL AND v_think_until <= now() THEN
     st := st - 'bot_think_until' - 'bot_locked_slot';
     IF NOT COALESCE(v_is_bot, false) THEN
-      -- Le joueur actuel n'est pas un bot — sauvegarder le state nettoyé
       UPDATE public.domino_games SET state = st WHERE id = _game_id;
       RETURN;
     END IF;
   END IF;
 
-  -- If bot_think_until is NULL, arm it with a short delay then return
+  -- Si bot_think_until est NULL, l'armer avec un délai court
   IF v_think_until IS NULL THEN
     IF NOT COALESCE(v_is_bot, false) THEN RETURN; END IF;
     v_delay_ms := 1000 + (floor(random() * 1000))::int;
@@ -67,8 +66,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- bot_think_until is in the past → play the bot
-  -- (st already has bot_think_until and bot_locked_slot removed above)
+  -- bot_think_until est dans le passé → jouer le bot
 
   hand := COALESCE(st->'hands'->v_slot::text, '[]'::jsonb);
   le := NULLIF(st->>'left_end', 'null')::int;
@@ -151,7 +149,8 @@ BEGIN
     next_turn := public._domino_next_playable_slot(_game_id, v_slot, st);
     IF next_turn IS NULL THEN
       winner_slot := public._domino_lowest_pip_slot(_game_id, st);
-      st := jsonb_set(st, ARRAY['turn_slot'], to_jsonb(winner_slot), true);
+      -- FIX: COALESCE winner_slot pour éviter to_jsonb(NULL) → jsonb_set NULL
+      st := jsonb_set(st, ARRAY['turn_slot'], to_jsonb(COALESCE(winner_slot, v_slot)), true);
       UPDATE public.domino_games SET state = st WHERE id = _game_id;
       PERFORM public._domino_end_round(_game_id, winner_slot);
       RETURN;
@@ -160,7 +159,7 @@ BEGIN
     v_next_delay := public._domino_turn_delay(_game_id, next_turn);
     st := public._domino_arm_bot_think(_game_id, next_turn, st);
     v_playable := public._domino_playable_tiles(st, next_turn);
-    st := jsonb_set(st, ARRAY['playable_tiles'], v_playable, true);
+    st := jsonb_set(st, ARRAY['playable_tiles'], COALESCE(v_playable, '[]'::jsonb), true);
     st := jsonb_set(st, ARRAY['turn_slot'], to_jsonb(next_turn), true);
     UPDATE public.domino_games SET state = st, current_turn = next_turn,
            turn_deadline = now() + v_next_delay
@@ -168,7 +167,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Bot has no playable tile → draw from stock
+  -- Bot n'a pas de tuile jouable → piocher
   stock := COALESCE(st->'stock', '[]'::jsonb);
   IF draw_mode = 'with' AND jsonb_array_length(stock) > 0 THEN
     drawn := stock -> 0; stock := stock - 0;
@@ -180,21 +179,22 @@ BEGIN
     st := jsonb_set(st, '{bot_think_until}',
                     to_jsonb((now() + make_interval(secs => v_delay_ms / 1000.0))::text), true);
     v_playable := public._domino_playable_tiles(st, v_slot);
-    st := jsonb_set(st, ARRAY['playable_tiles'], v_playable, true);
+    st := jsonb_set(st, ARRAY['playable_tiles'], COALESCE(v_playable, '[]'::jsonb), true);
     UPDATE public.domino_games SET state = st,
            turn_deadline = now() + public._domino_turn_delay(_game_id, v_slot)
      WHERE id = _game_id;
     RETURN;
   END IF;
 
-  -- Bot must pass
+  -- Bot doit passer
   st := jsonb_set(st, '{passes}', to_jsonb(COALESCE((st->>'passes')::int, 0) + 1), true);
   st := jsonb_set(st, '{last_pass_by}', to_jsonb(v_slot), true);
 
   next_turn := public._domino_next_playable_slot(_game_id, v_slot, st);
   IF next_turn IS NULL THEN
     winner_slot := public._domino_lowest_pip_slot(_game_id, st);
-    st := jsonb_set(st, ARRAY['turn_slot'], to_jsonb(winner_slot), true);
+    -- FIX: COALESCE winner_slot
+    st := jsonb_set(st, ARRAY['turn_slot'], to_jsonb(COALESCE(winner_slot, v_slot)), true);
     UPDATE public.domino_games SET state = st WHERE id = _game_id;
     PERFORM public._domino_end_round(_game_id, winner_slot);
     RETURN;
@@ -203,7 +203,7 @@ BEGIN
   v_next_delay := public._domino_turn_delay(_game_id, next_turn);
   st := public._domino_arm_bot_think(_game_id, next_turn, st);
   v_playable := public._domino_playable_tiles(st, next_turn);
-  st := jsonb_set(st, ARRAY['playable_tiles'], v_playable, true);
+  st := jsonb_set(st, ARRAY['playable_tiles'], COALESCE(v_playable, '[]'::jsonb), true);
   st := jsonb_set(st, ARRAY['turn_slot'], to_jsonb(next_turn), true);
   UPDATE public.domino_games SET state = st, current_turn = next_turn,
          turn_deadline = now() + v_next_delay
