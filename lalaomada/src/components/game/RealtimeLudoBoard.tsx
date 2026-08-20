@@ -724,7 +724,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         slot: state.no_move_display.slot,
         dice: state.no_move_display.dice
       });
-      const timer = setTimeout(() => setNoMoveDisplay(null), 1000);
+      const timer = setTimeout(() => setNoMoveDisplay(null), 500);
       return () => clearTimeout(timer);
     } else {
       setNoMoveDisplay(null);
@@ -752,7 +752,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       } else if (passData && onStateUpdate) {
         onStateUpdate(passData as GameState);
       }
-    }, 800);
+    }, 400);
     // Do NOT clear passTimer on cleanup — that was the bug!
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noMove, autoPassKey, gameId]);
@@ -1407,13 +1407,13 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-2 rounded-full bg-black/20 blur-sm animate-pulse" />
           )}
         </div>
-        {displayDice != null && rollingFace === null && !diceError && (
+        {displayDice != null && rollingFace === null && !diceError && !noMoveDisplay && (
           <div className="text-lg font-extrabold text-foreground">Dé : {displayDice}</div>
         )}
         {diceError && rollingFace === null && (
           <div className="text-xs font-bold text-destructive max-w-[120px] text-center leading-tight">{diceError}</div>
         )}
-        {(noMove || noMoveDisplay) && (
+        {noMoveDisplay && (
           <div className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 text-[10px] font-bold animate-pulse">
             PAS DE COUP
           </div>
