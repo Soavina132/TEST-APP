@@ -190,8 +190,8 @@ export default function GameWaitingRoom({
                 <Users className="w-3 h-3" />{parts.length}/{maxPlayers}
               </div>
               {Number(stake) > 0 && (
-                <div className="flex items-center gap-0.5 bg-amber-500/30 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-bold text-amber-100">
-                  <Coins className="w-3 h-3" />{Number(stake).toLocaleString("fr-FR")}
+                <div className="flex items-center gap-0.5 bg-amber-500/30 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-bold text-amber-100">
+                  <Coins className="w-3.5 h-3.5" />{Number(stake).toLocaleString("fr-FR")} Ar
                 </div>
               )}
             </div>
@@ -210,7 +210,10 @@ export default function GameWaitingRoom({
           <div className="text-xs font-bold"><span className="text-primary">{parts.length}/{maxPlayers}</span><span className="text-muted-foreground"> joueurs</span></div>
         )}
         {Number(stake) > 0 && (
-          <div className="text-[11px] text-muted-foreground">Cagnotte: <b className="text-foreground">{Number(pot).toLocaleString("fr-FR")}</b> Ar</div>
+          <div className="flex items-center gap-1 text-xs">
+            <span className="text-muted-foreground">Pot:</span>
+            <b className="text-amber-600 dark:text-amber-400">{Number(pot).toLocaleString("fr-FR")} Ar</b>
+          </div>
         )}
         {roomCode && (
           <div className="flex items-center gap-1.5 ml-auto bg-secondary px-2 py-1 rounded-lg">
