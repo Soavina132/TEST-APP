@@ -554,22 +554,21 @@ function JeuxPage() {
                   isOwnGame ? "border-primary/40" : "border-white/10 hover:border-primary/40 hover:shadow-primary/10"
                 }`}>
                 {/* Stake ribbon + game number */}
-                {game.stake > 0 && (
+                {game.stake > 0 && gameNumbers[game.id] && (
+                  <div className="absolute top-0 right-0 bg-primary/90 text-primary-foreground text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-bl-md shadow">
+                    {gameNumbers[game.id]}
+                  </div>
+                )}
+                {game.stake === 0 && (
                   <div className="absolute top-0 right-0 flex items-center gap-0.5">
                     {gameNumbers[game.id] && (
                       <div className="bg-primary/90 text-primary-foreground text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-bl-md shadow">
                         {gameNumbers[game.id]}
                       </div>
                     )}
-                    <div className="bg-amber-500/95 text-white text-xs font-black px-2 py-1 rounded-bl-lg shadow flex items-center gap-0.5">
-                      <Coins className="w-3 h-3" />
-                      {Number(game.stake).toLocaleString("fr-FR")} Ar
+                    <div className="bg-emerald-500/95 text-white text-xs font-black px-2 py-1 rounded-bl-lg shadow">
+                      GRATUIT
                     </div>
-                  </div>
-                )}
-                {game.stake === 0 && (
-                  <div className="absolute top-0 right-0 bg-emerald-500/95 text-white text-xs font-black px-2 py-1 rounded-bl-lg shadow">
-                    GRATUIT
                   </div>
                 )}
 
@@ -597,9 +596,6 @@ function JeuxPage() {
                     <div className="flex items-center gap-1 mt-0.5">
                       <span className="text-[10px] text-muted-foreground">Mise:</span>
                       <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{Number(game.stake).toLocaleString("fr-FR")} Ar</span>
-                      <span className="text-[10px] text-muted-foreground/60">·</span>
-                      <span className="text-[10px] text-muted-foreground">Pot:</span>
-                      <span className="text-[10px] font-bold text-foreground">{Number(game.pot || game.stake * game.max_players).toLocaleString("fr-FR")} Ar</span>
                     </div>
                   )}
 
