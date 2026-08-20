@@ -6,6 +6,7 @@ import ChatRoom from "@/components/chat/ChatRoom";
 import { MessageSquare, Users, UserPlus, Crown, Lock, ChevronRight, X } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { toast } from "sonner";
+import { parseGameShare } from "@/lib/share-game";
 import ludoGroup from "@/assets/groups/ludo-group.jpg";
 import dominoGroup from "@/assets/groups/domino-group.jpg";
 import fanoronaGroup from "@/assets/groups/fanorona-group.jpg";
@@ -157,9 +158,11 @@ function ChatHub() {
         .limit(1)
         .maybeSingle();
       if (last) {
+        const share = parseGameShare(last.body);
         previews[room.name] =
           last.attachment_type === "image" ? "📷 Image"
           : last.attachment_type === "audio" ? "🎤 Audio"
+          : share ? "🎮 Partie partagée"
           : (last.body || "").slice(0, 50) || "";
       }
     }));
@@ -191,11 +194,14 @@ function ChatHub() {
           .limit(1)
           .maybeSingle();
         if (last) {
+          const share = parseGameShare(last.body);
           lasts[rid] =
             last.attachment_type === "image"
               ? "📷 Image"
               : last.attachment_type === "audio"
               ? "🎤 Audio"
+              : share
+              ? "🎮 Partie partagée"
               : last.body?.slice(0, 50) || "";
         }
       })
