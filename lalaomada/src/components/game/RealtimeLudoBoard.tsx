@@ -743,7 +743,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     if (!noMove || !gameId) return;
     if (lastAutoPassRef.current === autoPassKey) return;
     lastAutoPassRef.current = autoPassKey;
-    // Fire after 1.5s — NO cleanup that could cancel this timer.
+    // Fire after 0.5s — NO cleanup that could cancel this timer.
     // The ref guard prevents duplicate calls if the effect re-runs.
     const passTimer = setTimeout(async () => {
       const { data: passData, error: passError } = await supabase.rpc("ludo_pass" as any, { _game_id: gameId } as any);
@@ -752,7 +752,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       } else if (passData && onStateUpdate) {
         onStateUpdate(passData as GameState);
       }
-    }, 750);
+    }, 500);
     // Do NOT clear passTimer on cleanup — that was the bug!
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noMove, autoPassKey, gameId]);
