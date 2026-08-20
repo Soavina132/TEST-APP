@@ -22,22 +22,21 @@ export const Route = createFileRoute("/_authenticated/chat")({
 
 type Tab = "global" | "dm";
 
-// ─── Game group meta ──────────────────────────────────────────────────────────
+// ─── Game group meta (hardcoded list — no backend needed) ─────────────────────
 
-const GAME_META: Record<string, { slug: string; cover: string; label: string; accent: string }> = {
-  ludo:    { slug: "ludo",    cover: ludoGroup,    label: "Groupe Ludo",     accent: "from-emerald-400/20 to-emerald-500/5" },
-  domino:  { slug: "domino",  cover: dominoGroup,  label: "Groupe Domino",   accent: "from-stone-400/20 to-stone-500/5" },
-  fanorona:{ slug: "fanorona",cover: fanoronaGroup,label: "Groupe Fanorona", accent: "from-amber-500/20 to-amber-700/5" },
-  chess:   { slug: "chess",   cover: chessGroup,   label: "Groupe Échec",    accent: "from-orange-400/20 to-orange-500/5" },
-  echec:   { slug: "chess",   cover: chessGroup,   label: "Groupe Échec",    accent: "from-orange-400/20 to-orange-500/5" },
-  rami:    { slug: "rami",    cover: ramiGroup,    label: "Groupe Rami",     accent: "from-rose-400/20 to-rose-500/5" },
-};
-
+const GAME_GROUPS = [
+  { slug: "ludo",     cover: ludoGroup,     label: "Groupe Ludo",     accent: "from-emerald-400/20 to-emerald-500/5", name: "Groupe Ludo" },
+  { slug: "domino",   cover: dominoGroup,   label: "Groupe Domino",   accent: "from-stone-400/20 to-stone-500/5",    name: "Groupe Domino" },
+  { slug: "fanorona", cover: fanoronaGroup, label: "Groupe Fanorona", accent: "from-amber-500/20 to-amber-700/5",     name: "Groupe Fanorona" },
+  { slug: "chess",    cover: chessGroup,    label: "Groupe Échec",    accent: "from-orange-400/20 to-orange-500/5",  name: "Groupe Échec" },
+  { slug: "rami",     cover: ramiGroup,     label: "Groupe Rami",     accent: "from-rose-400/20 to-rose-500/5",       name: "Groupe Rami" },
+];
 
 function metaFor(name?: string) {
   const k = (name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  for (const key of Object.keys(GAME_META)) {
-    if (k.includes(key)) return GAME_META[key];
+  for (const g of GAME_GROUPS) {
+    const key = g.slug.toLowerCase();
+    if (k.includes(key)) return g;
   }
   return null;
 }
@@ -93,7 +92,6 @@ function ChatHub() {
   const isPremium = isAdmin || profile?.is_premium === true;
 
   const [tab, setTab] = useState<Tab>("global");
-  const [rooms, setRooms] = useState<any[]>([]);
   const [active, setActive] = useState<any | null>(null);
   const [dms, setDms] = useState<any[]>([]);
   const [addDmCode, setAddDmCode] = useState("");
@@ -103,24 +101,22 @@ function ChatHub() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [roomsError, setRoomsError] = useState<string | null>(null);
+  const [openingRoom, setOpeningRoom] = useState<string | null>(null);
 
-  const loadRooms = async () => {
-    setRoomsError(null);
+  // Load only DMs from the server (not global groups — those are hardcoded)
+  const loadDms = async () => {
     const { data, error } = await supabase
       .from("chat_rooms")
       .select("*")
+      .eq("type", "dm")
+      .or(`dm_user_a.eq.${user?.id},dm_user_b.eq.${user?.id}`)
       .order("created_at", { ascending: true });
     if (error) {
-      console.error("[chat] loadRooms error:", error);
-      setRoomsError(error.message || "Erreur inconnue");
+      console.error("[chat] loadDms error:", error);
+      setDms([]);
+      return;
     }
-    const all = data || [];
-    console.log("[chat] loadRooms:", all.length, "rooms,", all.filter(r => r.type === "global" && r.enabled !== false).length, "global");
-    // All active global communities (official game groups + any community
-    // the admin created from the admin panel) — DMs are handled separately.
-    setRooms(all.filter((r: any) => r.type === "global" && r.enabled !== false));
-    const myDms = all.filter((r: any) => r.type === "dm");
+    const myDms = data || [];
     const otherIds = myDms.map((r: any) =>
       r.dm_user_a === user?.id ? r.dm_user_b : r.dm_user_a
     );
@@ -141,6 +137,7 @@ function ChatHub() {
     }
   };
 
+  // Fetch unread counts for all known room IDs (DMs)
   const refreshUnread = useCallback(async (roomIds: string[]) => {
     if (!user || !roomIds.length || typeof window === "undefined") return;
     const counts: Record<string, number> = {};
@@ -178,16 +175,12 @@ function ChatHub() {
     setLastMsg(prev => ({ ...prev, ...lasts }));
   }, [user?.id]);
 
+  // Load DMs on mount
   useEffect(() => {
-    loadRooms();
+    loadDms();
   }, [user?.id]);
 
-  useEffect(() => {
-    const allRooms = [...rooms, ...dms];
-    if (allRooms.length) refreshUnread(allRooms.map(r => r.id));
-  }, [rooms.length, dms.length, refreshUnread]);
-
-  // Real-time unread refresh
+  // Real-time unread refresh for DMs
   useEffect(() => {
     if (!user) return;
     let dt: ReturnType<typeof setTimeout>;
@@ -196,13 +189,49 @@ function ChatHub() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, () => {
         clearTimeout(dt);
         dt = setTimeout(() => {
-          const allRooms = [...rooms, ...dms];
-          if (allRooms.length) refreshUnread(allRooms.map(r => r.id));
+          if (dms.length) refreshUnread(dms.map(r => r.id));
         }, 500);
       })
       .subscribe();
     return () => { clearTimeout(dt); supabase.removeChannel(ch); };
-  }, [user?.id, rooms.length, dms.length, refreshUnread]);
+  }, [user?.id, dms.length, refreshUnread]);
+
+  // Refresh unread for DMs when they change
+  useEffect(() => {
+    if (dms.length) refreshUnread(dms.map(r => r.id));
+  }, [dms.length, refreshUnread]);
+
+  // Open a global game group — fetch the room from the server only on click
+  const openGameGroup = async (group: typeof GAME_GROUPS[0]) => {
+    setOpeningRoom(group.slug);
+    try {
+      const { data: room, error } = await supabase
+        .from("chat_rooms")
+        .select("*")
+        .eq("name", group.name)
+        .eq("type", "global")
+        .maybeSingle();
+
+      if (error) {
+        console.error("[chat] openGameGroup error:", error);
+        toast.error("Impossible de charger ce groupe");
+        setOpeningRoom(null);
+        return;
+      }
+
+      if (room) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(lastReadKey(user?.id, room.id), new Date().toISOString());
+        }
+        setUnread(prev => ({ ...prev, [room.id]: 0 }));
+        setActive(room);
+      } else {
+        toast.error("Ce groupe n'existe pas encore");
+      }
+    } finally {
+      setOpeningRoom(null);
+    }
+  };
 
   const openRoom = (r: any) => {
     if (typeof window !== "undefined") {
@@ -216,7 +245,6 @@ function ChatHub() {
     if (!target) return;
     if (target.id === user?.id) { toast.error(t("cant_message_self")); return; }
 
-    // Check if DM already exists locally to avoid extra RPC
     const existing = dms.find(
       (r: any) =>
         (r.dm_user_a === user?.id && r.dm_user_b === target.id) ||
@@ -224,15 +252,13 @@ function ChatHub() {
     );
     if (existing) { openRoom(existing); return; }
 
-    // Use the existing SECURITY DEFINER RPC — bypasses RLS safely
     const { data: roomId, error } = await supabase.rpc(
       "chat_get_or_create_dm" as any,
       { _other: target.id } as any
     );
     if (error || !roomId) { toast.error(t("conversation_create_error")); return; }
     toast.success(`${t("conversation_created_with")} ${target.pseudo} ${t("conversation_created_suffix")}`);
-    await loadRooms();
-    // Fetch the new room and open it
+    await loadDms();
     const { data: newRoom } = await supabase
       .from("chat_rooms")
       .select("*")
@@ -243,7 +269,6 @@ function ChatHub() {
 
   const addDm = async () => {
     if (!addDmCode.trim()) return;
-    // Resolve the player by unique code
     const { data: target } = await supabase
       .from("profiles")
       .select("id,pseudo,avatar_url,unique_code")
@@ -271,7 +296,6 @@ function ChatHub() {
     await loadPlayerList("");
   };
 
-  // Server-side search, debounced
   useEffect(() => {
     if (!showUserPicker) return;
     const id = setTimeout(() => loadPlayerList(userSearch), 300);
@@ -327,17 +351,14 @@ function ChatHub() {
   // ── Room list view ─────────────────────────────────────────────────────────
   return (
     <main className="max-w-md mx-auto px-4 py-4 space-y-4 pb-28">
-      {/* Page title */}
       <h1 className="text-2xl font-bold">{t("discussion")}</h1>
 
-      {/* Tabs */}
       <div className="grid grid-cols-2 gap-2">
         <TabBtn
           icon={<Users className="w-4 h-4" />}
           label={t("groups_tab_label")}
           active={tab === "global"}
           onClick={() => setTab("global")}
-          badge={rooms.reduce((s, r) => s + (unread[r.id] || 0), 0)}
         />
         <TabBtn
           icon={isPremium ? <MessageSquare className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
@@ -349,35 +370,21 @@ function ChatHub() {
         />
       </div>
 
-      {/* ── Global groups ── */}
+      {/* ── Global groups (hardcoded list — no backend query) ── */}
       {tab === "global" && (
         <div className="space-y-2">
-          {roomsError ? (
-            <div className="rounded-3xl bg-destructive/10 border border-destructive/30 p-4 text-center">
-              <p className="text-sm text-destructive font-medium">Debug: {roomsError}</p>
-              <button onClick={() => loadRooms()} className="mt-2 text-xs underline">Réessayer</button>
-            </div>
-          ) : rooms.length === 0 ? (
-            <div className="rounded-3xl bg-card p-6 text-center text-muted-foreground">
-              {t("no_groups_available")}
-              <button onClick={() => loadRooms()} className="mt-2 text-xs underline block mx-auto">Recharger</button>
-            </div>
-          ) : (
-            rooms.map(r => {
-              const meta = metaFor(r.name);
-              return (
-                <GroupCard
-                  key={r.id}
-                  room={r}
-                  cover={meta?.cover}
-                  label={meta?.label || r.name}
-                  preview={lastMsg[r.id]}
-                  unread={unread[r.id] || 0}
-                  onOpen={() => openRoom(r)}
-                />
-              );
-            })
-          )}
+          {GAME_GROUPS.map(group => (
+            <GroupCard
+              key={group.slug}
+              room={{ name: group.name, enabled: true }}
+              cover={group.cover}
+              label={group.label}
+              preview={lastMsg[group.name]}
+              unread={0}
+              loading={openingRoom === group.slug}
+              onOpen={() => openGameGroup(group)}
+            />
+          ))}
         </div>
       )}
 
@@ -385,7 +392,6 @@ function ChatHub() {
       {tab === "dm" && (
         isPremium ? (
           <div className="space-y-3">
-            {/* Add DM */}
             <div className="rounded-3xl bg-card p-4 flex gap-2">
               <input
                 value={addDmCode}
@@ -557,13 +563,14 @@ function UnreadBadge({ n }: { n: number }) {
 }
 
 function GroupCard({
-  room, cover, label, preview, unread, onOpen,
+  room, cover, label, preview, unread, loading, onOpen,
 }: {
   room: any;
   cover?: string;
   label: string;
   preview?: string;
   unread: number;
+  loading?: boolean;
   onOpen: () => void;
 }) {
   const { t } = useT();
@@ -571,7 +578,8 @@ function GroupCard({
   return (
     <button
       onClick={onOpen}
-      className="group w-full rounded-2xl bg-card border border-border/60 p-3 flex items-center gap-3 text-left transition-all hover:border-primary/40 hover:shadow-sm active:scale-[0.99]"
+      disabled={loading}
+      className="group w-full rounded-2xl bg-card border border-border/60 p-3 flex items-center gap-3 text-left transition-all hover:border-primary/40 hover:shadow-sm active:scale-[0.99] disabled:opacity-60"
     >
       <div className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 ring-1 ring-border/60 bg-gradient-to-br ${meta?.accent ?? "from-primary/15 to-primary/5"}`}>
         {cover ? (
@@ -598,10 +606,12 @@ function GroupCard({
           )}
         </div>
         <div className="text-xs text-muted-foreground truncate mt-0.5">
-          {preview || (room.enabled ? t("active_label") : t("inactive_label"))}
+          {loading ? "Chargement..." : (preview || (room.enabled ? t("active_label") : t("inactive_label")))}
         </div>
       </div>
-      {unread > 0 ? (
+      {loading ? (
+        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin shrink-0" />
+      ) : unread > 0 ? (
         <UnreadBadge n={unread} />
       ) : (
         <ChevronRight className="w-4 h-4 text-muted-foreground/60 shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -609,4 +619,3 @@ function GroupCard({
     </button>
   );
 }
-
