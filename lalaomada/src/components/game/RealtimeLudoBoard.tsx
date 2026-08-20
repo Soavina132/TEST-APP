@@ -708,7 +708,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   // ═══ Server-driven no_move_display + frontend auto-pass ═══
   // ludo_roll sets must_move=true + no_move_display = { slot, dice, until }
   // but does NOT pass the turn. The frontend shows "PAS DE COUP" + the dice
-  // for 1.5s, then calls ludo_pass to pass the turn. ludo_tick_all is the
+  // for 1s, then calls ludo_pass to pass the turn. ludo_tick_all is the
   // server-side fallback (passes after 2s if the frontend doesn't).
   const [noMoveDisplay, setNoMoveDisplay] = useState<{ slot: number; dice: number } | null>(null);
 
@@ -724,7 +724,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         slot: state.no_move_display.slot,
         dice: state.no_move_display.dice
       });
-      const timer = setTimeout(() => setNoMoveDisplay(null), 2000);
+      const timer = setTimeout(() => setNoMoveDisplay(null), 1000);
       return () => clearTimeout(timer);
     } else {
       setNoMoveDisplay(null);
@@ -752,7 +752,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       } else if (passData && onStateUpdate) {
         onStateUpdate(passData as GameState);
       }
-    }, 500);
+    }, 800);
     // Do NOT clear passTimer on cleanup — that was the bug!
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noMove, autoPassKey, gameId]);
