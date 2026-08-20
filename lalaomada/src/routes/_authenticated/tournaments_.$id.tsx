@@ -179,7 +179,7 @@ function TournamentDetail() {
 
   useEffect(() => {
     if (myMatch && myMatch.game_id) {
-      const target = t?.game_slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id";
+      const target = t?.game_slug === "ludo" ? "/jeux/ludo/$id" : t?.game_slug === "chess" ? "/jeux/chess/$id" : t?.game_slug === "fanorona" ? "/jeux/fanorona/$id" : t?.game_slug === "rami" ? "/jeux/rami/$id" : "/jeux/domino/$id";
       navigate({ to: target, params: { id: myMatch.game_id } });
     }
   }, [myMatch?.id]);
@@ -310,7 +310,7 @@ function TournamentDetail() {
       {/* ─────────────── ACTION BUTTON ─────────────── */}
       <div className="px-4 py-2">
         {myMatch ? (
-          <Link to={t.game_slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"}
+          <Link to={t.game_slug === "ludo" ? "/jeux/ludo/$id" : t.game_slug === "chess" ? "/jeux/chess/$id" : t.game_slug === "fanorona" ? "/jeux/fanorona/$id" : t.game_slug === "rami" ? "/jeux/rami/$id" : "/jeux/domino/$id"}
             params={{ id: myMatch.game_id }}
             className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 animate-pulse">
             <Play className="w-4 h-4" /> Rejoindre mon match
@@ -636,7 +636,7 @@ function MatchupCard({ m, byId, me, t }: { m: any; byId: Record<string, any>; me
         </div>
       ))}
       {isRunning && m.game_id && me && m.entrant_ids.includes(me.id) && (
-        <Link to={t.game_slug === "ludo" ? "/jeux/ludo/$id" : "/jeux/domino/$id"} params={{ id: m.game_id }}
+        <Link to={t.game_slug === "ludo" ? "/jeux/ludo/$id" : t.game_slug === "chess" ? "/jeux/chess/$id" : t.game_slug === "fanorona" ? "/jeux/fanorona/$id" : t.game_slug === "rami" ? "/jeux/rami/$id" : "/jeux/domino/$id"} params={{ id: m.game_id }}
           className="mt-2 block w-full py-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold text-center">
           ▶ Rejoindre
         </Link>
@@ -839,7 +839,7 @@ function NextMatchesTab({ matches, byId, me, t, now }: {
         <div>• Chaque match dure au maximum {Math.floor(matchDurSec / 60)} minutes</div>
         <div>• {Math.floor(breakSec / 60)} minutes de préparation entre chaque phase</div>
         <div>• {t.lobby_minutes ?? 5} minutes en salle d'attente avant le match</div>
-        <div>• Règles officielles {t.game_slug === "ludo" ? "du Ludo" : "du Domino"} — identiques au jeu normal</div>
+        <div>• Règles officielles {t.game_slug === "ludo" ? "du Ludo" : t.game_slug === "domino" ? "du Domino" : t.game_slug === "fanorona" ? "du Fanorona" : t.game_slug === "chess" ? "des Échecs" : "du Rami"} — identiques au jeu normal</div>
       </div>
     </div>
   );

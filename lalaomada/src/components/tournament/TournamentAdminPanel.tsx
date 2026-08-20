@@ -8,6 +8,9 @@ import { Trophy, Loader2, ExternalLink } from "lucide-react";
 const GAMES = [
   { slug: "ludo", emoji: "🎲", label: "Ludo" },
   { slug: "domino", emoji: "🁣", label: "Domino" },
+  { slug: "fanorona", emoji: "🔶", label: "Fanorona" },
+  { slug: "chess", emoji: "♟️", label: "Échecs" },
+  { slug: "rami", emoji: "🃏", label: "Rami" },
 ];
 
 const SPLITS: Record<number, [number, number, number, number]> = {
