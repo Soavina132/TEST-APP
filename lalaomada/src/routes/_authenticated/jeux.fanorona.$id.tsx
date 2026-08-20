@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { serverNow } from "@/lib/server-time";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import SpectatorLeaveButton from "@/components/game/SpectatorLeaveButton";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
@@ -596,7 +597,12 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
           onQuit={async () => { await supabase.rpc("fanorona_forfeit" as any, { _game_id: id } as any); navigate({ to: "/jeux" }); }}
           onToggleReady={async (ready: boolean) => { await supabase.rpc("fanorona_set_ready" as any, { _game_id: id, _ready: ready } as any); }}
         />
-      </main>
+            {!isPlayer && game?.status === "playing" && (
+        <div className="fixed bottom-4 right-4 z-40">
+          <SpectatorLeaveButton className="px-4 py-2 text-sm shadow-lg" />
+        </div>
+      )}
+    </main>
     );
   }
 

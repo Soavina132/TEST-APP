@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { GameLoader } from "@/components/game/GameLoader";
 import { supabase } from "@/integrations/supabase/client";
+import SpectatorLeaveButton from "@/components/game/SpectatorLeaveButton";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { ArrowLeft, Flag, Handshake, Copy, RotateCw, LogOut, Plus, Pause, Volume2, VolumeX, Scale, ShieldAlert } from "lucide-react";
@@ -807,8 +808,11 @@ function ChessPage() {
           {gameNumber && <span className="text-[10px] font-mono font-bold text-primary/80 ml-1">{gameNumber}</span>}
         </div>
         {!myColor ? (
-          <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
-            Spectateur
+          <div className="flex items-center gap-1">
+            <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
+              Spectateur
+            </div>
+            <SpectatorLeaveButton />
           </div>
         ) : (
           <div className="flex items-center gap-1">

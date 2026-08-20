@@ -2534,6 +2534,7 @@ function SubscriptionSettingsForm() {
         free_games_daily_limit: Number(s.free_games_daily_limit) || 0,
         free_trial_max_days: Number(s.free_trial_max_days) || 0,
         allow_free_join: !!s.allow_free_join,
+        subscription_disabled: !!s.subscription_disabled,
       } as any).eq("id", 1);
       if (error) throw error;
       toast.success("Abonnements & limites mis à jour");
@@ -2554,6 +2555,25 @@ function SubscriptionSettingsForm() {
   return (
     <div className="rounded-3xl bg-card p-5 shadow-sm space-y-4">
       <div className="font-bold flex items-center gap-2"><Crown className="w-4 h-4" /> Abonnements & Limites de jeux</div>
+
+      {/* ── Toggle: disable entire subscription system ── */}
+      <div className="rounded-2xl border-2 border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" checked={!!s.subscription_disabled}
+            onChange={e => setS({ ...s, subscription_disabled: e.target.checked })}
+            className="w-6 h-6 rounded accent-amber-500 shrink-0" />
+          <div className="flex-1">
+            <div className="text-sm font-bold flex items-center gap-2">
+              {s.subscription_disabled ? "🔓 Abonnements DÉSACTIVÉS" : "🔒 Abonnements activés"}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {s.subscription_disabled
+                ? "Tous les utilisateurs peuvent jouer sans limite. Aucun abonnement requis, aucune restriction de parties."
+                : "Le système d'abonnement est actif. Les limites gratuites et les quotas par tier s'appliquent."}
+            </div>
+          </div>
+        </label>
+      </div>
 
       {/* ── Prix et parties/mois par tier ── */}
       <div className="space-y-3">

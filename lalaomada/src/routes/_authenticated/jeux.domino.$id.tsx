@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { serverNow } from "@/lib/server-time";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import SpectatorLeaveButton from "@/components/game/SpectatorLeaveButton";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { useGameConnection } from "@/hooks/game/use-game-connection";
@@ -405,9 +406,13 @@ function DominoPage() {
                   {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
                 </button>
               )}
-              <button onClick={forfeit} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
-                <LogOut className="w-2.5 h-2.5" /> {t("quit_refunded")}
-              </button>
+              {isPlayer ? (
+                <button onClick={forfeit} className="px-2 py-0.5 rounded-full bg-destructive text-white text-[10px] font-semibold flex items-center gap-0.5">
+                  <LogOut className="w-2.5 h-2.5" /> {t("quit_refunded")}
+                </button>
+              ) : (
+                <SpectatorLeaveButton />
+              )}
             </div>
           </div>
         );

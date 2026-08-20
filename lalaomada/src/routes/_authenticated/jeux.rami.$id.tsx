@@ -7,6 +7,7 @@ import { useGameConnection } from "@/hooks/game/use-game-connection";
 import { useFastRealtime } from "@/hooks/game/use-fast-realtime";
 import { GameReconnectOverlay } from "@/components/game/GameReconnectOverlay";
 import { supabase } from "@/integrations/supabase/client";
+import SpectatorLeaveButton from "@/components/game/SpectatorLeaveButton";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { copyText } from "@/lib/clipboard";
@@ -2888,6 +2889,11 @@ function RamiPage() {
           </div>
         );
       })()}
+          {!isPlayer && game?.status === "playing" && (
+        <div className="fixed bottom-4 right-4 z-40">
+          <SpectatorLeaveButton className="px-4 py-2 text-sm shadow-lg" />
+        </div>
+      )}
     </main>
 
   );

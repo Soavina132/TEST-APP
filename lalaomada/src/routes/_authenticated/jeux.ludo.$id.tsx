@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { serverNow } from "@/lib/server-time";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import SpectatorLeaveButton from "@/components/game/SpectatorLeaveButton";
 import { useAuth } from "@/hooks/use-auth";
 import { copyText } from "@/lib/clipboard";
 import RealtimeLudoBoard from "@/components/game/RealtimeLudoBoard";
@@ -249,8 +250,11 @@ function GamePage() {
           {gameNumber && <span className="text-[10px] font-mono font-bold text-primary/80 ml-1">{gameNumber}</span>}
         </div>
         {isSpectator ? (
-          <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
-            <Eye className="w-3 h-3" /> {t("spectator_lbl")}
+          <div className="flex items-center gap-1">
+            <div className="px-2 py-0.5 rounded-full bg-secondary text-[10px] font-semibold flex items-center gap-1">
+              <Eye className="w-3 h-3" /> {t("spectator_lbl")}
+            </div>
+            <SpectatorLeaveButton />
           </div>
         ) : (
           <div className="flex items-center gap-1">
