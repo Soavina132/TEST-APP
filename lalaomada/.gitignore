@@ -38,3 +38,7 @@ dist-ssr
 .vercel/
 .vercel
 .env*
+
+# Stray build outputs — never commit
+.netlify/
+.netlify
