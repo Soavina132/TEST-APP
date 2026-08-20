@@ -431,7 +431,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         }
         if (m.to.s === "finished") {
           for (let k = fromK + 1; k <= 57; k++) {
-            await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
+            await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 30);
             sfx.pawnStep();
           }
           await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "finished", k: 57 }, 30);
@@ -439,13 +439,13 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           continue;
         }
         for (let k = fromK + 1; k <= toK; k++) {
-          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 35);
+          await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 30);
           sfx.pawnStep();
         }
       }
       for (const c of captures) {
         sfx.capture();
-        await stepAnim(setDisplayedPawns, c.slot, c.idx, { s: "yard", k: -1 }, 200);
+        await stepAnim(setDisplayedPawns, c.slot, c.idx, { s: "yard", k: -1 }, 80);
       }
       // Merge: use latestTarget but keep current position for skipped (stale) pawns
       if (skippedPawns.size > 0) {
@@ -665,13 +665,13 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         const toK = fromK + dice;
         if (toK <= 57) {
           for (let k = fromK + 1; k <= toK; k++) {
-            await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
+            await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 30);
             sfx.pawnStep();
           }
         } else {
           // Going to finished
           for (let k = fromK + 1; k <= 57; k++) {
-            await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 35);
+            await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 30);
             sfx.pawnStep();
           }
           await stepAnim(setDisplayedPawns, slot, idx, { s: "finished", k: 57 }, 30);
@@ -792,12 +792,12 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     // Pawn visual effect based on power type
     const effectType = pe.reward || pe.type;
     setPawnPowerEffect({ slot: pe.slot, type: effectType, key, pawn: pe.pawn });
-    setTimeout(() => setPawnPowerEffect(null), 1500);
+    setTimeout(() => setPawnPowerEffect(null), 800);
     // Board-level effect: BUG 3 FIX — use pe.cell from backend instead of searching by type
     const eventCell = pe.cell;
     if (eventCell !== undefined && eventCell !== null) {
       setBoardPowerEffect({ cell: eventCell, type: effectType, key });
-      setTimeout(() => setBoardPowerEffect(null), 1800);
+      setTimeout(() => setBoardPowerEffect(null), 1000);
     }
   }, [state.power_event]);
 
@@ -863,7 +863,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
     else if (ev === "double_roll:rejoue") sfx.powerTile("double_roll");
     else if (ev === "lucky_star:rejoue") sfx.powerTile("lucky_star");
     else if (ev.startsWith("six")) sfx.six();
-    else if (ev.startsWith("capture")) { sfx.capture(); toast.success("🎯 Pion capturé !", { duration: 2000 }); }
+    else if (ev.startsWith("capture")) { sfx.capture(); toast.success("🎯 Pion capturé !", { duration: 1000 }); }
     else if (ev === "home:continue") sfx.turnChange();
     else if (ev.startsWith("home")) sfx.home();
     else if (ev.startsWith("roll:") && ev.endsWith(":no_move")) sfx.noMove();
