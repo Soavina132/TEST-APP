@@ -738,6 +738,14 @@ export default function ChatRoom({
         toast.error(t("mic_unavailable")); return;
       }
       cancelVoice();
+      // Pre-check: if browser already denied mic, show helpful hint immediately
+      try {
+        const perm = await navigator.permissions?.query({ name: "microphone" as PermissionName });
+        if (perm?.state === "denied") {
+          toast.error("Micro bloqué. Touchez l'icône 🔒 près de l'URL → Autorisez le micro → Rechargez la page.", { duration: 8000 });
+          return;
+        }
+      } catch {}
       // Request audio with echo cancellation for cleaner recordings
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -781,7 +789,15 @@ export default function ChatRoom({
         recStreamRef.current = null;
       }
       if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
-        toast.error("Microphone access denied. Please allow microphone permission.");
+        // Check if the permission was previously denied (browser remembers it)
+        let hint = "Accès micro refusé. Autorisez le microphone dans les paramètres du navigateur puis rechargez la page.";
+        try {
+          const perm = await navigator.permissions?.query({ name: "microphone" as PermissionName });
+          if (perm?.state === "denied") {
+            hint = "Micro bloqué. Touchez l'"'"'icône 🔒 près de l'"'"'URL → Autorisez le micro → Rechargez la page.";
+          }
+        } catch {}
+        toast.error(hint, { duration: 8000 });
       } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
         toast.error("No microphone found on this device.");
       } else {
