@@ -2522,21 +2522,23 @@ function SubscriptionSettingsForm() {
   const save = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.from("app_settings").update({
-        sub_starter_price_ar: Number(s.sub_starter_price_ar) || 0,
-        sub_starter_matches: Number(s.sub_starter_matches) || 0,
-        sub_basic_price_ar: Number(s.sub_basic_price_ar) || 0,
-        sub_basic_matches: Number(s.sub_basic_matches) || 0,
-        sub_standard_price_ar: Number(s.sub_standard_price_ar) || 0,
-        sub_standard_matches: Number(s.sub_standard_matches) || 0,
-        sub_premium_price_ar: Number(s.sub_premium_price_ar) || 0,
-        sub_premium_matches: Number(s.sub_premium_matches) || 0,
-        free_games_daily_limit: Number(s.free_games_daily_limit) || 0,
-        free_trial_max_days: Number(s.free_trial_max_days) || 0,
-        allow_free_join: !!s.allow_free_join,
-        subscription_disabled: !!s.subscription_disabled,
-      } as any).eq("id", 1);
+      // Use dedicated RPC that bypasses trigger validation on other fields
+      // subscription_disabled is handled separately by the checkbox toggle
+      const { data, error } = await supabase.rpc("save_subscription_settings" as any, {
+        p_sub_starter_price_ar: Number(s.sub_starter_price_ar) || 0,
+        p_sub_starter_matches: Number(s.sub_starter_matches) || 0,
+        p_sub_basic_price_ar: Number(s.sub_basic_price_ar) || 0,
+        p_sub_basic_matches: Number(s.sub_basic_matches) || 0,
+        p_sub_standard_price_ar: Number(s.sub_standard_price_ar) || 0,
+        p_sub_standard_matches: Number(s.sub_standard_matches) || 0,
+        p_sub_premium_price_ar: Number(s.sub_premium_price_ar) || 0,
+        p_sub_premium_matches: Number(s.sub_premium_matches) || 0,
+        p_free_games_daily_limit: Number(s.free_games_daily_limit) || 0,
+        p_free_trial_max_days: Number(s.free_trial_max_days) || 0,
+        p_allow_free_join: !!s.allow_free_join,
+      } as any);
       if (error) throw error;
+      if (data?.ok === false) throw new Error(data?.error || "Échec");
       toast.success("Abonnements & limites mis à jour");
     } catch (e: any) {
       toast.error(e.message || "Erreur");
