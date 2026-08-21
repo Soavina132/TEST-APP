@@ -1,0 +1,19 @@
+-- ============================================================
+-- Migration: Fix Rami deck composition & pack count
+-- Date: 2026-08-21
+--
+-- Problèmes corrigés:
+-- 1. Jokers: 4 par paquet (cards 52-55) → 2 par paquet (cards 52-53)
+--    _max passe de 56 à 54 pour classique/double
+-- 2. Paquets: 3 paquets pour 3-4 joueurs → 2 paquets pour tous
+--    La pioche était beaucoup trop grande (128 pour 3 joueurs)
+--
+-- Configuration finale:
+--   - 2 joueurs: 2 paquets × 54 = 108 cartes, pioche = 81
+--   - 3 joueurs: 2 paquets × 54 = 108 cartes, pioche = 68
+--   - 4 joueurs: 2 paquets × 54 = 108 cartes, pioche = 55
+--   - Mode sans/aleatoire: 2 paquets × 52 = 104 cartes
+--
+-- Note: CARD_BASE(c) = c % 56 reste inchangé (offset 56 conservé)
+-- Les cards 54-55 n'existent plus dans le deck mais % 56 reste correct
+-- ============================================================

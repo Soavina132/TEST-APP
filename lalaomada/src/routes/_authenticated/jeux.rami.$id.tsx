@@ -217,11 +217,11 @@ const CARD_POINTS = (c: number): number => {
 };
 
 // ── Joker detection — mirrors backend _rami_is_joker ──────────────────────
-// Card encoding: 0-51 deck A, 52-53 jokers deck A, 56-107 deck B, 108-109 jokers deck B
+// Card encoding: 0-51 deck A, 52-53 jokers deck A (2 jokers), 56-107 deck B, 108-109 jokers deck B (2 jokers)
 // base = c % 56, so physical jokers always have base 52-55
 function isJokerCard(c: number, jokerMode: string, randomJoker: number | null): boolean {
   const base = CARD_BASE(c);
-  // Physical jokers (cards 52,53 only — 2 per deck) — in classique/double
+  // Physical jokers (cards 52,53 — 2 per deck) — in classique/double
   if (base >= 52 && (jokerMode === 'classique' || jokerMode === 'double')) return true;
   // Color-opposite jokers — only in aleatoire/double
   if ((jokerMode === 'aleatoire' || jokerMode === 'double') && randomJoker !== null) {
