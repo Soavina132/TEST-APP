@@ -71,7 +71,7 @@ export default function ContactFab() {
                     e.preventDefault();
                     openExternal(whatsappLink);
                   }}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#25D366] text-white font-semibold flex items-center gap-3 active:scale-95 transition"
+                  className="w-full px-4 py-3 rounded-2xl bg-secondary font-semibold flex items-center gap-3 active:scale-95 transition"
                 >
                   <MessageCircle className="w-5 h-5" /> WhatsApp
                 </a>
@@ -79,7 +79,7 @@ export default function ContactFab() {
               {c.contact_email && (
                 <a
                   href={`mailto:${c.contact_email}`}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#25D366] text-white font-semibold flex items-center gap-3 active:scale-95 transition"
+                  className="w-full px-4 py-3 rounded-2xl bg-secondary font-semibold flex items-center gap-3 active:scale-95 transition"
                 >
                   <Mail className="w-5 h-5" /> E-mail
                 </a>
