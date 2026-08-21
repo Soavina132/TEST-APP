@@ -175,7 +175,8 @@ function GamePage() {
           onQuit={quit}
           onToggleReady={async (ready): Promise<void> => {
             const { error } = await supabase.rpc("ludo_set_ready" as any, { _game_id: id, _ready: ready } as any);
-            if (error) { void toast.error(error.message); }
+            // Ne pas afficher de toast si la partie vient de démarrer (l'autre joueur a déjà lancé la partie)
+            if (error && error.message !== "Partie non ouverte") { void toast.error(error.message); }
           }}
           matchType={game.match_type === "groupe" ? "groupe" : "solo"}
           onJoinTeam={async (team) => {

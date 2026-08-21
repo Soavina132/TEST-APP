@@ -1,0 +1,19 @@
+-- ============================================================
+-- Migration: Fix timeout et toast "Partie non ouverte" au démarrage Ludo
+-- Date: 2026-08-21
+--
+-- Problème 1: "canceling statement due to statement timeout"
+-- Quand deux joueurs cliquent "Prêt" en même temps, le 2ème attend
+-- que le 1er libère le verrou FOR UPDATE. Si l'attente dépasse le
+-- statement_timeout, la requête échoue.
+--
+-- Problème 2: Toast "La partie est pas active" au début du jeu
+-- Le 2ème joueur reçoit l'erreur "Partie non ouverte" qui s'affiche
+-- en toast. De plus, le cleanup du GameWaitingRoom appelle
+-- ludo_set_ready(false) quand la partie est déjà "playing".
+--
+-- Fix:
+-- 1. Vérifier le statut SANS verrou d'abord (fast path)
+-- 2. Si la partie est déjà "playing", juste mettre à jour ready et retourner
+-- 3. Ne lever AUCUNE exception quand la partie est déjà démarrée
+-- ============================================================
