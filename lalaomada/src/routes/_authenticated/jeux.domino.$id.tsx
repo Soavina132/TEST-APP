@@ -354,6 +354,7 @@ function DominoPage() {
           createdAt={game.created_at}
           gameStatus={game.status}
           gameId={id}
+          hostId={game.host_id}
           onQuit={forfeit}
           onToggleReady={async (r) => {
             const { error } = await supabase.rpc("domino_set_ready" as any, { _game_id: id, _ready: r } as any);

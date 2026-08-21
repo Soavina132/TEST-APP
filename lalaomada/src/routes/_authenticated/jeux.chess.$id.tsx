@@ -746,6 +746,7 @@ function ChessPage() {
           createdAt={game.created_at}
           gameStatus={game.status}
           gameId={id}
+          hostId={game.host_id}
           onQuit={forfeitChess}
           onToggleReady={async (ready) => {
             const { error } = await supabase.rpc("chess_set_ready" as any, { _game_id: game.id, _ready: ready } as any);

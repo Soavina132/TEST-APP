@@ -1,5 +1,5 @@
 import { serverNow } from "@/lib/server-time";
-import { LogOut, Copy, Check, X, Share2, Lock, Timer, Users, Coins } from "lucide-react";
+import { LogOut, Copy, Check, X, Share2, Lock, Timer, Users, Coins, PlayCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { setWaitingRoomActive } from "@/lib/game-ui-state";
 import { toast } from "sonner";
@@ -56,6 +56,7 @@ export default function GameWaitingRoom({
   onJoinTeam,
   gameStatus = "open",
   gameId,
+  hostId,
 }: {
   gameLabel: string;
   parts: Participant[];
@@ -75,6 +76,7 @@ export default function GameWaitingRoom({
   onJoinTeam?: (team: number) => void | Promise<void>;
   gameStatus?: string;
   gameId?: string;
+  hostId?: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [avatars, setAvatars] = useState<Record<string, { pseudo?: string; avatar_url?: string }>>({});
@@ -137,6 +139,25 @@ export default function GameWaitingRoom({
   const readyCount = parts.filter(p => p.ready).length;
   const allReady = parts.length === maxPlayers && readyCount === maxPlayers;
   const full = parts.length >= maxPlayers;
+  const isHost = !!hostId && !!meUserId && hostId === meUserId;
+  const canStartEarly = isHost && isParticipant && parts.length >= 2 && parts.length < maxPlayers && gameStatus === "open";
+  const [starting, setStarting] = useState(false);
+
+  const startEarly = async () => {
+    if (!gameId || !slug || starting) return;
+    setStarting(true);
+    try {
+      const { error } = await supabase.rpc("start_with_current_players" as any, {
+        _game_type: slug, _game_id: gameId,
+      } as any);
+      if (error) throw error;
+      toast.success(`Partie démarrée à ${parts.length} joueurs`);
+    } catch (e: any) {
+      toast.error(e.message || "Impossible de démarrer");
+    } finally {
+      setStarting(false);
+    }
+  };
 
   useEffect(() => {
     const missing = parts.map(p => p.user_id).filter(uid => uid && !avatars[uid]);
@@ -326,10 +347,22 @@ export default function GameWaitingRoom({
         </div>
       )}
 
+      {/* ── Start early button (host only, < max players) ── */}
+      {canStartEarly && (
+        <button
+          onClick={startEarly}
+          disabled={starting}
+          className="w-full py-2.5 rounded-full bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform disabled:opacity-50"
+        >
+          <PlayCircle className="w-4 h-4" />
+          {starting ? "Démarrage…" : `Commencer à ${parts.length} joueurs`}
+        </button>
+      )}
+
       {/* ── Status line ── */}
       {isParticipant && (
         <div className="text-center text-[11px] text-muted-foreground">
-          {readyCount}/{maxPlayers} prêt{readyCount > 1 ? "s" : ""} · {allReady ? "Démarrage…" : parts.length < maxPlayers ? "En attente de joueurs" : "En attente des autres"}
+          {readyCount}/{maxPlayers} prêt{readyCount > 1 ? "s" : ""} · {allReady ? "Démarrage…" : parts.length < maxPlayers ? (canStartEarly ? `Ou démarrez à ${parts.length} joueurs ↑` : "En attente de joueurs") : "En attente des autres"}
           {isTournament && <span className="block text-amber-600 dark:text-amber-400 font-semibold mt-0.5">⚠️ Prêt avant l'expiration sinon forfait</span>}
         </div>
       )}
