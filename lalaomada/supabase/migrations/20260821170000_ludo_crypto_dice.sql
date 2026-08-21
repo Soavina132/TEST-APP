@@ -1,0 +1,30 @@
+-- ============================================================
+-- Migration: DÉ cryptographiquement sécurisé pour Ludo
+-- Date: 2026-08-21
+--
+-- Problème: Les joueurs se plaignent que le créateur obtient
+-- plus de 6 que les autres joueurs.
+--
+-- Analyse: random() de PostgreSQL est uniforme (pas de biais),
+-- mais c'est un PRNG standard, pas cryptographiquement sécurisé.
+--
+-- Fix: Remplacer random() par _crypto_rand_int() (gen_random_bytes)
+-- dans TOUTES les fonctions Ludo liées au dé et à l'aléatoire.
+-- Cela garantit un dé truly random, impossible à prédire ou biaiser.
+--
+-- Fonctions modifiées:
+-- 1. ludo_roll          → dé (1+crypto_rand_int(6))
+-- 2. ludo_bot_move      → choix aléatoire du pion + intelligence
+-- 3. _ludo_auto_move_random → choix aléatoire du pion (auto-move)
+-- 4. _ludo_check_power_tile → récompense aléatoire + boost
+-- 5. _ludo_gen_power_tiles  → placement aléatoire des tuiles
+-- 6. _ludo_place_power_tiles (×2 signatures) → shuffle Fisher-Yates
+-- 7. _ludo_relocate_power_tile → relocalisation aléatoire
+-- 8. _ludo_relocate_tile → relocalisation aléatoire
+-- ============================================================
+-- Note: ludo_rematch (code salle) et ludo_tick_all (délai bot)
+-- gardent random() car non liés au dé/équité.
+-- ============================================================
+
+-- Les fonctions ont été appliquées directement via l'API Supabase.
+-- Cette migration documente les changements pour le versioning.
