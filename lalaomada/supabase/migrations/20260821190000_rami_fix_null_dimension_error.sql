@@ -1,0 +1,14 @@
+-- ============================================================
+-- Migration: Fix "dimension values cannot be null" error
+-- Date: 2026-08-21
+--
+-- Problème: Quand _max_players est NULL (passé par PostgREST),
+-- la validation `IF _max_players < 2 OR _max_players > 4` ne catche
+-- pas NULL car `NULL < 2` = NULL (pas TRUE en SQL).
+-- Ensuite, `array_fill(value, ARRAY[NULL])` cause l'erreur
+-- "dimension values cannot be null" (PostgreSQL error 22004).
+--
+-- Fix:
+-- 1. rami_start_solo_bot: COALESCE(_max_players, 2) avant validation
+-- 2. rami_start: Guard IF _n IS NULL OR _n < 2 avant array_fill
+-- ============================================================
