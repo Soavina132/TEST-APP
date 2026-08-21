@@ -430,7 +430,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
           continue;
         }
         if (m.to.s === "finished") {
-          for (let k = fromK + 1; k <= 57; k++) {
+          for (let k = fromK + 1; k <= 56; k++) {
             await stepAnim(setDisplayedPawns, m.slot, m.idx, { s: "track", k }, 30);
             sfx.pawnStep();
           }
@@ -664,13 +664,18 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
         const fromK = pawn.k;
         const toK = fromK + dice;
         if (toK <= 57) {
-          for (let k = fromK + 1; k <= toK; k++) {
+          for (let k = fromK + 1; k <= Math.min(toK, 56); k++) {
             await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 30);
             sfx.pawnStep();
           }
+          if (toK === 57) {
+            // Pawn reached the finish — set finished state immediately
+            await stepAnim(setDisplayedPawns, slot, idx, { s: "finished", k: 57 }, 30);
+            sfx.home();
+          }
         } else {
-          // Going to finished
-          for (let k = fromK + 1; k <= 57; k++) {
+          // Going to finished (overshoot — backend will reject, but animate optimistically)
+          for (let k = fromK + 1; k <= 56; k++) {
             await stepAnim(setDisplayedPawns, slot, idx, { s: "track", k }, 30);
             sfx.pawnStep();
           }
