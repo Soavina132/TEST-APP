@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import ChatRoom from "@/components/chat/ChatRoom";
-import { MessageSquare, Users, UserPlus, Crown, Lock, ChevronRight, X } from "lucide-react";
+import { MessageSquare, Users, UserPlus, ChevronRight, X } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { toast } from "sonner";
 import { parseGameShare } from "@/lib/share-game";
@@ -45,52 +45,11 @@ function metaFor(name?: string) {
 const lastReadKey = (uid: string | undefined, rid: string) =>
   `chat_lastread_${uid || "anon"}_${rid}`;
 
-// ─── Premium gate for DM ─────────────────────────────────────────────────────
-
-function PremiumGate() {
-  const { t } = useT();
-  const premiumFeatures = [
-    t("premium_feature_unlimited_dm"),
-    t("premium_feature_badge"),
-    t("premium_feature_priority_rooms"),
-    t("premium_feature_priority_support"),
-  ];
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center gap-5">
-      <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-        <Crown className="w-10 h-10 text-white" />
-      </div>
-      <div className="space-y-2">
-        <h2 className="text-xl font-bold">{t("premium_feature_title")}</h2>
-        <p className="text-sm text-muted-foreground max-w-xs">
-          {t("premium_dm_desc")}
-        </p>
-      </div>
-      <div className="rounded-2xl bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/30 border border-amber-200/50 dark:border-amber-800/40 p-4 w-full max-w-xs">
-        <ul className="text-sm text-left space-y-2 text-muted-foreground">
-          {premiumFeatures.map(f => (
-            <li key={f} className="flex items-center gap-2">
-              <span className="text-amber-500">✦</span> {f}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <button
-        onClick={() => toast.info(t("contact_admin_premium"))}
-        className="w-full max-w-xs py-3 rounded-2xl bg-gradient-to-r from-yellow-400 to-amber-500 text-white font-bold shadow-md shadow-amber-400/30 hover:from-yellow-500 hover:to-amber-600 transition-all active:scale-95 flex items-center justify-center gap-2"
-      >
-        <Crown className="w-4 h-4" /> {t("upgrade_premium_btn")}
-      </button>
-    </div>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function ChatHub() {
   const { t } = useT();
   const { user, isAdmin, profile } = useAuth();
-  const isPremium = isAdmin || profile?.is_premium === true;
 
   const [tab, setTab] = useState<Tab>("global");
   const [active, setActive] = useState<any | null>(null);
@@ -397,12 +356,11 @@ function ChatHub() {
           onClick={() => setTab("global")}
         />
         <TabBtn
-          icon={isPremium ? <MessageSquare className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-          label={isPremium ? t("private_messages_label") : `${t("private_messages_label")} ✦`}
+          icon={<MessageSquare className="w-4 h-4" />}
+          label={t("private_messages_label")}
           active={tab === "dm"}
           onClick={() => setTab("dm")}
-          badge={isPremium ? dms.reduce((s, r) => s + (unread[r.id] || 0), 0) : 0}
-          premium={!isPremium}
+          badge={dms.reduce((s, r) => s + (unread[r.id] || 0), 0)}
         />
       </div>
 
@@ -426,7 +384,6 @@ function ChatHub() {
 
       {/* ── DM tab ── */}
       {tab === "dm" && (
-        isPremium ? (
           <div className="space-y-3">
             <div className="rounded-3xl bg-card p-4 flex gap-2">
               <input
@@ -494,9 +451,6 @@ function ChatHub() {
               })
             )}
           </div>
-        ) : (
-          <PremiumGate />
-        )
       )}
 
       {showUserPicker && (
