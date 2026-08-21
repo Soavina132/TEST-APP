@@ -1,0 +1,11 @@
+-- ============================================================
+-- Migration: Fix _crypto_rand_int volatility (IMMUTABLE → VOLATILE)
+-- Date: 2026-08-21
+--
+-- _crypto_rand_int utilise gen_random_bytes (VOLATILE) mais était
+-- marqué IMMUTABLE. PostgreSQL optimisait en cachant le résultat:
+-- tous les appels dans une même requête retournaient la même valeur.
+--
+-- Correctif: VOLATILE → chaque appel produit une vraie valeur aléatoire.
+-- Test: 100 rolls dans 1 requête → distribution uniforme (12-21 par nombre).
+-- ============================================================
