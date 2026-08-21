@@ -2560,7 +2560,20 @@ function SubscriptionSettingsForm() {
       <div className="rounded-2xl border-2 border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={!!s.subscription_disabled}
-            onChange={e => setS({ ...s, subscription_disabled: e.target.checked })}
+            onChange={async e => {
+              const newVal = e.target.checked;
+              setS({ ...s, subscription_disabled: newVal }); // optimistic
+              try {
+                // Use dedicated RPC that bypasses field validation
+                const { data, error } = await supabase.rpc("set_subscription_disabled" as any, { p_disabled: newVal } as any);
+                if (error) throw error;
+                if (data?.ok === false) throw new Error(data?.error || "Échec");
+                toast.success(newVal ? "Abonnements désactivés — jeux libres" : "Abonnements réactivés");
+              } catch (err: any) {
+                setS({ ...s, subscription_disabled: !newVal }); // revert
+                toast.error(err.message || "Échec de la sauvegarde");
+              }
+            }}
             className="w-6 h-6 rounded accent-amber-500 shrink-0" />
           <div className="flex-1">
             <div className="text-sm font-bold flex items-center gap-2">

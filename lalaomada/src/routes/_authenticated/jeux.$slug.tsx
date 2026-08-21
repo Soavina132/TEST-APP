@@ -153,6 +153,7 @@ function Lobby() {
   const [showDepositPopup, setShowDepositPopup] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [freeGameInfo, setFreeGameInfo] = useState<{ remainingToday: number; isPremium: boolean; activeDaysUsed: number; maxActiveDays: number; premiumRemaining: number; tier: string | null } | null>(null);
+  const [subscriptionDisabled, setSubscriptionDisabled] = useState(false);
   const walletSettings = useAppSettings();
   const [sheet, setSheet] = useState<string | null>(null);
   const closeSheet = () => setSheet(null);
@@ -225,9 +226,18 @@ function Lobby() {
     });
   };
 
-  // Load free game usage info
+  // Load subscription_disabled flag + free game usage info
   const loadFreeGameInfo = async () => {
     try {
+      // Fetch subscription_disabled from app_settings (fast, cached by PostgREST)
+      const { data: sd } = await supabase.from("app_settings").select("subscription_disabled").eq("id", 1).maybeSingle();
+      if (sd?.subscription_disabled) {
+        setSubscriptionDisabled(true);
+        // Skip eligibility check entirely — everything is unlocked
+        setFreeGameInfo(null);
+        return;
+      }
+      setSubscriptionDisabled(false);
       const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug } as any);
       if (!error && data) {
         const result = data as any;
@@ -274,8 +284,10 @@ function Lobby() {
     }
     navigate({ to: ROUTE[slug], params: { id } as any });
   };
-  // ── Free game limit check ──
+  // ── Free game limit check (skipped when subscription system is disabled) ──
   const checkFreeGameLimit = async (mode: "create" | "join" = "create"): Promise<boolean> => {
+    // ✅ If subscription system is disabled, skip all checks — everything is free
+    if (subscriptionDisabled) return true;
     const { data, error } = await supabase.rpc("check_game_eligibility" as any, { p_game_type: slug, p_mode: mode } as any);
     if (error) {
       console.error("check_game_eligibility error:", error);
@@ -302,6 +314,7 @@ function Lobby() {
   };
 
   const incrementGameUsage = async () => {
+    if (subscriptionDisabled) return; // No counting when subscription is disabled
     try {
       await supabase.rpc("increment_game_usage" as any, { p_game_type: slug } as any);
     } catch (e) {
@@ -644,7 +657,11 @@ function Lobby() {
                 <span>Un code d'invitation à 6 caractères sera généré.</span>
               </div>
             )}
-            {freeGameInfo && freeGameInfo.isPremium && (
+            {subscriptionDisabled ? (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[11px] text-emerald-600 flex items-center gap-2">
+                <span>🎮 Jeux libres — Aucune limite, aucun abonnement requis</span>
+              </div>
+            ) : freeGameInfo && freeGameInfo.isPremium && (
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-[11px] text-emerald-600 flex items-center gap-2">
                 <span>👑 Abonnement {freeGameInfo.tier} actif — {freeGameInfo.premiumRemaining} partie(s) restante(s) ce mois</span>
               </div>
