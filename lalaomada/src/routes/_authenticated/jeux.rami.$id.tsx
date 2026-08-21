@@ -1271,6 +1271,7 @@ function RamiPage() {
   const [visibleSevenMelds, setVisibleSevenMelds] = useState<Set<string>>(new Set());
   const [shownSevenMelds, setShownSevenMelds] = useState<Set<string>>(new Set());
   const [firstPlayerName, setFirstPlayerName] = useState("");
+  const [showDiscardHistory, setShowDiscardHistory] = useState(false);
   const prevStatusRef3 = useRef<string>("");
 
   useEffect(() => {
@@ -1611,7 +1612,6 @@ function RamiPage() {
 
   // ── 7 cartes : le joueur clique lui-même ses combinaisons posées ───────
   const [pickedMelds, setPickedMelds] = useState<number[]>([]);
-  const [showDiscardHistory, setShowDiscardHistory] = useState(false);
   const [showActionLog, setShowActionLog] = useState(false);
   const usedExtraTime = !!(profile?.id && (game?.state?.extra_time || {})[profile.id]);
 
@@ -2441,14 +2441,26 @@ function RamiPage() {
                     : <div className="border border-dashed border-white/40" style={{ width: 58, height: 82, borderRadius: '5px' }} />}
                 </div>
               </div>
-              <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
-                canDrawDiscard
-                  ? "bg-emerald-500 text-black animate-pulse font-bold"
-                  : "text-white/90 bg-black/60"
-              }`}>Défausse</span>
+              <div className="flex items-center gap-1">
+                <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
+                  canDrawDiscard
+                    ? "bg-emerald-500 text-black animate-pulse font-bold"
+                    : "text-white/90 bg-black/60"
+                }`}>Défausse</span>
+                {flatDiscard.length > 1 && (
+                  <button
+                    onClick={() => setShowDiscardHistory(true)}
+                    className="text-[9px] font-semibold px-1.5 py-1 rounded-full bg-black/50 text-white/70 hover:bg-black/70 hover:text-white active:scale-95 transition"
+                    title="Voir l'historique des défausses"
+                  >
+                    👁 <span className="hidden sm:inline">Historique</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );
+
 
         // ═══ ZONE 3: Melds strip — mes melds + 7 cartes des autres (10s) ═══
         const allMelds = melds
@@ -2499,6 +2511,65 @@ function RamiPage() {
           </div>
         );
       })()}
+
+      {/* Historique de la défausse — overlay plein écran */}
+      {showDiscardHistory && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => setShowDiscardHistory(false)}
+        >
+          <div
+            className="bg-zinc-900 rounded-2xl border border-white/10 max-w-md w-full max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Eye className="w-4 h-4" /> Historique de la défausse
+              </h3>
+              <button
+                onClick={() => setShowDiscardHistory(false)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-4 py-2 text-[10px] text-white/50 bg-white/5">
+              Cartes de la plus ancienne à la plus récente · Seule la dernière est récupérable
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {flatDiscard.length === 0 ? (
+                <p className="text-center text-white/40 text-xs py-8">Aucune carte défaussée</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {flatDiscard.map((card: number, idx: number) => {
+                    const isTop = idx === flatDiscard.length - 1;
+                    return (
+                      <div key={idx} className="flex flex-col items-center gap-1">
+                        <div className={isTop ? "ring-2 ring-emerald-400 rounded-md" : "opacity-60"}>
+                          <Card c={card} styleOverride={{ width: 44, height: 62 }} />
+                        </div>
+                        <span className={`text-[8px] ${isTop ? "text-emerald-400 font-bold" : "text-white/40"}`}>
+                          {isTop ? "↑ Récupérable" : `#${idx + 1}`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="p-3 border-t border-white/10">
+              <button
+                onClick={() => setShowDiscardHistory(false)}
+                className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       
 
