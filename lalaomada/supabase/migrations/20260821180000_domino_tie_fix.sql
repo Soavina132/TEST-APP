@@ -1,0 +1,26 @@
+-- ============================================================
+-- Migration: Fix bug domino - égalité donnait la victoire au créateur
+-- Date: 2026-08-21
+--
+-- Problème: Quand les pips étaient égaux (match nul), le système
+-- donnait la victoire au créateur (slot 0) au lieu de déclarer
+-- un match nul. En mode points, aucun point ne devait être attribué.
+-- En mode victoire directe, la mise devait être remboursée.
+--
+-- Cause: domino_auto_timeout appelait l'ancienne fonction publique
+-- domino_end_round qui avait deux bugs:
+-- 1. En cas d'égalité de pips: _winner_slot n'était pas mis à NULL
+--    (seulement _winner_uid était mis à NULL), donc le state gardait
+--    winner_slot = 0 (créateur)
+-- 2. En cas d'égalité de scores (game over): la boucle utilisait >
+--    au lieu de gérer les égalités, donc le premier joueur (slot 0)
+--    était toujours déclaré gagnant
+-- 3. Pas de remboursement en cas de match nul (_domino_finalize
+--    n'était jamais appelé)
+--
+-- Fix:
+-- 1. domino_auto_timeout appelle maintenant _domino_end_round (privée)
+--    qui gère correctement les égalités
+-- 2. L'ancienne domino_end_round est remplacée par un wrapper vers
+--    _domino_end_round pour éviter tout futur bug
+-- ============================================================
