@@ -8,6 +8,7 @@ import {
   Copy, Trophy, Users, Coins, Gift, ChevronDown,
   Share2, MessageCircle, Phone,
   CheckCircle2, Clock, Gamepad2, Sparkles,
+  ChevronRight, Wallet,
 } from "lucide-react";
 import { PageLoader } from "@/components/layout/PageLoader";
 import {
@@ -42,6 +43,18 @@ function referralStatusBadge(r: any): { label: string; color: string; icon: Reac
     return { label: "Dépôt en attente", color: "text-orange-500", icon: <Clock className="w-3 h-3" /> };
   const matches = r.matches_completed || 0;
   return { label: `${matches}/${MIN_MATCHES} matchs`, color: "text-blue-500", icon: <Gamepad2 className="w-3 h-3" /> };
+}
+
+// ── Progress computation for a referral ─────────────────────────────────────
+function referralProgress(r: any): { pct: number; steps: { label: string; done: boolean; icon: React.ReactNode }[] } {
+  const steps = [
+    { label: "Téléphone vérifié", done: !!r.phone_verified, icon: <Phone className="w-3 h-3" /> },
+    { label: `Dépôt ≥ ${MIN_DEPOSIT_AR} Ar`, done: !!r.deposit_validated, icon: <Wallet className="w-3 h-3" /> },
+    { label: `${MIN_MATCHES} matchs ≥ ${MIN_STAKE_AR} Ar`, done: (r.matches_completed || 0) >= MIN_MATCHES, icon: <Gamepad2 className="w-3 h-3" /> },
+  ];
+  const doneCount = steps.filter(s => s.done).length;
+  const pct = Math.round((doneCount / steps.length) * 100);
+  return { pct, steps };
 }
 
 // ── Coin rain animation ──────────────────────────────────────────────────────
@@ -139,15 +152,105 @@ function TierRewardCard({ activeCount }: { activeCount: number }) {
   );
 }
 
-// ── Stat card ───────────────────────────────────────────────────────────────
-function StatCard({ icon, label, value, sub, color = "text-foreground" }: {
-  icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string;
+// ── Stat card (now clickable) ──────────────────────────────────────────────
+function StatCard({ icon, label, value, sub, color = "text-foreground", onClick }: {
+  icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string; onClick?: () => void;
 }) {
   return (
-    <div className="rounded-2xl bg-secondary/60 p-3 space-y-1">
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={`rounded-2xl bg-secondary/60 p-3 space-y-1 text-left w-full transition-all ${
+        onClick ? "active:scale-95 hover:bg-secondary/80 cursor-pointer" : "cursor-default"
+      }`}
+    >
       <div className="flex items-center gap-1.5 text-muted-foreground text-xs">{icon}{label}</div>
       <div className={`text-xl font-extrabold ${color}`}>{value}</div>
       {sub && <div className="text-[10px] text-muted-foreground">{sub}</div>}
+    </button>
+  );
+}
+
+// ── Expandable referral row with progress ───────────────────────────────────
+function ReferralRow({ r }: { r: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const badge = referralStatusBadge(r);
+  const earned = Number(r.reward_amount || 0);
+  const { pct, steps } = referralProgress(r);
+
+  return (
+    <div className="border-b border-border/40 last:border-0">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center gap-2.5 py-2.5 active:scale-[0.99] transition-transform"
+      >
+        <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+          {r.avatar_url
+            ? <img src={r.avatar_url} width={36} height={36} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="" />
+            : (r.pseudo || "?").slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <div className="font-semibold text-sm truncate">{r.pseudo}</div>
+          <div className={`flex items-center gap-1 text-[10px] ${badge.color}`}>
+            {badge.icon}{badge.label}
+          </div>
+        </div>
+        {earned > 0 && (
+          <div className="text-sm font-extrabold text-emerald-600 shrink-0">
+            +{Math.round(earned).toLocaleString("fr-FR")} Ar
+          </div>
+        )}
+        <ChevronDown className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* Expanded detail with progress bar */}
+      {expanded && (
+        <div className="pb-3 px-1 space-y-2.5 animate-in fade-in duration-200">
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground">
+              <span>Progression vers actif</span>
+              <span>{pct}%</span>
+            </div>
+            <div className="relative h-2.5 rounded-full bg-secondary overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${
+                  pct === 100 ? "bg-emerald-500" : "bg-gradient-to-r from-primary to-amber-400"
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Step-by-step conditions */}
+          <div className="space-y-1.5">
+            {steps.map((s, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                  s.done
+                    ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                    : "bg-secondary text-muted-foreground"
+                }`}>
+                  {s.done
+                    ? <CheckCircle2 className="w-3 h-3" />
+                    : s.icon}
+                </div>
+                <span className={s.done ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground"}>
+                  {s.label}
+                </span>
+                {s.done && <CheckCircle2 className="w-3 h-3 text-emerald-500 ml-auto" />}
+              </div>
+            ))}
+          </div>
+
+          {/* Info text */}
+          <div className="text-[10px] text-muted-foreground leading-snug pt-1">
+            {r.status === "rewarded"
+              ? "🎉 Ce filleul est actif — vous avez reçu votre récompense !"
+              : "Récompense crédité automatiquement une fois les 3 conditions remplies."}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -368,11 +471,29 @@ export default function ParrainagePage() {
           <Copy className="w-4 h-4 opacity-80" />
         </button>
 
-        {/* Stats */}
+        {/* Stats — clickable to jump to filleuls tab */}
         <div className="grid grid-cols-3 gap-1.5">
-          <StatCard icon={<Users className="w-3 h-3" />} label="Filleuls" value={totalRefs} sub={`${activeCount} actifs${pendingCount > 0 ? ` · ${pendingCount} en attente` : ""}`} />
-          <StatCard icon={<Coins className="w-3 h-3" />} label="Gains" value={`${Math.round(totalEarned).toLocaleString("fr-FR")} Ar`} color="text-emerald-600" />
-          <StatCard icon={<Trophy className="w-3 h-3" />} label="Rang" value={myRank ? `#${myRank}` : "—"} color="text-amber-500" />
+          <StatCard
+            icon={<Users className="w-3 h-3" />}
+            label="Filleuls"
+            value={totalRefs}
+            sub={`${activeCount} actifs${pendingCount > 0 ? ` · ${pendingCount} en attente` : ""}`}
+            onClick={() => setTab("filleuls")}
+          />
+          <StatCard
+            icon={<Coins className="w-3 h-3" />}
+            label="Gains"
+            value={`${Math.round(totalEarned).toLocaleString("fr-FR")} Ar`}
+            color="text-emerald-600"
+            onClick={() => setTab("gains")}
+          />
+          <StatCard
+            icon={<Trophy className="w-3 h-3" />}
+            label="Rang"
+            value={myRank ? `#${myRank}` : "—"}
+            color="text-amber-500"
+            onClick={() => setTab("classement")}
+          />
         </div>
       </div>
 
@@ -392,6 +513,11 @@ export default function ParrainagePage() {
             }`}
           >
             <span>{t.icon}</span>{t.label}
+            {t.id === "filleuls" && pendingCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 text-[9px] font-bold">
+                {pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -411,30 +537,27 @@ export default function ParrainagePage() {
                 Copier mon lien
               </button>
             </div>
-          ) : referrals.map((r: any) => {
-            const badge = referralStatusBadge(r);
-            const earned = Number(r.reward_amount || 0);
-            return (
-              <div key={r.id} className="flex items-center gap-2.5 py-2.5 border-b border-border/40 last:border-0">
-                <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
-                  {r.avatar_url
-                    ? <img src={r.avatar_url} width={36} height={36} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="" />
-                    : (r.pseudo || "?").slice(0, 2).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{r.pseudo}</div>
-                  <div className={`flex items-center gap-1 text-[10px] ${badge.color}`}>
-                    {badge.icon}{badge.label}
-                  </div>
-                </div>
-                {earned > 0 && (
-                  <div className="text-sm font-extrabold text-emerald-600 shrink-0">
-                    +{Math.round(earned).toLocaleString("fr-FR")} Ar
-                  </div>
+          ) : (
+            <>
+              {/* Summary header */}
+              <div className="flex items-center gap-2 py-2 px-3 mb-1 rounded-xl bg-secondary/60">
+                <Users className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-xs font-semibold flex-1">
+                  {totalRefs} filleul{totalRefs > 1 ? "s" : ""}
+                </span>
+                <span className="text-[10px] text-emerald-600 font-bold">{activeCount} actif{activeCount > 1 ? "s" : ""}</span>
+                {pendingCount > 0 && (
+                  <>
+                    <span className="text-[10px] text-muted-foreground">·</span>
+                    <span className="text-[10px] text-amber-600 font-bold">{pendingCount} en attente</span>
+                  </>
                 )}
               </div>
-            );
-          })
+              {referrals.map((r: any) => (
+                <ReferralRow key={r.id} r={r} />
+              ))}
+            </>
+          )
         )}
 
         {/* Gains tab */}
