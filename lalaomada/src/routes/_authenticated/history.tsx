@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Gamepad2, ArrowDownCircle, ArrowUpCircle,
   ReceiptText, Trophy, XCircle, Clock, Flame, Gift, Hourglass, CheckCircle2, Ban,
-  Crown, Swords, Target, Spade, CircleDot, Bike, TrendingUp, TrendingDown,
+  Crown, Swords, Target, Spade, CircleDot, TrendingUp, TrendingDown,
   ChevronRight, CalendarDays, Wallet,
 } from "lucide-react";
 
@@ -26,9 +26,6 @@ function fmtDate(d: string) {
     day: "2-digit", month: "2-digit", year: "2-digit",
     hour: "2-digit", minute: "2-digit",
   });
-}
-function fmtDateShort(d: string) {
-  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 function fmtAr(n: number | null | undefined) {
   if (n == null) return "—";
@@ -75,6 +72,9 @@ function gameMeta(type: string) {
 }
 
 // ── Transaction type metadata ────────────────────────────────────────────
+const POSITIVE_KINDS = new Set(["game_win","tournament_win","daily_bonus","signup_bonus","referral","deposit","refund","win"]);
+const NEGATIVE_KINDS = new Set(["game_loss","game_stake","stake","forfeit","withdrawal"]);
+
 const TXKind: Record<string, { icon: React.ReactNode; label: string; color: string; bg: string }> = {
   game_win:       { icon: <Trophy className="w-4 h-4" />,          label: "Gain de partie",       color: "text-emerald-600",   bg: "bg-emerald-500/10" },
   game_loss:      { icon: <XCircle className="w-4 h-4" />,        label: "Pari perdu",            color: "text-rose-500",      bg: "bg-rose-500/10" },
@@ -121,8 +121,6 @@ function groupByDate<T extends { created_at: string }>(items: T[]): { label: str
   return Object.entries(groups).map(([label, items]) => ({ label, items }));
 }
 
-const POSITIVE_KINDS = ["game_win","tournament_win","daily_bonus","signup_bonus","referral","deposit","refund","win"];
-
 // ── Main page ─────────────────────────────────────────────────────────────
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -168,7 +166,7 @@ export default function HistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Aggregations
+  // ── Aggregations ──
   const pendingDeps  = useMemo(() => deps.filter(d => (d.status ?? "pending") === "pending"), [deps]);
   const pendingWiths = useMemo(() => withs.filter(w => (w.status ?? "pending") === "pending"), [withs]);
   const totalDeposited  = deps.filter(d => d.status === "approved").reduce((s, d) => s + Number(d.amount_ar ?? d.amount ?? 0), 0);
@@ -177,13 +175,16 @@ export default function HistoryPage() {
   const pendingWithAmt  = pendingWiths.reduce((s, w) => s + Number(w.amount_ar ?? w.amount ?? 0), 0);
   const totalPending    = pendingDeps.length + pendingWiths.length;
 
-  // Game stats
+  // ── Gains vs Pertes ──
+  const gameWins = useMemo(() => tx.filter(t => ["game_win","tournament_win","win"].includes(t.kind)), [tx]);
+  const gameLosses = useMemo(() => tx.filter(t => ["game_loss","stake","game_stake","forfeit"].includes(t.kind)), [tx]);
+  const totalGagné = useMemo(() => gameWins.reduce((s, t) => s + Number(t.amount ?? 0), 0), [gameWins]);
+  const totalPerdu = useMemo(() => gameLosses.reduce((s, t) => s + Math.abs(Number(t.amount ?? 0)), 0), [gameLosses]);
+  const netProfit = totalGagné - totalPerdu;
+
   const finishedGames = useMemo(() => stakeGames.filter(g => g.status === "finished"), [stakeGames]);
   const gamesWon = useMemo(() => finishedGames.filter(g => g.is_winner), [finishedGames]);
   const gamesLost = useMemo(() => finishedGames.filter(g => !g.is_winner), [finishedGames]);
-  const totalWinnings = useMemo(() => tx.filter(t => POSITIVE_KINDS.includes(t.kind) && t.kind !== "deposit" && t.kind !== "refund").reduce((s, t) => s + Number(t.amount ?? 0), 0), [tx]);
-  const totalLosses = useMemo(() => tx.filter(t => ["game_loss","game_stake","stake","forfeit"].includes(t.kind)).reduce((s, t) => s + Math.abs(Number(t.amount ?? 0)), 0), [tx]);
-  const netProfit = totalWinnings - totalLosses;
   const winRate = finishedGames.length > 0 ? Math.round((gamesWon.length / finishedGames.length) * 100) : 0;
 
   const filteredDeps  = statusFilter === "all" ? deps  : deps.filter(d => (d.status ?? "pending") === statusFilter);
@@ -216,68 +217,66 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {/* Résumé — 4 cartes statistiques */}
+      {/* ── Gagné vs Perdu — la distinction principale ── */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg">
+        <div className="rounded-2xl p-3.5 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold opacity-90">
-            <ArrowDownCircle className="w-3.5 h-3.5" /> Total déposé
+            <TrendingUp className="w-3.5 h-3.5" /> Gagné
           </div>
-          <div className="text-lg font-extrabold tabular-nums mt-1 leading-tight">{fmtAr(totalDeposited)}</div>
-          {pendingDepAmt > 0 && (
-            <div className="text-[10px] mt-1 opacity-90 flex items-center gap-1">
-              <Hourglass className="w-2.5 h-2.5" /> {fmtAr(pendingDepAmt)} en attente
-            </div>
-          )}
+          <div className="text-xl font-extrabold tabular-nums mt-1 leading-tight">+{fmtAr(totalGagné)}</div>
+          <div className="text-[10px] mt-1 opacity-80 flex items-center gap-1">
+            <Trophy className="w-2.5 h-2.5" /> {gameWins.length} gain{gameWins.length > 1 ? "s" : ""}
+          </div>
         </div>
-        <div className="rounded-2xl p-3 bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg">
+        <div className="rounded-2xl p-3.5 bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-lg">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold opacity-90">
-            <ArrowUpCircle className="w-3.5 h-3.5" /> Total retiré
+            <TrendingDown className="w-3.5 h-3.5" /> Perdu
           </div>
-          <div className="text-lg font-extrabold tabular-nums mt-1 leading-tight">{fmtAr(totalWithdrawn)}</div>
-          {pendingWithAmt > 0 && (
-            <div className="text-[10px] mt-1 opacity-90 flex items-center gap-1">
-              <Hourglass className="w-2.5 h-2.5" /> {fmtAr(pendingWithAmt)} en attente
-            </div>
-          )}
+          <div className="text-xl font-extrabold tabular-nums mt-1 leading-tight">−{fmtAr(totalPerdu)}</div>
+          <div className="text-[10px] mt-1 opacity-80 flex items-center gap-1">
+            <XCircle className="w-2.5 h-2.5" /> {gameLosses.length} perte{gameLosses.length > 1 ? "s" : ""}
+          </div>
         </div>
       </div>
 
-      {/* Performance des parties */}
-      {stakeGames.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-          <div className="flex items-center gap-1.5 mb-2.5">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-sm font-bold">Performance</span>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground mb-0.5">Parties</div>
-              <div className="text-base font-extrabold tabular-nums">{stakeGames.length}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground mb-0.5">Victoires</div>
-              <div className="text-base font-extrabold tabular-nums text-emerald-600">{gamesWon.length}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground mb-0.5">Défaites</div>
-              <div className="text-base font-extrabold tabular-nums text-rose-500">{gamesLost.length}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground mb-0.5">Taux</div>
-              <div className={`text-base font-extrabold tabular-nums ${winRate >= 50 ? "text-emerald-600" : "text-rose-500"}`}>{winRate}%</div>
-            </div>
-          </div>
-          {netProfit !== 0 && (
-            <div className="mt-2.5 pt-2.5 border-t border-border/50 flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">Résultat net (gains - pertes)</span>
-              <span className={`text-sm font-extrabold tabular-nums flex items-center gap-1 ${netProfit > 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                {netProfit > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                {netProfit > 0 ? "+" : ""}{fmtAr(netProfit)}
-              </span>
-            </div>
-          )}
+      {/* ── Résultat net ── */}
+      <div className={`rounded-2xl p-3.5 border-2 shadow-sm ${netProfit > 0 ? "border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/10" : netProfit < 0 ? "border-rose-500/30 bg-rose-50 dark:bg-rose-950/10" : "border-border bg-card"}`}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold flex items-center gap-1.5">
+            {netProfit > 0 ? <TrendingUp className="w-4 h-4 text-emerald-600" /> : netProfit < 0 ? <TrendingDown className="w-4 h-4 text-rose-500" /> : <ReceiptText className="w-4 h-4 text-muted-foreground" />}
+            Résultat net
+          </span>
+          <span className={`text-lg font-extrabold tabular-nums ${netProfit > 0 ? "text-emerald-600" : netProfit < 0 ? "text-rose-500" : "text-muted-foreground"}`}>
+            {netProfit > 0 ? "+" : netProfit < 0 ? "−" : ""}{fmtAr(Math.abs(netProfit))}
+          </span>
         </div>
-      )}
+        {stakeGames.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-border/40 flex items-center gap-4 text-[11px]">
+            <span className="text-muted-foreground">{stakeGames.length} parties</span>
+            <span className="text-emerald-600 font-semibold">{gamesWon.length} V</span>
+            <span className="text-rose-500 font-semibold">{gamesLost.length} D</span>
+            <span className={`font-bold ${winRate >= 50 ? "text-emerald-600" : "text-rose-500"}`}>{winRate}%</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Dépôts / Retraits résumé ── */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl p-2.5 bg-card border border-border shadow-sm">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+            <ArrowDownCircle className="w-3 h-3 text-emerald-600" /> Total déposé
+          </div>
+          <div className="text-sm font-extrabold tabular-nums text-emerald-600 mt-0.5">{fmtAr(totalDeposited)}</div>
+          {pendingDepAmt > 0 && <div className="text-[9px] text-amber-600 mt-0.5">{fmtAr(pendingDepAmt)} en attente</div>}
+        </div>
+        <div className="rounded-xl p-2.5 bg-card border border-border shadow-sm">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+            <ArrowUpCircle className="w-3 h-3 text-rose-500" /> Total retiré
+          </div>
+          <div className="text-sm font-extrabold tabular-nums text-rose-500 mt-0.5">{fmtAr(totalWithdrawn)}</div>
+          {pendingWithAmt > 0 && <div className="text-[9px] text-amber-600 mt-0.5">{fmtAr(pendingWithAmt)} en attente</div>}
+        </div>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-card/80 p-1 rounded-2xl shadow-sm border border-border overflow-x-auto">
@@ -294,7 +293,7 @@ export default function HistoryPage() {
         ))}
       </div>
 
-      {/* Status filter (only on deposits/withdrawals) */}
+      {/* Status filter */}
       {(tab === "deposits" || tab === "withdrawals") && (
         <div className="flex gap-1.5 text-[11px]">
           {([
@@ -361,7 +360,7 @@ export default function HistoryPage() {
                 ))
           )}
 
-          {/* Transactions — groupées par date */}
+          {/* Transactions — groupées par date, bordure colorée gain/perte */}
           {tab === "transactions" && (
             tx.length === 0
               ? <EmptyState label="Aucune transaction" />
@@ -373,9 +372,10 @@ export default function HistoryPage() {
                         {group.items.map(item => {
                           const cfg = txConfig(item.kind);
                           const amount = Number(item.amount ?? 0);
-                          const isPositive = POSITIVE_KINDS.includes(item.kind);
+                          const isPositive = POSITIVE_KINDS.has(item.kind);
+                          const isNegative = NEGATIVE_KINDS.has(item.kind);
                           return (
-                            <div key={item.id} className="flex items-start gap-3 p-3.5">
+                            <div key={item.id} className={`flex items-start gap-3 p-3.5 border-l-4 ${isPositive ? "border-l-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/5" : isNegative ? "border-l-rose-500 bg-rose-50/30 dark:bg-rose-950/5" : "border-l-border"}`}>
                               <div className={`mt-0.5 p-2 rounded-xl border border-border/50 ${cfg.bg} ${cfg.color}`}>{cfg.icon}</div>
                               <div className="flex-1 min-w-0">
                                 <div className="font-semibold text-sm">{cfg.label}</div>
@@ -383,8 +383,8 @@ export default function HistoryPage() {
                                 {item.meta?.streak && <div className="text-[10px] text-amber-600">🔥 Série {item.meta.streak} jours{item.meta.multiplier > 1 ? ` (×${item.meta.multiplier})` : ""}</div>}
                                 <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5"><Clock className="w-2.5 h-2.5" />{fmtDate(item.created_at)}</div>
                               </div>
-                              <div className={`font-extrabold text-sm tabular-nums ${isPositive ? "text-emerald-600" : "text-rose-500"}`}>
-                                {isPositive ? "+" : "-"}{fmtAr(Math.abs(amount))}
+                              <div className={`font-extrabold text-sm tabular-nums ${isPositive ? "text-emerald-600" : isNegative ? "text-rose-500" : "text-muted-foreground"}`}>
+                                {isPositive ? "+" : isNegative ? "−" : ""}{fmtAr(Math.abs(amount))}
                               </div>
                             </div>
                           );
@@ -417,12 +417,12 @@ function DateHeader({ label, count }: { label: string; count: number }) {
   );
 }
 
-// ── Rows ──────────────────────────────────────────────────────────────────
+// ── Pending item ──────────────────────────────────────────────────────────
 function PendingItem({ kind, item }: { kind: "deposit" | "withdrawal"; item: any }) {
   const isDep = kind === "deposit";
   const amount = Number(item.amount_ar ?? item.amount ?? 0);
   return (
-    <div className={`rounded-2xl p-3.5 bg-amber-50/60 dark:bg-amber-950/10 border border-amber-300/50 border-l-4 border-l-amber-400`}>
+    <div className="rounded-2xl p-3.5 bg-amber-50/60 dark:bg-amber-950/10 border border-amber-300/50 border-l-4 border-l-amber-400">
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 p-2 rounded-xl ${isDep ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600" : "bg-rose-100 dark:bg-rose-900/30 text-rose-500"}`}>
           {isDep ? <ArrowDownCircle className="w-4 h-4" /> : <ArrowUpCircle className="w-4 h-4" />}
@@ -433,27 +433,24 @@ function PendingItem({ kind, item }: { kind: "deposit" | "withdrawal"; item: any
             <StatusBadge status="pending" />
           </div>
           {item.operator && <div className="text-[11px] text-muted-foreground mt-0.5">📱 {item.operator}{item.phone ? ` · ${item.phone}` : ""}</div>}
-          <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
-            <Clock className="w-2.5 h-2.5" /> {fmtDate(item.created_at)} · {relTime(item.created_at)}
-          </div>
+          <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1"><Clock className="w-2.5 h-2.5" /> {fmtDate(item.created_at)} · {relTime(item.created_at)}</div>
         </div>
         <div className={`font-extrabold text-base ${isDep ? "text-emerald-600" : "text-rose-500"} tabular-nums`}>
-          {isDep ? "+" : "-"}{fmtAr(amount)}
+          {isDep ? "+" : "−"}{fmtAr(amount)}
         </div>
       </div>
-      <div className="mt-2 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-        ⏳ En cours de traitement par l'administrateur.
-      </div>
+      <div className="mt-2 text-[10px] text-amber-700 dark:text-amber-400 font-medium">⏳ En cours de traitement par l'administrateur.</div>
     </div>
   );
 }
 
+// ── Finance row (deposits/withdrawals) ───────────────────────────────────
 function FinanceRow({ kind, item }: { kind: "deposit" | "withdrawal"; item: any }) {
   const isDep = kind === "deposit";
   const amount = Number(item.amount_ar ?? item.amount ?? 0);
   const status = item.status ?? "pending";
   return (
-    <div className="flex items-start gap-3 p-3.5">
+    <div className={`flex items-start gap-3 p-3.5 border-l-4 ${isDep ? "border-l-emerald-500" : "border-l-rose-500"}`}>
       <div className={`mt-0.5 p-2 rounded-xl ${isDep ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600" : "bg-rose-100 dark:bg-rose-900/30 text-rose-500"}`}>
         {isDep ? <ArrowDownCircle className="w-4 h-4" /> : <ArrowUpCircle className="w-4 h-4" />}
       </div>
@@ -463,15 +460,11 @@ function FinanceRow({ kind, item }: { kind: "deposit" | "withdrawal"; item: any 
           <StatusBadge status={status} />
         </div>
         {item.operator && <div className="text-[11px] text-muted-foreground mt-0.5">📱 {item.operator}{item.phone ? ` · ${item.phone}` : ""}</div>}
-        {item.reject_reason && status === "rejected" && (
-          <div className="text-[10px] text-rose-600 mt-0.5">Raison : {item.reject_reason}</div>
-        )}
-        <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-          <Clock className="w-2.5 h-2.5" /> {fmtDate(item.created_at)}
-        </div>
+        {item.reject_reason && status === "rejected" && <div className="text-[10px] text-rose-600 mt-0.5">Raison : {item.reject_reason}</div>}
+        <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5"><Clock className="w-2.5 h-2.5" /> {fmtDate(item.created_at)}</div>
       </div>
-      <div className={`font-extrabold text-sm ${status === "rejected" || status === "cancelled" ? "text-muted-foreground line-through" : (isDep ? "text-emerald-600" : "text-rose-500")} tabular-nums`}>
-        {isDep ? "+" : "-"}{fmtAr(amount)}
+      <div className={`font-extrabold text-sm ${status === "rejected" || status === "cancelled" ? "text-muted-foreground line-through" : isDep ? "text-emerald-600" : "text-rose-500"} tabular-nums`}>
+        {isDep ? "+" : "−"}{fmtAr(amount)}
       </div>
     </div>
   );
@@ -487,7 +480,7 @@ function EmptyState({ label, hint, icon }: { label: string; hint?: string; icon?
   );
 }
 
-// ── Stake Game History Component ─────────────────────────────────────────
+// ── Stake Game History ────────────────────────────────────────────────────
 function StakeGameHistory({ games, loading, gameGroups }: { games: any[]; loading: boolean; gameGroups: { label: string; items: any[] }[] }) {
   const [selected, setSelected] = useState<any>(null);
 
@@ -495,7 +488,7 @@ function StakeGameHistory({ games, loading, gameGroups }: { games: any[]; loadin
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        <span className="text-sm">Chargement de l'historique…</span>
+        <span className="text-sm">Chargement…</span>
       </div>
     );
   }
@@ -511,30 +504,28 @@ function StakeGameHistory({ games, loading, gameGroups }: { games: any[]; loadin
     waiting:   { cls: "bg-amber-100 text-amber-700 border-amber-300",       label: "En attente" },
   };
 
+  // ── Detail view ──
   if (selected) {
     const g = selected;
     const meta = gameMeta(g.game_type);
+    const stake = Number(g.stake ?? 0);
+    const isWin = g.is_winner && g.status === "finished";
+    const isLoss = !g.is_winner && g.status === "finished";
+
     return (
       <div className="space-y-3">
-        <button onClick={() => setSelected(null)}
-          className="text-sm text-primary font-bold flex items-center gap-1">
-          ← Retour à la liste
+        <button onClick={() => setSelected(null)} className="text-sm text-primary font-bold flex items-center gap-1">
+          ← Retour
         </button>
         <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-          {/* Header */}
+          {/* Header with game type color */}
           <div className={`p-4 ${meta.bg} border-b border-border/50`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl bg-card border border-border/50 ${meta.color}`}>
-                  {meta.icon}
-                </div>
+                <div className={`p-2.5 rounded-xl bg-card border border-border/50 ${meta.color}`}>{meta.icon}</div>
                 <div>
-                  <div className="text-lg font-mono font-black text-foreground">
-                    {g.formatted_number}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {g.game_label} · Mise {fmtArShort(g.stake)}
-                  </div>
+                  <div className="text-lg font-mono font-black text-foreground">{g.formatted_number}</div>
+                  <div className="text-xs text-muted-foreground">{g.game_label}</div>
                 </div>
               </div>
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${STATUS_CFG[g.status]?.cls || "bg-secondary"}`}>
@@ -542,18 +533,43 @@ function StakeGameHistory({ games, loading, gameGroups }: { games: any[]; loadin
               </span>
             </div>
           </div>
-          {/* Details grid */}
+
+          {/* ── Big result banner ── */}
+          {isWin && (
+            <div className="px-4 py-3 bg-emerald-50 dark:bg-emerald-950/10 border-b border-emerald-200 dark:border-emerald-900/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500 text-white"><Trophy className="w-4 h-4" /></div>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">Gagné</span>
+                </div>
+                <span className="text-lg font-extrabold tabular-nums text-emerald-600">+{fmtAr(stake)}</span>
+              </div>
+            </div>
+          )}
+          {isLoss && (
+            <div className="px-4 py-3 bg-rose-50 dark:bg-rose-950/10 border-b border-rose-200 dark:border-rose-900/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-rose-500 text-white"><XCircle className="w-4 h-4" /></div>
+                  <span className="font-bold text-rose-700 dark:text-rose-400">Perdu</span>
+                </div>
+                <span className="text-lg font-extrabold tabular-nums text-rose-500">−{fmtAr(stake)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Details */}
           <div className="p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <DetailItem label="Date de création" value={g.created_at ? new Date(g.created_at).toLocaleString("fr-FR") : "—"} />
-              <DetailItem label="Date de fin" value={g.finished_at ? new Date(g.finished_at).toLocaleString("fr-FR") : "—"} />
+              <DetailItem label="Date" value={g.created_at ? new Date(g.created_at).toLocaleString("fr-FR") : "—"} />
+              <DetailItem label="Fin" value={g.finished_at ? new Date(g.finished_at).toLocaleString("fr-FR") : "—"} />
               <DetailItem label="Durée" value={g.duration_seconds != null ? `${Math.floor(g.duration_seconds / 60)}min ${g.duration_seconds % 60}s` : "—"} />
               <DetailItem label="Rôle" value={g.is_host ? "Hôte" : "Invité"} />
-              <DetailItem label="Mise" value={fmtAr(g.stake)} />
+              <DetailItem label="Mise" value={fmtAr(stake)} />
               <DetailItem
                 label="Résultat"
-                value={g.is_winner ? "🏆 Gagné" : g.status === "finished" ? "Perdu" : "—"}
-                valueClass={g.is_winner ? "text-emerald-600 font-bold" : g.status === "finished" ? "text-rose-500 font-bold" : ""}
+                value={isWin ? "🏆 Gagné" : isLoss ? "Perdu" : "—"}
+                valueClass={isWin ? "text-emerald-600 font-bold" : isLoss ? "text-rose-500 font-bold" : ""}
               />
             </div>
             {g.end_reason && g.end_reason !== "normal" && (
@@ -568,6 +584,7 @@ function StakeGameHistory({ games, loading, gameGroups }: { games: any[]; loadin
     );
   }
 
+  // ── List view ──
   return (
     <div className="space-y-3">
       {gameGroups.map(group => (
@@ -577,9 +594,16 @@ function StakeGameHistory({ games, loading, gameGroups }: { games: any[]; loadin
             <div className="divide-y divide-border/40">
               {group.items.map((g, i) => {
                 const meta = gameMeta(g.game_type);
+                const stake = Number(g.stake ?? 0);
+                const isWin = g.is_winner && g.status === "finished";
+                const isLoss = !g.is_winner && g.status === "finished";
                 return (
                   <button key={i} onClick={() => setSelected(g)}
-                    className="w-full flex items-center gap-3 text-left p-3 hover:bg-accent/50 transition-colors">
+                    className={`w-full flex items-center gap-3 text-left p-3 hover:bg-accent/50 transition-colors border-l-4 ${
+                      isWin ? "border-l-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/5"
+                      : isLoss ? "border-l-rose-500 bg-rose-50/20 dark:bg-rose-950/5"
+                      : "border-l-transparent"
+                    }`}>
                     <div className={`p-2 rounded-xl border border-border/50 ${meta.bg} ${meta.color}`}>
                       {meta.icon}
                     </div>
@@ -587,24 +611,27 @@ function StakeGameHistory({ games, loading, gameGroups }: { games: any[]; loadin
                       <div className="font-semibold text-sm">{meta.label}</div>
                       <div className="text-[10px] text-muted-foreground font-mono">{g.formatted_number}</div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs font-bold tabular-nums text-amber-600">
-                        {fmtArShort(g.stake)}
+                    {/* ── Amount with clear gain/perte color ── */}
+                    {isWin && (
+                      <span className="text-sm font-extrabold tabular-nums text-emerald-600">+{fmtArShort(stake)}</span>
+                    )}
+                    {isLoss && (
+                      <span className="text-sm font-extrabold tabular-nums text-rose-500">−{fmtArShort(stake)}</span>
+                    )}
+                    {/* Status badges for non-finished games */}
+                    {g.status !== "finished" && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_CFG[g.status]?.cls || "bg-secondary"}`}>
+                        {STATUS_CFG[g.status]?.label || g.status}
                       </span>
-                      {g.status === "finished" && (
-                        g.is_winner
-                          ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-100 text-emerald-700 border-emerald-300">🏆 Gagné</span>
-                          : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-rose-100 text-rose-600 border-rose-300">Perdu</span>
-                      )}
-                      {g.status === "cancelled" && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-rose-100 text-rose-600 border-rose-300">Annulée</span>
-                      )}
-                      {(g.status === "playing" || g.status === "open" || g.status === "waiting") && (
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_CFG[g.status]?.cls || "bg-secondary"}`}>
-                          {STATUS_CFG[g.status]?.label || g.status}
-                        </span>
-                      )}
-                    </div>
+                    )}
+                    {g.status === "finished" && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                        isWin ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                        : "bg-rose-100 text-rose-600 border-rose-300"
+                      }`}>
+                        {isWin ? "🏆 Gagné" : "Perdu"}
+                      </span>
+                    )}
                     <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
                   </button>
                 );
