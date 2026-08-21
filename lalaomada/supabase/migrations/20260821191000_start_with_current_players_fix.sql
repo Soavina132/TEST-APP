@@ -1,0 +1,9 @@
+-- ============================================================
+-- Migration: Fix start_with_current_players timeout
+-- Date: 2026-08-21
+--
+-- Même problème que ludo_set_ready: FOR UPDATE peut causer un timeout
+-- quand deux actions démarrent la partie simultanément.
+--
+-- Fix: vérifier le statut sans verrou d'abord. Si déjà lancée, retour silencieux.
+-- ============================================================
