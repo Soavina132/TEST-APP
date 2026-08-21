@@ -393,7 +393,7 @@ export default function ParrainagePage() {
     );
 
   return (
-    <main className="max-w-xl mx-auto w-full px-3 pt-2 pb-2 h-[calc(100dvh-14rem)] flex flex-col gap-2.5 overflow-hidden">
+    <main className="max-w-xl mx-auto w-full px-3 pt-2 pb-4 flex flex-col gap-2.5 overflow-y-auto h-[calc(100dvh-14rem)]">
       <CoinRain trigger={showCoinRain} />
 
       {/* ── Hero ── */}
@@ -498,12 +498,12 @@ export default function ParrainagePage() {
       </div>
 
       {/* ── Tier rewards — PROMINENT ── */}
-      <div className="shrink-0">
+      <div>
         <TierRewardCard activeCount={activeCount} />
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 bg-secondary/60 rounded-2xl p-1 shrink-0">
+      <div className="flex gap-1 bg-secondary/60 rounded-2xl p-1">
         {TABS.map(t => (
           <button
             key={t.id}
@@ -523,7 +523,7 @@ export default function ParrainagePage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-card px-3 py-2 shadow-sm">
+      <div className="rounded-2xl bg-card px-3 py-2 shadow-sm">
         {/* Filleuls tab */}
         {tab === "filleuls" && (
           referrals.length === 0 ? (
@@ -632,7 +632,7 @@ export default function ParrainagePage() {
       </div>
 
       {/* ── How it works (collapsible) ── */}
-      <details className="shrink-0 rounded-2xl bg-secondary/50 px-3 py-2 group">
+      <details className="rounded-2xl bg-secondary/50 px-3 py-2 group">
         <summary className="list-none flex items-center gap-2 cursor-pointer">
           <Sparkles className="w-4 h-4 shrink-0 text-primary" />
           <p className="flex-1 text-[11px] leading-snug text-muted-foreground">
