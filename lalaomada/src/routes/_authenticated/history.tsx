@@ -435,10 +435,19 @@ function StakeGameHistory({ games, loading }: { games: any[]; loading: boolean }
               <span className="text-xs text-amber-500 font-bold">
                 {Number(g.stake).toLocaleString("fr-FR")} Ar
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_CFG[g.status]?.cls || "bg-secondary"}`}>
-                {STATUS_CFG[g.status]?.label || g.status}
-              </span>
-              {g.is_winner && <span className="text-amber-500">🏆</span>}
+              {g.status === "finished" && (
+                g.is_winner
+                  ? <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-100 text-emerald-700 border-emerald-300">🏆 Gagné</span>
+                  : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-rose-100 text-rose-600 border-rose-300">Perdu</span>
+              )}
+              {g.status === "cancelled" && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-rose-100 text-rose-600 border-rose-300">Annulée</span>
+              )}
+              {(g.status === "playing" || g.status === "open" || g.status === "waiting") && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_CFG[g.status]?.cls || "bg-secondary"}`}>
+                  {STATUS_CFG[g.status]?.label || g.status}
+                </span>
+              )}
               <span className="text-xs text-muted-foreground ml-auto">
                 {g.created_at ? new Date(g.created_at).toLocaleDateString("fr-FR") : ""}
               </span>
