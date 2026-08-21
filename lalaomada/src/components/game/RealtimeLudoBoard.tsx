@@ -644,7 +644,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
   // The RPC runs in the background and reconciles when it returns.
   const movePawn = async (idx: number) => {
     if (moveLockRef.current) return;
-    if (!movablePawnIdxs.has(idx) || busy) return;
+    if (!isMyTurn || !movablePawnIdxs.has(idx) || busy) return;
     moveLockRef.current = true;
     setSelectedIdx(idx);
     setBusy(true);
@@ -959,7 +959,7 @@ export default function RealtimeLudoBoard({ gameId, state, participants, myUserI
       renderPawns.push({
         key: `${part.slot}-${i}`,
         slot: part.slot, idx: i, color: part.color, row, col,
-        movable: part.slot === state.turn_slot && visibleMovable.has(i),
+        movable: isMyTurn && part.slot === state.turn_slot && visibleMovable.has(i),
         hasShield: state.shields?.[String(part.slot)] === true,
       });
     });
