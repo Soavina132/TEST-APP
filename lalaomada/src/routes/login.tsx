@@ -241,14 +241,17 @@ function LoginPage() {
         if (signUpErr) throw signUpErr;
 
         // Si mailer_autoconfirm est activé, Supabase crée une session immédiatement.
-        // On la détruit pour empêcher la connexion automatique — l'utilisateur doit
-        // cliquer sur le lien de confirmation dans l'email avant de pouvoir se connecter.
+        // On laisse l'utilisateur se connecter directement — pas de vérification email.
         if (signUpData.session) {
-          await supabase.auth.signOut();
+          // Session active → inscription terminée, l'utilisateur est connecté
+          if (rememberMe) localStorage.setItem("lalaomada_remembered_identifier", identifier.trim());
+          else localStorage.removeItem("lalaomada_remembered_identifier");
+          toast.success("Inscription réussie ! Bienvenue !");
+        } else {
+          // Pas de session → email de confirmation requis (mode manuel)
+          setVerifyEmailAddr(email);
+          setShowVerifyEmail(true);
         }
-
-        setVerifyEmailAddr(email);
-        setShowVerifyEmail(true);
         // Clear persisted referral code — it has been used for this signup
         if (typeof window !== "undefined") {
           localStorage.removeItem(REFERRAL_STORAGE_KEY);
