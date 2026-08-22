@@ -20,6 +20,8 @@ type Props = {
   pauseButtonPortalTarget?: HTMLElement | null;
   /** Simplified pause mode (vs-bot): no timer, no auto-forfeit, just a Continue button. */
   simplePause?: boolean;
+  /** Game stake — pause is disabled for free games (stake = 0) */
+  stake?: number;
 };
 
 function fmt(secs: number): string {
@@ -46,6 +48,7 @@ export default function GamePauseControl({
   isPlayer,
   myUserId,
   simplePause,
+  stake,
 }: Props) {
   const {
     isPaused,
@@ -64,6 +67,9 @@ export default function GamePauseControl({
     isPlayer,
     myUserId,
   });
+
+  // Pause désactivée en mode gratuit (stake = 0)
+  if (Number(stake) === 0) return null;
 
   // Compteurs de vote (disponibles via realtime après le premier vote)
   const votesCount  = afkWarning?.votes?.length ?? 0;
@@ -256,3 +262,4 @@ export default function GamePauseControl({
     </>
   );
 }
+

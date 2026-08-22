@@ -2174,12 +2174,7 @@ function RamiPage() {
           </div>
         ) : (
           <div className="flex items-center gap-1 shrink-0">
-            {Number(game.stake) === 0 && parts.some((p: any) => p.is_bot) && game.status === "playing" && !game.paused && (
-              <button onClick={async () => { const { error } = await supabase.rpc("game_request_pause" as any, { _slug: "rami", _game_id: id } as any); if (error) toast.error(error.message); else toast.success("Partie en pause"); }}
-                className="px-1.5 py-0.5 rounded-full bg-amber-500/90 text-white text-[9px] font-bold flex items-center gap-0.5 active:scale-90 transition">
-                <Pause className="w-2.5 h-2.5" /> Pause
-              </button>
-            )}
+            {/* Pause button removed for free games */}
             <button onClick={() => { const m = !soundOn; setSoundOn(m); setSfxMuted(m); }} className="w-6 h-6 rounded-full bg-secondary/80 text-secondary-foreground flex items-center justify-center active:scale-90 transition">
               {soundOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
             </button>

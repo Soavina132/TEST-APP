@@ -609,6 +609,7 @@ function DominoPage() {
         slug="domino" gameId={id} game={game}
         isPlayer={isPlayer} myUserId={profile?.id ?? null}
         simplePause={parts.some((p: any) => p.is_bot)}
+        stake={Number(game.stake) || 0}
       />
       <GameSocialFab gameId={id} gameSlug="domino" participants={parts} />
     </main>

@@ -860,7 +860,8 @@ const { game, parts, setGame, setParts, loading, connected, reload } = useFastRe
       )}
 
       <GamePauseControl slug="fanorona" gameId={id} game={game} remaining={Math.ceil((me?.color === "white" ? wTime : bTime) / 1000)} totalSeconds={cfg.turn_timer_seconds}
-        isMyTurn={!!isMyTurn} isPlayer={isPlayer} myUserId={profile?.id ?? null} />
+        isMyTurn={!!isMyTurn} isPlayer={isPlayer} myUserId={profile?.id ?? null}         stake={Number(game.stake) || 0}
+      />
       <GameSocialFab gameId={id} gameSlug="fanorona" participants={parts} />
     </div>
   );
