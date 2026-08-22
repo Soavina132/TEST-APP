@@ -1,17 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-╔══════════════════════════════════════════════════════════════════════════╗
-║  Lalao-Mada · SMS Gateway v5.0                                            ║
-║                                                                            ║
-║  ✓ Dépôts auto — Orange EN/FR · MVola · Airtel                           ║
-║  ✓ Vérification téléphone auto — codes LMxxxxxx                          ║
-║  ✓ HMAC-SHA256 pour l'API dépôt                                           ║
-║  ✓ Premier montant "Ar" du SMS = montant de la transaction                ║
-║  ✓ Filtre strict — ignore recharges, retraits, achats d'offres          ║
-║  ✓ Suppression auto des SMS de vérif réussie                              ║
-║  ✓ Interface moderne — thèmes, stats temps réel, setup guidé            ║
-╚══════════════════════════════════════════════════════════════════════════╝
+Lalao-Mada · SMS Gateway v5.1
+Dépôts auto + Vérif téléphone — Orange EN/FR · MVola · Airtel
 """
 
 from __future__ import annotations
@@ -44,18 +35,7 @@ PROCESSED_FILE = APP_DIR / ".processed_sms"
 ENV_FILE = HOME / ".lalaomada_env"
 SHORTCUTS_DIR = HOME / ".shortcuts"
 
-VERSION = "5.0.0"
-BANNER = r"""
-    ╔═════════════════════════════════════════════════╗
-    ║   ██╗      █████╗ ██╗   ██╗ ██████╗   ███╗   ██║
-    ║   ██║     ██╔══██╗██║   ██║██╔═══██╗ ████╗  ██║
-    ║   ██║     ███████║██║   ██║██║   ██║██╔██╗ ██║
-    ║   ██║     ██╔══██║██║   ██║██║   ██║██║╚██╗██║
-    ║   ███████╗██║  ██║╚██████╔╝╚██████╔╝██║ ╚████║
-    ║   ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝
-    ║            S M S   G A T E W A Y                ║
-    ╚═════════════════════════════════════════════════╝
-"""
+VERSION = "5.1.0"
 
 DEFAULT_CONFIG = {
     "supabase_url": "https://gifwfjgciwbsottztzoc.supabase.co",
@@ -64,12 +44,70 @@ DEFAULT_CONFIG = {
     "service_role_key": "",
     "poll_interval": 5,
     "sms_batch_size": 20,
-    "style": "default",
+    "style": "cyan",
     "phone_verify_enabled": True,
     "deposit_enabled": True,
     "auto_delete_verify_sms": True,
     "confirm_sms_to_user": True,
 }
+
+# ═══════════════════════════════════════════════════════════════════════
+#  COULEURS ANSI
+# ═══════════════════════════════════════════════════════════════════════
+
+_USE_COLOR = None
+
+def _color_ok() -> bool:
+    global _USE_COLOR
+    if _USE_COLOR is not None:
+        return _USE_COLOR
+    try:
+        _USE_COLOR = sys.stdout.isatty() and (
+            os.environ.get("TERM", "").startswith(("xterm", "screen", "vt"))
+            or Path("/data/data/com.termux").exists()
+        )
+    except Exception:
+        _USE_COLOR = False
+    return _USE_COLOR
+
+# Codes ANSI bruts — des STRINGS, pas des méthodes
+class A:
+    BOLD   = "\033[1m"
+    DIM    = "\033[2m"
+    RESET  = "\033[0m"
+    RED    = "\033[91m"
+    GREEN  = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE   = "\033[94m"
+    PURPLE = "\033[95m"
+    CYAN   = "\033[96m"
+
+def _c(code: str) -> str:
+    return code if _color_ok() else ""
+
+# Raccourcis — retournent directement des strings
+B   = _c(A.BOLD)
+D   = _c(A.DIM)
+R   = _c(A.RESET)
+RED = _c(A.RED)
+GRN = _c(A.GREEN)
+YEL = _c(A.YELLOW)
+BLU = _c(A.BLUE)
+PUR = _c(A.PURPLE)
+CYN = _c(A.CYAN)
+
+THEMES = {
+    "cyan":   ("Cyan",   CYN, CYN),
+    "neon":   ("Néon",   PUR, PUR),
+    "ocean":  ("Océan",  BLU, CYN),
+    "forest": ("Forêt",  GRN, GRN),
+}
+
+def accent() -> str:
+    """Couleur d'accent selon le thème"""
+    style = load_config().get("style", "cyan")
+    t = THEMES.get(style, THEMES["cyan"])
+    return t[1]
 
 # ═══════════════════════════════════════════════════════════════════════
 #  DÉTECTION
@@ -79,6 +117,7 @@ PHONE_VERIFY_PATTERN = re.compile(r"LM[0-9]{6}", re.IGNORECASE)
 
 ORANGE_SENDERS = {"orange", "orange money", "orangemoney", "5", "50", "500", "610", "689"}
 MVOLA_SENDERS  = {"mvola", "m-vola", "telma", "7", "70", "700", "810", "889"}
+AIRTEL_SENDERS = {"airtel", "airtel money", "airtelmoney"}
 
 ORANGE_KEYWORDS = [
     "orange money", "trans id", "vous avez reçu un transfert",
@@ -86,6 +125,7 @@ ORANGE_KEYWORDS = [
     "you received", "received ar",
 ]
 MVOLA_KEYWORDS = ["mvola", "m-vola", "telma", "transaction mvola"]
+AIRTEL_KEYWORDS = ["airtel", "airtel money", "azo tamin"]
 
 DEPOSIT_KEYWORDS = [
     "vous avez reçu un transfert", "vous avez recu un transfert",
@@ -98,147 +138,8 @@ HARD_IGNORE_KEYWORDS = [
     "achat d'offre", "achat d offre", "achat offre", "votre achat",
     "akama", "forfai", "forfait", "go+", "go +",
     "recharge", "vous avez consomme", "consommation",
+    "you have paid", "paid ", "to offre", "to OFFRE",
 ]
-
-# ═══════════════════════════════════════════════════════════════════════
-#  THÈME — code couleur ANSI
-# ═══════════════════════════════════════════════════════════════════════
-
-class C:
-    """Couleurs ANSI — auto-détection terminal"""
-    _support = None
-
-    @classmethod
-    def supported(cls) -> bool:
-        if cls._support is not None:
-            return cls._support
-        try:
-            cls._support = sys.stdout.isatty() and (
-                os.environ.get("TERM", "").startswith(("xterm", "screen", "vt"))
-                or Path("/data/data/com.termux").exists()
-            )
-        except Exception:
-            cls._support = False
-        return cls._support
-
-    # Style codes
-    BOLD   = "\033[1m"  if supported.__class__ else ""
-    DIM    = "\033[2m"
-    RESET  = "\033[0m"
-    # Couleurs
-    RED    = "\033[91m"
-    GREEN  = "\033[92m"
-    YELLOW = "\033[93m"
-    BLUE   = "\033[94m"
-    PURPLE = "\033[95m"
-    CYAN   = "\033[96m"
-
-    @classmethod
-    def _c(cls, code: str) -> str:
-        return code if cls.supported() else ""
-
-    @classmethod
-    def bold(cls)   -> str: return cls._c(cls.BOLD)
-    @classmethod
-    def dim(cls)    -> str: return cls._c(cls.DIM)
-    @classmethod
-    def red(cls)    -> str: return cls._c(cls.RED)
-    @classmethod
-    def green(cls)  -> str: return cls._c(cls.GREEN)
-    @classmethod
-    def yellow(cls) -> str: return cls._c(cls.YELLOW)
-    @classmethod
-    def blue(cls)   -> str: return cls._c(cls.BLUE)
-    @classmethod
-    def purple(cls) -> str: return cls._c(cls.PURPLE)
-    @classmethod
-    def cyan(cls)   -> str: return cls._c(cls.CYAN)
-    @classmethod
-    def reset(cls)  -> str: return cls._c(cls.RESET)
-
-THEMES = {
-    "cyan":   ("Cyan",   C.CYAN,   C.CYAN),
-    "neon":   ("Néon",   C.PURPLE, C.PURPLE),
-    "ocean":  ("Océan",  C.BLUE,   C.CYAN),
-    "forest": ("Forêt",  C.GREEN,  C.GREEN),
-}
-
-# ═══════════════════════════════════════════════════════════════════════
-#  AFFICHAGE — utilitaires
-# ═══════════════════════════════════════════════════════════════════════
-
-def clear():
-    os.system("clear" if Path("/data/data/com.termux").exists() else "cls")
-
-
-def get_accent() -> str:
-    """Retourne la couleur d'accent selon le thème choisi"""
-    style = load_config().get("style", "cyan")
-    theme = THEMES.get(style, THEMES["cyan"])
-    return theme[1] if C.supported() else ""
-
-
-def banner():
-    """Affiche le banner Lalao-Mada"""
-    clear()
-    a = get_accent()
-    r = C.reset()
-    b = C.bold()
-    d = C.dim()
-    print(f"{a}{BANNER}{r}")
-    print(f"  {d}{'─'*54}{r}")
-    print(f"  {b}  SMS Gateway v{VERSION}{r}  {d}·  Orange · MVola · Airtel{r}")
-    print(f"  {d}  Dépôts auto + Vérif téléphone{r}")
-    print(f"  {d}{'─'*54}{r}\n")
-
-
-def box(title: str, lines: list[str], color_fn=None, icon=""):
-    """Affiche une boîte stylée"""
-    c = color_fn or C.green
-    r = C.reset()
-    w = 44
-    title_str = f" {icon} {title} " if icon else f" {title} "
-    pad = max(0, w - len(title_str))
-    print(f"\n  {c}┌{title_str}{'─'*pad}┐{r}")
-    for line in lines:
-        print(f"  {c}│{r}  {line}")
-    print(f"  {c}└{'─'*w}┘{r}")
-
-
-def box_ok(title, lines):    box(title, lines, C.green, "✓")
-def box_warn(title, lines):  box(title, lines, C.yellow, "⚠")
-def box_err(title, lines):   box(title, lines, C.red, "✗")
-def box_info(title, lines):  box(title, lines, C.cyan, "ℹ")
-
-
-def spinner(msg: str, duration: float = 0.8):
-    """Mini animation spinner"""
-    frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-    if not C.supported():
-        print(f"  {msg}...")
-        time.sleep(duration)
-        return
-    end = time.time() + duration
-    i = 0
-    while time.time() < end:
-        sys.stdout.write(f"\r  {C.cyan()}{frames[i % len(frames)]}{C.reset()} {msg}...")
-        sys.stdout.flush()
-        time.sleep(0.08)
-        i += 1
-    sys.stdout.write(f"\r{' '*60}\r")
-    sys.stdout.flush()
-
-
-def press_enter(d: str = ""):
-    r = C.reset()
-    dim = C.dim()
-    input(f"\n  {dim}{'→ ' + d if d else '→'} Appuyez sur Entrée{dim}...{r}")
-
-
-def confirm(msg: str) -> bool:
-    r = C.reset()
-    b = C.bold()
-    return input(f"\n  {b}{msg} (o/n) ? {r}").strip().lower() in ("o", "oui", "y", "yes")
 
 # ═══════════════════════════════════════════════════════════════════════
 #  CONFIG / FICHIERS
@@ -254,12 +155,10 @@ def load_config() -> dict[str, Any]:
         save_config(DEFAULT_CONFIG)
         return DEFAULT_CONFIG.copy()
 
-
 def save_config(config: dict[str, Any]):
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
     os.chmod(CONFIG_FILE, 0o600)
-
 
 def load_key() -> str:
     config = load_config()
@@ -277,7 +176,6 @@ def load_key() -> str:
             pass
     return ""
 
-
 def save_key(key: str):
     config = load_config()
     config["service_role_key"] = key
@@ -288,20 +186,13 @@ def save_key(key: str):
     except Exception:
         pass
 
-
 def log(msg: str, level: str = "INFO"):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[{ts}] {level}: {msg}"
     try:
         with open(LOG_FILE, "a") as f:
-            f.write(line + "\n")
+            f.write(f"[{ts}] {level}: {msg}\n")
     except Exception:
         pass
-    colors = {"INFO": C.dim(), "SUCCESS": C.green(), "ERROR": C.red(),
-              "WARN": C.yellow(), "VERIFY": C.blue()}
-    color = colors.get(level, C.dim())
-    print(f"  {C.dim()}[{ts}]{C.reset()} {color}{level}{C.reset()}: {msg}")
-
 
 def load_processed() -> set[str]:
     try:
@@ -309,11 +200,9 @@ def load_processed() -> set[str]:
     except FileNotFoundError:
         return set()
 
-
 def mark_processed(sms_id: str):
     with open(PROCESSED_FILE, "a") as f:
         f.write(sms_id + "\n")
-
 
 def cleanup_processed(keep: int = 500):
     try:
@@ -323,13 +212,10 @@ def cleanup_processed(keep: int = 500):
     except Exception:
         pass
 
-
 def sms_hash_id(sender: str, body: str, timestamp: str) -> str:
-    raw = f"{sender}|{timestamp}|{body[:100]}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+    return hashlib.sha256(f"{sender}|{timestamp}|{body[:100]}".encode()).hexdigest()[:32]
 
-
-def sanitize(text: str, max_len: int = 60) -> str:
+def sanitize(text: str, max_len: int = 50) -> str:
     if not text:
         return ""
     t = text[:max_len] + ("…" if len(text) > max_len else "")
@@ -346,6 +232,8 @@ def detect_operator(sender: str, body: str) -> str | None:
             return "orange"
         if s in MVOLA_SENDERS or "mvola" in s or "telma" in s:
             return "mvola"
+        if s in AIRTEL_SENDERS or "airtel" in s:
+            return "airtel"
     if body:
         b = body.lower()
         for kw in ORANGE_KEYWORDS:
@@ -354,8 +242,10 @@ def detect_operator(sender: str, body: str) -> str | None:
         for kw in MVOLA_KEYWORDS:
             if kw in b:
                 return "mvola"
+        for kw in AIRTEL_KEYWORDS:
+            if kw in b:
+                return "airtel"
     return None
-
 
 def is_deposit_sms(body: str) -> bool:
     if not body:
@@ -371,7 +261,6 @@ def is_deposit_sms(body: str) -> bool:
             return False
     return True
 
-
 def extract_phone_code(body: str | None) -> str | None:
     if not body:
         return None
@@ -379,17 +268,12 @@ def extract_phone_code(body: str | None) -> str | None:
     return m.group(0).upper() if m else None
 
 # ═══════════════════════════════════════════════════════════════════════
-#  HMAC
+#  HMAC — doit correspondre à l'edge function
 # ═══════════════════════════════════════════════════════════════════════
 
 def compute_hmac(secret: str, timestamp: str, payload: str) -> str:
-    """HMAC-SHA256 — doit correspondre exactement à l'edge function Supabase"""
     message = f"{timestamp}{payload}"
-    return hmac.new(
-        secret.encode("utf-8"),
-        message.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
+    return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()
 
 # ═══════════════════════════════════════════════════════════════════════
 #  API
@@ -412,27 +296,24 @@ def api_request(url: str, payload: dict, key: str) -> tuple[dict | None, str | N
     except Exception as e:
         return None, str(e)
 
-
 def send_deposit(operator: str, sms_body: str, key: str, config: dict) -> tuple[dict | None, str | None]:
     secret = config["api_secret"]
-    timestamp = str(int(time.time()))
-    payload_str = json.dumps({"operator": operator, "sms": sms_body})
-    signature = compute_hmac(secret, timestamp, payload_str)
+    ts = str(int(time.time()))
+    # CRITICAL: separators=(',',':') pour matcher JSON.stringify de JavaScript (sans espaces)
+    payload_str = json.dumps({"operator": operator, "sms": sms_body}, separators=(",", ":"))
+    signature = compute_hmac(secret, ts, payload_str)
     payload = {
         "secret": secret,
         "operator": operator,
         "sms": sms_body,
-        "timestamp": timestamp,
+        "timestamp": ts,
         "signature": signature,
     }
     return api_request(config["deposit_api_url"], payload, key)
 
-
 def send_phone_verify(sender: str, sms_body: str, key: str, config: dict) -> tuple[dict | None, str | None]:
     url = f"{config['supabase_url']}/rest/v1/rpc/auto_verify_phone_by_sms"
-    payload = {"_sender_phone": sender, "_sms_body": sms_body}
-    return api_request(url, payload, key)
-
+    return api_request(url, {"_sender_phone": sender, "_sms_body": sms_body}, key)
 
 def send_sms(phone: str, message: str) -> bool:
     try:
@@ -440,7 +321,6 @@ def send_sms(phone: str, message: str) -> bool:
         return True
     except Exception:
         return False
-
 
 def get_sms_list(limit: int = 20) -> list[dict]:
     try:
@@ -454,7 +334,6 @@ def get_sms_list(limit: int = 20) -> list[dict]:
         return data if isinstance(data, list) else []
     except Exception:
         return []
-
 
 def delete_sms(sms_id) -> bool:
     if not sms_id:
@@ -470,12 +349,36 @@ def delete_sms(sms_id) -> bool:
         return False
 
 # ═══════════════════════════════════════════════════════════════════════
+#  CONSOLE — output simple et lisible
+# ═══════════════════════════════════════════════════════════════════════
+
+def clear():
+    os.system("clear" if Path("/data/data/com.termux").exists() else "cls")
+
+def banner():
+    clear()
+    a = accent()
+    print(f"  {a}╔══════════════════════════════════════════════╗{R}")
+    print(f"  {a}║{R}  {B}Lalao-Mada · SMS Gateway v{VERSION}{R}          {a}║{R}")
+    print(f"  {a}║{R}  {D}Dépôts + Vérif téléphone{R}                 {a}║{R}")
+    print(f"  {a}╚══════════════════════════════════════════════╝{R}")
+    print()
+
+def hr(w=50):
+    print(f"  {D}{'─'*w}{R}")
+
+def press_enter(msg=""):
+    input(f"\n  {D}{'→ '+msg+' · ' if msg else '→ '}Appuyez sur Entrée…{R}")
+
+def confirm(msg: str) -> bool:
+    return input(f"\n  {B}{msg} (o/n) ? {R}").strip().lower() in ("o", "oui", "y", "yes")
+
+# ═══════════════════════════════════════════════════════════════════════
 #  TRAITEMENT SMS
 # ═══════════════════════════════════════════════════════════════════════
 
 monitoring = False
 stats = {"deposits": 0, "phone_verifs": 0, "rejected": 0, "skipped": 0, "errors": 0}
-
 
 def process_sms(sms: dict, key: str, config: dict, processed: set) -> str:
     sender = sms.get("address", "") or ""
@@ -491,58 +394,38 @@ def process_sms(sms: dict, key: str, config: dict, processed: set) -> str:
         return "duplicate"
 
     ts = datetime.now().strftime("%H:%M:%S")
+    a = accent()
 
-    # ── 1. VÉRIFICATION TÉLÉPHONE (LMxxxxxx) ──
+    # ── 1. VÉRIF TÉLÉPHONE ──
     code = extract_phone_code(body)
     if code and config.get("phone_verify_enabled", True):
-        a = get_accent()
-        r = C.reset()
-        b = C.bold()
-        d = C.dim()
-        blu = C.blue()
-
-        print(f"\n  {d}[{ts}]{r} {blu}📱 VÉRIF TÉLÉPHONE{r} {d}de{r} {a}{sanitize(sender)}{r}")
-        print(f"     {d}Code détecté :{r} {b}{code}{r}")
-        print(f"     {d}→ Vérification...{r}", end=" ", flush=True)
+        print(f"\n  {D}[{ts}]{R} {BLU}📱 VÉRIF{R} {D}de{R} {a}{sanitize(sender)}{R} {D}·{R} {B}{code}{R}")
 
         result, error = send_phone_verify(sender, body, key, config)
 
         if error:
-            print(f"{C.red()}✗ ERREUR{r}")
-            box_err("ERREUR VÉRIFICATION", [f"Erreur : {error}"])
-            log(f"Erreur vérif téléphone: {error}", "ERROR")
+            print(f"  {RED}  ✗ Erreur: {error}{R}")
+            log(f"Erreur vérif: {error}", "ERROR")
             stats["errors"] += 1
             mark_processed(sms_id)
             return "error"
 
         if result and result.get("success"):
-            print(f"{C.green()}✓ VÉRIFIÉ{r}")
             phone = result.get("phone", "?")
-            box_ok("TÉLÉPHONE VÉRIFIÉ", [
-                f"Numéro  : {phone}",
-                f"Code    : {code}",
-                f"Statut  : ✓ Validé",
-            ])
-            log(f"Téléphone vérifié: {phone} (code {code})", "VERIFY")
-            stats["phone_verifs"] += 1
-
+            print(f"  {GRN}  ✓ Vérifié: {phone}{R}")
             if config.get("confirm_sms_to_user", True):
-                msg = "Lalao-Mada: Votre numero a ete verifie avec succes ! Vous pouvez maintenant jouer avec mise. 🎮"
-                if send_sms(sender, msg):
-                    print(f"  {C.green()}✓{r} SMS confirmation envoyé{d} → {sanitize(sender)}{r}")
-
+                if send_sms(sender, "Lalao-Mada: Numero verifie ! Vous pouvez jouer avec mise. 🎮"):
+                    print(f"  {GRN}  ✓ SMS confirmation envoyé{R}")
             if config.get("auto_delete_verify_sms", True) and real_id:
                 if delete_sms(real_id):
-                    print(f"  {C.dim()}🗑️  SMS de vérif supprimé{r}")
-                else:
-                    print(f"  {C.yellow()}⚠️  Suppression SMS échouée{r}")
-
+                    print(f"  {D}  🗑️ SMS supprimé{R}")
+            log(f"Téléphone vérifié: {phone} ({code})", "VERIFY")
+            stats["phone_verifs"] += 1
             mark_processed(sms_id)
             return "phone_verified"
 
-        reason = result.get("message", "Inconnu") if result else "Pas de réponse"
-        print(f"{C.yellow()}⊘ REJETÉ{r}")
-        box_warn("VÉRIFICATION REJETÉE", [reason])
+        reason = result.get("message", "?") if result else "Pas de réponse"
+        print(f"  {YEL}  ⊘ Rejeté: {reason}{R}")
         log(f"Vérif rejetée: {reason}", "WARN")
         stats["rejected"] += 1
         mark_processed(sms_id)
@@ -562,49 +445,32 @@ def process_sms(sms: dict, key: str, config: dict, processed: set) -> str:
         mark_processed(sms_id)
         return "skip"
 
-    a = get_accent()
-    r = C.reset()
-    b = C.bold()
-    d = C.dim()
-
-    print(f"\n  {d}[{ts}]{r} {a}📧 DÉPÔT {operator.upper()}{r} {d}de{r} {b}{sanitize(sender)}{r}")
-    print(f"     {d}{sanitize(body, 70)}{r}")
-    print(f"     {d}→ Envoi API (HMAC signé)...{r}", end=" ", flush=True)
+    print(f"\n  {D}[{ts}]{R} {a}📧 DÉPÔT {operator.upper()}{R} {D}de{R} {B}{sanitize(sender)}{R}")
+    print(f"  {D}  {sanitize(body, 60)}{R}")
 
     result, error = send_deposit(operator, body, key, config)
 
     if error:
-        print(f"{C.red()}✗ ERREUR{r}")
-        box_err("ERREUR API DÉPÔT", [f"Erreur : {error}"])
+        print(f"  {RED}  ✗ Erreur API: {error}{R}")
         log(f"Erreur API dépôt: {error}", "ERROR")
         stats["errors"] += 1
         mark_processed(sms_id)
         return "error"
 
     if result and result.get("success"):
-        print(f"{C.green()}✓ VALIDÉ{r}")
         amount = result.get("amount", "?")
         pseudo = result.get("user_pseudo", "?")
         trans = result.get("transaction_id", "?")
-        box_ok("DÉPÔT ACCEPTÉ", [
-            f"Joueur      : {pseudo}",
-            f"Montant     : {amount:,} Ar".replace(",", " "),
-            f"Transaction : {trans}",
-            f"Opérateur   : {operator.upper()}",
-        ])
-        log(f"Dépôt VALIDÉ: {pseudo} +{amount} Ar (Trans: {trans})", "SUCCESS")
+        print(f"  {GRN}  ✓ Accepté: {pseudo} +{amount} Ar{R}")
+        print(f"  {D}  Trans: {trans}{R}")
+        log(f"Dépôt validé: {pseudo} +{amount} Ar ({trans})", "SUCCESS")
         stats["deposits"] += 1
         mark_processed(sms_id)
         return "deposit_validated"
 
-    reason = result.get("message", "Inconnu") if result else "Pas de réponse"
+    reason = result.get("message", "?") if result else "Pas de réponse"
     err_code = result.get("error", "?") if result else "?"
-    print(f"{C.yellow()}⊘ REJETÉ{r}")
-    box_warn("DÉPÔT REJETÉ", [
-        f"Code     : {err_code}",
-        f"Raison   : {reason}",
-        f"Opérateur: {operator.upper()}",
-    ])
+    print(f"  {YEL}  ⊘ Rejeté: [{err_code}] {reason}{R}")
     log(f"Dépôt rejeté: [{err_code}] {reason}", "WARN")
     stats["rejected"] += 1
     mark_processed(sms_id)
@@ -618,21 +484,17 @@ def monitor_sms():
     processed = load_processed()
     interval = config.get("poll_interval", 5)
     batch = config.get("sms_batch_size", 20)
-    a = get_accent()
-    r = C.reset()
-    b = C.bold()
-    d = C.dim()
+    a = accent()
 
-    print(f"\n  {b}📡 Surveillance active{r}\n")
-    print(f"  {d}┌──────────────────────────────────────────────────┐{r}")
-    print(f"  {d}│{r} {a}●{r} Dépôts    Orange · MVola · Airtel            {d}│{r}")
-    print(f"  {d}│{r} {a}●{r} Vérif     Codes LMxxxxxx                     {d}│{r}")
-    print(f"  {d}│{r} {a}●{r} HMAC      Signé automatiquement               {d}│{r}")
-    print(f"  {d}│{r} {a}●{r} Filtre    Recharges/retraits = ignorés       {d}│{r}")
-    print(f"  {d}│{r} {a}●{r} Suppression SMS vérif réussie              {d}│{r}")
-    print(f"  {d}└──────────────────────────────────────────────────┘{r}")
-    print(f"  {d}Intervalle: {interval}s · Batch: {batch} SMS · Ctrl+C pour arrêter{r}")
-    print(f"  {d}{'─'*54}{r}\n")
+    print(f"\n  {B}📡 Surveillance active{R}\n")
+    hr()
+    print(f"  {a}●{R} Dépôts  {D}Orange · MVola · Airtel{R}")
+    print(f"  {a}●{R} Vérif   {D}Codes LMxxxxxx{R}")
+    print(f"  {a}●{R} HMAC    {D}Signé automatiquement{R}")
+    print(f"  {a}●{R} Filtre  {D}Recharges/retraits = ignorés{R}")
+    hr()
+    print(f"  {D}Intervalle: {interval}s · Batch: {batch} · Ctrl+C pour arrêter{R}")
+    print()
 
     try:
         while monitoring:
@@ -640,22 +502,22 @@ def monitor_sms():
                 if not monitoring:
                     break
                 process_sms(sms, key, config, processed)
-                if True:
-                    processed.add(sms_hash_id(
-                        sms.get("address", ""),
-                        sms.get("body", ""),
-                        str(sms.get("date") or sms.get("received_at") or "")
-                    ))
+                processed.add(sms_hash_id(
+                    sms.get("address", ""),
+                    sms.get("body", ""),
+                    str(sms.get("date") or sms.get("received_at") or "")
+                ))
 
             s = stats
             bar = (
-                f"\r  {d}Stats: "
-                f"{C.green()}✓{s['deposits']}{d} dépôts  "
-                f"{C.blue()}📱{s['phone_verifs']}{d} vérifs  "
-                f"{C.yellow()}⊘{s['rejected']}{d} rejetés  "
-                f"{C.red()}✗{s['errors']}{d} erreurs  "
-                f"{a}●{d} en écoute...{r}"
+                f"\r  {D}Stats: "
+                f"{GRN}✓{s['deposits']}{D} dépôts  "
+                f"{BLU}📱{s['phone_verifs']}{D} vérifs  "
+                f"{YEL}⊘{s['rejected']}{D} rejetés  "
+                f"{RED}✗{s['errors']}{D} erreurs  "
+                f"{a}●{D} écoute…{R}"
             )
+            sys.stdout.write(f"\r{' '*70}\r")  # clear previous bar
             sys.stdout.write(bar)
             sys.stdout.flush()
 
@@ -666,72 +528,66 @@ def monitor_sms():
             time.sleep(interval)
 
     except KeyboardInterrupt:
-        print(f"\n\n  {C.yellow()}⏹  Arrêt demandé...{r}")
+        print(f"\n\n  {YEL}⏹ Arrêt…{R}")
         monitoring = False
 
 # ═══════════════════════════════════════════════════════════════════════
-#  SETUP GUIDÉ — premier lancement
+#  SETUP GUIDÉ
 # ═══════════════════════════════════════════════════════════════════════
 
 def run_setup():
-    """Setup guidé pour configurer le script la première fois"""
     banner()
-    a = get_accent()
-    r = C.reset()
-    b = C.bold()
-    d = C.dim()
+    a = accent()
+    print(f"  {B}🚀 Setup guidé{R}\n")
+    hr()
+    print(f"  {D}Configure le script en 3 étapes.{R}\n")
 
-    print(f"  {b}🚀 Setup guidé — Configuration initiale{r}\n")
-    print(f"  {d}Ce script surveille les SMS entrants et :{r}")
-    print(f"  {d}  1. Valide les dépôts Orange/MVola/Airtel → API Supabase{r}")
-    print(f"  {d}  2. Vérifie les téléphones (codes LMxxxxxx) → Supabase{r}\n")
-
-    # Clé Supabase
+    # Étape 1: Clé Supabase
     key = load_key()
     if not key:
-        print(f"  {b}🔑 Étape 1/3 — Clé Service Role Supabase{r}\n")
-        print(f"  {d}1. https://supabase.com/dashboard{r}")
-        print(f"  {d}2. Projet TEST-APP → Settings → API{r}")
-        print(f"  {d}3. Copiez la clé 'service_role' (longue){r}\n")
-        key_input = input(f"  {a}Collez votre clé : {r}").strip()
+        print(f"  {B}🔑 Étape 1/3 — Clé Service Role{R}\n")
+        print(f"  {D}1. supabase.com/dashboard{R}")
+        print(f"  {D}2. Projet TEST-APP → Settings → API{R}")
+        print(f"  {D}3. Copiez la clé 'service_role'{R}\n")
+        key_input = input(f"  {a}Collez la clé: {R}").strip()
         if key_input and len(key_input) > 20:
             save_key(key_input)
-            print(f"  {C.green()}✓ Clé sauvegardée{r}\n")
+            print(f"  {GRN}✓ Sauvegardée{R}\n")
             key = key_input
         else:
-            print(f"  {C.yellow()}⚠ Clé invalide — vous pourrez la configurer plus tard{r}\n")
+            print(f"  {YEL}⚠ Ignoré{R}\n")
     else:
-        print(f"  {C.green()}✓{r} Clé Supabase déjà configurée\n")
+        print(f"  {GRN}✓{R} Clé Supabase déjà configurée\n")
 
-    # Secret API
+    # Étape 2: Secret API
     config = load_config()
-    print(f"  {b}🔒 Étape 2/3 — Secret API Dépôt{r}\n")
-    print(f"  {d}Le secret doit correspondre à DEPOSIT_SMS_SECRET sur Supabase{r}")
-    print(f"  {d}Actuel: {config.get('api_secret', '?')}{r}\n")
-    if confirm("Modifier le secret API ?"):
-        secret = input(f"  {a}Nouveau secret : {r}").strip()
+    print(f"  {B}🔒 Étape 2/3 — Secret API{R}\n")
+    print(f"  {D}Doit correspondre à DEPOSIT_SMS_SECRET sur Supabase{R}")
+    print(f"  {D}Actuel: {config.get('api_secret', '?')}{R}\n")
+    if confirm("Modifier le secret ?"):
+        secret = input(f"  {a}Nouveau secret: {R}").strip()
         if secret:
             config["api_secret"] = secret
             save_config(config)
-            print(f"  {C.green()}✓ Secret mis à jour{r}\n")
+            print(f"  {GRN}✓ Mis à jour{R}\n")
 
-    # Vérification Termux
-    print(f"  {b}🔧 Étape 3/3 — Vérification Termux{r}\n")
+    # Étape 3: Termux
+    print(f"  {B}🔧 Étape 3/3 — Termux{R}\n")
     try:
         subprocess.run(["which", "termux-sms-list"], capture_output=True, check=True)
-        print(f"  {C.green()}✓{r} termux-sms-list disponible")
+        print(f"  {GRN}✓ termux-sms-list OK{R}")
     except Exception:
-        print(f"  {C.red()}✗{r} termux-sms-list manquant")
-        if confirm("Installer termux-api maintenant ?"):
+        print(f"  {RED}✗ termux-sms-list manquant{R}")
+        if confirm("Installer ?"):
             try:
                 subprocess.run(["pkg", "install", "-y", "termux-api"], timeout=300)
-                print(f"  {C.green()}✓ Installé{r}")
+                print(f"  {GRN}✓ Installé{R}")
             except Exception as e:
-                print(f"  {C.red()}Erreur: {e}{r}")
-        print(f"  {C.yellow()}⚠  Installez aussi l'app Termux:API (Play Store){r}")
+                print(f"  {RED}Erreur: {e}{R}")
+        print(f"  {YEL}⚠ Installez l'app Termux:API (Play Store){R}")
 
-    print(f"\n  {b}✅ Setup terminé !{r}")
-    press_enter("Retour au menu")
+    print(f"\n  {B}✅ Setup terminé{R}")
+    press_enter()
 
 # ═══════════════════════════════════════════════════════════════════════
 #  MENUS
@@ -741,139 +597,107 @@ def menu_start():
     global monitoring, stats
     banner()
 
-    # Vérifier termux-sms-list
     try:
         subprocess.run(["which", "termux-sms-list"], capture_output=True, check=True)
     except Exception:
-        box_err("TERMUX-API MANQUANT", [
-            "termux-sms-list introuvable",
-            "→ pkg install termux-api",
-            "→ Installer l'app Termux:API (Play Store)",
-        ])
+        print(f"  {RED}✗ termux-sms-list manquant{R}")
+        print(f"  {D}→ pkg install termux-api + app Termux:API{R}")
         press_enter()
         return
 
-    # Vérifier la clé
     key = load_key()
     if not key:
-        print(f"  {C.yellow()}⚠  Clé Supabase non configurée{r}")
-        if confirm("Lancer le setup guidé ?"):
+        print(f"  {YEL}⚠ Clé Supabase non configurée{R}")
+        if confirm("Lancer le setup ?"):
             run_setup()
             return
-        else:
-            press_enter("Retour au menu")
-            return
+        press_enter()
+        return
 
-    spinner("Démarrage")
     stats = {"deposits": 0, "phone_verifs": 0, "rejected": 0, "skipped": 0, "errors": 0}
     monitoring = True
     monitor_sms()
     monitoring = False
 
-    # Résumé
-    a = get_accent()
-    r = C.reset()
-    b = C.bold()
-    d = C.dim()
     s = stats
-    print(f"\n\n  {b}📊 Résumé de session{r}\n")
-    print(f"  {d}{'─'*40}{r}")
-    print(f"  {C.green()}✓{r} Dépôts validés      : {b}{s['deposits']}{r}")
-    print(f"  {C.blue()}📱{r} Téléphones vérifiés : {b}{s['phone_verifs']}{r}")
-    print(f"  {C.yellow()}⊘{r} Rejetés             : {b}{s['rejected']}{r}")
-    print(f"  {C.red()}✗{r} Erreurs             : {b}{s['errors']}{r}")
-    print(f"  {d}{'─'*40}{r}")
-    press_enter("Retour au menu")
+    print(f"\n\n  {B}📊 Session{R}\n")
+    hr()
+    print(f"  {GRN}✓{R} Dépôts     : {B}{s['deposits']}{R}")
+    print(f"  {BLU}📱{R} Vérifs     : {B}{s['phone_verifs']}{R}")
+    print(f"  {YEL}⊘{R} Rejetés    : {B}{s['rejected']}{R}")
+    print(f"  {RED}✗{R} Erreurs    : {B}{s['errors']}{R}")
+    hr()
+    press_enter()
 
 
 def menu_test():
     banner()
     key = load_key()
     config = load_config()
-    a = get_accent()
-    r = C.reset()
-    b = C.bold()
-    d = C.dim()
+    a = accent()
 
-    print(f"  {b}🧪 Test manuel{r}\n")
-    print(f"  {d}Testez un SMS sans qu'il soit reçu réellement.{r}\n")
+    print(f"  {B}🧪 Test manuel{R}\n")
+    hr()
 
-    print(f"  {a}1.{r}  📧 Dépôt Orange Money")
-    print(f"  {a}2.{r}  📧 Dépôt MVola")
-    print(f"  {a}3.{r}  📧 Dépôt Airtel")
-    print(f"  {a}4.{r}  📱 Vérif téléphone (LMxxxxxx)")
-    print(f"  {a}0.{r}  ← Retour\n")
-
-    choice = input(f"  {b}Type [0-4]: {r}").strip()
-    if choice == "0" or not choice:
-        return
-
-    if choice not in ("1", "2", "3", "4"):
-        print(f"  {C.red()}Choix invalide{r}")
-        press_enter()
-        return
-
-    # SMS pré-rempli pour test rapide
     presets = {
-        "1": "Vous avez recu un transfert de 600Ar venant du 0325063949 Nouveau Solde: 3085Ar. Trans Id: PP260822.2306.D25173. Orange Money vous remercie.",
-        "2": "1 000 Ar recu de Jean Romulus 0381724343 le 22/08/26 a 23:02. Raison: 41. Solde: 2 859 Ar. Ref 5896099722",
-        "3": "Ar 2000 azo tamin'ny agent 331576366. Toebolanao Ar 2094. Trans ID: CI260811.1140.E34298",
-        "4": "Votre code de verification Lalao-Mada est LM482910",
+        "1": ("Orange FR", "orange",
+              "Vous avez recu un transfert de 600Ar venant du 0325063949 Nouveau Solde: 3085Ar. Trans Id: PP260822.2306.D25173. Orange Money vous remercie."),
+        "2": ("Orange EN", "orange",
+              "You received Ar 4000 from FLORENT 330887911. New Balance: Ar 5650. Id: PP260822.1225.D12303"),
+        "3": ("MVola", "mvola",
+              "1 000 Ar recu de Jean Romulus 0381724343 le 22/08/26 a 23:02. Raison: 41. Solde: 2 859 Ar. Ref 5896099722"),
+        "4": ("Airtel", "airtel",
+              "Ar 2000 azo tamin'ny agent 331576366. Toebolanao Ar 2094. Trans ID: CI260811.1140.E34298"),
+        "5": ("Vérif téléphone", None,
+              "Votre code de verification Lalao-Mada est LM482910"),
     }
 
-    default = presets.get(choice, "")
-    print(f"\n  {d}SMS par défaut:{r}")
-    print(f"  {d}{default[:70]}…{r}" if len(default) > 70 else f"  {d}{default}{r}")
-    sms_text = input(f"\n  {b}SMS [{d}Entrée = défaut{b}]: {r}").strip() or default
+    for i, (label, _, _) in presets.items():
+        print(f"  {a}{i}.{R}  {label}")
+    print(f"  {a}0.{R}  Retour\n")
 
-    if not sms_text:
-        print(f"  {C.red()}SMS vide{r}")
-        press_enter()
+    choice = input(f"  {B}Type [0-5]: {R}").strip()
+    if choice == "0" or not choice or choice not in presets:
         return
+
+    label, operator, default_sms = presets[choice]
+    print(f"\n  {D}SMS par défaut ({label}):{R}")
+    print(f"  {D}{default_sms[:70]}…{R}" if len(default_sms) > 70 else f"  {D}{default_sms}{R}")
+    sms_text = input(f"\n  {B}SMS [{D}Entrée=défaut{B}]: {R}").strip() or default_sms
 
     if not key:
-        print(f"  {C.red()}Clé Supabase manquante — configurez-la d'abord{r}")
+        print(f"  {RED}✗ Clé Supabase manquante{R}")
         press_enter()
         return
 
-    if choice == "4":
+    if choice == "5":
         code = extract_phone_code(sms_text)
         if not code:
-            print(f"  {C.red()}Aucun code LMxxxxxx trouvé{r}")
-            press_enter()
-            return
-        sender = input(f"  {b}Numéro expéditeur: {r}").strip() or "0380000000"
-        spinner("Vérification")
-        result, error = send_phone_verify(sender, sms_text, key, config)
-        if error:
-            box_err("ERREUR", [error])
-        elif result and result.get("success"):
-            box_ok("VÉRIFIÉ", [f"Téléphone: {result.get('phone', '?')}", f"Code: {code}"])
+            print(f"  {RED}✗ Aucun code LMxxxxxx{R}")
         else:
-            box_warn("REJETÉ", [result.get("message", "?") if result else "Pas de réponse"])
+            sender = input(f"  {B}Expéditeur: {R}").strip() or "0380000000"
+            result, error = send_phone_verify(sender, sms_text, key, config)
+            if error:
+                print(f"  {RED}✗ {error}{R}")
+            elif result and result.get("success"):
+                print(f"  {GRN}✓ Vérifié: {result.get('phone', '?')}{R}")
+            else:
+                print(f"  {YEL}⊘ {result.get('message', '?') if result else 'Pas de réponse'}{R}")
     else:
-        operator = {"1": "orange", "2": "mvola", "3": "airtel"}[choice]
         if not is_deposit_sms(sms_text):
-            box_warn("IGNORÉ (FILTRE LOCAL)", [
-                "Ce SMS ne ressemble pas à un vrai dépôt.",
-                "Achats d'offres / recharges / retraits → ignorés.",
-            ])
+            print(f"  {YEL}⊘ Ignoré par le filtre local (pas un dépôt){R}")
             press_enter()
             return
-        spinner("Envoi API (HMAC)")
         result, error = send_deposit(operator, sms_text, key, config)
         if error:
-            box_err("ERREUR API", [error])
+            print(f"  {RED}✗ {error}{R}")
+            if result:
+                print(f"  {RED}  {result.get('message', '')}{R}")
         elif result and result.get("success"):
-            box_ok("DÉPÔT ACCEPTÉ", [
-                f"Joueur     : {result.get('user_pseudo', '?')}",
-                f"Montant    : {result.get('amount', '?')} Ar",
-                f"Transaction: {result.get('transaction_id', '?')}",
-            ])
+            print(f"  {GRN}✓ Accepté: {result.get('user_pseudo', '?')} +{result.get('amount', '?')} Ar{R}")
+            print(f"  {D}  Trans: {result.get('transaction_id', '?')}{R}")
         else:
-            reason = result.get("message", "?") if result else "Pas de réponse"
-            err = result.get("error", "?") if result else "?"
-            box_warn("DÉPÔT REJETÉ", [f"Code: {err}", f"Raison: {reason}"])
+            print(f"  {YEL}⊘ Rejeté: {result.get('message', '?') if result else '?'}{R}")
 
     press_enter()
 
@@ -883,119 +707,105 @@ def menu_settings():
         banner()
         config = load_config()
         key = load_key()
-        a = get_accent()
-        r = C.reset()
-        b = C.bold()
-        d = C.dim()
-        g = C.green()
-        y = C.yellow()
-        red = C.red()
+        a = accent()
 
-        print(f"  {b}⚙️  Paramètres{r}\n")
-        print(f"  {d}{'─'*54}{r}\n")
+        print(f"  {B}⚙️  Paramètres{R}\n")
+        hr()
 
-        # État de configuration
         if key:
-            masked = key[:8] + "…" + key[-4:] if len(key) > 15 else "***"
-            print(f"  {g}✓{r} Clé Service Role    : {d}{masked}{r}")
+            masked = key[:8] + "…" + key[-4:]
+            print(f"  {GRN}✓{R} Clé Supabase    : {D}{masked}{R}")
         else:
-            print(f"  {red}✗{r} Clé Service Role    : {red}Non configurée{r}")
+            print(f"  {RED}✗{R} Clé Supabase    : {RED}Non configurée{R}")
 
-        print(f"  {g}✓{r} Secret API         : {d}{'*' * 8}{r}")
-        print(f"  {d}────────────────────────────────────────────────{r}")
-        print(f"  Intervalle scan     : {b}{config.get('poll_interval', 5)}s{r}")
-        print(f"  Batch SMS           : {b}{config.get('sms_batch_size', 20)}{r}")
-        print(f"  {d}────────────────────────────────────────────────{r}")
-        print(f"  Dépôts              : {g}ON{r}" if config.get("deposit_enabled", True) else f"  Dépôts              : {red}OFF{r}")
-        print(f"  Vérif téléphone     : {g}ON{r}" if config.get("phone_verify_enabled", True) else f"  Vérif téléphone     : {red}OFF{r}")
-        print(f"  Suppr. SMS vérif    : {g}ON{r}" if config.get("auto_delete_verify_sms", True) else f"  Suppr. SMS vérif    : {y}OFF{r}")
-        print(f"  SMS confirmation    : {g}ON{r}" if config.get("confirm_sms_to_user", True) else f"  SMS confirmation    : {y}OFF{r}")
-        print(f"  {d}────────────────────────────────────────────────{r}")
-        print(f"  Thème               : {b}{config.get('style', 'cyan')}{r}")
+        print(f"  {GRN}✓{R} Secret API      : {D}{'*'*8}{R}")
+        print(f"  Intervalle      : {B}{config.get('poll_interval', 5)}s{R}")
+        print(f"  Batch SMS       : {B}{config.get('sms_batch_size', 20)}{R}")
         print()
 
-        print(f"  {a}1.{r}  🔑 Clé Service Role Supabase")
-        print(f"  {a}2.{r}  🔒 Secret API dépôt")
-        print(f"  {a}3.{r}  ⏱️  Intervalle de scan")
-        print(f"  {a}4.{r}  📦 Batch SMS")
-        print(f"  {a}5.{r}  🔛 Activer/Désactiver modules")
-        print(f"  {a}6.{r}  🎨 Changer le thème")
-        print(f"  {a}7.{r}  🚀 Setup guidé (reconfigurer)")
-        print(f"  {a}0.{r}  ← Retour\n")
+        def on_off(val):
+            return f"{GRN}ON{R}" if val else f"{YEL}OFF{R}"
 
-        choice = input(f"  {b}Choix: {r}").strip()
+        print(f"  Dépôts          : {on_off(config.get('deposit_enabled', True))}")
+        print(f"  Vérif téléphone : {on_off(config.get('phone_verify_enabled', True))}")
+        print(f"  Suppr. SMS vérif: {on_off(config.get('auto_delete_verify_sms', True))}")
+        print(f"  SMS confirmation: {on_off(config.get('confirm_sms_to_user', True))}")
+        print(f"  Thème           : {B}{config.get('style', 'cyan')}{R}")
+        hr()
+        print()
+
+        print(f"  {a}1.{R}  Clé Supabase")
+        print(f"  {a}2.{R}  Secret API")
+        print(f"  {a}3.{R}  Intervalle")
+        print(f"  {a}4.{R}  Batch SMS")
+        print(f"  {a}5.{R}  Modules on/off")
+        print(f"  {a}6.{R}  Thème")
+        print(f"  {a}7.{R}  Setup guidé")
+        print(f"  {a}0.{R}  Retour\n")
+
+        choice = input(f"  {B}Choix: {R}").strip()
 
         if choice == "1":
-            print(f"\n  {b}Collez la clé service_role:{r}")
-            new_key = input(f"  {a}> {r}").strip()
+            new_key = input(f"\n  {B}Clé service_role: {R}").strip()
             if new_key and len(new_key) > 20:
                 save_key(new_key)
-                print(f"\n  {g}✓ Clé sauvegardée{r}")
+                print(f"  {GRN}✓ Sauvegardée{R}")
             else:
-                print(f"\n  {red}✗ Clé invalide{r}")
+                print(f"  {RED}✗ Invalide{R}")
             press_enter()
 
         elif choice == "2":
-            secret = input(f"\n  {b}Nouveau secret API: {r}").strip()
+            secret = input(f"\n  {B}Secret API: {R}").strip()
             if secret:
                 config["api_secret"] = secret
                 save_config(config)
-                print(f"\n  {g}✓ Secret mis à jour{r}")
+                print(f"  {GRN}✓ Mis à jour{R}")
             press_enter()
 
         elif choice == "3":
             try:
-                val = int(input(f"\n  Intervalle (s) [{config.get('poll_interval', 5)}]: ").strip() or str(config.get("poll_interval", 5)))
+                val = int(input(f"\n  Intervalle (s): ").strip() or "5")
                 config["poll_interval"] = max(1, val)
                 save_config(config)
-                print(f"  {g}✓ {config['poll_interval']}s{r}")
+                print(f"  {GRN}✓ {config['poll_interval']}s{R}")
             except ValueError:
-                print(f"  {red}Invalide{r}")
+                print(f"  {RED}Invalide{R}")
             press_enter()
 
         elif choice == "4":
             try:
-                val = int(input(f"\n  Batch [{config.get('sms_batch_size', 20)}]: ").strip() or str(config.get("sms_batch_size", 20)))
+                val = int(input(f"\n  Batch: ").strip() or "20")
                 config["sms_batch_size"] = max(5, val)
                 save_config(config)
-                print(f"  {g}✓ {config['sms_batch_size']}{r}")
+                print(f"  {GRN}✓ {config['sms_batch_size']}{R}")
             except ValueError:
-                print(f"  {red}Invalide{r}")
+                print(f"  {RED}Invalide{R}")
             press_enter()
 
         elif choice == "5":
-            print(f"\n  {b}Modules:{r}\n")
-            print(f"  1. Dépôts          : {'ON' if config.get('deposit_enabled', True) else 'OFF'}")
-            print(f"  2. Vérif téléphone : {'ON' if config.get('phone_verify_enabled', True) else 'OFF'}")
-            print(f"  3. Suppr. SMS vérif: {'ON' if config.get('auto_delete_verify_sms', True) else 'OFF'}")
-            print(f"  4. SMS confirmation: {'ON' if config.get('confirm_sms_to_user', True) else 'OFF'}")
-            sub = input(f"\n  {b}Basculer [1-4]: {r}").strip()
-            toggles = {
-                "1": "deposit_enabled",
-                "2": "phone_verify_enabled",
-                "3": "auto_delete_verify_sms",
-                "4": "confirm_sms_to_user",
-            }
+            print(f"\n  1.Dépôts  2.Vérif  3.Suppr SMS  4.Confirmation")
+            sub = input(f"  {B}Basculer [1-4]: {R}").strip()
+            toggles = {"1": "deposit_enabled", "2": "phone_verify_enabled",
+                       "3": "auto_delete_verify_sms", "4": "confirm_sms_to_user"}
             if sub in toggles:
-                key_name = toggles[sub]
-                config[key_name] = not config.get(key_name, True)
+                k = toggles[sub]
+                config[k] = not config.get(k, True)
                 save_config(config)
-                state = "ON" if config[key_name] else "OFF"
-                print(f"  {g}✓ {key_name} = {state}{r}")
+                print(f"  {GRN}✓ {k} = {'ON' if config[k] else 'OFF'}{R}")
             press_enter()
 
         elif choice == "6":
-            print(f"\n  {b}🎨 Thèmes:{r}\n")
+            print()
             for i, (k, (label, _, _)) in enumerate(THEMES.items(), 1):
-                marker = f"{g}●{r}" if k == config.get("style", "cyan") else f"{d}○{r}"
-                print(f"  {a}{i}.{r} {marker} {label}")
+                marker = f"{GRN}●{R}" if k == config.get("style", "cyan") else f"{D}○{R}"
+                print(f"  {a}{i}.{R} {marker} {label}")
             try:
-                idx = int(input(f"\n  {b}Choix: {r}").strip()) - 1
-                themes_list = list(THEMES.keys())
-                if 0 <= idx < len(themes_list):
-                    config["style"] = themes_list[idx]
+                idx = int(input(f"\n  {B}Choix: {R}").strip()) - 1
+                tl = list(THEMES.keys())
+                if 0 <= idx < len(tl):
+                    config["style"] = tl[idx]
                     save_config(config)
-                    print(f"  {g}✓ Thème: {themes_list[idx]}{r}")
+                    print(f"  {GRN}✓ {tl[idx]}{R}")
             except (ValueError, IndexError):
                 pass
             press_enter()
@@ -1010,62 +820,56 @@ def menu_settings():
 
 def menu_logs():
     banner()
-    b = C.bold()
-    d = C.dim()
-    print(f"  {b}📜 Logs ({d}40 derniers{b}){r}\n\n")
+    print(f"  {B}📜 Logs (40 derniers){R}\n")
+    hr()
     try:
         lines = LOG_FILE.read_text().splitlines()
         for line in lines[-40:]:
             if "SUCCESS" in line:
-                print(f"  {C.green()}{line}{C.reset()}")
+                print(f"  {GRN}{line}{R}")
             elif "ERROR" in line:
-                print(f"  {C.red()}{line}{C.reset()}")
+                print(f"  {RED}{line}{R}")
             elif "WARN" in line:
-                print(f"  {C.yellow()}{line}{C.reset()}")
+                print(f"  {YEL}{line}{R}")
             elif "VERIFY" in line:
-                print(f"  {C.blue()}{line}{C.reset()}")
+                print(f"  {BLU}{line}{R}")
             else:
-                print(f"  {d}{line}{C.reset()}")
-        print(f"\n  {d}{len(lines)} lignes au total{r}")
+                print(f"  {D}{line}{R}")
+        print(f"\n  {D}{len(lines)} lignes{R}")
     except FileNotFoundError:
-        print(f"  {d}Aucun log.{r}")
+        print(f"  {D}Aucun log{R}")
 
-    print(f"\n  {get_accent()}1.{C.reset()} Effacer les logs  {get_accent()}0.{C.reset()} Retour")
-    if input(f"\n  {b}Choix: {C.reset()}").strip() == "1":
-        if input(f"  {C.yellow()}Confirmer (oui): {C.reset()}").strip().lower() == "oui":
+    if input(f"\n  {accent()}1{R}. Effacer  {accent()}0{R}. Retour: ").strip() == "1":
+        if input(f"  {YEL}Confirmer (oui): {R}").strip().lower() == "oui":
             LOG_FILE.unlink(missing_ok=True)
-            print(f"  {C.green()}✓ Logs effacés{r}")
+            print(f"  {GRN}✓ Effacé{R}")
             press_enter()
 
 
 def menu_stats():
     banner()
     s = stats
-    b = C.bold()
-    d = C.dim()
-    a = get_accent()
-    r = C.reset()
-    print(f"  {b}📊 Statistiques{r} {d}(session en cours){r}\n")
-    print(f"  {d}{'─'*40}{r}")
-    print(f"  {C.green()}✓{r} Dépôts validés      : {b}{s['deposits']}{r}")
-    print(f"  {C.blue()}📱{r} Téléphones vérifiés : {b}{s['phone_verifs']}{r}")
-    print(f"  {C.yellow()}⊘{r} Rejetés             : {b}{s['rejected']}{r}")
-    print(f"  {C.red()}✗{r} Erreurs             : {b}{s['errors']}{r}")
-    print(f"  {d}{'─'*40}{r}")
+    print(f"  {B}📊 Statistiques (session){R}\n")
+    hr()
+    print(f"  {GRN}✓{R} Dépôts     : {B}{s['deposits']}{R}")
+    print(f"  {BLU}📱{R} Vérifs     : {B}{s['phone_verifs']}{R}")
+    print(f"  {YEL}⊘{R} Rejetés    : {B}{s['rejected']}{R}")
+    print(f"  {RED}✗{R} Erreurs    : {B}{s['errors']}{R}")
+    hr()
     total = sum(s.values())
     if total > 0:
-        print(f"\n  {d}Taux de succès: {r}{b}{(s['deposits'] + s['phone_verifs']) / total * 100:.0f}%{r}")
+        pct = (s['deposits'] + s['phone_verifs']) / total * 100
+        print(f"\n  {D}Taux de succès: {B}{pct:.0f}%{R}")
     press_enter()
 
 
 def menu_install():
     banner()
-    b = C.bold()
-    d = C.dim()
-    print(f"  {b}🔧 Dépendances{r}\n")
+    print(f"  {B}🔧 Dépendances{R}\n")
+    hr()
 
     if not Path("/data/data/com.termux").exists():
-        print(f"  {C.yellow()}⚠  Conçu pour Termux{r}")
+        print(f"  {YEL}⚠ Conçu pour Termux{R}")
         press_enter()
         return
 
@@ -1078,31 +882,30 @@ def menu_install():
     for cmd, name in deps:
         try:
             subprocess.run(["which", cmd], capture_output=True, check=True)
-            print(f"  {C.green()}✓{r} {name}")
+            print(f"  {GRN}✓{R} {name}")
         except Exception:
-            print(f"  {C.yellow()}✗{r} {name}")
+            print(f"  {YEL}✗{R} {name}")
             missing.append(name)
 
     if missing:
-        print(f"\n  {b}Installation...{r}")
+        print(f"\n  {B}Installation…{R}")
         try:
             subprocess.run([str(pkg), "update", "-y"], timeout=120)
             subprocess.run([str(pkg), "install", "-y"] + missing, timeout=300)
-            print(f"  {C.green()}✓ Installé{r}")
+            print(f"  {GRN}✓ Installé{R}")
         except Exception as e:
-            print(f"  {C.red()}Erreur: {e}{r}")
+            print(f"  {RED}Erreur: {e}{R}")
     else:
-        print(f"\n  {C.green()}✓ Tout est prêt{r}")
+        print(f"\n  {GRN}✓ Tout prêt{R}")
 
-    print(f"\n  {C.yellow()}⚠  N'oubliez pas l'app Termux:API (Play Store){r}")
+    print(f"\n  {YEL}⚠ App Termux:API (Play Store) requise{R}")
     press_enter()
 
 
 def menu_shortcut():
     banner()
-    b = C.bold()
-    d = C.dim()
-    print(f"  {b}📱 Raccourci écran d'accueil{r}\n")
+    print(f"  {B}📱 Raccourci{R}\n")
+    hr()
 
     SHORTCUTS_DIR.mkdir(exist_ok=True)
     script_path = Path(__file__).resolve()
@@ -1116,66 +919,38 @@ python "{script_path}"
     try:
         shortcut.write_text(content)
         os.chmod(shortcut, 0o755)
-        print(f"  {C.green()}✓{r} Raccourci créé{d}")
-        print(f"  {d}  ~/.shortcuts/Lalao-SMS-Gateway.sh{r}\n")
-        print(f"  {b}Pour l'ajouter à l'écran d'accueil :{r}\n")
-        print(f"  {d}1. Installez Termux:Widget{r}")
-        print(f"  {d}2. Appui long écran → Widget → Termux:Widget{r}")
-        print(f"  {d}3. Choisissez{r} {b}Lalao-SMS-Gateway{r}")
+        print(f"  {GRN}✓{R} Raccourci créé: {D}~/.shortcuts/Lalao-SMS-Gateway.sh{R}\n")
+        print(f"  {B}Écran d'accueil:{R}")
+        print(f"  {D}1. Installer Termux:Widget{R}")
+        print(f"  {D}2. Appui long → Widget → Termux:Widget{R}")
+        print(f"  {D}3. Choisir Lalao-SMS-Gateway{R}")
     except Exception as e:
-        print(f"  {C.red()}Erreur: {e}{r}")
+        print(f"  {RED}Erreur: {e}{R}")
     press_enter()
 
 
 def menu_status():
-    """Affiche le statut de configuration du système"""
     banner()
     config = load_config()
     key = load_key()
-    b = C.bold()
-    d = C.dim()
-    g = C.green()
-    r = C.red()
-    y = C.yellow()
-    a = get_accent()
+    a = accent()
 
-    print(f"  {b}📋 Statut du système{r}\n")
-    print(f"  {d}{'─'*54}{r}")
+    print(f"  {B}📋 Statut système{R}\n")
+    hr()
 
-    # Clé
-    if key:
-        print(f"  {g}✓{r} Clé Supabase       : {d}Configurée{r}")
-    else:
-        print(f"  {r}✗{r} Clé Supabase       : {r}Manquante{r}")
+    items = [
+        ("Clé Supabase",   bool(key)),
+        ("Secret API",     bool(config.get("api_secret"))),
+        ("HMAC",           True),
+        ("Dépôts",         config.get("deposit_enabled", True)),
+        ("Vérif téléphone", config.get("phone_verify_enabled", True)),
+    ]
+    for label, ok in items:
+        print(f"  {'✓' if ok else '✗'} {label:20s} {GRN if ok else RED}{'ON' if ok else 'OFF'}{R}")
 
-    # Secret
-    if config.get("api_secret"):
-        print(f"  {g}✓{r} Secret API         : {d}Configuré{r}")
-    else:
-        print(f"  {r}✗{r} Secret API         : {r}Manquant{r}")
-
-    # Termux
-    try:
-        subprocess.run(["which", "termux-sms-list"], capture_output=True, check=True)
-        print(f"  {g}✓{r} Termux:API          : {d}Installé{r}")
-    except Exception:
-        print(f"  {r}✗{r} Termux:API          : {r}Manquant{r}")
-
-    # Modules
-    mods = []
-    if config.get("deposit_enabled", True): mods.append("Dépôts")
-    if config.get("phone_verify_enabled", True): mods.append("Vérif")
-    print(f"  {g}✓{r} Modules actifs      : {d}{', '.join(mods) if mods else 'Aucun'}{r}")
-    print(f"  {g}✓{r} HMAC               : {d}Activé{r}")
-    print(f"  {d}{'─'*54}{r}")
-
-    # URLs
-    print(f"\n  {b}Endpoints:{r}")
-    print(f"  {d}API Dépôt :{r} {d}{config.get('deposit_api_url', '?')[:50]}…{r}")
-    print(f"  {d}Supabase  :{r} {d}{config.get('supabase_url', '?')[:50]}…{r}")
-
-    print(f"\n  {d}Version: {VERSION}{r}")
-
+    hr()
+    print(f"\n  {D}API: {config.get('deposit_api_url', '?')[:50]}…{R}")
+    print(f"  {D}Version: {VERSION}{R}")
     press_enter()
 
 
@@ -1186,66 +961,51 @@ def menu_status():
 def main_menu():
     while True:
         banner()
-        a = get_accent()
-        r = C.reset()
-        b = C.bold()
-        d = C.dim()
-
-        # État rapide
+        a = accent()
         key = load_key()
         config = load_config()
-        status_dot = f"{C.green()}●{r}" if key else f"{C.red()}●{r}"
+
+        dot = f"{GRN}●{R}" if key else f"{RED}●{R}"
         mods = []
         if config.get("deposit_enabled", True): mods.append("Dépôts")
         if config.get("phone_verify_enabled", True): mods.append("Vérif")
         mods_str = " · ".join(mods) if mods else "Aucun"
 
-        print(f"  {status_dot} {d}Système {r}{b}{'prêt' if key else 'non configuré'}{r} {d}· {mods_str}{r}")
-        print(f"  {d}{'─'*54}{r}\n")
+        print(f"  {dot} {D}Système {R}{B}{'prêt' if key else 'non configuré'}{R} {D}· {mods_str}{R}")
+        hr()
+        print()
 
-        print(f"  {a}1.{r}  {b}▶{r}  Démarrer la surveillance")
-        print(f"  {a}2.{r}  {b}▶{r}  Tester un SMS")
-        print(f"  {a}3.{r}  {b}▶{r}  Paramètres")
-        print(f"  {a}4.{r}  {b}▶{r}  Statut du système")
-        print(f"  {a}5.{r}  {b}▶{r}  Logs")
-        print(f"  {a}6.{r}  {b}▶{r}  Statistiques")
-        print(f"  {a}7.{r}  {b}▶{r}  Installer dépendances")
-        print(f"  {a}8.{r}  {b}▶{r}  Créer raccourci écran d'accueil")
-        print(f"  {a}9.{r}  {b}▶{r}  Setup guidé")
-        print(f"  {a}0.{r}  {b}▶{r}  Quitter\n")
+        print(f"  {a}1.{R}  {B}▶{R}  Démarrer")
+        print(f"  {a}2.{R}  {B}▶{R}  Tester un SMS")
+        print(f"  {a}3.{R}  {B}▶{R}  Paramètres")
+        print(f"  {a}4.{R}  {B}▶{R}  Statut")
+        print(f"  {a}5.{R}  {B}▶{R}  Logs")
+        print(f"  {a}6.{R}  {B}▶{R}  Statistiques")
+        print(f"  {a}7.{R}  {B}▶{R}  Dépendances")
+        print(f"  {a}8.{R}  {B}▶{R}  Raccourci")
+        print(f"  {a}9.{R}  {B}▶{R}  Setup guidé")
+        print(f"  {a}0.{R}  {B}▶{R}  Quitter\n")
 
-        choice = input(f"  {b}Votre choix: {r}").strip()
+        choice = input(f"  {B}Choix: {R}").strip()
 
         actions = {
-            "1": menu_start,
-            "2": menu_test,
-            "3": menu_settings,
-            "4": menu_status,
-            "5": menu_logs,
-            "6": menu_stats,
-            "7": menu_install,
-            "8": menu_shortcut,
-            "9": run_setup,
+            "1": menu_start, "2": menu_test, "3": menu_settings,
+            "4": menu_status, "5": menu_logs, "6": menu_stats,
+            "7": menu_install, "8": menu_shortcut, "9": run_setup,
         }
         if choice == "0":
-            print(f"\n  {a}Au revoir 👋{r}\n")
+            print(f"\n  {a}👋 Au revoir{R}\n")
             break
         elif choice in actions:
             actions[choice]()
         else:
-            print(f"  {C.red()}Choix invalide{r}")
+            print(f"  {RED}Choix invalide{R}")
             time.sleep(0.4)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  POINT D'ENTRÉE
-# ═══════════════════════════════════════════════════════════════════════
-
 def main():
-    # Premier lancement → setup si pas de clé
     if not load_key() and not CONFIG_FILE.exists():
         run_setup()
-
     main_menu()
 
 
@@ -1253,9 +1013,9 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n\n  {C.yellow()}Ctrl+C — Au revoir 👋{C.reset()}\n")
+        print(f"\n\n  {YEL}Ctrl+C — Au revoir 👋{R}\n")
         sys.exit(0)
     except Exception as e:
-        print(f"\n  {C.red()}Erreur fatale: {e}{C.reset()}")
+        print(f"\n  {RED}Erreur fatale: {e}{R}")
         log(f"Erreur fatale: {e}", "ERROR")
         sys.exit(1)
