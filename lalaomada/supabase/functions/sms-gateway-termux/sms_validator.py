@@ -2,19 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 ╔══════════════════════════════════════════════════════════════════════╗
-║   Lalao-Mada — SMS Validator Moderne v3.4                            ║
-║   Validation automatique DÉPÔTS + VÉRIFICATION TÉLÉPHONE             ║
+║   Lalao-Mada — SMS Validator v4.0                                     ║
+║   Validation automatique DÉPÔTS + VÉRIFICATION TÉLÉPHONE              ║
 ║                                                                      ║
-║   ✦ Interface moderne avec menu + thèmes                             ║
-║   ✦ Filtre strict : ignore achats d'offres, recharges, retraits      ║
-║   ✦ Affichage clair Accepté / Rejeté                                 ║
-║   ✦ Suppression UNIQUEMENT des SMS de vérification réussie           ║
+║   ✦ Parser unifié — premier montant "Ar" dans le SMS                 ║
+║   ✦ Support Orange EN/FR, MVola, Airtel                             ║
+║   ✦ HMAC obligatoire pour l'API dépôt                                ║
+║   ✦ Filtre strict : ignore achats d'offres, recharges, retraits     ║
+║   ✦ Suppression UNIQUEMENT des SMS de vérification réussie          ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -69,7 +71,7 @@ ORANGE_KEYWORDS = [
 ]
 MVOLA_KEYWORDS = ["mvola", "m-vola", "telma", "transaction mvola"]
 
-# Uniquement les vrais mots-clés de DÉPÔT (transfert reçu)
+# Mots-clés de DÉPÔT (transfert reçu)
 DEPOSIT_KEYWORDS = [
     "vous avez reçu un transfert",
     "vous avez recu un transfert",
@@ -82,8 +84,7 @@ DEPOSIT_KEYWORDS = [
     "received ar",
 ]
 
-# Keywords that DEFINITELY mean it's NOT a deposit (checked AFTER deposit keywords)
-# NOTE: "nouveau solde" was REMOVED — it appears in legitimate deposit SMS too!
+# Mots-clés qui indiquent clairement un NON-dépôt (vérifié APRÈS les mots-clés de dépôt)
 HARD_IGNORE_KEYWORDS = [
     "retrait", "retiré", "cash out", "envoi d'argent", "vous avez envoyé",
     "achat d'offre", "achat d offre", "achat offre", "votre achat",
@@ -91,7 +92,7 @@ HARD_IGNORE_KEYWORDS = [
     "recharge", "vous avez consomme", "consommation",
 ]
 
-VERSION = "3.4.0"
+VERSION = "4.0.0"
 
 # ═══════════════════════════════════════════════════════════════════════
 #  THÈMES
@@ -150,7 +151,7 @@ def print_header(theme: Theme | None = None) -> None:
     clear_screen()
     print(f"{t.border}╔══════════════════════════════════════════════════════════════╗{t.reset}")
     print(f"{t.border}║{t.reset}  {t.bold}🟢 Lalao-Mada — SMS Validator v{VERSION}{' '*18}{t.reset}{t.border}║{t.reset}")
-    print(f"{t.border}║{t.reset}  {t.dim}Dépôts Orange/MVola + Vérification téléphone{' '*16}{t.reset}{t.border}║{t.reset}")
+    print(f"{t.border}║{t.reset}  {t.dim}Dépôts Orange/MVola/Airtel + Vérif téléphone{' '*12}{t.reset}{t.border}║{t.reset}")
     print(f"{t.border}╚══════════════════════════════════════════════════════════════╝{t.reset}")
     print()
 
@@ -273,11 +274,6 @@ def load_key() -> str:
     key = config.get("service_role_key", "")
     if key and len(key) > 20:
         return key
-
-    env_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-    if env_key and len(env_key) > 20:
-        return env_key
-
     if ENV_FILE.exists():
         try:
             for line in ENV_FILE.read_text().splitlines():
@@ -323,7 +319,7 @@ def ensure_key(theme: Theme | None = None) -> str:
     return key
 
 # ═══════════════════════════════════════════════════════════════════════
-#  DÉTECTION (FILTRE RENFORCÉ v3.4 — FIX)
+#  DÉTECTION OPÉRATEUR + FILTRE DÉPÔT
 # ═══════════════════════════════════════════════════════════════════════
 
 def detect_operator(sender: str, body: str) -> str | None:
@@ -346,46 +342,27 @@ def detect_operator(sender: str, body: str) -> str | None:
 
 def is_deposit_sms(body: str) -> bool:
     """
-    v3.4 FIX: Check DEPOSIT keywords FIRST, then reject only HARD ignore types.
-    
-    Previous bug: "nouveau solde" was in IGNORE_KEYWORDS, but it appears in ALL
-    legitimate deposit SMS (Orange Money and MVola both include it). This caused
-    every real deposit SMS to be rejected by the local filter before reaching the API.
-    
-    New logic:
-    1. Check if the SMS contains deposit keywords (transfert reçu, trans id, ref, etc.)
-    2. If YES → it's a deposit, even if it also contains "nouveau solde"
-    3. If NO → check if it's clearly a non-deposit (retrait, achat, recharge)
-    4. If it's a clear non-deposit → reject
-    5. Otherwise → reject (not a deposit)
+    1. Vérifie les mots-clés de dépôt (transfert reçu, trans id, ref, you received, etc.)
+    2. Si OUI → vérifie qu'il n'y a pas de mot-clé de non-dépôt (retrait, achat, recharge)
+    3. "offre orange" a été retiré du filtre car il apparaît dans la promo des vrais dépôts
     """
     if not body:
         return False
     b = body.lower()
 
-    # 1. Check deposit keywords FIRST
+    # 1. Mots-clés de dépôt d'abord
     has_deposit_kw = any(kw in b for kw in DEPOSIT_KEYWORDS)
     if not has_deposit_kw:
         return False
 
-    # 2. It has deposit keywords, but could it be a non-deposit that happens
-    #    to mention "reference" or "ref"? Check hard ignore keywords.
-    #    But "retrait" + "transfert" would be weird, so we check for clearly
-    #    non-deposit keywords that contradict the deposit nature.
+    # 2. Vérifie les mots-clés de non-dépôt
     for kw in HARD_IGNORE_KEYWORDS:
         if kw in b:
-            # If the SMS contains BOTH a deposit keyword AND a hard ignore keyword,
-            # it might be a complex message. But real deposits don't contain
-            # "retrait", "achat d'offre", "recharge" etc.
-            # Exception: "envoi d'argent" / "vous avez envoyé" — these are outgoing,
-            # but the SMS might say "envoi d'argent reçu" which is still a deposit.
             if kw in ("envoi d'argent", "vous avez envoyé"):
-                # Check if it's actually a RECEIVED transfer despite mentioning "envoi"
                 if "recu" in b or "reçu" in b:
-                    continue  # It's a received transfer, allow it
+                    continue
             return False
 
-    # 3. It has deposit keywords and no hard ignore → it's a deposit
     return True
 
 
@@ -394,6 +371,19 @@ def extract_phone_code(body: str | None) -> str | None:
         return None
     match = PHONE_VERIFY_PATTERN.search(body)
     return match.group(0).upper() if match else None
+
+# ═══════════════════════════════════════════════════════════════════════
+#  HMAC — Signature pour l'API dépôt
+# ═══════════════════════════════════════════════════════════════════════
+
+def compute_hmac(secret: str, timestamp: str, payload: str) -> str:
+    """Calcule la signature HMAC-SHA256 comme l'edge function Supabase."""
+    message = f"{timestamp}{payload}"
+    return hmac.new(
+        secret.encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
 
 # ═══════════════════════════════════════════════════════════════════════
 #  API
@@ -422,10 +412,19 @@ def api_request(url: str, payload: dict, key: str) -> tuple[dict | None, str | N
 
 
 def send_deposit(operator: str, sms_body: str, key: str, config: dict) -> tuple[dict | None, str | None]:
+    """Envoie le SMS à l'edge function avec signature HMAC."""
+    secret = config["api_secret"]
+    timestamp = str(int(time.time()))
+    # Le payload doit correspondre exactement à ce que l'edge function calcule
+    payload_str = json.dumps({"operator": operator, "sms": sms_body})
+    signature = compute_hmac(secret, timestamp, payload_str)
+
     payload = {
-        "secret": config["api_secret"],
+        "secret": secret,
         "operator": operator,
         "sms": sms_body,
+        "timestamp": timestamp,
+        "signature": signature,
     }
     return api_request(config["deposit_api_url"], payload, key)
 
@@ -525,7 +524,6 @@ def process_sms(sms: dict, key: str, config: dict, processed: set, theme: Theme)
             if send_sms(sender, confirm):
                 print(f"  {t.success}✓ SMS de confirmation envoyé{t.reset}")
 
-            # Suppression UNIQUEMENT pour vérification réussie
             if real_id and delete_sms(real_id):
                 print(f"  {t.success}🗑️  SMS de vérification supprimé{t.reset}")
             else:
@@ -609,10 +607,11 @@ def monitor_sms(theme: Theme | None = None) -> None:
     batch = config.get("sms_batch_size", 20)
 
     print(f"\n  {t.bold}📡 Surveillance active...{t.reset}")
-    print(f"  {t.dim}• Dépôts Orange Money / MVola (vrais transferts uniquement){t.reset}")
+    print(f"  {t.dim}• Dépôts Orange Money / MVola / Airtel (vrais transferts uniquement){t.reset}")
     print(f"  {t.dim}• Codes LMxxxxxx (vérif téléphone){t.reset}")
     print(f"  {t.dim}• Achats d'offres / recharges / retraits → ignorés{t.reset}")
     print(f"  {t.dim}• Suppression uniquement des SMS de vérif réussie{t.reset}")
+    print(f"  {t.dim}• HMAC signé pour l'API dépôt{t.reset}")
     print(f"  {t.dim}Intervalle : {interval}s | Ctrl+C pour arrêter{t.reset}")
     print(f"  {t.dim}{'─'*50}{t.reset}\n")
 
@@ -691,8 +690,9 @@ def menu_test(theme: Theme | None = None) -> None:
     print(f"  {t.bold}📝 Tester un SMS manuellement{t.reset}\n")
     print(f"  {t.primary}1.{t.reset} Dépôt Orange Money")
     print(f"  {t.primary}2.{t.reset} Dépôt MVola")
-    print(f"  {t.primary}3.{t.reset} Code vérification (LMxxxxxx)")
-    choice = input(f"\n  {t.bold}Type [1/2/3]: {t.reset}").strip()
+    print(f"  {t.primary}3.{t.reset} Dépôt Airtel")
+    print(f"  {t.primary}4.{t.reset} Code vérification (LMxxxxxx)")
+    choice = input(f"\n  {t.bold}Type [1/2/3/4]: {t.reset}").strip()
 
     sms_text = input(f"\n  {t.bold}Contenu du SMS: {t.reset}").strip()
     if not sms_text:
@@ -700,7 +700,7 @@ def menu_test(theme: Theme | None = None) -> None:
         input(f"  {t.dim}Entrée...{t.reset}")
         return
 
-    if choice == "3":
+    if choice == "4":
         code = extract_phone_code(sms_text)
         if not code:
             print(f"  {t.error}Aucun code LMxxxxxx trouvé{t.reset}")
@@ -715,8 +715,7 @@ def menu_test(theme: Theme | None = None) -> None:
                 reason = result.get("message", "Inconnu") if result else "Pas de réponse"
                 print_reject_box("REJETÉ", [reason], t)
     else:
-        operator = "orange" if choice == "1" else "mvola"
-        # Teste aussi le filtre local
+        operator = {"1": "orange", "2": "mvola", "3": "airtel"}.get(choice, "orange")
         if not is_deposit_sms(sms_text):
             print_reject_box("IGNORÉ (filtre local)", [
                 "Ce SMS ne ressemble pas à un vrai dépôt.",
@@ -935,7 +934,7 @@ python "{script_path}"
     try:
         shortcut.write_text(content)
         os.chmod(shortcut, 0o755)
-        print(f"  {t.success}✓ Raccourci créé : \~/.shortcuts/Lalao-SMS-Validator.sh{t.reset}\n")
+        print(f"  {t.success}✓ Raccourci créé : ~/.shortcuts/Lalao-SMS-Validator.sh{t.reset}\n")
         print(f"  {t.bold}Pour l'ajouter à l'écran d'accueil :{t.reset}")
         print(f"  1. Installez {t.bold}Termux:Widget{t.reset}")
         print(f"  2. Appui long sur l'écran → Widget → Termux:Widget")
