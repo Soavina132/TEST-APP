@@ -12,8 +12,9 @@ import { Capacitor } from "@capacitor/core";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // VAPID public key (safe to expose — only used for subscription, not signing)
+// MUST match the VAPID_PUBLIC_KEY in Supabase secrets (used by send-push edge function)
 const VAPID_PUBLIC_KEY =
-  "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIgW5W92vNMnFgOlXsTlMnpu71kxB90jqGdzMdvUDvzUjmpytXPlhhcZfHxB7sjNnbhYjI_aoG0eTjSyMs1xHYg";
+  "BCsulgcuSRFydv7Ga34ZUQLrCj1zj3qIdaUK5TSdyA-US6O3JCuxx22nBD3I0qMyB8IVh3cOHGvWR22zl7qdxa4";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -103,3 +104,4 @@ export function usePushNotifications() {
     }
   }, [user?.id]);
 }
+
