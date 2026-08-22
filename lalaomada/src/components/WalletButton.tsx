@@ -205,12 +205,21 @@ export function DepotModal({
                 </div>
               </div>
 
-              <div className="rounded-lg border-2 border-red-500/50 bg-red-500/10 p-3">
-                <p className="text-xs font-bold text-red-600 dark:text-red-400 mb-1">⚠ Règle pour le dépôt</p>
-                <p className="text-xs text-red-600 dark:text-red-400/90 leading-relaxed">
-                  Si tu as un numéro Orange Money, il faut envoyer le dépôt sur le numéro Orange Money. Si tu as Telma (MVola), il faut envoyer le dépôt via Telma.
-                </p>
-              </div>
+              <details className="group">
+                <summary className="cursor-pointer list-none flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400 select-none">
+                  <span className="inline-block transition-transform group-open:rotate-90">▸</span>
+                  ⚿ Règle pour le dépôt
+                </summary>
+                <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+                  <p className="text-xs text-red-600 dark:text-red-400/90 leading-relaxed">
+                    Choisis l'opérateur que <b>tu utilises déjà</b> sur ton téléphone :
+                    <br/>📱 <b>Orange Money</b> → envoie le dépôt sur le numéro Orange Money affiché ci-dessous.
+                    <br/>📱 <b>Telma (MVola)</b> → envoie le dépôt via MVola sur le numéro Telma affiché.
+                    <br/>📱 <b>Airtel Money</b> → envoie le dépôt via Airtel Money sur le numéro Airtel affiché.
+                    <br/><br/>⚠ N'utilise pas un opérateur que tu n'as pas. Le dépôt doit venir du même opérateur que ton numéro.
+                  </p>
+                </div>
+              </details>
 
               <div>
                 <label className="text-xs font-bold text-muted-foreground mb-2 block">MONTANT (Ar)</label>
