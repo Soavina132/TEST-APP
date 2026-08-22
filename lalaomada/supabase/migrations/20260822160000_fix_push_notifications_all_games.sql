@@ -77,11 +77,16 @@ BEGIN
   IF TG_OP <> 'INSERT' THEN RETURN NEW; END IF;
   IF NEW.is_private THEN RETURN NEW; END IF;
 
-  -- host_id pour la plupart, creator_id pour petanque
-  v_host_id := COALESCE(NEW.host_id, NEW.creator_id);
-  v_stake  := NEW.stake;
-  v_game_id := NEW.id;
   v_game_type := replace(v_table_name, '_games', '');
+  v_game_id := NEW.id;
+  v_stake := NEW.stake;
+
+  -- petanque_games utilise creator_id au lieu de host_id
+  IF v_table_name = 'petanque_games' THEN
+    v_host_id := NEW.creator_id;
+  ELSE
+    v_host_id := NEW.host_id;
+  END IF;
 
   IF v_host_id IS NULL THEN RETURN NEW; END IF;
 
