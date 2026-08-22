@@ -41,18 +41,6 @@ const LABEL: Record<string, string> = {
   rami:     "Rami",
 };
 
-const PART_TABLE: Record<string, string | null> = {
-  domino:   "domino_participants",
-  fanorona: "fanorona_participants",
-  rami:     "rami_participants",
-};
-
-const GAME_TABLE: Record<string, string> = {
-  domino:   "domino_games",
-  fanorona: "fanorona_games",
-  rami:     "rami_games",
-};
-
 export default function MesPartiesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -66,46 +54,35 @@ export default function MesPartiesSheet({ open, onClose }: { open: boolean; onCl
     setLoading(true);
     try {
       const uid = profile.id;
-      const allOngoing: MyGame[] = [];
-      const allFinished: MyGame[] = [];
 
-      // ── Ludo ──────────────────────────────────────────────
-      const { data: ludoData } = await supabase.rpc("my_games" as any);
-      const ludo = (ludoData as any) || { ongoing: [], finished: [] };
-      (ludo.ongoing || []).forEach((g: any) => allOngoing.push({ ...g, slug: "ludo" }));
-      (ludo.finished || []).forEach((g: any) => allFinished.push({ ...g, slug: "ludo" }));
+      // ── Ongoing games (all types) via RPC ─────────────────
+      const { data: ongoingData } = await supabase.rpc("my_ongoing_all" as any);
+      const ongoingRows = (ongoingData as any[]) || [];
+      const allOngoing: MyGame[] = ongoingRows.map((g: any) => ({
+        id: g.id,
+        slug: g.game_type,
+        status: g.status,
+        stake: g.stake,
+        pot: g.pot,
+        is_private: g.is_private,
+        room_code: g.room_code,
+      }));
 
-      // ── Chess ─────────────────────────────────────────────
-      const { data: chessRows } = await supabase.from("chess_games" as any)
-        .select("*").or(`white_id.eq.${uid},black_id.eq.${uid}`)
-        .order("created_at", { ascending: false }).limit(50);
-      (chessRows as any[] || []).forEach((g: any) => {
-        if (g.status === "open" || g.status === "playing") {
-          allOngoing.push({ ...g, slug: "chess" });
-        } else if (g.status === "finished" || g.status === "cancelled") {
-          allFinished.push({ ...g, slug: "chess", won: g.winner_id === uid });
-        }
-      });
-
-      // ── Domino / Fanorona / Rami ─────────────────
-      await Promise.all(
-        Object.entries(PART_TABLE).map(async ([slug, partTable]) => {
-          if (!partTable) return;
-          const { data: parts } = await supabase
-            .from(partTable as any)
-            .select(`*, game:${GAME_TABLE[slug]}(*)`)
-            .eq("user_id", uid);
-          (parts as any[] || []).forEach((r: any) => {
-            const g = r.game;
-            if (!g) return;
-            if (g.status === "open" || g.status === "playing") {
-              allOngoing.push({ ...g, slug });
-            } else if (g.status === "finished" || g.status === "cancelled") {
-              allFinished.push({ ...g, slug, won: g.winner_id === uid, forfeited: r.forfeited });
-            }
-          });
-        })
-      );
+      // ── Finished games (all types) via RPC ────────────────
+      const { data: finishedData } = await supabase.rpc("my_finished_all" as any);
+      const finishedRows = (finishedData as any[]) || [];
+      const allFinished: MyGame[] = finishedRows.map((g: any) => ({
+        id: g.id,
+        slug: g.game_type,
+        status: g.status,
+        stake: g.stake,
+        pot: g.pot,
+        is_private: g.is_private,
+        room_code: g.room_code,
+        finished_at: g.finished_at,
+        won: g.winner_id === uid,
+        forfeited: g.forfeited,
+      }));
 
       // Trier par date décroissante
       const byDate = (a: MyGame, b: MyGame) =>
@@ -113,7 +90,8 @@ export default function MesPartiesSheet({ open, onClose }: { open: boolean; onCl
 
       setOngoing(allOngoing.sort(byDate));
       setFinished(allFinished.sort((a, b) =>
-        new Date(b.finished_at || 0).getTime() - new Date(a.finished_at || 0).getTime()
+        new Date(b.finished_at || (b as any).created_at || 0).getTime() -
+        new Date(a.finished_at || (a as any).created_at || 0).getTime()
       ));
     } finally {
       setLoading(false);
@@ -237,3 +215,4 @@ export default function MesPartiesSheet({ open, onClose }: { open: boolean; onCl
     </div>
   );
 }
+
