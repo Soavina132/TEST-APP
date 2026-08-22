@@ -21,6 +21,7 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [adminPhone, setAdminPhone] = useState("");
   const [adminPhone2, setAdminPhone2] = useState("");
+  const [adminPhone3, setAdminPhone3] = useState("");
   const [loading, setLoading] = useState(false);
   const [polling, setPolling] = useState(false);
 
@@ -29,11 +30,12 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
     (async () => {
       const { data } = await supabase
         .from("app_settings")
-        .select("admin_phone, airtel_phone")
+        .select("admin_phone, airtel_phone, orange_phone")
         .limit(1)
         .single();
       if (data?.admin_phone) setAdminPhone(data.admin_phone);
       if (data?.airtel_phone) setAdminPhone2(data.airtel_phone);
+      if (data?.orange_phone) setAdminPhone3(data.orange_phone);
     })();
   }, []);
 
@@ -170,9 +172,10 @@ export default function PhoneVerifyPopup({ onClose }: { onClose: () => void }) {
               <p className="text-xs text-muted-foreground">
                 Envoyez <b className="font-mono">{code}</b> par SMS à l'un de ces numéros :
               </p>
-              <div className="text-lg font-bold text-center py-1 space-y-1">
-                <div>{adminPhone || "0385708218"}</div>
+              <div className="text-center py-1 space-y-1">
+                <div className="text-lg font-bold">{adminPhone || "0385708218"}</div>
                 {adminPhone2 && <div className="text-sm text-muted-foreground">{adminPhone2}</div>}
+                {adminPhone3 && <div className="text-sm text-muted-foreground">{adminPhone3}</div>}
               </div>
               <p className="text-[10px] text-muted-foreground text-center">
                 (coût d'un SMS normal, selon votre opérateur)

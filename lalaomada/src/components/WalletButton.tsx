@@ -205,6 +205,13 @@ export function DepotModal({
                 </div>
               </div>
 
+              <div className="rounded-lg border-2 border-red-500/50 bg-red-500/10 p-3">
+                <p className="text-xs font-bold text-red-600 dark:text-red-400 mb-1">⚠ Règle pour le dépôt</p>
+                <p className="text-xs text-red-600 dark:text-red-400/90 leading-relaxed">
+                  Si tu as un numéro Orange Money, il faut envoyer le dépôt sur le numéro Orange Money. Si tu as Telma (MVola), il faut envoyer le dépôt via Telma.
+                </p>
+              </div>
+
               <div>
                 <label className="text-xs font-bold text-muted-foreground mb-2 block">MONTANT (Ar)</label>
                 <input
