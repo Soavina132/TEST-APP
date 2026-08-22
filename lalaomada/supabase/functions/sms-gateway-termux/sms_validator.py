@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Lalao-Mada · SMS Gateway v5.1
+Lalao-Mada · SMS Gateway v5.2
 Dépôts auto + Vérif téléphone — Orange EN/FR · MVola · Airtel
 """
 
@@ -35,7 +35,7 @@ PROCESSED_FILE = APP_DIR / ".processed_sms"
 ENV_FILE = HOME / ".lalaomada_env"
 SHORTCUTS_DIR = HOME / ".shortcuts"
 
-VERSION = "5.1.0"
+VERSION = "5.2.0"
 
 DEFAULT_CONFIG = {
     "supabase_url": "https://gifwfjgciwbsottztzoc.supabase.co",
@@ -48,7 +48,8 @@ DEFAULT_CONFIG = {
     "phone_verify_enabled": True,
     "deposit_enabled": True,
     "auto_delete_verify_sms": True,
-    "confirm_sms_to_user": True,
+    "confirm_sms_to_user": False,
+    "admin_phones": ["0385708218", "0337145978"],
 }
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -225,7 +226,17 @@ def sanitize(text: str, max_len: int = 50) -> str:
 #  DÉTECTION OPÉRATEUR + FILTRE
 # ═══════════════════════════════════════════════════════════════════════
 
+def is_phone_number(sender: str) -> bool:
+    """True si le sender est un numéro de téléphone (pas un nom d'opérateur)."""
+    if not sender:
+        return False
+    digits = re.sub(r"[\s\-+]", "", sender)
+    return bool(re.match(r"^\d{7,}$", digits))
+
 def detect_operator(sender: str, body: str) -> str | None:
+    """Détecte l'opérateur UNIQUEMENT par le nom de l'expéditeur.
+    Les SMS de dépôt viennent des opérateurs (noms), pas de numéros de téléphone.
+    Un numéro de téléphone = utilisateur normal → pas un dépôt."""
     if sender:
         s = sender.lower().strip()
         if s in ORANGE_SENDERS or "orange" in s:
@@ -234,17 +245,9 @@ def detect_operator(sender: str, body: str) -> str | None:
             return "mvola"
         if s in AIRTEL_SENDERS or "airtel" in s:
             return "airtel"
-    if body:
-        b = body.lower()
-        for kw in ORANGE_KEYWORDS:
-            if kw in b:
-                return "orange"
-        for kw in MVOLA_KEYWORDS:
-            if kw in b:
-                return "mvola"
-        for kw in AIRTEL_KEYWORDS:
-            if kw in b:
-                return "airtel"
+    # IMPORTANT: On ne détecte plus l'opérateur par le contenu du SMS.
+    # Les SMS de dépôt viennent uniquement des noms d'opérateurs.
+    # Un SMS d'un numéro de téléphone n'est JAMAIS un dépôt, même s'il ressemble.
     return None
 
 def is_deposit_sms(body: str) -> bool:
@@ -413,9 +416,6 @@ def process_sms(sms: dict, key: str, config: dict, processed: set) -> str:
         if result and result.get("success"):
             phone = result.get("phone", "?")
             print(f"  {GRN}  ✓ Vérifié: {phone}{R}")
-            if config.get("confirm_sms_to_user", True):
-                if send_sms(sender, "Lalao-Mada: Numero verifie ! Vous pouvez jouer avec mise. 🎮"):
-                    print(f"  {GRN}  ✓ SMS confirmation envoyé{R}")
             if config.get("auto_delete_verify_sms", True) and real_id:
                 if delete_sms(real_id):
                     print(f"  {D}  🗑️ SMS supprimé{R}")
@@ -438,6 +438,10 @@ def process_sms(sms: dict, key: str, config: dict, processed: set) -> str:
 
     operator = detect_operator(sender, body)
     if operator is None:
+        # SMS d'un numéro de téléphone (utilisateur) → pas un dépôt
+        # Seuls les SMS des opérateurs (Orange Money, MVola, Airtel Money) sont traités
+        if is_phone_number(sender):
+            log(f"SMS ignoré (expéditeur = numéro): {sanitize(sender)}")
         mark_processed(sms_id)
         return "skip"
 
@@ -491,7 +495,8 @@ def monitor_sms():
     print(f"  {a}●{R} Dépôts  {D}Orange · MVola · Airtel{R}")
     print(f"  {a}●{R} Vérif   {D}Codes LMxxxxxx{R}")
     print(f"  {a}●{R} HMAC    {D}Signé automatiquement{R}")
-    print(f"  {a}●{R} Filtre  {D}Recharges/retraits = ignorés{R}")
+    print(f"  {a}●{R} Filtre  {D}Dépôts: opérateurs uniquement{R}")
+    print(f"  {a}●{R} Vérif   {D}Admin: 0385708218 · 0337145978{R}")
     hr()
     print(f"  {D}Intervalle: {interval}s · Batch: {batch} · Ctrl+C pour arrêter{R}")
     print()
