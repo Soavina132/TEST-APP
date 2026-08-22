@@ -64,7 +64,8 @@ MVOLA_SENDERS = {
 
 ORANGE_KEYWORDS = [
     "orange money", "trans id", "vous avez reçu un transfert",
-    "vous avez recu un transfert", "orange money vous remercie"
+    "vous avez recu un transfert", "orange money vous remercie",
+    "you received", "received ar"
 ]
 MVOLA_KEYWORDS = ["mvola", "m-vola", "telma", "transaction mvola"]
 
@@ -77,6 +78,8 @@ DEPOSIT_KEYWORDS = [
     "ref ",
     "reference",
     "raison:",
+    "you received",
+    "received ar",
 ]
 
 # Keywords that DEFINITELY mean it's NOT a deposit (checked AFTER deposit keywords)
@@ -84,7 +87,7 @@ DEPOSIT_KEYWORDS = [
 HARD_IGNORE_KEYWORDS = [
     "retrait", "retiré", "cash out", "envoi d'argent", "vous avez envoyé",
     "achat d'offre", "achat d offre", "achat offre", "votre achat",
-    "offre orange", "akama", "forfai", "forfait", "go+", "go +",
+    "akama", "forfai", "forfait", "go+", "go +",
     "recharge", "vous avez consomme", "consommation",
 ]
 
