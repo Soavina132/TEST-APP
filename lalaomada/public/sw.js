@@ -1,5 +1,5 @@
 // Service Worker for Lalao MADA — Push Notifications
-// Receives push (no body), fetches latest notification from Supabase, displays it.
+// Receives push payload, displays notification.
 
 const CACHE_NAME = "lalaomada-v1";
 
@@ -13,54 +13,38 @@ self.addEventListener("activate", (event) => {
 
 // ── Push event ──────────────────────────────────────────────────────────────
 self.addEventListener("push", (event) => {
-  // We receive a push without payload. Fetch the latest unread notification.
   event.waitUntil(
     (async () => {
       try {
-        // Try to get the user's session from clients
-        const allClients = await self.clients.matchAll({ type: "window" });
+        let data = {
+          title: "Lalao MADA",
+          body: "Nouvelle notification",
+        };
 
-        // Get Supabase URL from environment or default
-        const supabaseUrl = "https://gifwfjgciwbsottztzoc.supabase.co";
-
-        // Try to get the latest notification via REST API
-        // We need the user's access token — but SW doesn't have it directly.
-        // Instead, we'll show a generic notification and let the app handle details on click.
-        
         if (event.data) {
-          // If we do get a payload, use it directly
-          const data = event.data.json().catch(() => ({
-            title: "Lalao MADA",
-            body: event.data.text() || "Nouvelle notification",
-          }));
-          
-          const title = data.title || "Lalao MADA";
-          const options = {
-            body: data.body || "",
-            icon: "/favicon.ico",
-            badge: "/favicon.ico",
-            tag: data.tag || "default",
-            data: { url: data.url || data.link || "/" },
-            vibrate: [200, 100, 200],
-            requireInteraction: data.requireInteraction || false,
-            actions: data.actions || [],
-          };
-          return self.registration.showNotification(title, options);
+          try {
+            data = await event.data.json();
+          } catch {
+            data = {
+              title: "Lalao MADA",
+              body: event.data.text() || "Nouvelle notification",
+            };
+          }
         }
 
-        // No payload — show a generic notification
-        // The app will fetch actual data when user clicks/opens
-        return self.registration.showNotification("Lalao MADA", {
-          body: "Vous avez une nouvelle notification",
+        const title = data.title || "Lalao MADA";
+        const options = {
+          body: data.body || "",
           icon: "/favicon.ico",
           badge: "/favicon.ico",
-          tag: "new-notification",
-          data: { url: "/" },
+          tag: data.tag || `notif-${Date.now()}`,
+          data: { url: data.url || data.link || "/" },
           vibrate: [200, 100, 200],
-          requireInteraction: false,
-        });
+          requireInteraction: data.requireInteraction || false,
+          actions: data.actions || [],
+        };
+        return self.registration.showNotification(title, options);
       } catch (e) {
-        // Fallback
         return self.registration.showNotification("Lalao MADA", {
           body: "Nouvelle notification",
           icon: "/favicon.ico",
@@ -102,9 +86,6 @@ self.addEventListener("pushsubscriptionchange", (event) => {
           self.registration?.VAPID_PUBLIC_KEY || ""
         ),
       });
-      
-      // Send new subscription to server
-      // The app will handle re-subscription on next visit
     })()
   );
 });
