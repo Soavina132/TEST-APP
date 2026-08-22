@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════
-// validate-deposit-sms — Edge Function v7 (parser unifié simplifié)
+// validate-deposit-sms — Edge Function v8 (parser unifié simplifié)
 //
 // POST /functions/v1/validate-deposit-sms
 // Body: { "secret": "xxx", "operator": "orange|mvola|airtel", "sms": "...",
 //         "timestamp": "1234567890", "signature": "hmac_hex" }
 //
 // Un seul parser pour tous les opérateurs — 3 champs:
-//   1. Montant
+//   1. Montant — le PREMIER montant "Ar" trouvé dans le SMS (jamais le solde)
 //   2. ID de transaction (PP... / CI... / Ref <nombre>)
 //   3. Numéro de téléphone (expéditeur)
 //
@@ -39,20 +39,18 @@ interface ParseResult {
 function parseSMS(sms: string): ParseResult {
   const result: ParsedSMS = { amount: null, sender_number: null, transaction_id: null };
 
-  // ── 1. MONTANT ──
-  // On essaie plusieurs patterns, on prend le premier qui match
-  const amountPatterns = [
-    /received\s+Ar\s+([\d\s]+?)\s+from/i,     // Orange EN: "received Ar 4000 from"
-    /transfert\s+de\s+([\d\s]+?)\s*Ar/i,        // Orange FR: "transfert de 600Ar"
-    /([\d\s]+?)\s*Ar\s+recu\s+de/i,            // MVola: "1 000 Ar recu de"
-    /Ar\s+([\d\s]+?)\s+azo/i,                    // Airtel: "Ar 2000 azo"
-  ];
-  for (const p of amountPatterns) {
-    const m = sms.match(p);
-    if (m) {
-      result.amount = parseInt(m[1].replace(/\s/g, ""), 10);
-      break;
-    }
+  // ── 1. MONTANT — le PREMIER "Ar" trouvé dans le SMS ──
+  // Cherche tous les montants avec "Ar" (devant ou derrière le chiffre)
+  // Prend le premier (le montant de la transaction), jamais le deuxième (le solde)
+  //   "Ar 4000 from"  → Ar devant  → 4000
+  //   "600Ar venant"  → Ar derrière → 600
+  //   "1 000 Ar recu" → Ar derrière → 1000
+  const amountMatches = [...sms.matchAll(/(?:Ar\s+(\d[\d\s]*)|(\d[\d\s]*)\s*Ar)(?=\s|\.|,|$)/gi)];
+  if (amountMatches.length > 0) {
+    const m = amountMatches[0];
+    const numStr = (m[1] || m[2] || "").replace(/\s/g, "");
+    const val = parseInt(numStr, 10);
+    if (!isNaN(val) && val > 0) result.amount = val;
   }
 
   // ── 2. ID DE TRANSACTION ──
